@@ -1,0 +1,51 @@
+<svg preserveAspectRatio="xMidYMid meet" width="100%" height="100%" overflow="visible" style="display:block" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g id="guarantee-face">
+    <!-- Speech bubble: rounded square with a downward triangular pointer
+         at the bottom-center, and an open notch on the upper-right edge
+         (the path doesn't close — it stops short on the right side). -->
+    <path
+      d="M103.643 38.39 V25.5
+         C103.643 18.87 98.27 13.5 91.64 13.5
+         H29.36
+         C22.73 13.5 17.36 18.87 17.36 25.5
+         V62.88
+         C17.36 69.50 22.73 74.88 29.36 74.88
+         H43.27
+         C44.74 74.88 46.12 75.60 46.96 76.81
+         L57.29 91.72
+         C58.48 93.44 61.03 93.44 62.22 91.72
+         L72.54 76.81
+         C73.39 75.60 74.77 74.88 76.24 74.88
+         H91.64
+         C98.27 74.88 103.643 69.50 103.643 62.88
+         V47.77"
+      stroke="#1D1D1F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+    />
+    <!-- Face circle (centered around 60, 44, r=21) -->
+    <circle cx="60" cy="44" r="21" stroke="#1D1D1F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Closed happy eyes: two upward arcs (∩ ∩) -->
+    <path d="M50.5 40 Q 54 36 57.5 40" stroke="#1D1D1F" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <path d="M62.5 40 Q 66 36 69.5 40" stroke="#1D1D1F" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <!-- Smile: wide ⌣ curve below center -->
+    <path d="M50 48 C 53 56 67 56 70 48" stroke="#1D1D1F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- Small 4-point sparkle, TOP-LEFT (compact — ~half the size of
+         the bottom-right one, matches the Figma reference) -->
+    <path
+      d="M14 12
+         Q 15 17.5 20 18.5
+         Q 15 19.5 14 25
+         Q 13 19.5 8 18.5
+         Q 13 17.5 14 12 Z"
+      fill="#F85A0B"
+    />
+    <!-- Large 4-point sparkle, BOTTOM-RIGHT -->
+    <path
+      d="M104 88
+         Q 106.5 100.5 118 103
+         Q 106.5 105.5 104 118
+         Q 101.5 105.5 90 103
+         Q 101.5 100.5 104 88 Z"
+      fill="#F85A0B"
+    />
+  </g>
+</svg>

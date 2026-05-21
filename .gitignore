@@ -39,3 +39,27 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local screenshot artifacts (Figma compares, debug crops)
+/coverage.png
+/faq.png
+/formats.png
+/how.png
+/partner.png
+/audiences.png
+/why.png
+/starform.png
+/hero.png
+/site-*.png
+/m-*.png
+/cdp-*.png
+/.tmp/
+/.tmp-assets/
+
+# Backup of pre-optimisation Figma PNG exports — 75 MB, unreferenced.
+# Kept locally for re-running scripts/optimize-images.mjs if needed.
+/public/figma-export/_originals/
+
+# IDE
+/.vscode/
+/.idea/

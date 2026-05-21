@@ -1,26 +1,1280 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Brand */
+  --color-brand: #f85a0b;
+
+  /* Neutral scale (from Figma: Colour/Neutral/*) */
+  --color-neutral-40: #f1f1f2;
+  --color-neutral-400: #8e8e8f;
+  --color-neutral-500: #777779;
+  --color-neutral-600: #616162;
+  --color-neutral-700: #4a4a4c;
+  --color-neutral-800: #343435;
+  --color-neutral-900: #1d1d1f;
+
+  /* Special backgrounds / strokes (not on neutral scale) */
+  --color-bg-subtle: #f8f8f8;
+  --color-bg-primary: #303137;
+  --color-stroke-subtle: #d2d2d2;
+  /* Figma's `Stroke/Default` token — same hue as neutral-400 but
+     promoted to its own semantic name so `border-stroke-default` (used
+     ~60× across the site) resolves correctly instead of falling back to
+     currentColor (which renders as the dark #1d1d1f text color and
+     makes every border look heavier than the design). */
+  --color-stroke-default: #8e8e8f;
+
+  /* Typography */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-onest: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+
+  /* Figma's letter-spacing values for these styles are expressed in
+     PERCENT (Figma UI shows "-2" meaning -2%, not -2 px). Stored here
+     as em-units so they scale proportionally with font-size — i.e.
+     -0.02em renders as -1.24 px at 62 px (matches Figma's H1 inline
+     `tracking-[-1.24px]`) and -0.48 px at 24 px (matches Title/Large
+     inline `tracking-[-0.48px]`). The previous absolute `-2px`
+     produced wildly different proportional tracking across sizes
+     (visually fine on H1 at 62, but a tight -8% squeeze on Title/Large
+     at 24). Same logic for the +1 styles. */
+  --text-h1: 62px;
+  --text-h1--line-height: 68px;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h1--font-weight: 700;
+
+  --text-h2: 44px;
+  --text-h2--line-height: 48px;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h2--font-weight: 700;
+
+  --text-h2-light: 44px;
+  --text-h2-light--line-height: 48px;
+  --text-h2-light--letter-spacing: -0.02em;
+  --text-h2-light--font-weight: 300;
+
+  --text-title-lg: 24px;
+  --text-title-lg--line-height: 28px;
+  --text-title-lg--letter-spacing: -0.02em;
+  --text-title-lg--font-weight: 600;
+
+  --text-title-sm: 16px;
+  --text-title-sm--line-height: 22px;
+  --text-title-sm--letter-spacing: 0.01em;
+  --text-title-sm--font-weight: 700;
+
+  --text-body-lg: 22px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--letter-spacing: 0.01em;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 20px;
+  --text-body-md--line-height: 28px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 16px;
+  --text-body-sm--line-height: 24px;
+  --text-body-sm--font-weight: 400;
+
+  --text-button-lg: 18px;
+  --text-button-lg--line-height: 22px;
+  --text-button-lg--letter-spacing: 0.01em;
+  --text-button-lg--font-weight: 600;
+
+  --text-button-md: 16px;
+  --text-button-md--line-height: 22px;
+  --text-button-md--font-weight: 500;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* === Quiz radio "ОБРАТИ" rotating curve text ===
+   Decorative SVG that wraps the circular CTA "ОБРАТИ · ОБРАТИ · ..."
+   around the radio button (matching Figma's "Circle text" frame
+   572:4542). The slow rotation makes the curve feel alive without
+   distracting from the form itself. transform-origin defaults to
+   center, so the SVG spins around the radio's center. Reduced-motion
+   users get the static text. */
+
+@keyframes quiz-radio-text-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.quiz-radio-text {
+  animation: quiz-radio-text-spin 14s linear infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-radio-text {
+    animation: none;
   }
 }
 
+/* === Logo marquee ===
+   The track must contain N visually-identical repeats of the source
+   list and shift by `--marquee-shift` per cycle (default `-50%`, used
+   by 2-copy tracks). For seamlessness the shift must equal an integer
+   number of copies: e.g. 8 copies → `-12.5%`, 3 copies → `-33.333%`.
+   For "no gap" on wide viewports the track must also be wider than
+   `viewport + shift`, so pick N large enough that
+   `(N - copies_per_shift) × copy_width ≥ widest viewport you target`.
+   `linear` timing keeps speed constant so logos enter / exit the soft
+   edge fades at the same pace at all times. The `:hover` pause is a
+   small UX nicety so visitors can examine a specific client mark, and
+   `will-change: transform` lifts the marquee onto the compositor for a
+   silky-smooth animation regardless of how many logos are in the list. */
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--marquee-shift, -50%)); }
+}
+
+.animate-marquee {
+  animation: marquee 35s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* On touch devices `:hover` is sticky after a tap — it would freeze the
+   marquee permanently the moment a user accidentally taps a logo. Keep
+   the marquee running unconditionally where coarse pointers are the
+   primary input, so the only place the hover-to-pause behaviour applies
+   is fine pointers (mouse). */
+@media (hover: none) {
+  .animate-marquee:hover {
+    animation-play-state: running;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* === Ken Burns slow zoom + drift for hero photography ===
+   Each hero image full-bleeds its container via inset-0 + object-cover.
+   The animation combines a gentle scale with a slow drift through three
+   waypoints so the photo gracefully pans around — never linear, never
+   purely zooming.
+
+   Safety margin: the *minimum* base scale here is 1.05 (at the start /
+   end), so the image is always at least 5 % larger than the container.
+   The translate values stay within that 5 % buffer (≤ ±2 % at any
+   keyframe), so even at the extreme of the drift the rendered image
+   continues to cover the container — the backdrop colour never peeks
+   through at the trailing edge.
+
+   Two variants live here:
+
+   1. `animate-ken-burns` — the legacy form. Animates `transform`
+      directly on the element it's applied to. Used by photo layers
+      that need their OWN independent timing (the driftwood-sea layer
+      on the hero uses delay/duration overrides to parallax against
+      the main tree image).
+
+   2. `ken-burns-stage` + `ken-burns-follow` — the synced form.
+      The single animation runs on the *stage* (a common ancestor) and
+      writes to inherited @property-typed custom properties; every
+      descendant tagged `ken-burns-follow` reads those properties and
+      transforms itself. Because all followers read the same animated
+      values from the same clock, they stay pixel-perfect synchronised
+      every frame. This is what glues the hero hotspot dots to the
+      breathing tree photo — three separate `animation` declarations
+      could not guarantee that, since each element transitions from
+      idle→running on its own paint cycle and the offsets accumulate
+      over the 20 s loop. @property is supported in Chrome 85+,
+      Edge 85+, Safari 16.4+, Firefox 128+. */
+@keyframes ken-burns {
+  0%   { transform: scale(1.05) translate3d(0, 0, 0); }
+  33%  { transform: scale(1.09) translate3d(-1.6%, -1%, 0); }
+  66%  { transform: scale(1.07) translate3d(1.4%, 0.6%, 0); }
+  100% { transform: scale(1.05) translate3d(0, 0, 0); }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 20s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@property --kb-scale {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1.05;
+}
+@property --kb-tx {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+@property --kb-ty {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+@keyframes ken-burns-shared {
+  0%   { --kb-scale: 1.05; --kb-tx: 0%;    --kb-ty: 0%; }
+  33%  { --kb-scale: 1.09; --kb-tx: -1.6%; --kb-ty: -1%; }
+  66%  { --kb-scale: 1.07; --kb-tx: 1.4%;  --kb-ty: 0.6%; }
+  100% { --kb-scale: 1.05; --kb-tx: 0%;    --kb-ty: 0%; }
+}
+
+.ken-burns-stage {
+  animation: ken-burns-shared 20s ease-in-out infinite;
+  /* Size container so descendants can use cqw/cqh to mirror
+     `object-fit: cover` at a fixed design aspect ratio. Required by
+     `.hero-photo-canvas` (see below). */
+  container-type: size;
+}
+
+.ken-burns-follow {
+  transform: translate3d(var(--kb-tx), var(--kb-ty), 0) scale(var(--kb-scale));
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* === Driftwood-sea parallax extra ===
+   The driftwood-sea layer sits between the tree photo and the dots
+   overlay. To guarantee that the dots stay glued to the tree at the
+   sub-pixel level we render BOTH inside a single `.ken-burns-follow`
+   (a single GPU layer with one rasterisation pass — independent layers
+   can rasterise the same matrix to *slightly* different sub-pixels and
+   visually drift). The driftwood lives inside that same wrapper, so it
+   already breathes (scale + translate) in lock-step with the tree. To
+   preserve the original parallax feel between the two photo layers, we
+   add this small TRANSLATE-only extra motion on the driftwood itself
+   — it composes on top of the parent's transform and creates a subtle
+   relative drift, but never re-scales (so it can't accumulate with the
+   parent's scale into ~1.19× zoom). Different duration/phase than the
+   parent's 20 s ken-burns gives the parallax its independent rhythm. */
+@keyframes driftwood-parallax-extra {
+  0%   { transform: translate3d(0%, 0%, 0); }
+  33%  { transform: translate3d(0.5%, 0.35%, 0); }
+  66%  { transform: translate3d(-0.4%, -0.25%, 0); }
+  100% { transform: translate3d(0%, 0%, 0); }
+}
+
+.driftwood-parallax {
+  animation: driftwood-parallax-extra 26s ease-in-out infinite;
+  animation-delay: -7s;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .driftwood-parallax {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* === Design-aspect canvas for the hero photo column ===
+   The home hero's tree photo and the three hotspot dots are calibrated
+   against the photo column's Figma master (603×746). Two independent
+   facts break the alignment otherwise:
+
+     1. The tree image is rendered with `object-fit: cover`, so the
+        visible crop is recomputed every time the column's aspect ratio
+        changes — and on viewports >1440 the column widens (the right
+        gutter is absorbed into the photo, see `.hero-photo`), while
+        below `lg` the column has fixed pixel heights against a fluid
+        width. The cropped composition shifts on every aspect change.
+     2. The dots are positioned with `left/top` percentages of the
+        stage. Those percentages live in the *stage* coordinate space,
+        not the *image-content* space, so any difference between stage
+        aspect and image aspect makes the dots drift off the products
+        on the tree.
+
+   `.hero-photo-canvas` is a single locked-aspect rectangle (603/746)
+   that fills the stage with cover semantics — implemented as pure CSS
+   using container query units (`cqw/cqh`) instead of JS measurements.
+   The image AND the dots overlay both fill this canvas, so they share
+   one coordinate system that always shows the same composition. Stage
+   size only changes how much of the canvas is visible (cropped equally
+   on whichever axis overflows); it never re-flows the dots relative to
+   the tree.
+
+   The ken-burns breathing transform still rides on inner descendants
+   carrying `.ken-burns-follow`, so the canvas itself stays layout-
+   stable while the photo and dots scale/drift together as a unit.
+
+   `--canvas-pos-y: 42%` mirrors the original `object-position: 50% 42%`
+   on the tree image — when the stage is wider than the design aspect
+   (causing the canvas to overflow vertically), the upper 58 % of the
+   composition stays in view, matching the framing the designer chose
+   in Figma. */
+.hero-photo-canvas {
+  --canvas-aspect-w: 603;
+  --canvas-aspect-h: 746;
+  --canvas-pos-x: 50%;
+  --canvas-pos-y: 42%;
+  position: absolute;
+  width: max(
+    100cqw,
+    calc(100cqh * var(--canvas-aspect-w) / var(--canvas-aspect-h))
+  );
+  height: max(
+    100cqh,
+    calc(100cqw * var(--canvas-aspect-h) / var(--canvas-aspect-w))
+  );
+  left: var(--canvas-pos-x);
+  top: var(--canvas-pos-y);
+  /* Translate back by the SAME fractions of the canvas's own size, so
+     the canvas's (pos-x, pos-y) point lands on the stage's
+     (pos-x, pos-y) point — i.e. `object-position` semantics. */
+  transform: translate(
+    calc(-1 * var(--canvas-pos-x)),
+    calc(-1 * var(--canvas-pos-y))
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ken-burns,
+  .ken-burns-stage {
+    animation: none;
+  }
+  .ken-burns-follow {
+    transform: none;
+  }
+}
+
+/* === Soft pulsing dot used as map markers === */
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.18); opacity: 0.85; }
+}
+
+@keyframes dot-ring {
+  0%   { transform: scale(0.8); opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.dot-pulse-inner {
+  animation: dot-pulse 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: center;
+}
+
+.dot-pulse-ring {
+  animation: dot-ring 2.6s ease-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot-pulse-inner,
+  .dot-pulse-ring {
+    animation: none;
+  }
+}
+
+/* === Adaptive section horizontal padding ===
+   Sections are full-width (no max-w cap), so on viewports > 1440 their
+   horizontal padding must grow by (100vw - 1440)/2 to keep content at
+   the centered design's x=130 / x=1310 positions. Below 1440 the padding
+   stays at the design's 130 px from each edge.
+
+   Apply to any block whose width tracks the viewport: outermost section
+   wrappers, full-bleed cards (e.g. the bordered Directions container),
+   etc. Do NOT apply to elements nested inside a fixed-design-width
+   container (e.g. AboutUs's 1180-px card) — those keep static 130 px
+   padding because their parent already has design proportions. */
+
+@media (min-width: 1024px) {
+  :root {
+    /* round() forces this to an integer pixel — without it, on viewports
+       above 1440 the formula produces fractional pixels (e.g. 130.5 px),
+       which different elements may round to slightly different integers
+       and the seam shows up as misaligned right edges on long
+       horizontal lines that share this value. */
+    --lg-pad-x: round(max(130px, calc((100vw - 1440px) / 2 + 130px)), 1px);
+  }
+  .lg-pad-x {
+    padding-left: var(--lg-pad-x);
+    padding-right: var(--lg-pad-x);
+  }
+  .lg-pad-l {
+    padding-left: var(--lg-pad-x);
+  }
+  .lg-pad-r {
+    padding-right: var(--lg-pad-x);
+  }
+}
+
+/* === Hero full-bleed columns ===
+   The Hero is rendered OUTSIDE the centered <main max-w=1440> container
+   (see app/page.tsx) so its <section> spans the full viewport. On lg the
+   inner flex layout (left card + photo) anchors content at the design's
+   x=130 / x=837 / x=1440 lines, but extends visually to BOTH screen
+   edges on viewports wider than 1440:
+
+   • Left column padding-left scales: 130 px below 1440, then grows by
+     (100vw-1440)/2 so the text content stays at the centered design
+     position while the column's left border bleeds to the screen edge.
+   • Photo column width scales: 603 px below 1440, then grows by
+     (100vw-1440)/2 so the photo runs to the screen's right edge.
+
+   `body { overflow-x: hidden }` keeps the page free of any horizontal
+   scrollbar. */
+
+@media (min-width: 1024px) {
+  .hero-left {
+    padding-left: max(130px, calc((100vw - 1440px) / 2 + 130px));
+  }
+
+  .hero-photo {
+    /* `--hero-photo-w` is the photo column's design width at the 1440
+       master (603 px on home, 721 px on hotels/protect/cleaning). The
+       column grows on viewports > 1440 to swallow the right-side gutter
+       and reach the screen edge. Default keeps the home value. */
+    width: max(
+      var(--hero-photo-w, 603px),
+      calc((100vw - 1440px) / 2 + var(--hero-photo-w, 603px))
+    );
+  }
+}
+
+/* === Hero hotspot popup ===
+   Each dot in the hero photo is a button. Hovering or focusing it reveals
+   a 184×218 dark-glass card with a 160×160 product thumbnail and a label,
+   matching the Figma frames «косметика», «текстиль», «аксесуари»
+   (1327:6161/6165/6169). The popup is anchored relative to its dot
+   (center / left / right) so it never overflows the photo container.
+
+   Resting state: opacity 0, slight Y-offset + scale-down, pointer-events
+   off so it does not block sibling dots. Hover/focus state: opacity 1,
+   transform identity, pointer-events on. The transform-origin matches the
+   anchor side so the card visually grows from the dot. */
+
+.hero-dot {
+  cursor: pointer;
+  outline: none;
+  /* Subtle hover lift on the dot itself (the pulse animations sit inside
+     and continue independently). */
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The dot's visual size is 32 px — too small for a comfortable tap on
+   mobile (WCAG recommends ≥ 44 px). Extend the clickable / focusable
+   region with a transparent ::before, keeping the visual size unchanged. */
+.hero-dot::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+}
+
+.hero-dot:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+.hero-dot-popup {
+  /* --popup-scale tracks viewport width: 1 on desktop/tablet, 0.72 on
+     phones. Combined inside the scale() of every anchor's transform so
+     the show/hide animation (0.92 → 1 base) compresses uniformly into
+     (0.66 → 0.72) on mobile — the card stays inside the photo box and
+     still grows on hover. transform-origin matches each anchor side so
+     the shrunken card visually emerges from the dot, not the corner. */
+  --popup-scale: 1;
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 12px);
+  width: 184px;
+  height: 218px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(29, 29, 31, 0.8);
+  border: 0.75px solid #ffffff;
+  border-radius: 20px;
+  /* backdrop-filter is GPU-expensive on phones and the popup is only
+     visible on hover/focus — promote it only while it's actually shown
+     so idle scrolling on the hero never pays the blur cost. The mobile
+     scale (0.72×) also shrinks the visible blur enough that dropping it
+     entirely on touch devices is imperceptible while saving real frames. */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease-out,
+              transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.hero-dot-popup-center {
+  left: 50%;
+  transform-origin: 50% 100%;
+  transform: translate(-50%, 8px) scale(calc(0.92 * var(--popup-scale)));
+}
+
+.hero-dot-popup-left {
+  left: 0;
+  transform-origin: 0% 100%;
+  transform: translate(0, 8px) scale(calc(0.92 * var(--popup-scale)));
+}
+
+.hero-dot-popup-right {
+  right: 0;
+  transform-origin: 100% 100%;
+  transform: translate(0, 8px) scale(calc(0.92 * var(--popup-scale)));
+}
+
+.hero-dot:hover .hero-dot-popup,
+.hero-dot:focus .hero-dot-popup {
+  /* Promote to a compositor layer only while the popup is visible. */
+  will-change: transform, opacity;
+}
+
+.hero-dot:hover .hero-dot-popup-center,
+.hero-dot:focus .hero-dot-popup-center {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(var(--popup-scale));
+  pointer-events: auto;
+}
+
+.hero-dot:hover .hero-dot-popup-left,
+.hero-dot:focus .hero-dot-popup-left {
+  opacity: 1;
+  transform: translate(0, 0) scale(var(--popup-scale));
+  pointer-events: auto;
+}
+
+.hero-dot:hover .hero-dot-popup-right,
+.hero-dot:focus .hero-dot-popup-right {
+  opacity: 1;
+  transform: translate(0, 0) scale(var(--popup-scale));
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .hero-dot-popup {
+    --popup-scale: 0.72;
+    /* Drop the backdrop-filter on phones — at 0.72× scale the visual
+       difference is imperceptible, and the blur costs a real frame on
+       lower-end Android. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    /* Slightly darker background compensates for the missing blur so
+       white photo content behind the card never bleeds through. */
+    background: rgba(29, 29, 31, 0.92);
+  }
+}
+
+.hero-dot-popup-img {
+  position: relative;
+  flex-shrink: 0;
+  width: 160px;
+  height: 160px;
+  background: #f9fbfa;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hero-dot-popup-label {
+  flex-shrink: 0;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 28px;
+  text-align: center;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-dot-popup,
+  .hero-dot-popup-center,
+  .hero-dot-popup-left,
+  .hero-dot-popup-right {
+    transition: opacity 150ms ease-out;
+    transform: none;
+  }
+  .hero-dot:hover .hero-dot-popup,
+  .hero-dot:focus .hero-dot-popup {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}
+
+/* === Section divider gradient sweep used on key h2 underline === */
+@keyframes underline-sweep {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-underline-sweep {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* === Subtle float for decorative chips/icons === */
+@keyframes soft-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.animate-soft-float {
+  animation: soft-float 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-soft-float {
+    animation: none;
+  }
+}
+
+/* === Chevron-connector "drift" between cards in CleaningProcess === */
+@keyframes chevron-drift {
+  0%, 100% { transform: translateX(0); opacity: 0.55; }
+  50%      { transform: translateX(4px); opacity: 1; }
+}
+
+.animate-chevron-drift {
+  animation: chevron-drift 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-chevron-drift {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* === Reveal-up keyframe used by inline arbitrary animation utilities === */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* === QuizForm — true card-deck stage ===
+   Every step in the form renders as a card in the same DOM tree. Its
+   data-rel attribute (= i - currentStep) drives an absolute position via
+   CSS custom-property lookup on .quiz-deck-card[data-rel="…"]. CSS
+   transitions on transform/opacity animate every position change, so when
+   step changes:
+     • forward (step n → n+1): the front card (rel 0 → -1) glides down
+       and tilts off, the next-up card (rel 1 → 0) rises into the front
+       slot, every deeper deck card shifts one notch closer (2 → 1, 3 → 2),
+       and the previously-discarded card (rel -1 → -2) slips further away.
+     • backward (step n → n-1): mirrors the above — the just-discarded
+       card (rel -1 → 0) returns from below, the front card (rel 0 → 1)
+       recedes back into the deck, deeper cards slide back one notch.
+   No exit/enter dance, no parallel keyframe lines: the deck IS the
+   animation, all driven by a single CSS transition rule.
+
+   transform-origin: 50% 0% — cards anchored at top, so behind cards
+   peek upward (their reduced scale shrinks the bottom toward the top
+   while the top stays put). translateY moves the top in pixels directly. */
+
+.quiz-deck {
+  position: relative;
+  isolation: isolate;
+}
+
+.quiz-deck-card {
+  width: 100%;
+}
+
+/* Outer frame — Figma 1384:12935 "Quizz Card" is `bg-#2d2d2f
+   rounded-[40px]`, no border. The dark frame is what's visible above
+   and around the inner white card. On mobile we give the whole card
+   a stronger drop shadow so the form stands out from the white page
+   background even before its options animate in. */
+.quiz-deck-card-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-radius: 24px;
+  background: #2d2d2f;
+  box-shadow:
+    0 12px 24px -8px rgb(29 29 31 / 0.18),
+    0 32px 64px -36px rgb(29 29 31 / 0.28);
+}
+
+.quiz-deck-card-title {
+  /* Title row sits inside the dark outer frame — no own background; the
+     parent's #2d2d2f shows through. Hairline highlight on the very top
+     edge subtly hints at the printed edge of a stacked card and reads on
+     the peeking dark spines of behind cards too. */
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* Counter "n/total" + question title. Faded out on peek cards so the
+   user only ever reads the *active* step's text — the upcoming dark
+   spines look like blank stack edges, not partly-visible questions.
+   Default rule applies for active (rel=0) and discarded (rel=-1); peek
+   rules below override it for rel 1/2/3. The 540 ms delay is tuned to
+   the new active-card timing (240 ms delay + ~700 ms travel before
+   meaningful settle): the text appears as the card is well into its
+   emergence, not while the front card is still sweeping off. */
+.quiz-deck-card-title-meta {
+  transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1) 540ms;
+}
+
+/* Inner white card — Figma 1384:12935;308:2720 "Content": independent
+   `bg-white border border-black rounded-[40px]`, sits below the title
+   inside the dark outer frame. Its rounded-40 top edges show against
+   the dark frame; its rounded-40 bottom edges line up with the outer's
+   rounded bottom. On lg the deck has a fixed 720-px height and this
+   panel uses `flex: 1` to fill the remaining space below the title;
+   on mobile the deck has no fixed height, so flex: 1 combined with
+   overflow-hidden (which disables `min-height: auto`) collapsed the
+   panel to 0 px and the options disappeared. Keep flex behaviour
+   scoped to lg only. */
+.quiz-deck-card-content {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 24px;
+}
+
+@media (min-width: 1024px) {
+  .quiz-deck-card-content {
+    flex: 1 1 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .quiz-deck-card-inner { border-radius: 32px; }
+  .quiz-deck-card-content { border-radius: 32px; }
+}
+
+/* Mobile / tablet — only the active card is mounted into view. We hide
+   non-active cards rather than running the deck (no horizontal room for
+   the peek), and fade the active card in on every step change via the
+   inner remount trigger. */
+@media (max-width: 1023.98px) {
+  .quiz-deck-card { display: none; }
+  .quiz-deck-card[data-rel="0"] {
+    display: block;
+    animation: quiz-card-fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes quiz-card-fade-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 1023.98px) {
+  .quiz-deck-card[data-rel="0"] {
+    animation: none;
+  }
+}
+
+/* Desktop — full deck behaviour. Container reserves 60 px above the
+   active card so the peeking deck cards have room to protrude.
+   Each card is absolutely positioned and transitions transform/opacity
+   between data-rel slots.
+
+   Per-state transitions intentionally use *different* easings per role:
+   • discard (rel -1/-2): gravity-style accelerate-out — the card snaps
+     down off the deck.
+   • active (rel 0): settle-in with a tiny overshoot — the card lands in
+     the front slot and clicks into place.
+   • peek (rel 1/2/3): smooth ease — supporting motion, no drama.
+
+   Per-state transition-delays form a wave so the shift never starts in
+   unison: discard fires first (0 ms), inner deck cards shift slightly
+   later (20–40 ms), and the new active settles last (80 ms). The user
+   reads it as a single chain reaction, not four parallel slides. */
+
+@media (min-width: 1024px) {
+  .quiz-deck {
+    /* 120 px headroom above the active card so the rel-1 (-44 px) and
+       rel-2 (-84 px) peeks have room to protrude without escaping the
+       deck container. */
+    height: 720px;
+    overflow: visible;
+    perspective: 2400px;
+  }
+  .quiz-deck-card {
+    position: absolute;
+    inset: 0;
+    top: 120px;
+    height: 600px;
+    transform-origin: 50% 0%;
+    will-change: transform, opacity;
+  }
+  .quiz-deck-card-inner {
+    border-radius: 40px;
+    height: 100%;
+  }
+  .quiz-deck-card-content {
+    border-radius: 40px;
+  }
+  /* Active — the front of the deck. Generous duration + late delay so the
+     back card's emergence is the dominant motion the eye follows. The
+     front discards FIRST (in 0–~360 ms), then the back card visibly
+     travels from the deck behind to the front slot over the next ~900 ms.
+     The deferred start (240 ms) means the user's gaze has time to switch
+     from "leaving" to "arriving" between the two halves of the motion. */
+  .quiz-deck-card[data-rel="0"] {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    z-index: 30;
+    pointer-events: auto;
+    filter: none;
+    transition:
+      transform 920ms cubic-bezier(0.16, 1, 0.32, 1) 240ms,
+      opacity   640ms cubic-bezier(0.22, 1, 0.36, 1) 240ms,
+      filter    520ms cubic-bezier(0.22, 1, 0.36, 1) 240ms;
+  }
+  .quiz-deck-card[data-rel="0"] .quiz-deck-card-inner {
+    box-shadow:
+      0 36px 72px -32px rgb(0 0 0 / 0.22),
+      0 12px 28px -16px rgb(0 0 0 / 0.10);
+  }
+  /* Next card peeking up — large enough peek (44 px) and meaningful scale
+     drop (0.94) that its travel back to the active slot is clearly
+     visible to the eye, not a 32-px nudge. */
+  .quiz-deck-card[data-rel="1"] {
+    transform: translateY(-44px) scale(0.94);
+    opacity: 0.92;
+    z-index: 25;
+    pointer-events: none;
+    filter: brightness(0.97);
+    transition:
+      transform 800ms cubic-bezier(0.22, 1, 0.32, 1) 180ms,
+      opacity   660ms cubic-bezier(0.22, 1, 0.36, 1) 180ms,
+      filter    520ms cubic-bezier(0.22, 1, 0.36, 1) 180ms;
+  }
+  /* Card-after-next peeks 84 px high, well-separated from the rel-1 card
+     so the stacked deck reads as a real stack of distinct cards — not as
+     two cards almost-overlapping. */
+  .quiz-deck-card[data-rel="2"] {
+    transform: translateY(-84px) scale(0.88);
+    opacity: 0.62;
+    z-index: 20;
+    pointer-events: none;
+    filter: brightness(0.93);
+    transition:
+      transform 740ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+      opacity   620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
+      filter    520ms cubic-bezier(0.22, 1, 0.36, 1) 120ms;
+  }
+  /* Beyond the visible deck — fade fully out, but keep the position
+     interpolating so the rel-3 → rel-2 emergence reads as "another
+     card sliding into the visible deck". */
+  .quiz-deck-card[data-rel="3"] {
+    transform: translateY(-120px) scale(0.84);
+    opacity: 0;
+    z-index: 15;
+    pointer-events: none;
+    transition:
+      transform 600ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
+      opacity   400ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+  }
+  /* Just-answered card — Tinder-style swipe OFF to the right, with a
+     gentle downward drift and rotation. The horizontal motion makes the
+     "card removed from the deck" gesture unmistakable.
+
+     Timing — the swipe must read first, the fade only at the tail:
+       • Transform 760 ms with ease-out — fast start, smooth deceleration.
+         By t≈360 ms the card is already ~80 % of the way (and well past
+         the visible page edge), so the user has visibly seen the swipe.
+       • Opacity stays at 1 for the first 360 ms (delay) so nothing fades
+         until the swipe has played out. Then it fades over the remaining
+         400 ms while the card finishes the last 20 % of its travel.
+       • Both end at 760 ms (360 + 400 = 760 ms = transform). No tail of
+         "moved but invisible" and no pop. */
+  .quiz-deck-card[data-rel="-1"] {
+    transform: translateX(52%) translateY(60px) scale(0.86) rotate(15deg);
+    opacity: 0;
+    z-index: 24;
+    pointer-events: none;
+    transition:
+      transform 760ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity   400ms cubic-bezier(0.22, 1, 0.36, 1) 360ms;
+  }
+  .quiz-deck-card[data-rel="-2"] {
+    transform: translateX(72%) translateY(110px) scale(0.78) rotate(22deg);
+    opacity: 0;
+    z-index: 23;
+    pointer-events: none;
+    transition:
+      transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity   320ms cubic-bezier(0.22, 1, 0.36, 1) 300ms;
+  }
+
+  /* Title-text rules — peek cards hide their counter + question text so
+     only the active step is ever readable. Active fades back in *with a
+     delay* so the text appears just as the card settles. Going-away
+     cards (rel 1 leaving rel 0) fade text out fast — quicker than the
+     card itself recedes — so the meta disappears before the card visibly
+     blends with its dark spine. */
+  .quiz-deck-card[data-rel="1"] .quiz-deck-card-title-meta,
+  .quiz-deck-card[data-rel="2"] .quiz-deck-card-title-meta,
+  .quiz-deck-card[data-rel="3"] .quiz-deck-card-title-meta {
+    opacity: 0;
+    transition:
+      opacity 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* === Team-tags gravity fall — 4-phase keyframed pile ===
+   Pure-CSS animation built from the Figma component-set variants
+   (`Property 1=1-start | 2-drop | 3-settle | 4-final`). Each chip
+   carries its own four waypoints as CSS vars (--p1-cx/cy/rot through
+   --p4-cx/cy/rot). The keyframe interpolates between them in sequence:
+     0%    → 1-start  (above the cloud, rotated)
+     30 %  → 2-drop   (chip crashes into the floor — squash on impact)
+     50 %  → 3-settle (chip springs back, scale recovers)
+     100 % → 4-final  (designer-intended resting pose)
+
+   Per-segment easing is set INSIDE the keyframe blocks (each block's
+   `animation-timing-function` controls the curve to the NEXT block):
+     0  →  30 % : gravity ease-in (slow start, hard slam at impact)
+     30 → 50 %  : back-out spring (quick rebound, slight overshoot)
+     50 → 100 % : long quiet settle
+
+   We use CSS individual transform properties (`translate`, `rotate`,
+   `scale`) instead of the legacy `transform` shorthand so each piece
+   animates independently — chiefly so the impact "squash" doesn't
+   fight with the rotation interpolation. Position model: every chip
+   sits at left:0/top:0 and `translate` shifts it by (cx − 50 %,
+   cy − 50 %) so its visual centre lands on (cx, cy) in the 220 × 373
+   frame; `rotate` spins it around that centre; `scale` puffs it
+   uniformly on impact. */
+
+.team-tag-cloud-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 50%;
+}
+
+.team-tag-cloud-prefall {
+  opacity: 0;
+  translate: calc(var(--p1-cx) - 50%) calc(var(--p1-cy) - 50%);
+  rotate: var(--p1-rot);
+  scale: 1;
+}
+
+@keyframes team-tag-fall {
+  0% {
+    opacity: 0;
+    translate: calc(var(--p1-cx) - 50%) calc(var(--p1-cy) - 50%);
+    rotate: var(--p1-rot);
+    scale: 1;
+    animation-timing-function: cubic-bezier(0.55, 0.05, 0.85, 0.3);
+  }
+  10% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+    translate: calc(var(--p2-cx) - 50%) calc(var(--p2-cy) - 50%);
+    rotate: var(--p2-rot);
+    scale: 1.07;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  50% {
+    translate: calc(var(--p3-cx) - 50%) calc(var(--p3-cy) - 50%);
+    rotate: var(--p3-rot);
+    scale: 1;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  100% {
+    opacity: 1;
+    translate: calc(var(--p4-cx) - 50%) calc(var(--p4-cy) - 50%);
+    rotate: var(--p4-rot);
+    scale: 1;
+  }
+}
+
+.team-tag-cloud-falling {
+  animation: team-tag-fall var(--tag-duration, 1200ms) both;
+  animation-delay: var(--tag-delay, 0ms);
+  will-change: translate, rotate, scale, opacity;
+}
+
+.team-tag-cloud-settled {
+  opacity: 1;
+  translate: calc(var(--p4-cx) - 50%) calc(var(--p4-cy) - 50%);
+  rotate: var(--p4-rot);
+  scale: 1;
+  transition:
+    translate 360ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    scale 360ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 280ms ease-out,
+    border-color 280ms ease-out;
+}
+
+/* Settled chips become subtly interactive: hover lifts them 8 px on
+   the page's vertical axis (so the pop reads clearly even on chips
+   sitting at -50° angles), scales to 1.08 with a back-out spring,
+   bumps z-index above neighbours, and casts a soft shadow. The brand
+   border is the small "this is interactive" hint. */
+.team-tag-cloud-settled:hover {
+  translate: calc(var(--p4-cx) - 50%) calc(var(--p4-cy) - 50% - 8px);
+  scale: 1.08;
+  z-index: 5;
+  box-shadow: 0 10px 28px -10px rgba(15, 15, 20, 0.22);
+  border-color: var(--color-neutral-900);
+}
+
+/* Polygons share the position keyframe but are decorative — no hover,
+   no shadow. The inner image runs its own 360° spin synced with phase
+   1 → 2 of the fall, so each hexagon tumbles once on the way down and
+   freezes flat at impact (the keyframe holds at 30%+ so the polygon
+   doesn't spin during the bounce/settle phases). */
+.team-tag-cloud-poly {
+  pointer-events: none;
+}
+
+.team-tag-cloud-poly img {
+  animation: team-tag-poly-spin var(--tag-duration, 1200ms)
+    cubic-bezier(0.55, 0.05, 0.85, 0.3) both;
+  animation-delay: var(--tag-delay, 0ms);
+}
+
+@keyframes team-tag-poly-spin {
+  0% {
+    rotate: 0deg;
+  }
+  30% {
+    rotate: 360deg;
+  }
+  100% {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-tag-cloud-prefall,
+  .team-tag-cloud-falling,
+  .team-tag-cloud-settled {
+    animation: none;
+    opacity: 1;
+    translate: calc(var(--p4-cx) - 50%) calc(var(--p4-cy) - 50%);
+    rotate: var(--p4-rot);
+    scale: 1;
+  }
+  .team-tag-cloud-settled:hover {
+    translate: calc(var(--p4-cx) - 50%) calc(var(--p4-cy) - 50%);
+    scale: 1;
+  }
+  .team-tag-cloud-poly img {
+    animation: none;
+    rotate: 0deg;
+  }
+}
+
+/* Option list staggered entrance — runs only on the active card (its
+   CardInner just remounted on step change), letting each option arrive
+   in turn after the card has settled into the front of the deck. */
+@keyframes quiz-option-in {
+  0%   { opacity: 0; transform: translate3d(-12px, 10px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Mobile/tablet: skip the stagger — there is no deck-arrival motion to
+   time against, so opacity-0 options just made the form read as a blank
+   card. Show them immediately. Desktop still gets the cascading reveal
+   timed against the deck card's settle. */
+@media (min-width: 1024px) {
+  .animate-quiz-option {
+    animation: quiz-option-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-deck-card { transition: none !important; }
+  .quiz-deck-card[data-rel="0"] { animation: none; }
+  .animate-quiz-option { animation: none; }
+}
+
+/* === Hotels ZonesGrid "ДЕТАЛІ" rotating ring ===
+   Sits around the icon button on each zone card's hover state. Same
+   pattern as the Quiz radio's "ОБРАТИ" circle text — a 14-second
+   linear rotation around the SVG centre so the text reads as a live
+   call-to-action ribbon. Hidden by default and faded in by the
+   parent card's :hover state (see ZonesGrid.tsx). */
+@keyframes zones-details-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.zones-details-text {
+  animation: zones-details-spin 14s linear infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zones-details-text { animation: none; }
+}
+
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* === Cases parallax sleeve — lg only ===
+   The home Cases section publishes a 0..1 scroll-progress variable on
+   the <section>, and each card's photo wrapper consumes it via CSS to
+   slide ~96 px upward as the card sweeps the viewport. The effect only
+   makes sense at lg+ where the cards are sticky-stacked; below lg the
+   cards lay out as normal blocks and parallax would just make the
+   photo jitter while the user scrolls. Moving the transform to a CSS
+   class behind a media query (instead of inline `style`) is the only
+   way to actually disable it on mobile — an inline transform can't be
+   overridden by a CSS rule. `will-change` is also lg-only so phones
+   don't promote each photo onto a GPU layer for nothing. */
+.cases-parallax-sleeve {
+  position: absolute;
+  inset: 0;
+}
+@media (min-width: 1024px) {
+  .cases-parallax-sleeve {
+    transform: translate3d(0, calc(var(--cases-progress, 0) * -96px), 0);
+    will-change: transform;
+  }
+}
+
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: var(--color-neutral-900);
+  /* Prevent horizontal page scroll caused by hero photo overflow,
+     marquees, and other off-frame visuals. `clip` clips like `hidden`
+     but, unlike `hidden`, does NOT establish a scroll container — which
+     means descendant `position: sticky` elements (Cases card stack,
+     possibly others) keep working. Using `hidden` here breaks sticky
+     because the spec computes the visible axis to `auto`, turning the
+     html/body into a scroll container. Browser support for `clip` is
+     Chrome 90+, Firefox 81+, Safari 16+. */
+  overflow-x: clip;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Suppress the legacy 300 ms tap-delay on touch devices and double-tap
+   zoom on interactive controls. Buttons / links use `manipulation` so
+   the browser still allows panning and pinch-zoom on the page, only
+   skipping the slow double-tap-zoom recognition delay on the control
+   itself — taps feel instantaneous. */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+label {
+  touch-action: manipulation;
+}
+
+/* === Sticky-header offset for in-page anchors ===
+   The header is `position: sticky` ~88 px tall; without an offset the
+   target heading lands directly under it. globals.css already sets
+   `scroll-padding-top: 96px` on html, but old Safari sometimes ignores
+   it during smooth scrolling — `scroll-margin-top` on the target
+   element is the modern, reliable equivalent. */
+:where(h1, h2, h3, h4, [id]) {
+  scroll-margin-top: 96px;
+}
+
+/* === Responsive typography overrides ===
+   Tokens in @theme above are tuned for the 1440 desktop Figma master.
+   Below `lg` we shrink them so headings fit narrow viewports without
+   wrapping awkwardly or pushing content off-screen. */
+
+@media (max-width: 1023px) {
+  .text-h1 {
+    font-size: 40px;
+    line-height: 44px;
+    letter-spacing: -1.2px;
+  }
+  .text-h2 {
+    font-size: 32px;
+    line-height: 36px;
+    letter-spacing: -1.4px;
+  }
+  .text-h2-light {
+    font-size: 32px;
+    line-height: 36px;
+    letter-spacing: -1.4px;
+  }
+  .text-title-lg {
+    font-size: 20px;
+    line-height: 26px;
+    letter-spacing: -0.5px;
+  }
+  .text-body-lg {
+    font-size: 18px;
+    line-height: 26px;
+  }
+  .text-body-md {
+    font-size: 17px;
+    line-height: 26px;
+  }
+  .text-button-lg {
+    font-size: 16px;
+    line-height: 22px;
+    letter-spacing: 0.5px;
+  }
+}
+
+@media (max-width: 639px) {
+  .text-h1 {
+    font-size: 36px;
+    line-height: 40px;
+    letter-spacing: -1px;
+  }
+  .text-h2,
+  .text-h2-light {
+    font-size: 28px;
+    line-height: 32px;
+    letter-spacing: -1px;
+  }
+  .text-title-lg {
+    font-size: 18px;
+    line-height: 24px;
+  }
+  .text-body-lg {
+    font-size: 17px;
+    line-height: 25px;
+  }
+  .text-body-md {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+
+/* Always allow long Ukrainian words to break safely on narrow screens
+   without producing horizontal scroll. `overflow-wrap: anywhere` is
+   strictly stronger than `break-word` and is the modern recommendation:
+   it also lets the browser break BEFORE a word that would overflow,
+   not only inside the word, which fixes long Ukrainian headings that
+   the layout engine refuses to break at natural word boundaries when
+   the LAST word on a line would exactly straddle the container edge. */
+@media (max-width: 1023px) {
+  h1, h2, h3, h4, p, li, span, label {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
 }
