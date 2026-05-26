@@ -63,11 +63,11 @@ const AUDIENCES = [
 
 export function CleaningAudience() {
   return (
-    // Hero now omits border-b at lg+ (see cleaning/Hero.tsx); this
-    // section's border-t alone draws the seam as a single uniformly-
-    // thin hairline. Dropped rounded-t to remove triangular page-bg
-    // cutouts that read as a thick gap at the corners.
-    <section className="bg-white lg:border-l lg:border-r lg:border-t lg:border-stroke-default">
+    // Figma — section sits as its own bordered/rounded card
+    // (border L+R+T, rounded-tl/tr 48). `lg:-mt-px` overlaps Hero's
+    // bottom border so the two 1-px hairlines share the SAME pixel row
+    // and the seam reads as ONE thin line, not a 2-px band.
+    <section className="bg-white lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default">
       {/* Figma 1327:4446 structure: pt-160 / heading-96 / gap-54 / list-840
           / pb-136 = total 1286. The previous lg:gap-[120px] +
           lg:pb-[120px] were 66 + (-16) = +50 px taller than Figma. */}

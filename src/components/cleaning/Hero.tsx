@@ -19,7 +19,7 @@ export function CleaningHero() {
             and borderless - which broke the Figma look.) Padding
             pt 80 / pl 130 / pr 32 / pb 40 mirrors Figma's inner
             content frame at (130, 80) w=575. */}
-        <div className="flex flex-col gap-10 px-5 pb-8 pt-10 sm:gap-12 sm:px-10 sm:pb-10 sm:pt-14 lg:h-[640px] lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
+        <div className="flex flex-col gap-10 px-5 pb-8 pt-10 sm:gap-12 sm:px-10 sm:pb-10 sm:pt-14 lg:h-[640px] lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-10 sm:gap-12 lg:w-[575px] lg:gap-14">
             <div className="flex flex-col gap-5 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -50,7 +50,7 @@ export function CleaningHero() {
             offsets stay anchored to Figma's master, exactly as the
             designer framed it. */}
         <div
-          className="relative h-[280px] overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:h-[400px] sm:rounded-bl-[40px] sm:rounded-br-[40px] md:h-[480px] lg:h-[640px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-none lg:rounded-br-none lg:rounded-tl-[48px]"
+          className="relative h-[280px] overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:h-[400px] sm:rounded-bl-[40px] sm:rounded-br-[40px] md:h-[480px] lg:h-[640px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
           style={{ background: "#726053" }}
         >
           {/* Figma 1327:4445 - image rectangle is 856.45 x 750.65,

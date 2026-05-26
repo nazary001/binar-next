@@ -81,12 +81,11 @@ function DirectionCard({ href, title, body, image }: Card) {
 export function Directions() {
   return (
     <section id="segments">
-      {/* Hero now omits border-b at lg+ (see home/Hero.tsx) so
-          Directions's border-t draws the seam on its own as a single
-          uniformly-thin hairline across the full width. Dropping the
-          rounded-tl/tr at lg eliminates the triangular page-bg cutouts
-          that previously made the join read as a thick gap. */}
-      <div className="lg-pad-x flex flex-col gap-10 px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:gap-[120px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pt-[160px] lg:pb-0">
+      {/* Figma — Directions sits as its own bordered/rounded card
+          (border L+R+T, rounded-tl/tr 48). `lg:-mt-px` overlaps Hero's
+          bottom border so the two 1-px hairlines share the SAME pixel
+          row and the seam reads as ONE thin line, not a 2-px band. */}
+      <div className="lg-pad-x flex flex-col gap-10 px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:-mt-px lg:gap-[120px] lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pt-[160px] lg:pb-0">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900 lg:max-w-[574px]">
             <span className="text-h2">Оберіть напрямок, </span>

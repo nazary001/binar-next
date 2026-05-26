@@ -85,44 +85,52 @@ export function CaseCard({
     <article
       data-case-card
       data-case-index={index}
-      className="case-card flex w-full flex-col overflow-hidden rounded-[28px] border border-stroke-default bg-white sm:rounded-[36px] lg:sticky lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:flex-row"
+      className="case-card flex w-full flex-col overflow-hidden rounded-[28px] border border-neutral-700 bg-white sm:rounded-[36px] lg:sticky lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:flex-row"
       style={{
         top: `calc(var(--site-header-h, 84px) + ${index * LG_LOGO_HEIGHT}px)`,
       }}
     >
       <div
-        className="case-card-body relative order-2 flex-1 overflow-hidden border-stroke-default bg-white lg:order-1 lg:h-[729px] lg:rounded-r-[48px] lg:border-b lg:border-r lg:border-t"
+        className="case-card-body relative order-2 flex-1 overflow-hidden border-neutral-700 bg-white lg:order-1 lg:h-[729px] lg:rounded-r-[48px] lg:border-b lg:border-r lg:border-t"
       >
         <div className="case-card-logo absolute right-0 top-0 hidden h-[197px] w-[227px] items-center justify-center overflow-clip border-b border-l border-stroke-default lg:flex">
           <img src={data.logo} alt={`${data.name} logo`} loading="lazy" decoding="async" className={data.logoClass} />
         </div>
 
-        {/* Figma 1384:12758 (Vector75): full-width hairline at y=526.5
+        {/* Figma 1384:12758 (Vector75): full-width hairline at y=526
             crossing the entire 810-wide left content area, sitting just
-            above the sub-photo + logo strip. The previous `border-t` on
-            the 227-wide sub-photo wrapper only drew this line under
-            the sub-photo; the full-width span below restores Figma. */}
+            above the sub-photo + logo strip. Pixel-aligned (integer
+            top + `h-px`) so the line renders as a sharp 1-px row —
+            `top-[526.5px]` would straddle two pixel rows and antialias
+            into a 2-px band that read as visibly thicker / softer than
+            the surrounding CSS borders. */}
         <span
           aria-hidden
-          className="absolute left-0 right-0 top-[526.5px] hidden h-px bg-stroke-default lg:block"
+          className="absolute left-0 right-0 top-[526px] hidden h-px bg-stroke-default lg:block"
         />
         {/* Figma 1384:12767 (Vector78): vertical hairline at x=583
-            from y=2.5 to y=726, the line that the photo's left edge sits
+            from y=0 to y=728, the line that the photo's left edge sits
             on. The logo strip's `border-l` and the sub-photo wrapper's
             `border-l` only cover the top 197px and the bottom 202px of
             this line; this span fills the 330px middle gap so the
             vertical reads as one continuous line rising out of the
-            photo's top-left corner up to the logo strip. */}
+            photo's top-left corner up to the logo strip. Span goes
+            from row 197 to row 526 (height 330, exclusive of row 527)
+            so it butts against the V75 horizontal at row 526 and the
+            sub-photo's border-l starting at row 527 — every fragment
+            of the vertical sits on integer pixel rows and stays a
+            uniform 1-px line. */}
         <span
           aria-hidden
-          className="absolute right-[226px] top-[197px] hidden h-[329.5px] w-px bg-stroke-default lg:block"
+          className="absolute right-[226px] top-[197px] hidden h-[330px] w-px bg-stroke-default lg:block"
         />
-        {/* `top-[526.5px]` anchors the wrapper to the hairline so the
-            photo's top edge sits exactly on the line that extends left
-            from it, rather than overhanging it by ~1.5px (which happens
-            with `bottom-0 h-[202px]` because the parent has `border-t`
-            and absolute positioning is relative to the padding box). */}
-        <div className="absolute bottom-0 right-0 top-[526.5px] hidden w-[227px] overflow-clip border-l border-stroke-default lg:block">
+        {/* `top-[527px]` puts the sub-photo's top edge one pixel below
+            the V75 hairline (row 526), so the line stays visible across
+            the full body width and the photo sits flush under it. The
+            previous `top-[526.5px]` straddled the line, blending the
+            photo's first row into the hairline and making both look
+            softer than the surrounding pixel-aligned borders. */}
+        <div className="absolute bottom-0 right-0 top-[527px] hidden w-[227px] overflow-clip border-l border-stroke-default lg:block">
           <img
             src="/figma-export/cases/img-sub.png"
             alt=""
@@ -157,7 +165,16 @@ export function CaseCard({
             {data.tags.map((tag) => (
               <li
                 key={tag}
-                className="flex cursor-default items-center rounded-[60px] border border-neutral-800 px-3 py-2 sm:h-10 sm:px-4 sm:py-0"
+                // Figma master chip uses `px-16 py-12 rounded-60` with
+                // 16/16 text — that's 40 px tall on every viewport. The
+                // previous breakpoint split (`px-3 py-2` mobile, `h-10
+                // px-4 py-0` sm+) made mobile chips 32 px tall and
+                // sm+ chips 40 px tall, so the chip border widths
+                // visibly changed across breakpoints. Standardised to
+                // the uniform `px-4 py-3` Figma value everywhere -
+                // chips now read identical at any viewport, same as
+                // the ZonesGrid (hotels) chips.
+                className="flex cursor-default items-center rounded-[60px] border border-neutral-800 px-4 py-3"
               >
                 <span className="text-[16px] leading-[16px] whitespace-nowrap text-neutral-800">
                   {tag}

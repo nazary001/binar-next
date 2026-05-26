@@ -923,7 +923,7 @@ export function ZonesGrid() {
     // removed (see hotels/Hero.tsx) the next section's flat border-t
     // provides ONE clean uniformly-thin line across the entire width.
     // Padding is 160px top + 130px sides at the design master.
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
+    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900">

@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 export type QuizStep = {
@@ -328,6 +328,21 @@ export function QuizForm({
   const [submitted, setSubmitted] = useState(false);
   const totalSteps = STEPS.length;
 
+  // After the quiz is replaced by the thank-you card, the layout
+  // shrinks dramatically (a 4-step deck becomes a short card). If the
+  // user was scrolled deep inside the quiz when they clicked "Отримати
+  // пропозицію", the new shorter card ends up ABOVE the current scroll
+  // position - i.e. they're now looking at empty space below the
+  // section, never seeing the success state. Scroll the section's
+  // top back into view as soon as `submitted` flips true so the
+  // thank-you card is always centred in the viewport.
+  const successRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (submitted && successRef.current) {
+      successRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [submitted]);
+
   const current = STEPS[step];
   const isContactStep = current.custom === "contact";
   // Step is advanceable when at least one option is picked OR the
@@ -370,6 +385,7 @@ export function QuizForm({
   if (submitted) {
     return (
       <section
+        ref={successRef}
         id="contact-form"
         className="lg-pad-x bg-white px-6 py-20 sm:px-10 lg:py-[120px]"
       >
