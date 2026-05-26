@@ -619,7 +619,7 @@ function CardInner({
 function OptionGrid({
   options,
   fieldKey,
-  selectedValue,
+  selectedValues,
   onSelect,
   animate,
   customInputPlaceholder,
@@ -629,7 +629,7 @@ function OptionGrid({
 }: {
   options: { value: string; label: string; hint?: string }[];
   fieldKey: string;
-  selectedValue: string;
+  selectedValues: string[];
   onSelect: (v: string) => void;
   animate: boolean;
   customInputPlaceholder?: string;
@@ -664,7 +664,7 @@ function OptionGrid({
           <Option
             key={`${fieldKey}-${opt.value}`}
             opt={opt}
-            selected={selectedValue === opt.value}
+            selected={selectedValues.includes(opt.value)}
             onSelect={onSelect}
             animate={animate}
             // On mobile the columns flow into a single visual list, so
@@ -682,7 +682,7 @@ function OptionGrid({
             <Option
               key={`${fieldKey}-${opt.value}`}
               opt={opt}
-              selected={selectedValue === opt.value}
+              selected={selectedValues.includes(opt.value)}
               onSelect={onSelect}
               animate={animate}
               // When a free-text input follows, none of the right-column
@@ -805,7 +805,7 @@ function ContactFields({
       <div className="flex flex-1 flex-col gap-6 self-stretch lg:gap-8">
         <Field
           placeholder="Ваше Ім'я"
-          value={answers.name ?? ""}
+          value={getStr(answers, "name")}
           onChange={(v) => setAnswers((prev) => ({ ...prev, name: v }))}
           disabled={!interactive}
         />
@@ -813,7 +813,7 @@ function ContactFields({
           <Field
             placeholder="Email"
             type="email"
-            value={answers.email ?? ""}
+            value={getStr(answers, "email")}
             onChange={(v) => setAnswers((prev) => ({ ...prev, email: v }))}
             disabled={!interactive}
           />
@@ -827,7 +827,7 @@ function ContactFields({
         <Field
           placeholder="Номер телефону"
           type="tel"
-          value={answers.phone ?? ""}
+          value={getStr(answers, "phone")}
           onChange={(v) => setAnswers((prev) => ({ ...prev, phone: v }))}
           disabled={!interactive}
         />
