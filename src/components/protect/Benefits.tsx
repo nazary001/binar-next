@@ -43,24 +43,37 @@ export function ProtectBenefits() {
             lg: cards melt into the bare-divider grid from Figma
             (rounded-none, bg-transparent, p-0, no shadow, no lift),
             with hairline vertical lines between the three columns. */}
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-y-0 lg:gap-x-10 [&>li]:lg:border-l [&>li]:lg:border-stroke-subtle [&>li]:lg:px-10 [&>li:first-child]:lg:border-l-0 [&>li:first-child]:lg:pl-0 [&>li:last-child]:lg:pr-0">
+        {/* Figma 1327:3924/1327:3925 — 3 equal-width 340 px blocks with
+            80 px gaps and hairline vertical dividers centred in each
+            gap (Vector67/68 at x=380 / x=800 on the 1180 master). The
+            divider is rendered as an absolutely-positioned `<span>` 40
+            px to the left of each non-first li so it sits exactly in
+            the middle of the 80 grid gap, matching Figma 1:1 instead
+            of border-l flush against the cell edge. */}
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-y-0 lg:gap-x-[80px]">
           {FEATURES.map((f, i) => (
             <Reveal
               as="li"
               key={f.title}
               delay={i * 110}
-              className="flex"
+              className="relative flex"
             >
+              {i > 0 && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -left-10 top-0 hidden h-full w-px bg-stroke-subtle lg:block"
+                />
+              )}
               <article
                 className="
                   group relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-5
                   rounded-[24px] bg-bg-subtle p-6
-                  transition-[transform,background-color,box-shadow] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]
-                  hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_24px_50px_-22px_rgba(29,29,31,0.22)]
+
+
                   sm:gap-6 sm:rounded-[28px] sm:p-7
                   lg:flex-col lg:items-end lg:justify-between lg:gap-10
-                  lg:min-h-[344px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-4
-                  lg:shadow-none lg:hover:translate-y-0 lg:hover:bg-transparent lg:hover:shadow-none
+                  lg:min-h-[344px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6
+                  lg:shadow-none
                 "
               >
                 <span
@@ -81,7 +94,7 @@ export function ProtectBenefits() {
                 </div>
                 <span
                   aria-hidden
-                  className="relative block size-[88px] shrink-0 overflow-clip transition-transform duration-500 ease-out group-hover:scale-110 group-hover:rotate-3 sm:size-[100px] lg:size-[120px]"
+                  className="relative block size-[88px] shrink-0 overflow-clip sm:size-[100px] lg:size-[120px]"
                 >
                   <img
                     src={f.icon}

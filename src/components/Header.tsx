@@ -76,7 +76,6 @@ function Burger({ open }: { open: boolean }) {
 export function Header() {
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const segmentsRef = useRef<HTMLLIElement | null>(null);
   // True when the mobile menu is being closed BECAUSE the user clicked
   // a navigation link (vs. dismissing the menu with Escape / outside-
@@ -113,53 +112,17 @@ export function Header() {
     };
   }, [segmentsOpen]);
 
-  // The header's padding/shadow is gated on whether the page is scrolled.
-  // Two safeguards against jitter when scrollY hovers near the threshold:
-  //
-  //  1. Hysteresis (8 px / 32 px). The state enters "scrolled" only above
-  //     32 px and leaves it only below 8 px. The 24-px dead zone breaks a
-  //     feedback loop where the browser's scroll-anchoring nudges scrollY
-  //     to compensate for the header's height transition (14↔22 px), the
-  //     nudge fires another scroll event, and the state flips on the next
-  //     frame — repeating indefinitely while the user is near the top.
-  //
-  //  2. requestAnimationFrame coalesces bursts of scroll events so we run
-  //     at most one state evaluation per frame.
+  // Publish the header's fixed height as a CSS variable on <html> so any
+  // sticky element below (e.g. the Cases card stack) can pin EXACTLY at
+  // the bottom edge of the header rather than slipping underneath it.
+  // The header is locked at a single height of 84 px (logo 40 + py-22 × 2)
+  // to match Figma exactly — the previous scroll-driven shrink/shadow
+  // wasn't in the design and caused layout jitter near the top of the
+  // page (sticky elements re-pinning every time the header height
+  // toggled). Set once on mount.
   useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      setScrolled((prev) => {
-        const y = window.scrollY;
-        return prev ? y > 8 : y > 32;
-      });
-    };
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
+    document.documentElement.style.setProperty("--site-header-h", "84px");
   }, []);
-
-  // Publish the header's current height as a CSS variable on <html> so
-  // any sticky element below (e.g. the Cases card stack) can pin
-  // EXACTLY at the bottom edge of the header rather than slipping
-  // underneath it. Two states only: not-scrolled (logo 40 + py-22×2 =
-  // 84 px) and scrolled (logo 40 + py-14×2 = 68 px). Consumers add
-  // `transition-[top] duration-300` so they smoothly follow the header
-  // when this variable flips, matching the header's own 300-ms padding
-  // transition.
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--site-header-h",
-      scrolled ? "68px" : "84px",
-    );
-  }, [scrolled]);
 
   // Close mobile nav on Escape; lock body scroll while open. We also
   // pin the body to its current scroll offset (position:fixed + top:
@@ -221,44 +184,30 @@ export function Header() {
     // as a sibling of <header> at the top level of the body keeps its
     // `fixed inset-x-0 bottom-0` anchored to the actual viewport.
     <>
-    <header
-      className={`sticky top-0 z-50 bg-white/95 backdrop-blur-md transition-[box-shadow,background-color,padding] duration-300 ${
-        scrolled
-          ? "shadow-[0_1px_0_0_rgba(29,29,31,0.08),0_8px_24px_-12px_rgba(29,29,31,0.12)]"
-          : "shadow-none"
-      }`}
-    >
-      <div
-        className={`mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 transition-[padding] duration-300 sm:px-10 lg:px-[130px] ${
-          scrolled ? "py-[14px]" : "py-[22px]"
-        }`}
-      >
+    <header className="sticky top-0 z-50 bg-white">
+      <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-[22px] sm:px-10 lg:px-[130px]">
         <Logo />
 
         <nav
           aria-label="Головна навігація"
-          className="hidden items-center gap-8 lg:flex"
+          className="hidden items-center gap-[49px] lg:flex"
         >
-          {/* === Pill-hover top nav ===
-              Every link is its own rounded-full pill. At rest the
-              background is transparent so the bar reads as plain text,
-              and on hover the pill fills with bg-bg-subtle and the text
-              darkens to neutral-900. Padding stays applied at all times
-              so nothing shifts on hover — only the colour transitions.
-              The «Напрями» trigger reuses the same pill plus an "active"
-              state pinned by `segmentsOpen` so the pill stays visible
-              while the dropdown is open. */}
-          <ul className="flex items-center gap-1">
+          {/* === Top nav ===
+              Figma «Text button» has two variants — Default (#4a4a4c) and
+              Variant2 (#f85a0b). The hover state on every nav link is
+              a colour swap to brand orange. NO pill background, NO
+              padding shift on hover. The «Напрями» trigger uses the
+              same swap and additionally rotates its chevron when the
+              dropdown is open. */}
+          <ul className="flex items-center gap-[35px]">
             <li ref={segmentsRef} className="relative">
               <button
                 type="button"
                 onClick={() => setSegmentsOpen((v) => !v)}
                 aria-expanded={segmentsOpen}
                 aria-haspopup="true"
-                className={`flex cursor-pointer items-center gap-1 rounded-full px-4 py-2 text-button-md transition-colors duration-200 hover:bg-bg-subtle hover:text-neutral-900 ${
-                  segmentsOpen
-                    ? "bg-bg-subtle text-neutral-900"
-                    : "text-neutral-700"
+                className={`flex cursor-pointer items-center gap-[2px] text-button-md transition-colors duration-200 hover:text-brand ${
+                  segmentsOpen ? "text-brand" : "text-neutral-700"
                 }`}
               >
                 Напрями
@@ -285,7 +234,7 @@ export function Header() {
                       style={{
                         transitionDelay: segmentsOpen ? `${i * 30}ms` : "0ms",
                       }}
-                      className={`block cursor-pointer rounded-xl px-4 py-2 text-button-md text-neutral-700 transition-[background-color,color,opacity,transform] duration-200 hover:bg-bg-subtle hover:text-neutral-900 ${
+                      className={`block cursor-pointer rounded-xl px-4 py-2 text-button-md text-neutral-700 transition-[color,opacity,transform] duration-200 hover:text-brand ${
                         segmentsOpen
                           ? "translate-x-0 opacity-100"
                           : "-translate-x-1 opacity-0"
@@ -301,7 +250,7 @@ export function Header() {
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="block cursor-pointer rounded-full px-4 py-2 text-button-md text-neutral-700 transition-colors duration-200 hover:bg-bg-subtle hover:text-neutral-900"
+                  className="block cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
                 >
                   {link.label}
                 </Link>
@@ -372,7 +321,7 @@ export function Header() {
               style={{
                 transitionDelay: mobileOpen ? `${80 + i * 50}ms` : "0ms",
               }}
-              className={`group/link flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-button-lg text-neutral-900 transition-[background-color,color,opacity,transform] duration-300 hover:bg-bg-subtle hover:text-brand active:scale-[0.98] ${
+              className={`group/link flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-button-lg text-neutral-900 transition-[color,opacity,transform] duration-300 hover:text-brand active:scale-[0.98] ${
                 mobileOpen
                   ? "translate-y-0 opacity-100"
                   : "translate-y-3 opacity-0"
@@ -381,7 +330,7 @@ export function Header() {
               <span>{s.label}</span>
               <span
                 aria-hidden
-                className="text-neutral-400 transition-transform duration-300 group-hover/link:translate-x-1 group-hover/link:text-brand"
+                className="text-neutral-400 transition-colors duration-300 group-hover/link:text-brand"
               >
                 →
               </span>
@@ -403,7 +352,7 @@ export function Header() {
                   ? `${230 + i * 50}ms`
                   : "0ms",
               }}
-              className={`group/link flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-button-lg text-neutral-900 transition-[background-color,color,opacity,transform] duration-300 hover:bg-bg-subtle hover:text-brand active:scale-[0.98] ${
+              className={`group/link flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-button-lg text-neutral-900 transition-[color,opacity,transform] duration-300 hover:text-brand active:scale-[0.98] ${
                 mobileOpen
                   ? "translate-y-0 opacity-100"
                   : "translate-y-3 opacity-0"
@@ -412,7 +361,7 @@ export function Header() {
               <span>{link.label}</span>
               <span
                 aria-hidden
-                className="text-neutral-400 transition-transform duration-300 group-hover/link:translate-x-1 group-hover/link:text-brand"
+                className="text-neutral-400 transition-colors duration-300 group-hover/link:text-brand"
               >
                 →
               </span>

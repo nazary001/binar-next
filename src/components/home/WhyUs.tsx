@@ -94,42 +94,36 @@ function FeatureBlock({
   return (
     <article
       className="
-        group relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-5
+        relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-5
         rounded-[24px] bg-bg-subtle p-6
-        transition-[transform,background-color,box-shadow,color] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)]
-        hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_24px_50px_-22px_rgba(29,29,31,0.22)]
         sm:gap-6 sm:rounded-[28px] sm:p-7
-        lg:flex-col lg:items-end lg:justify-between lg:gap-10
-        lg:min-h-[344px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-4
-        lg:shadow-none lg:hover:translate-y-0 lg:hover:bg-transparent lg:hover:shadow-none
+        lg:flex-col lg:items-end lg:justify-between lg:gap-0
+        lg:min-h-[344px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6
       "
     >
-      {/* Mono-style index badge — only on the card layout. Pairs with
-          the AboutUs "01./02./..." pattern for a consistent rhythm. */}
+      {/* Mono-style index badge — only on the card layout (mobile/tablet).
+          Pairs with the AboutUs "01./02./..." pattern for a consistent
+          rhythm. */}
       <span
         aria-hidden
-        className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 transition-colors duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-brand sm:right-6 sm:top-6 sm:text-[13px] lg:hidden"
+        className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 sm:right-6 sm:top-6 sm:text-[13px] lg:hidden"
       >
         {String(index + 1).padStart(2, "0")}
         <span className="text-neutral-200"> / {String(total).padStart(2, "0")}</span>
       </span>
 
       <div className="flex w-full min-w-0 max-w-full flex-col gap-3 sm:gap-4">
-        <h3 className="max-w-full text-title-lg text-neutral-900 transition-colors duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-brand">
-          {title}
-        </h3>
-        <p className="max-w-full text-body-sm text-neutral-500 transition-colors duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-neutral-700">{body}</p>
+        <h3 className="max-w-full text-title-lg text-neutral-900">{title}</h3>
+        <p className="max-w-full text-body-sm text-neutral-500">{body}</p>
       </div>
-      <span className="transition-transform duration-[700ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-1 group-hover:scale-[1.08]">
-        {icon}
-      </span>
+      <span>{icon}</span>
     </article>
   );
 }
 
 export function WhyUs() {
   return (
-    <section className="lg-pad-x px-5 py-12 sm:px-10 sm:py-20 lg:py-[120px]">
+    <section className="lg-pad-x px-5 py-12 sm:px-10 sm:py-20 lg:py-[160px]">
       <div className="flex flex-col gap-10 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-center">
           <h2 className="max-w-[574px] text-h2-light text-neutral-900">
@@ -142,15 +136,19 @@ export function WhyUs() {
           </Button>
         </div>
 
-        {/* gap-y-4 on the card layout matches the visible 16 px gutter
-            between the 6 cards. On lg the grid is wrapped in a relative
-            container so we can paint the dividers separately from the
-            cards: ONE long horizontal line between the two rows, and
-            short vertical lines between columns INSIDE each row that
-            don't reach the row's top/bottom (their height is reduced
-            with inset-y padding). Matches the Figma reference. */}
-        <div className="relative lg:py-2">
-          <ul className="relative z-10 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-20">
+        {/* lg layout matches Figma Frame 1010106616 exactly: 3 cards x
+            340 px wide with 80 px between cards (divider sits in the
+            middle of each 80 px gap, like Figma's `w-0` divider siblings
+            inside flex gap-[40]+gap-[40]). To get that 340/80 layout
+            from a CSS grid we use `lg:gap-x-20` (80 px), which makes
+            each column = (100% - 2*80px) / 3 = 340 px on the 1180 px
+            master. The divider container is positioned absolute over
+            the same wrapper so the dividers paint on the grid's
+            vertical/horizontal axes without disturbing the card flow.
+            gap-y-20 (80) matches Figma's 80 px row gap; the horizontal
+            line then lands exactly on the wrapper's vertical mid-line. */}
+        <div className="relative">
+          <ul className="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-20 lg:gap-y-20">
             {FEATURES.map((f, i) => (
               <Reveal
                 as="li"
@@ -163,17 +161,45 @@ export function WhyUs() {
             ))}
           </ul>
 
-          {/* Decorative dividers — lg+ only. The horizontal line sits at
-              the grid's vertical mid-line (between row 1 and row 2). The
-              four vertical lines split each row into 3 columns at the
-              1/3 and 2/3 marks; inset-y trims them so they don't touch
-              the section edges (the "обрезанные" look from the Figma). */}
+          {/* Decorative dividers - lg+ only, matching Figma 1384:12676.
+              Position math (for the 340 / 80 / 340 / 80 / 340 row): each
+              vertical line sits at the center of its 80 px gap, i.e.
+              card-width + half-gap = (100% - 160px) / 3 + 40px, which
+              simplifies to `calc(33.333% - 13.333px)` (and the mirrored
+              `calc(66.667% + 13.333px)` for the second gap). The
+              horizontal line lands on the wrapper's 50% mid-line because
+              the two 344 px rows are perfectly symmetrical around it.
+
+              COLORS — Figma uses TWO different stroke tokens for these
+              hairlines, which is easy to miss:
+                * Vector67 (verticals) = #D2D2D2 = stroke-subtle
+                * Vector68 (horizontal) = #8E8E8F = stroke-default
+              The horizontal is intentionally darker so it reads as the
+              "primary" separator between the two rows, while the
+              verticals are a softer hint of column structure.
+
+              WIDTH — 1 px stroke (h-px / w-px) matches Figma's SVG
+              stroke-width: 1. At sub-pixel positions both line types
+              anti-alias to ~50 % opacity over 2 device pixels, which
+              gives the exact perceived colors Figma's renderer
+              produces: ~#c7c7c7 for the horizontal and ~#e8e8e8 for
+              the verticals. A wider 2 px solid line would be crisper
+              but no longer match Figma's anti-aliased look. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-            <span className="absolute left-0 right-0 top-1/2 block h-px -translate-y-1/2 bg-stroke-subtle" />
-            <span className="absolute left-1/3 top-[8%] bottom-[58%] block w-px -translate-x-1/2 bg-stroke-subtle" />
-            <span className="absolute left-2/3 top-[8%] bottom-[58%] block w-px -translate-x-1/2 bg-stroke-subtle" />
-            <span className="absolute left-1/3 top-[58%] bottom-[8%] block w-px -translate-x-1/2 bg-stroke-subtle" />
-            <span className="absolute left-2/3 top-[58%] bottom-[8%] block w-px -translate-x-1/2 bg-stroke-subtle" />
+            {/* Horizontal: full-width line at the wrapper's vertical
+                mid-line (= centre of the 80 px row gap). */}
+            <span className="absolute left-0 right-0 top-1/2 block h-px -translate-y-1/2 bg-stroke-default" />
+            {/* Verticals: span exactly one row height each, NOT the full
+                half-wrapper. With gap-y-20 (80 px) between rows the
+                horizontal line sits 40 px from each row's edge, so each
+                vertical ends `bottom: calc(50% + 40px)` (top row) or
+                starts `top: calc(50% + 40px)` (bottom row). That leaves
+                a visible 40 px gap above and below the horizontal -
+                exactly the cross-free intersection Figma uses. */}
+            <span className="absolute left-[calc(33.333%_-_13.333px)] top-0 bottom-[calc(50%+40px)] block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-[calc(66.667%_+_13.333px)] top-0 bottom-[calc(50%+40px)] block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-[calc(33.333%_-_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-[calc(66.667%_+_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
           </div>
         </div>
       </div>

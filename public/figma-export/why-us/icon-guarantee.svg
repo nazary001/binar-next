@@ -1,51 +1,44 @@
-<svg preserveAspectRatio="xMidYMid meet" width="100%" height="100%" overflow="visible" style="display:block" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g id="guarantee-face">
-    <!-- Speech bubble: rounded square with a downward triangular pointer
-         at the bottom-center, and an open notch on the upper-right edge
-         (the path doesn't close — it stops short on the right side). -->
-    <path
-      d="M103.643 38.39 V25.5
-         C103.643 18.87 98.27 13.5 91.64 13.5
-         H29.36
-         C22.73 13.5 17.36 18.87 17.36 25.5
-         V62.88
-         C17.36 69.50 22.73 74.88 29.36 74.88
-         H43.27
-         C44.74 74.88 46.12 75.60 46.96 76.81
-         L57.29 91.72
-         C58.48 93.44 61.03 93.44 62.22 91.72
-         L72.54 76.81
-         C73.39 75.60 74.77 74.88 76.24 74.88
-         H91.64
-         C98.27 74.88 103.643 69.50 103.643 62.88
-         V47.77"
-      stroke="#1D1D1F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
-    />
-    <!-- Face circle (centered around 60, 44, r=21) -->
-    <circle cx="60" cy="44" r="21" stroke="#1D1D1F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Closed happy eyes: two upward arcs (∩ ∩) -->
-    <path d="M50.5 40 Q 54 36 57.5 40" stroke="#1D1D1F" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-    <path d="M62.5 40 Q 66 36 69.5 40" stroke="#1D1D1F" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-    <!-- Smile: wide ⌣ curve below center -->
-    <path d="M50 48 C 53 56 67 56 70 48" stroke="#1D1D1F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <!-- Small 4-point sparkle, TOP-LEFT (compact — ~half the size of
-         the bottom-right one, matches the Figma reference) -->
-    <path
-      d="M14 12
-         Q 15 17.5 20 18.5
-         Q 15 19.5 14 25
-         Q 13 19.5 8 18.5
-         Q 13 17.5 14 12 Z"
-      fill="#F85A0B"
-    />
-    <!-- Large 4-point sparkle, BOTTOM-RIGHT -->
-    <path
-      d="M104 88
-         Q 106.5 100.5 118 103
-         Q 106.5 105.5 104 118
-         Q 101.5 105.5 90 103
-         Q 101.5 100.5 104 88 Z"
-      fill="#F85A0B"
-    />
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Composite reproduction of Figma 230:1662 "Property 1=Гарантія задоволеності"
+       from the WhyUs Block icons set. Six sub-assets positioned exactly as the
+       Figma file places them inside a 120x120 box:
+         1. Rectangle 38 — speech bubble outline.
+         2. Ellipse 44 — face circle.
+         3. Ellipse 47 — smile (rotated 180 inside its own bounding box).
+         4. Group 28 — two closed eyes.
+         5. Vector — large orange 4-point sparkle (bottom-right).
+         6. Vector 1 — small orange 4-point sparkle (top-left). -->
+
+  <!-- Rectangle 38 — speech bubble. -->
+  <svg x="16.86" y="19.25" width="86.285" height="81.776" viewBox="0 0 87.2852 80.5078" preserveAspectRatio="none">
+    <path d="M86.7852 38.3866V12.5C86.7852 5.87258 81.4126 0.5 74.7852 0.5H12.5C5.87258 0.5 0.5 5.87258 0.5 12.5V49.8762C0.5 56.5036 5.87258 61.8762 12.5 61.8762H26.4078C27.884 61.8762 29.2663 62.6002 30.1069 63.8136L40.431 78.7162C41.6241 80.4383 44.17 80.4383 45.3631 78.7162L55.6872 63.8136C56.5279 62.6002 57.9101 61.8762 59.3863 61.8762H74.7852C81.4126 61.8762 86.7852 56.5036 86.7852 49.8762V47.7704" stroke="#1D1D1F" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+
+  <!-- Ellipse 44 — face circle. -->
+  <svg x="38.13" y="28.43" width="43.729" height="43.729" viewBox="0 0 44.7285 44.7285" preserveAspectRatio="none">
+    <circle cx="22.3643" cy="22.3643" r="21.8643" stroke="#1D1D1F" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+
+  <!-- Ellipse 47 — smile (rotated 180 in Figma). -->
+  <g transform="translate(60.2895 59.8275) rotate(180)">
+    <svg x="-9.8195" y="-2.5475" width="19.639" height="5.095" viewBox="0 0 20.6392 6.09473" preserveAspectRatio="none">
+      <path d="M20.1392 5.59473C20.1392 2.78099 15.7428 0.5 10.3196 0.5C4.89638 0.5 0.5 2.78099 0.5 5.59473" stroke="#1D1D1F" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
   </g>
+
+  <!-- Group 28 — two eyes. -->
+  <svg x="50.3" y="41.21" width="19.979" height="3.224" viewBox="0 0 20.9795 4.22412" preserveAspectRatio="none">
+    <path d="M6.94824 3.72412C6.94824 1.94349 5.50475 0.5 3.72412 0.5C1.94349 0.5 0.5 1.94349 0.5 3.72412" stroke="#1D1D1F" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M20.4795 3.72412C20.4795 1.94349 19.036 0.5 17.2554 0.5C15.4747 0.5 14.0312 1.94349 14.0312 3.72412" stroke="#1D1D1F" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+
+  <!-- Vector — large orange sparkle bottom-right. -->
+  <svg x="85.788" y="87.957" width="23.316" height="28.263" viewBox="0 0 23.3154 28.2627" preserveAspectRatio="none">
+    <path d="M11.6577 0L12.3741 3.03134C13.5432 7.97853 16.7338 11.8456 20.8148 13.2628L23.3154 14.1313L20.8148 14.9998C16.7338 16.417 13.5438 20.2841 12.3747 25.2313L11.6583 28.2627L10.9418 25.2313C9.77277 20.2841 6.58273 16.417 2.5017 14.9998L0 14.132L2.5006 13.2635C6.58163 11.8463 9.77167 7.97853 10.9413 3.032L11.6577 0Z" fill="#F85A0B"/>
+  </svg>
+
+  <!-- Vector 1 — small orange sparkle top-left. -->
+  <svg x="4.26" y="9.586" width="11.244" height="13.634" viewBox="0 0 11.2477 13.6343" preserveAspectRatio="none">
+    <path d="M5.62386 0L5.96947 1.46236C6.53346 3.84897 8.07264 5.71452 10.0414 6.3982L11.2477 6.81717L10.0414 7.23613C8.07264 7.91981 6.53372 9.78536 5.96974 12.172L5.62413 13.6343L5.27851 12.172C4.71453 9.78536 3.17561 7.91981 1.20686 7.23613L0 6.81749L1.20633 6.39852C3.17508 5.71484 4.714 3.84897 5.27825 1.46268L5.62386 0Z" fill="#F85A0B"/>
+  </svg>
 </svg>

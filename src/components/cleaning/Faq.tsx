@@ -11,7 +11,7 @@ const CLEANING_FAQS: FaqEntry[] = [
   },
   {
     q: "Чи є регулярні поставки за графіком?",
-    a: "Так. Узгоджуємо перелік позицій, обсяги, періодичність і забезпечуємо постачання без перебоїв.",
+    a: "Так. Узгоджуємо перелік позицій, обсяги, періодичність і забезпечуємо постачання без перебоїв",
   },
   {
     q: "Чи є складські запаси?",
@@ -20,5 +20,5 @@ const CLEANING_FAQS: FaqEntry[] = [
 ];
 
 export function CleaningFaq() {
-  return <Faq faqs={CLEANING_FAQS} showFilters={false} />;
+  return <Faq faqs={CLEANING_FAQS} />;
 }

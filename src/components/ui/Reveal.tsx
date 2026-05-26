@@ -23,21 +23,6 @@ type RevealProps = HTMLAttributes<HTMLElement> & {
   once?: boolean;
 };
 
-const directionTransform = (direction: Direction, distance: number) => {
-  switch (direction) {
-    case "up":
-      return `translate3d(0, ${distance}px, 0)`;
-    case "down":
-      return `translate3d(0, -${distance}px, 0)`;
-    case "left":
-      return `translate3d(${distance}px, 0, 0)`;
-    case "right":
-      return `translate3d(-${distance}px, 0, 0)`;
-    case "none":
-      return "translate3d(0, 0, 0)";
-  }
-};
-
 export function Reveal({
   children,
   direction = "up",
@@ -59,101 +44,36 @@ export function Reveal({
   style,
   ...rest
 }: RevealProps) {
+  // Per Figma strict parity: there is no reveal-on-scroll animation in
+  // the design - elements just sit at their final position. We keep
+  // the component shape so call-sites stay working, but render with the
+  // final visible state immediately. The IntersectionObserver/animation
+  // logic below is short-circuited via the always-visible state.
   const ref = useRef<HTMLElement | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
   // Tracks whether the reveal animation is still playing. We toggle
   // `will-change` based on this so each Reveal lifts onto its own GPU
   // layer only for the ~1 s it actually animates — not forever. With
   // dozens of Reveals on a page, the permanent compositor lift was a
   // real memory cost on mobile, and the page now has the same animation
   // quality without the always-on overhead.
-  const [animating, setAnimating] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // Respect users who prefer reduced motion — show the content
-    // immediately without the slide/fade transition. Deferring with
-    // queueMicrotask avoids the synchronous-effect lint warning.
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    ) {
-      queueMicrotask(() => setVisible(true));
-      return;
-    }
-    if (typeof IntersectionObserver === "undefined") {
-      // Graceful fallback for ancient browsers — show content immediately.
-      queueMicrotask(() => setVisible(true));
-      return;
-    }
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          setAnimating(true);
-          if (once) obs.disconnect();
-        } else if (!once) {
-          setVisible(false);
-          setAnimating(true);
-        }
-      },
-      { threshold, rootMargin },
-    );
-    obs.observe(el);
-
-    // Safety net: in some mobile browsers, IntersectionObserver callbacks
-    // are throttled or delayed enough that elements stay at opacity 0 for
-    // visibly longer than the user expects when scrolling fast (especially
-    // iOS Safari with rapid swipes). After 1.5 s of being observed, fall
-    // back to forcing visible — if the element is genuinely below the
-    // fold the user hasn't reached it yet, so a 1.5-second-late show is
-    // imperceptible; if it's above the fold and IO simply hasn't fired
-    // yet, this prevents content from sitting blank.
-    const fallback = window.setTimeout(() => {
-      setVisible(true);
-      setAnimating(true);
-      if (once) obs.disconnect();
-    }, 1500);
-
-    return () => {
-      obs.disconnect();
-      window.clearTimeout(fallback);
-    };
-  }, [threshold, rootMargin, once]);
-
-  // Drop `will-change` after the transition has finished. Reading the
-  // computed style every frame is the browser's only cost for an idle
-  // `will-change: transform`, so leaving it on permanently for hundreds
-  // of revealed elements is what we want to avoid; once the transition
-  // has played we set it back to `auto`.
-  useEffect(() => {
-    if (!animating) return;
-    const total = delay + duration + 80;
-    const t = window.setTimeout(() => setAnimating(false), total);
-    return () => window.clearTimeout(t);
-  }, [animating, visible, delay, duration]);
-
-  // After the reveal animation finishes we drop transform back to "none"
-  // (rather than leaving translate3d(0,0,0)). A lingering 3D transform
-  // keeps the element on its own GPU compositor layer with an independent
-  // sub-pixel grid, so the right edges of long horizontal lines drawn
-  // inside multiple staggered Reveals can land on slightly different
-  // physical pixels and read as a misaligned "jump." Returning to
-  // transform: none merges the layer back into the parent's pixel grid.
-  const settled = visible && !animating;
+  // Static render — Figma master has no reveal-on-scroll. We
+  // intentionally do not observe intersections or run timeouts; the
+  // component renders its children at their final position immediately.
+  void ref;
+  void visible;
+  void setVisible;
+  void delay;
+  void duration;
+  void distance;
+  void direction;
+  void threshold;
+  void rootMargin;
+  void once;
   const animationStyle: CSSProperties = {
     ...style,
-    opacity: visible ? 1 : 0,
-    transform: settled
-      ? "none"
-      : visible
-        ? "translate3d(0, 0, 0)"
-        : directionTransform(direction, distance),
-    transition: animating
-      ? `opacity ${duration}ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms`
-      : `opacity ${duration}ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms`,
-    willChange: animating ? "opacity, transform" : "auto",
+    opacity: 1,
+    transform: "none",
   };
 
   const Component = Tag as React.ElementType;

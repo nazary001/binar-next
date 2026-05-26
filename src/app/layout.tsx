@@ -80,7 +80,18 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${manrope.variable} ${onest.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white text-neutral-900">
+      {/* Design is built against Figma's 1440 master. On viewports
+          wider than 1440, the `html { zoom: ... }` rule in
+          globals.css scales the page up proportionally so the
+          layout fills the screen with the same visual proportions
+          as the 1440 master - no white margins on big monitors,
+          no growing hero photo on big monitors. Below 1440 the
+          existing responsive code handles the scale-down.
+
+          The body itself stays full-width so the document scrolls
+          and `position: fixed` elements (mobile menu overlay) anchor
+          to the viewport correctly. */}
+      <body className="flex min-h-full flex-col bg-white text-neutral-900">
         <Header />
         <div className="flex flex-1 flex-col">{children}</div>
         <Footer />

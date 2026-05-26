@@ -2,29 +2,32 @@
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
-const DOT_OUTER = "/figma-export/hero/dot-outer.svg";
-const DOT_INNER = "/figma-export/hero/dot-inner.svg";
-
+// Icon sizes are % of the 52px container so the visible glyph matches
+// Figma's Frame 63..66 1:1: container has a 9px inner inset (icon zone
+// 34x34), then each glyph has its own inset inside that 34px square.
+// Hotel SVG is natively wide (viewBox 29.38 x 13.79), so we size the
+// img to keep that aspect and apply rotate-90 to render it as a
+// vertical key, matching the design.
 const INDUSTRIES = [
   {
     label: "Готелів",
     icon: "/figma-export/hero/icon-hotel.svg",
-    iconClass: "size-[60%] rotate-90",
+    iconClass: "w-[60%] h-[28%] rotate-90",
   },
   {
     label: "Салонів краси",
     icon: "/figma-export/hero/icon-beauty.svg",
-    iconClass: "size-[68%]",
+    iconClass: "size-[50%]",
   },
   {
     label: "Медичних закладів",
     icon: "/figma-export/hero/icon-medical.svg",
-    iconClass: "h-[68%] w-[80%]",
+    iconClass: "w-[60%] h-[50%]",
   },
   {
     label: "Виробничих підприємств",
     icon: "/figma-export/hero/icon-factory.svg",
-    iconClass: "h-[72%] w-[78%]",
+    iconClass: "w-[56%] h-[53%]",
   },
 ];
 
@@ -32,7 +35,6 @@ type DotConfig = {
   // Position in the photo column (% of 603×746).
   left: string;
   top: string;
-  pulseDelay: number;
   popup: {
     label: string;
     image: string;
@@ -47,17 +49,26 @@ type DotConfig = {
   popupAnchor: "center" | "left" | "right";
 };
 
-// Dot positions are calibrated against the design-aspect photo canvas
-// (locked 603/746 via `.hero-photo-canvas`). Values measured from the
-// designer's reference image.png in the project root — each dot's
-// pixel center (~ ring blob) divided by image dimensions (1192×1510)
-// gives the canvas %. See globals.css `.hero-photo-canvas`.
+// Dot positions are the VISIBLE-CENTER coordinates of each Figma Dot
+// instance on the 603×746 photo column (Figma node 1384:12660).
+//
+// In Figma the Dot frames sit at:
+//   accessories  → top-left (125, 339), size 32 → centre (141, 355)
+//   textile      → top-left (520, 421), size 32 → centre (536, 437)
+//   cosmetics    → top-left  (48, 445), size 32 → centre  (64, 461)
+//
+// CSS positions the button via `left/top` + `transform: translate(-50%,
+// -50%)` so the button's CENTRE lands on (left, top). Storing the
+// percentages relative to the Figma CENTRE (not the Figma top-left, as
+// the previous values did - that offset every dot by -16 / -16 px
+// from its product) keeps the visible dot circles glued to the photo
+// features at every stage size, since the .hero-photo-canvas locks
+// the aspect to 603/746.
 const DOTS: DotConfig[] = [
   {
-    // Cup with toothbrush — top-left.
-    left: "23.6%",
-    top: "48.3%",
-    pulseDelay: 0,
+    // Cup with toothbrush - top-center. Centre (141, 355) on 603×746.
+    left: "23.38%",
+    top: "47.59%",
     popup: {
       label: "аксесуари",
       image: "/figma-export/hero/popup-accessories.png",
@@ -68,10 +79,9 @@ const DOTS: DotConfig[] = [
     popupAnchor: "center",
   },
   {
-    // White towels stack — right.
-    left: "86.9%",
-    top: "58.7%",
-    pulseDelay: 600,
+    // HAND SOAP bottle - right. Centre (536, 437) on 603×746.
+    left: "88.89%",
+    top: "58.58%",
     popup: {
       label: "текстиль",
       image: "/figma-export/hero/popup-textile.png",
@@ -82,10 +92,9 @@ const DOTS: DotConfig[] = [
     popupAnchor: "right",
   },
   {
-    // SHOWER GEL tube — bottom-left.
-    left: "11.3%",
-    top: "61.7%",
-    pulseDelay: 1200,
+    // SHOWER GEL tube - bottom-left. Centre (64, 461) on 603×746.
+    left: "10.61%",
+    top: "61.80%",
     popup: {
       label: "косметика",
       image: "/figma-export/hero/popup-cosmetics.png",
@@ -97,47 +106,68 @@ const DOTS: DotConfig[] = [
   },
 ];
 
-function DotMarker({
-  left,
-  top,
-  pulseDelay,
-  popup,
-  popupAnchor,
-}: DotConfig) {
+function DotMarker({ left, top, popup, popupAnchor }: DotConfig) {
+  // "Glass breath" hotspot: the outer ring and the inner solid
+  // animate in OPPOSITE directions on a synchronised 3.5 s cycle.
+  //
+  //   1. Outer ring (the <circle class="dot-pulse-outer">) -
+  //      shrinks scale 1 -> 0.78 -> 1. The translucent dark frame
+  //      contracts so the bright centre can expand through it.
+  //   2. Inner solid (the <circle class="dot-pulse-inner">) -
+  //      expands scale 1 -> 1.65 -> 1 AND fades opacity 1 -> 0.32
+  //      -> 1. At the peak the inner has pushed past the shrunken
+  //      outer ring AND become "glassy" - the photo bleeds through
+  //      the semi-transparent white, like frosted glass.
+  //
+  // Both circles live inside a SINGLE inline SVG with viewBox
+  // 0 0 32 32 and cx=cy=16 - one shared coordinate system means the
+  // SVG rasteriser draws them at the exact same centre, regardless
+  // of where the host button lands on the device-pixel grid. The
+  // previous IMG-based approach (one image for each circle) was
+  // hitting sub-pixel rounding at DPR 1: at fractional button
+  // x-positions (23.38 %, 10.61 % gave centres like 960.906 px)
+  // the two IMG widths (26.656 vs 14.263) rounded to different
+  // device pixels, drifting the inner ~0.5 px relative to the
+  // outer. With ONE svg + ONE rasteriser, the circles share the
+  // SAME rounding for every dot, on every viewport, at every DPR.
+  //
+  // All three dots share a SYNCHRONISED 3.5 s breath - no
+  // pulseDelay, no stagger. The host element is a <div> instead of
+  // a <button> so clicks do nothing; the popup card is purely a
+  // hover affordance (the CSS only opens it on :hover, never on
+  // :focus, so a tap or click never sticks the popup open).
+  // Animations live in globals.css and are killed under
+  // prefers-reduced-motion.
   return (
-    <button
-      type="button"
-      aria-label={`Показати: ${popup.label}`}
+    <div
+      role="img"
+      aria-label={popup.label}
       className="hero-dot group absolute size-8"
       style={{ left, top, transform: "translate(-50%, -50%)" }}
     >
-      <img
-        src={DOT_OUTER}
-        alt=""
+      <svg
         aria-hidden
-        className="dot-pulse-ring absolute"
-        style={{
-          inset: "-2.81%",
-          left: "2.67px",
-          top: "2.67px",
-          width: "26.656px",
-          height: "26.656px",
-          animationDelay: `${pulseDelay}ms`,
-        }}
-      />
-      <img
-        src={DOT_INNER}
-        alt=""
-        aria-hidden
-        className="dot-pulse-inner absolute"
-        style={{
-          left: "8.87px",
-          top: "8.87px",
-          width: "14.263px",
-          height: "14.263px",
-          animationDelay: `${pulseDelay}ms`,
-        }}
-      />
+        viewBox="0 0 32 32"
+        className="absolute inset-0 size-full overflow-visible"
+        fill="none"
+      >
+        <circle
+          className="dot-pulse-outer"
+          cx="16"
+          cy="16"
+          r="12.62"
+          fill="rgba(0,0,0,0.5)"
+          stroke="#ffffff"
+          strokeWidth="1.42"
+        />
+        <circle
+          className="dot-pulse-inner"
+          cx="16"
+          cy="16"
+          r="7.13"
+          fill="#ffffff"
+        />
+      </svg>
 
       <span
         aria-hidden
@@ -161,7 +191,7 @@ function DotMarker({
         </span>
         <span className="hero-dot-popup-label">{popup.label}</span>
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -186,8 +216,9 @@ export function Hero() {
                 delay={120}
                 className="text-body-md text-neutral-800 max-w-[575px]"
               >
-                Комплексне постачання одноразової продукції та ЗІЗ для готелів і
-                бізнесу
+                Комплексне постачання одноразової
+                <br className="hidden lg:inline" />
+                {" "}продукції та ЗІЗ для готелів і бізнесу
               </Reveal>
             </div>
             <Reveal delay={240}>
@@ -218,12 +249,12 @@ export function Hero() {
                   delay={idx * 90}
                   className="flex items-center gap-3 py-1 sm:gap-2"
                 >
-                  <span className="group flex size-[48px] shrink-0 items-center justify-center overflow-clip rounded-xl border border-stroke-default transition-colors duration-300 hover:border-neutral-900 hover:bg-bg-subtle sm:size-[52px]">
+                  <span className="flex size-[48px] shrink-0 items-center justify-center overflow-clip rounded-xl border border-stroke-default sm:size-[52px]">
                     <img
                       src={i.icon}
                       alt=""
                       aria-hidden
-                      className={`${i.iconClass} transition-transform duration-300 group-hover:scale-110`}
+                      className={i.iconClass}
                     />
                   </span>
                   <span className="text-body-sm text-neutral-900">{i.label}</span>
@@ -240,7 +271,15 @@ export function Hero() {
             it consumes the right-side gutter so the photo runs all the
             way to the screen's right edge. The width is set in CSS via
             the `.hero-photo` class (uses min/max for clamping). */}
-        <div className="hero-photo relative h-[480px] sm:h-[560px] md:h-[640px] lg:h-auto lg:min-h-[746px] lg:shrink-0">
+        {/* Below lg the photo runs full width of the section, so we
+            anchor its height to the design's 603/746 aspect ratio
+            (≈ 1.237 → height = 1.237× width) instead of fixed pixel
+            heights. That keeps the tree composition cropped the same
+            way on every phone width (360 / 390 / 412) and prevents the
+            previous "looks fine on 390 but the bottle vanishes on 412"
+            inconsistency. min/max clamps cap the photo so it never
+            becomes too short on tiny phones nor too tall on tablets. */}
+        <div className="hero-photo relative aspect-[603/746] max-h-[640px] min-h-[420px] w-full lg:aspect-auto lg:h-auto lg:max-h-none lg:min-h-[746px] lg:w-auto lg:shrink-0">
           {/* `ken-burns-stage` runs ONE 20s animation that writes the
               shared --kb-scale / --kb-tx / --kb-ty custom properties.
               A SINGLE `.ken-burns-follow` wrapper inside the canvas
@@ -270,25 +309,41 @@ export function Hero() {
               relative to the tree. See `.hero-photo-canvas` in
               globals.css for the full breakdown. The stage itself is
               the size container queried by the canvas. */}
+          {/* Photo + dots — Figma master places both photos at NATURAL
+              size with a slight negative offset from the container's
+              origin (the photos overflow on top + left). Reproduce that
+              exactly with absolute % positioning relative to the
+              container so the framing matches Figma at 1440 and scales
+              correctly on larger viewports without ever stretching the
+              image. Container = 603x746 at lg/1440; photos:
+                wood-tree:   pos (-76.4, -65),  size 729x934
+                driftwood:   pos (-6.78, -35),  size 667.4x817.0 */}
           <div
             className="ken-burns-stage absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
             style={{ background: "#c34924" }}
           >
+            {/* Locked-aspect canvas (603/746) + single ken-burns-follow
+                wrapper. The photos AND the dots overlay all sit inside
+                this one transformed surface so they stay pixel-perfect
+                synced through the 20s ken-burns loop and the layout
+                stays anchored on the photo features regardless of stage
+                aspect (see `.hero-photo-canvas` in globals.css). */}
             <div className="hero-photo-canvas">
               <div className="ken-burns-follow absolute inset-0">
                 <img
                   src="/figma-export/hero/bg-wood-tree.png"
                   alt=""
                   aria-hidden
-                  /* Hero LCP image — eager-load with a high fetch priority
-                     hint so the browser starts decoding it before any
-                     below-the-fold work. `decoding="async"` keeps the
-                     decode off the main thread once the bytes arrive. */
                   fetchPriority="high"
                   loading="eager"
                   decoding="async"
-                  className="absolute inset-0 size-full max-w-none object-cover"
-                  style={{ objectPosition: "50% 50%" }}
+                  className="pointer-events-none absolute max-w-none"
+                  style={{
+                    left: "-12.67%",
+                    top: "-8.71%",
+                    width: "120.9%",
+                    height: "125.2%",
+                  }}
                 />
                 <img
                   src="/figma-export/hero/bg-driftwood-sea.png"
@@ -296,8 +351,13 @@ export function Hero() {
                   aria-hidden
                   loading="eager"
                   decoding="async"
-                  className="driftwood-parallax pointer-events-none absolute inset-0 size-full max-w-none object-cover"
-                  style={{ objectPosition: "50% 50%" }}
+                  className="driftwood-parallax pointer-events-none absolute max-w-none"
+                  style={{
+                    left: "-1.12%",
+                    top: "-4.7%",
+                    width: "110.69%",
+                    height: "109.52%",
+                  }}
                 />
                 <div className="absolute inset-0">
                   {DOTS.map((d, i) => (

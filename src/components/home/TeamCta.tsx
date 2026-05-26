@@ -24,68 +24,76 @@ const PROCESS = [
 // the dark CTA. Two visual layers:
 //
 //   1. A "+" CROSS PATTERN with rounded inner corners. The cross center
-//      sits at design coords (1115, 168) of the 1440x392 CTA - i.e.
-//      x ≈ 77.4% from left, y ≈ 42.86% from top. Built as four quadrant
-//      L-shapes that share borders at the meeting line; each quadrant's
-//      INNER corner is rounded with 48 px radius so all four curves meet
-//      flush at the center and trace the "+" with soft inner curls.
-//      Borders use white at 30 % opacity to match the subtle Figma stroke.
+//      sits at Figma design coords (1114, 168) of the 1440x392 master
+//      frame - i.e. 326 px from the right edge, 168 px from the top.
+//      Built as four quadrant L-shapes that share borders at the meeting
+//      line; each quadrant's INNER corner is rounded with 48 px radius
+//      so all four curves meet flush at the center and trace the "+"
+//      with soft inner curls. Borders use white at 30 % opacity to match
+//      the subtle Figma stroke.
 //
-//   2. Four FIGMA-EXPORTED SVG ICONS sitting inside the cross quadrants:
-//      * Orange tag with circular hole (Ellipse 50, -90° rotation) -
-//        sits in the upper-right quadrant.
-//      * Dark leaf + orange 4-point sparkle (Vector A) - sits centered
-//        on the cross horizontal axis, just left of center.
-//      * Dark gear (Vector B, +9° rotation) - sits in the bottom-right
-//        quadrant, left side.
+//   2. Four FIGMA-EXPORTED SVG ICONS sitting inside the cross quadrants
+//      (positions from absoluteBoundingBox on the dark frame):
+//      * Orange tag with circular hole (Ellipse 50, +90° rotation) -
+//        upper-right quadrant, anchored at right=425 top=98 (Figma master).
+//      * Dark leaf + orange 4-point sparkle (Vector A) - centered on the
+//        cross horizontal axis, anchored at right=365 top=224.5.
+//      * Dark gear (Vector B, -9° rotation) - bottom-right quadrant left
+//        side, anchored at right=167 top=166.
 //      * Orange heart with internal EKG zigzag (Vector 83, -22° rotation,
-//        x-flipped) - sits in the bottom-right quadrant, far right.
+//        x-flipped) - bottom-right far right, anchored at right=57 top=212.
 //
-// All positioning uses fixed Figma pixel offsets from the CTA's right and
-// top edges so the cluster keeps Figma proportions at the 1440 master and
-// at any wider viewport (the dark CTA grows but the cluster stays in the
-// right portion). On lg+ the dark CTA's right padding (lg-pad-x) absorbs
-// any viewport > 1440 surplus, so the cluster's right edge stays at the
-// designed margin from the right side of the content column.
+// Everything (cross AND icons) is positioned with FIXED PX OFFSETS from
+// the dark frame's RIGHT EDGE - never percentages. That's the key to
+// "no drift on different PC screens": the page already runs at the 1440
+// CSS-pixel master via the `html { zoom: 100vw/1440px }` rule, but if
+// that rule fails to apply (older Firefox, certain webviews), fixed-px
+// right anchors keep the cross intersection and the icons sitting at the
+// same relative position regardless of how wide the dark frame ends up.
+// The cluster is hidden below xl - the cross + icons only fit beside the
+// heading on viewports >= 1280 CSS px.
 const ICON_BASE = "/figma-export/decor";
+
+// Figma master dimensions for the cross intersection. The intersection
+// is at (1114, 168) on the 1440x392 dark frame, so:
+//   - cross right offset = 1440 - 1114 = 326 px (intersection x from right)
+//   - cross top offset = 168 px (intersection y from top)
+//   - upper rects height = 168 (top edge to intersection)
+//   - lower rects height = 392 - 168 = 224 (intersection to bottom edge)
+//   - left arms width = 1114 - 516 = 598 (intersection to where Rect 105
+//     starts in Figma)
+//   - right arms width = 1440 - 1114 = 326 (intersection to right edge)
+// Constants kept here so the geometry is reviewable in one place rather
+// than scattered across four absolute-positioned divs.
+const CROSS_RIGHT = 326;
+const CROSS_TOP = 168;
+const CROSS_BOTTOM_HEIGHT = 224;
+const CROSS_LEFT_ARM_WIDTH = 598;
+const CROSS_RIGHT_ARM_WIDTH = 326;
+const CROSS_RADIUS = 48;
 
 function DecorCluster() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:rounded-t-[68px] xl:block"
+      className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
     >
-      {/* === Cross pattern: 4 quadrant L-shapes meeting at (77.4%, 42.86%) ===
-          Each quadrant draws TWO borders along the inner cross axes and a
-          rounded corner where they meet. Drawing only the two visible
-          borders (and not all four) avoids extra phantom lines at the
-          outer container edges. */}
-      <div className="absolute inset-0">
-        {/* Upper-left small box (Rect 3 in Figma) - bottom + right borders */}
-        <div
-          className="absolute border-b border-r border-white/30 rounded-br-[48px]"
-          style={{ left: "35.93%", right: "22.59%", top: 0, bottom: "57.14%" }}
-        />
-        {/* Upper-right quadrant (Rect 2) - bottom + left borders */}
-        <div
-          className="absolute border-b border-l border-white/30 rounded-bl-[48px]"
-          style={{ left: "77.41%", right: 0, top: 0, bottom: "57.14%" }}
-        />
-        {/* Lower-left quadrant (Rect 4) - top + right borders */}
-        <div
-          className="absolute border-t border-r border-white/30 rounded-tr-[48px]"
-          style={{ left: "35.93%", right: "22.59%", top: "42.86%", bottom: 0 }}
-        />
-        {/* Lower-right quadrant (Rect 1) - top + left borders */}
-        <div
-          className="absolute border-t border-l border-white/30 rounded-tl-[48px]"
-          style={{ left: "77.41%", right: 0, top: "42.86%", bottom: 0 }}
-        />
-      </div>
+      {/* Z-ORDER: Figma master 1384:12828 paints the 4 decorative icons
+          UNDER the cross hairlines, so the orange tag / leaf-sparkle /
+          gear / heart all sit BEHIND the white "+" cross. The hairlines
+          stay crisp and continuous over the dark surface even where
+          they pass across an icon. In DOM that means icons must render
+          FIRST (lower in the stacking order) and the cross borders
+          render LAST (so they paint on top). Previously the order was
+          inverted - icons were after the cross divs and were clipping
+          the cross's bottom-right curve and the horizontal arm where
+          the gear and heart sit. */}
 
-      {/* === Orange tag (Ellipse 50 (Stroke), rotated -90°) ===
-          SVG intrinsic 70x150 vertical; rotated -90° in a 150x70
-          horizontal box. Flex centers the rotated image inside the box. */}
+      {/* === Orange tag (Ellipse 50 (Stroke), rotated +90° clockwise) ===
+          Figma absoluteBoundingBox of node 1384:12834 on the dark frame:
+          x=865.41, y=98.01, w=149.68, h=70.24 (post-rotation bbox).
+          Underlying SVG is 70x150 vertical; rotated 90° clockwise to
+          fit the horizontal bbox. Flex centers the rotated image. */}
       <div
         className="absolute flex items-center justify-center"
         style={{ right: "425px", top: "98px", width: "150px", height: "70px" }}
@@ -99,8 +107,9 @@ function DecorCluster() {
       </div>
 
       {/* === Dark leaf + orange sparkle (Vector A) ===
-          Two-path SVG: dark leaf + orange sparkle baked in. Positioned
-          centered on the cross horizontal axis, just left of center. */}
+          Figma absoluteBoundingBox of node 1384:12835: x=920.03, y=224.50,
+          w=155.46, h=92.03. No rotation. Two-path SVG with dark leaf and
+          orange sparkle baked in. */}
       <img
         src={`${ICON_BASE}/vector-a.svg`}
         alt=""
@@ -108,9 +117,10 @@ function DecorCluster() {
         style={{ right: "365px", top: "224.5px", width: "155.5px", height: "92px" }}
       />
 
-      {/* === Dark gear (Vector B), +9° rotation ===
-          Wrapped in a containing box; the SVG is given the gear's
-          natural aspect (143x135) and rotated about center. */}
+      {/* === Dark gear (Vector B), -9° rotation (CSS +9° clockwise) ===
+          Figma absoluteBoundingBox of node 1384:12836: x=1109.62, y=166.25,
+          w=162.60, h=156.01 (post-rotation bbox). Underlying gear is
+          ~143x135; rotated -9° around its center in the bbox. */}
       <div
         className="absolute flex items-center justify-center"
         style={{ right: "167px", top: "166px", width: "163px", height: "156px" }}
@@ -123,10 +133,13 @@ function DecorCluster() {
         />
       </div>
 
-      {/* === Orange heart + EKG zigzag (Vector 83), -22° rotation, x-flipped ===
-          The SVG combines the heart body and the carved EKG line in a
-          single path (fill-rule evenodd). x-flip mirrors the heart so
-          the EKG dip points to the right side as in Figma. */}
+      {/* === Orange heart + EKG zigzag (Vector 83), -22° + x-flip ===
+          Figma absoluteBoundingBox of node 1384:12837: x=1244.38, y=211.98,
+          w=138.26, h=127.69 (post-transform bbox). Figma applies
+          rotation=-158° which is equivalent to -22° + 180° flip; we get
+          the same look by rotating -22° and mirroring horizontally. The
+          SVG combines the heart body and the EKG line in one path
+          (fill-rule evenodd). */}
       <div
         className="absolute flex items-center justify-center"
         style={{ right: "57px", top: "212px", width: "138px", height: "128px" }}
@@ -142,6 +155,75 @@ function DecorCluster() {
           }}
         />
       </div>
+
+      {/* === Cross pattern: 4 quadrant L-shapes meeting at right=326, top=168 ===
+          Painted AFTER the icons so the white hairlines render ON TOP
+          (the icons sit visually behind the cross).
+          Each quadrant draws TWO borders along the inner cross axes and a
+          rounded corner where they meet. Drawing only the two visible
+          borders (and not all four) avoids extra phantom lines at the
+          outer container edges.
+
+          Borders use solid `border-white` (full opacity, matching the
+          Figma master 1384:12833 cap — earlier `border-white/30` was a
+          guess at the visually-gray hairline in Figma's render, but the
+          design itself sets each piece at 100% white and the gray look
+          comes from anti-aliasing a 1-px line on a #2d2d2f surface).
+
+          Left arms (UL + LL) carry a `mask-image` gradient that fades
+          the LEFT half of the arm from transparent at the heading edge
+          to fully opaque around 64% of the arm's width. Same treatment
+          as the protect / cleaning / hotels caps so the cross
+          dissolves under the heading instead of cutting through the
+          text. */}
+      {/* Upper-left quadrant - bottom + right borders, rounded bottom-right */}
+      <div
+        className="absolute border-b border-r border-white"
+        style={{
+          top: 0,
+          right: `${CROSS_RIGHT}px`,
+          width: `${CROSS_LEFT_ARM_WIDTH}px`,
+          height: `${CROSS_TOP}px`,
+          borderBottomRightRadius: `${CROSS_RADIUS}px`,
+          maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
+        }}
+      />
+      {/* Upper-right quadrant - bottom + left borders, rounded bottom-left */}
+      <div
+        className="absolute border-b border-l border-white"
+        style={{
+          top: 0,
+          right: 0,
+          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          height: `${CROSS_TOP}px`,
+          borderBottomLeftRadius: `${CROSS_RADIUS}px`,
+        }}
+      />
+      {/* Lower-left quadrant - top + right borders, rounded top-right */}
+      <div
+        className="absolute border-t border-r border-white"
+        style={{
+          top: `${CROSS_TOP}px`,
+          right: `${CROSS_RIGHT}px`,
+          width: `${CROSS_LEFT_ARM_WIDTH}px`,
+          height: `${CROSS_BOTTOM_HEIGHT}px`,
+          borderTopRightRadius: `${CROSS_RADIUS}px`,
+          maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
+        }}
+      />
+      {/* Lower-right quadrant - top + left borders, rounded top-left */}
+      <div
+        className="absolute border-t border-l border-white"
+        style={{
+          top: `${CROSS_TOP}px`,
+          right: 0,
+          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          height: `${CROSS_BOTTOM_HEIGHT}px`,
+          borderTopLeftRadius: `${CROSS_RADIUS}px`,
+        }}
+      />
     </div>
   );
 }
@@ -149,12 +231,19 @@ function DecorCluster() {
 // Small orange diamond (8x8 rotated square) used as a decorative marker
 // where vertical/horizontal column borders intersect - matches Figma's
 // Polygon 11 / Polygon 12 nodes at the photo-grid border lines.
+// 6.93×8 hexagon — matches Figma's Polygon11 asset. Renders as an
+// inline SVG so the proper √3/2 hexagon aspect is preserved (a CSS
+// rotate-45 square is a diamond, not a hexagon, and looked subtly
+// squashed at 8 px).
 function CornerDot({ className }: { className?: string }) {
   return (
-    <span
+    <svg
       aria-hidden
-      className={`pointer-events-none absolute hidden size-2 rotate-45 bg-brand lg:block ${className ?? ""}`}
-    />
+      viewBox="0 0 6.9282 8"
+      className={`pointer-events-none absolute hidden h-2 w-[6.9282px] fill-brand lg:block ${className ?? ""}`}
+    >
+      <path d="M3.4641 0L6.9282 2V6L3.4641 8L0 6V2L3.4641 0Z" />
+    </svg>
   );
 }
 
@@ -249,7 +338,7 @@ export function TeamCta() {
                 alt="Михайло Цигелик - директор Binar 2000"
                 loading="lazy"
                 decoding="async"
-                className="absolute h-[121%] w-[103%] max-w-none object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                className="absolute h-[121%] w-[103%] max-w-none object-cover"
                 style={{ left: "-1.5%", top: "calc(50% - 175px)" }}
               />
             </div>
@@ -270,14 +359,24 @@ export function TeamCta() {
                 alt="Команда Binar 2000"
                 loading="lazy"
                 decoding="async"
-                className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                className="absolute inset-0 size-full object-cover"
               />
             </div>
             {/* Bottom strip - 24+ tile right-aligned. On lg the strip
-                is fixed 99 px tall with a stroke-subtle top divider that
-                lines up with the team-tags column's border-b on the same
-                y-line. Below lg it just sits flush under the photo. */}
-            <div className="relative mt-6 flex justify-end sm:mt-8 lg:-mx-10 lg:mt-[37px] lg:h-[99px] lg:border-t lg:border-stroke-subtle">
+                is fixed 100 px tall (`h-[100px]`) starting at `mt-[36px]`
+                so its `border-t` lands on the SAME pixel row as the
+                team-tags column's `border-b` (y=372 with box-sizing:
+                border-box; both 373-tall tags box and (336 photo + 36
+                gap)-offset strip resolve to border at row 372). Without
+                this the strip's border-t sat on row 373 — one pixel
+                below tags' border on row 372 — and the horizontal
+                divider had a visible 1-px staircase at the
+                tags|group column boundary. The strip's content area
+                after the border is still 99 px (100 - 1 px top
+                border with border-box sizing), so the orange 24+ box
+                (h-99) fits exactly with no leftover space. Below lg
+                this just sits flush under the photo. */}
+            <div className="relative mt-6 flex justify-end sm:mt-8 lg:-mx-10 lg:mt-[36px] lg:h-[100px] lg:border-t lg:border-stroke-subtle">
               <div
                 className="flex h-[80px] w-full items-center justify-center gap-3 sm:h-[99px] sm:w-[271px] sm:gap-4"
                 style={{ background: "#f85a0b" }}
@@ -329,12 +428,12 @@ export function TeamCta() {
           and matches the typographic-accent rhythm of FAQ / AboutUs
           / WhyUs on the rest of the site. At `lg` all of this
           dissolves back to Figma's plain 3-column layout. */}
-      <div className="lg-pad-x px-5 pb-16 pt-4 sm:px-10 sm:pb-20 sm:pt-10 lg:pb-[160px] lg:pt-[80px]">
+      <div className="lg-pad-x px-5 pb-16 pt-4 sm:px-10 sm:pb-20 sm:pt-10 lg:pb-[80px] lg:pt-[80px]">
         <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-8">
           {PROCESS.map((p, i) => (
             <li
               key={p.title}
-              className="group/step relative flex flex-col gap-6 overflow-hidden rounded-[28px] border border-stroke-subtle bg-white p-7 transition-[transform,box-shadow,border-color] duration-500 ease-out hover:-translate-y-1 hover:border-neutral-900 hover:shadow-[0_24px_60px_-24px_rgba(29,29,31,0.24)] sm:gap-7 sm:rounded-[32px] sm:p-8 lg:gap-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:hover:translate-y-0 lg:hover:border-transparent lg:hover:shadow-none"
+              className="relative flex flex-col gap-6 overflow-hidden rounded-[28px] border border-stroke-subtle bg-white p-7 sm:gap-7 sm:rounded-[32px] sm:p-8 lg:gap-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0"
             >
               {/* === Top row: BIG step numeral + large illustration ===
                   The "0N" is a hero-scale typographic accent
@@ -346,29 +445,25 @@ export function TeamCta() {
               <div className="flex items-center justify-between gap-4 lg:contents">
                 <span
                   aria-hidden
-                  className="text-h1 font-light leading-none tracking-[-1px] text-neutral-200 transition-colors duration-500 group-hover/step:text-brand lg:hidden"
+                  className="text-h1 font-light leading-none tracking-[-1px] text-neutral-200 lg:hidden"
                 >
                   0{i + 1}
                 </span>
-                <span className="relative flex size-[120px] shrink-0 items-center justify-center rounded-full bg-bg-subtle transition-[background-color,transform] duration-500 ease-out group-hover/step:scale-105 group-hover/step:bg-white sm:size-[132px] lg:size-[120px] lg:bg-transparent lg:group-hover/step:bg-transparent">
+                <span className="relative flex size-[120px] shrink-0 items-center justify-center rounded-full bg-bg-subtle sm:size-[132px] lg:size-[120px] lg:bg-transparent">
                   <img
                     src={p.icon}
                     alt=""
                     aria-hidden
                     loading="lazy"
                     decoding="async"
-                    className="block size-[64%] object-contain transition-transform duration-500 ease-out group-hover/step:rotate-3 lg:size-full"
+                    className="block size-[64%] object-contain lg:size-full"
                   />
                 </span>
               </div>
 
               <div className="flex flex-col gap-3 sm:gap-4">
-                <h4 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover/step:text-brand">
-                  {p.title}
-                </h4>
-                <p className="text-body-sm text-neutral-500 transition-colors duration-300 group-hover/step:text-neutral-700">
-                  {p.body}
-                </p>
+                <h4 className="text-title-lg text-neutral-900">{p.title}</h4>
+                <p className="text-body-sm text-neutral-500">{p.body}</p>
               </div>
             </li>
           ))}

@@ -29,16 +29,20 @@ const HOTEL_STEPS: QuizStep[] = [
   },
 ];
 
+// Figma 1384:12118 (Group 65) and 1384:12139 (Group 64) — same 246x294
+// left/right decoration stacks as the home page, just with hotel-specific
+// silhouettes (bottles + sponge + slippers). All asset placement and the
+// lg+ visibility are handled by QuizForm's `decorations` prop so the
+// pattern matches /, /protect, /cleaning.
 export function HotelQuizCta() {
   return (
     <QuizForm
       steps={HOTEL_STEPS}
+      decorations="hotels"
       // Same bold-then-light heading pattern as the home QuizForm: the
       // opening clause is text-h2 (bold), the closing clause is
       // text-h2-light. The body is split into two short paragraphs to
-      // match the home form's flex-1 right column rhythm — one long
-      // paragraph collapsed visually because the right column is narrow
-      // (575 px) and the text was wrapping into a tall block.
+      // match the home form's flex-1 right column rhythm.
       headingTitle={
         <>
           <span className="text-h2-light">{`Отримайте індивідуальні рекомендації по товарах `}</span>
@@ -53,7 +57,8 @@ export function HotelQuizCta() {
           </p>
           <p>
             Ви отримаєте готові рекомендації та комерційну пропозицію, щоб
-            швидко погодити закупівлю без зайвих дзвінків і уточнень.
+            швидко погодити закупівлю й перейти до замовлення без зайвих
+            дзвінків і уточнень.
           </p>
         </>
       }

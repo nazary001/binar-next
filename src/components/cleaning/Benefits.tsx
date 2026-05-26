@@ -1,7 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
+import { Fragment } from "react";
 import { Button } from "@/components/ui/Button";
-import { Reveal } from "@/components/ui/Reveal";
 
+// Figma node 1327:4490 (Що ви отримуєте?, 1440 x 1260). The master
+// is a STATIC grid — no hover transitions, no animated reveals, no
+// numbered badges, no mobile card chrome. Each Block is just a
+// title + body + icon column sitting between hairline dividers.
+//
 // Icons match the Figma cleaning page (node 1327:4490). Blocks 1 / 5 / 6
 // use cleaning-specific renders (water drop with sparkles, quality seal,
 // document stack) that don't exist elsewhere in the project. Blocks
@@ -40,8 +45,43 @@ const FEATURES = [
   },
 ];
 
+type Feature = (typeof FEATURES)[number];
+
+// Figma 1327:4496 Block — `flex-col h-[344px] items-end justify-
+// between py-[24px]`. Title+body at the top (left-aligned, full
+// width), 120-px icon at the bottom pinned to the right via items-end.
+function Block({ f }: { f: Feature }) {
+  return (
+    <article className="flex min-h-[344px] flex-1 min-w-0 flex-col items-end justify-between py-6">
+      <div className="flex w-full flex-col gap-4">
+        <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
+        <p className="text-body-sm text-neutral-500">{f.body}</p>
+      </div>
+      {/* Figma I*:230:1665 — 120-px icon container, SVG fills via
+          object-contain so each glyph respects whatever inner inset
+          the asset bakes in. */}
+      <span
+        aria-hidden
+        className="relative block size-[120px] shrink-0 overflow-clip"
+      >
+        <img
+          src={f.icon}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 size-full object-contain"
+        />
+      </span>
+    </article>
+  );
+}
+
 export function CleaningBenefits() {
   return (
+    // Figma 1327:4490 — `px-[130px] py-[160px]` (lg-pad-x = 130) with
+    // a 120-px gap between the heading row and the grid frame. Section
+    // gets lg:border-l/r so it visually connects with the rounded-top
+    // section above on the cleaning page.
     <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-stroke-default lg:py-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-center">
@@ -54,70 +94,90 @@ export function CleaningBenefits() {
           </Button>
         </div>
 
-        {/* Figma dividers (from node 1327:4490):
-              - vertical column dividers stroke #D2D2D2 = stroke-subtle
-              - horizontal row divider   stroke #8E8E8F = stroke-default
-            Vertical lines live as `border-l` on each li and ONLY span
-            their own row (344 px). The horizontal line is rendered as
-            a single full-width `::before` pseudo-element on the UL,
-            centered in the 80 px row gap. That way:
-              * the horizontal line is one continuous stroke (no gaps
-                in the `gap-x` zones, the way a per-cell `border-t`
-                would have produced),
-              * the vertical lines never touch it — they stop 40 px
-                before, and the next row's verticals start 40 px after,
-                matching the Figma composition exactly. */}
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:relative lg:grid-cols-3 lg:gap-x-10 lg:gap-y-20 lg:before:absolute lg:before:inset-x-0 lg:before:top-[384px] lg:before:h-px lg:before:bg-stroke-default lg:before:content-[''] [&>li]:lg:border-l [&>li]:lg:border-stroke-subtle [&>li]:lg:px-10 [&>li:nth-child(3n+1)]:lg:border-l-0 [&>li:nth-child(3n+1)]:lg:pl-0 [&>li:nth-child(3n)]:lg:pr-0">
+        {/* Mobile / tablet — Figma master defines no layout here, so
+            we adapt the home/WhyUs card pattern: bg-bg-subtle card with
+            rounded corners + padding + numbered badge in the top-right.
+            Gives every feature a proper card chrome instead of reading
+            as a flat icon+text list. Matches the same treatment used on
+            /hotels Benefits for cross-page mobile consistency. */}
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:hidden">
           {FEATURES.map((f, i) => (
-            <Reveal
-              as="li"
-              key={f.title}
-              delay={(i % 3) * 100}
-              className="flex"
-            >
-              {/* Mobile / sm: white-card treatment with big numeral
-                  accent + icon-in-spotlight (matches TeamCta mobile
-                  pattern). At `lg` the card chrome dissolves and the
-                  Figma-faithful icon-at-bottom layout returns, with
-                  the section's grid lines doing the structural work. */}
-              <article className="group relative flex h-full w-full min-w-0 flex-col gap-6 overflow-hidden rounded-[28px] border border-stroke-subtle bg-white p-7 transition-[transform,box-shadow,border-color] duration-500 ease-out hover:-translate-y-1 hover:border-neutral-900 hover:shadow-[0_24px_60px_-24px_rgba(29,29,31,0.24)] sm:gap-7 sm:rounded-[32px] sm:p-8 lg:flex-col lg:items-end lg:justify-between lg:gap-10 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:py-4 lg:min-h-[344px] lg:hover:translate-y-0 lg:hover:border-transparent lg:hover:shadow-none">
-                {/* Header row — BIG numeral on left + icon-in-disk on
-                    right. `lg:contents` removes the wrapper at lg so
-                    the parent column's `items-end justify-between`
-                    pushes the icon to the bottom-right per Figma. */}
-                <div className="flex items-center justify-between gap-4 lg:contents">
-                  <span
-                    aria-hidden
-                    className="text-h1 font-light leading-none tracking-[-1px] text-neutral-200 transition-colors duration-500 group-hover:text-brand lg:hidden"
-                  >
-                    {String(i + 1).padStart(2, "0")}
+            <li key={f.title}>
+              <article className="relative flex h-full w-full flex-col-reverse items-start gap-5 rounded-[24px] bg-bg-subtle p-6 sm:gap-6 sm:rounded-[28px] sm:p-7">
+                <span
+                  aria-hidden
+                  className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 sm:right-6 sm:top-6 sm:text-[13px]"
+                >
+                  {String(i + 1).padStart(2, "0")}
+                  <span className="text-neutral-200">
+                    {" "}
+                    / {String(FEATURES.length).padStart(2, "0")}
                   </span>
-                  <span
-                    aria-hidden
-                    className="relative flex size-[120px] shrink-0 items-center justify-center rounded-full bg-bg-subtle transition-[background-color,transform] duration-500 ease-out group-hover:scale-105 group-hover:bg-white sm:size-[132px] lg:size-[120px] lg:order-last lg:bg-transparent lg:group-hover:bg-transparent"
-                  >
-                    <img
-                      src={f.icon}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="block size-[64%] object-contain transition-transform duration-500 ease-out group-hover:scale-110 group-hover:rotate-3 lg:size-full"
-                    />
-                  </span>
-                </div>
-
+                </span>
                 <div className="flex w-full flex-col gap-3 sm:gap-4">
-                  <h3 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">
-                    {f.title}
-                  </h3>
-                  <p className="text-body-sm text-neutral-500 transition-colors duration-300 group-hover:text-neutral-700">
-                    {f.body}
-                  </p>
+                  <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
+                  <p className="text-body-sm text-neutral-500">{f.body}</p>
                 </div>
+                <span
+                  aria-hidden
+                  className="relative block size-[88px] shrink-0 overflow-clip sm:size-[96px]"
+                >
+                  <img
+                    src={f.icon}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 size-full object-contain"
+                  />
+                </span>
               </article>
-            </Reveal>
+            </li>
           ))}
         </ul>
+
+        {/* lg+ — exact Figma 1327:4494 structure. The outer frame is
+            `flex-col gap-[40px]` and holds 3 children:
+              • Row 1 (flex gap-[40px] items-start) — Block, divider,
+                Block, divider, Block. Each block is 340 wide, each
+                divider is a 0-width vertical vector. The 40-px flex
+                gap repeats AROUND each divider, so the divider sits
+                exactly 40 px from the adjacent block on either side
+                — placing it at x=380 / x=800 in the 1180-px grid
+                (matches Figma Vector 67 positions).
+              • Horizontal divider Vector 68 — full-width 1-px line.
+              • Row 2 — identical to row 1, blocks 4 / 5 / 6.
+
+            Divider colors per Figma 1327:4490 variables: the four
+            in-row vertical Vectors (1327:4497 / 4499 / 4504 / 4506)
+            use `Stroke/Subtle` #d2d2d2, while the single horizontal
+            mid-row Vector 68 (1327:4501) uses `Stroke/Default`
+            #8e8e8f — the darker line splits the grid in half and the
+            lighter verticals subdivide each row. */}
+        <div className="hidden flex-col gap-10 lg:flex">
+          {[0, 3].map((rowStart, rowIdx) => (
+            <Fragment key={rowStart}>
+              <div className="flex items-stretch gap-10">
+                {FEATURES.slice(rowStart, rowStart + 3).map((f, i) => (
+                  <Fragment key={f.title}>
+                    {i > 0 && (
+                      <div
+                        aria-hidden
+                        className="w-px self-stretch bg-stroke-subtle"
+                      />
+                    )}
+                    <Block f={f} />
+                  </Fragment>
+                ))}
+              </div>
+              {rowIdx === 0 && (
+                <div
+                  aria-hidden
+                  className="h-px w-full bg-stroke-default"
+                />
+              )}
+            </Fragment>
+          ))}
+        </div>
       </div>
     </section>
   );

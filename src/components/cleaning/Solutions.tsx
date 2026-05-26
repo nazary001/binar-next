@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 
 type Category =
-  | { kind: "image"; label: string; image: string; tall?: boolean }
+  | { kind: "image"; label: string; image: string; tall?: boolean; objectPosition?: string }
   | { kind: "outline"; label: string; tall?: boolean }
   | { kind: "cta"; label: string };
 
@@ -21,6 +21,16 @@ const COLUMNS: Category[][] = [
       kind: "image",
       label: "Хімія для прибирання",
       image: "/figma-export/cleaning/card-chemistry.png",
+      // Bias the crop toward the lower portion of the 1264x790 source
+      // (3 LIVING GREEN bottles on a round wooden tray) so the tray
+      // base stays visible. The default 50%/50% cover crop fits the
+      // full height, but with the card's lg:p-10 padding (which the
+      // label hovers over), the visible bottle tops sit hard against
+      // the top edge and the tray reads as cut off below the label
+      // blur. Anchoring to 50%/65% keeps the bottles centered vertically
+      // in the visible area with the tray still visible above the
+      // bottom edge of the card.
+      objectPosition: "50% 65%",
     },
     { kind: "outline", label: "Хімія для кухні та харчових зон (HoReCa)" },
     { kind: "outline", label: "Супутні витратні матеріали" },
@@ -46,16 +56,29 @@ const COLUMNS: Category[][] = [
   ],
 ];
 
-function ImageCard({ label, image, tall }: { label: string; image: string; tall?: boolean }) {
+function ImageCard({
+  label,
+  image,
+  tall,
+  objectPosition,
+}: {
+  label: string;
+  image: string;
+  tall?: boolean;
+  objectPosition?: string;
+}) {
   // `tall` = the col-3 hero image at 655 px high. Regular image cards
   // are 393 px (= one row of the 786 px column grid). Mobile / tablet
   // sizes scale down proportionally.
   const heightClass = tall
     ? "h-[400px] sm:h-[500px] lg:h-[655px]"
     : "h-[280px] sm:h-[340px] lg:h-[393px]";
+  // No `group` wrapper — Figma 1327:4535 / 1327:4599 / 1327:4604 have no
+  // hover variant defined for the image cards, so there's nothing for a
+  // `group` selector to anchor.
   return (
     <div
-      className={`group relative flex w-full flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 transition-transform duration-500 ease-out hover:-translate-y-1 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+      className={`relative flex w-full flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
       <img
         src={image}
@@ -63,17 +86,27 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full rounded-[28px] object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06] sm:rounded-[36px] lg:rounded-[40px]"
+        className="absolute inset-0 size-full rounded-[28px] object-cover sm:rounded-[36px] lg:rounded-[40px]"
+        style={objectPosition ? { objectPosition } : undefined}
       />
+      {/* Figma 1327:4536 — soft blurred rectangle behind the label:
+          bg-[rgba(21,21,17,0.7)] blur-[22.15px] opacity-80 sitting at
+          bottom: -61.5px, left: -57.5px, w=507, h=137. The blur halo
+          radiates beyond the card edges and is clipped by overflow-clip
+          on the parent so only the soft fall-off is visible. */}
       <div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-[160px] sm:h-[200px]"
+        className="pointer-events-none absolute opacity-80"
         style={{
-          background:
-            "linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 100%)",
+          background: "rgba(21, 21, 17, 0.7)",
+          filter: "blur(22.15px)",
+          bottom: "-61.5px",
+          left: "-57.5px",
+          width: "507px",
+          height: "137px",
         }}
       />
-      <p className="relative w-full max-w-[313px] text-title-lg text-white transition-transform duration-500 group-hover:-translate-y-1">
+      <p className="relative w-full max-w-[313px] text-title-lg text-white">
         {label}
       </p>
     </div>
@@ -84,14 +117,23 @@ function OutlineCard({ label, tall }: { label: string; tall?: boolean }) {
   // Figma has two outline-card heights inside this grid:
   //   * 131 px = col-1 thin row (3 stacked outlines fill the bottom 393 px of the column)
   //   * 197 px = col-2 tall row (2 stacked outlines fill the top 393 px of the column)
+  // Figma 1327:4540 / 1327:4583 wrap the title in a `flex items-center`
+  // row inside a `flex-col` card, vertically centering the text in the
+  // 131-/197-px tall card. justify-center on the column gets the same
+  // effect since there's only one row of content.
   const heightClass = tall
     ? "h-[150px] sm:h-[180px] lg:h-[197px]"
     : "h-[100px] sm:h-[120px] lg:h-[131px]";
+  // No hover variant on outline cards in Figma (1327:4540 / 1327:4554 /
+  // 1327:4568 / 1327:4583 / 1327:4591). The text stays neutral-900
+  // regardless of pointer position — removed the `group` wrapper, the
+  // `transition-colors duration-300` and the `group-hover:text-brand`
+  // override that previously flipped the label to brand orange on hover.
   return (
     <div
-      className={`group flex w-full flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:border-neutral-900 hover:shadow-md sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+      className={`flex w-full flex-col items-center justify-center overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
-      <p className="w-full text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">
+      <p className="w-full text-title-lg text-neutral-900">
         {label}
       </p>
     </div>
@@ -99,17 +141,23 @@ function OutlineCard({ label, tall }: { label: string; tall?: boolean }) {
 }
 
 function CtaCard({ label }: { label: string }) {
+  // Figma 1327:4608 — bg `--backgroud/deep` (#343435 = neutral-800),
+  // label uses `Title/Large` (24/28 SemiBold) as a designer override
+  // applied to the button label. NOT bg-bg-primary (#303137) nor
+  // text-button-lg (18 px).
+  // Figma 1327:4608 has no hover variant defined — removed the `group`
+  // wrapper that was carrying nothing.
   return (
     <Link
       href="/#contact-form"
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] bg-neutral-800 transition-colors hover:bg-neutral-900 sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      className="flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] bg-neutral-800 sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-button-lg text-white transition-transform duration-300 group-hover:-translate-x-1">
+        <span className="text-title-lg text-white">
           {label}
         </span>
-        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand transition-transform duration-300 group-hover:rotate-12 group-hover:scale-105">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-6" />
+        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
+          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[16.5px]" />
         </span>
       </span>
     </Link>
@@ -119,7 +167,7 @@ function CtaCard({ label }: { label: string }) {
 function CategoryRenderer({ card }: { card: Category }) {
   switch (card.kind) {
     case "image":
-      return <ImageCard label={card.label} image={card.image} tall={card.tall} />;
+      return <ImageCard label={card.label} image={card.image} tall={card.tall} objectPosition={card.objectPosition} />;
     case "outline":
       return <OutlineCard label={card.label} tall={card.tall} />;
     case "cta":
@@ -143,7 +191,7 @@ function CleaningDecorCluster() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:rounded-t-[68px] xl:block"
+      className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
     >
       {/* Cross — solid white with a linear-gradient fade on the LEFT
           half of the horizontal arm only (same treatment as /protect
@@ -231,7 +279,7 @@ export function CleaningSolutions() {
           light grid card up so its rounded top eats into the bottom
           of the dark cap). */}
       <div
-        className="lg-pad-x relative -mb-12 overflow-hidden rounded-t-[40px] px-6 pb-20 pt-10 sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:rounded-t-[68px] lg:pb-[128px] lg:pt-[68px]"
+        className="lg-pad-x relative -mb-12 overflow-hidden rounded-t-[40px] px-6 pb-20 pt-10 sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:min-h-[392px] lg:rounded-t-[68px] lg:pb-[96px] lg:pt-[68px]"
         style={{ background: "#2d2d2f" }}
       >
         <div className="relative z-10 flex max-w-[571px] flex-col gap-8 sm:gap-12">
@@ -257,7 +305,7 @@ export function CleaningSolutions() {
         <CleaningDecorCluster />
       </div>
 
-      <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:rounded-[68px] lg:pb-[80px] lg:pt-[120px]">
+      <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:min-h-[1074px] lg:rounded-[68px] lg:pb-[80px] lg:pt-[120px]">
         <div className="lg-pad-x px-5 sm:px-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0">
             {COLUMNS.map((col, i) => (

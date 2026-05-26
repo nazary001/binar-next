@@ -2,12 +2,17 @@
 /* eslint-disable @next/next/no-img-element */
 import { useId } from "react";
 
-// Figma 567:2040 — `UpAnimation`.
+// Figma 567:2040 — `UpAnimation / Property 1=Default`.
 //   • 130×130 outer hit area (rounded-full).
 //   • Centred 56-px orange circle.
 //   • Centred up-arrow glyph (~17×24 at lg).
-//   • Slow-rotating "ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ ·" text wrapped
-//     around the outside of the orange circle (Figma's circle-text).
+//   • "ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ ·" text wrapped around the
+//     outside of the orange circle (Figma's circle-text).
+//
+// The Figma component is named "UpAnimation" but the design file
+// itself shows a STATIC ring of text - no rotation in the master.
+// We render the same static composition (no CSS spin) to match the
+// mockup 1:1.
 //
 // Mobile shrinks both the circle and the surrounding text radius
 // proportionally so the footer's social row still fits.
@@ -16,46 +21,72 @@ type Props = {
   className?: string;
 };
 
-// Rotating "ВГОРУ" circle text. SVG `<textPath>` runs the string along
-// a circle of radius 55 centred in a 130×130 viewBox (circumference =
-// 2π × 55 ≈ 345.6 user units). `textLength={345}` + `lengthAdjust=
-// "spacing"` forces the four "ВГОРУ ·" repeats to fill the whole
-// circumference — without it, the natural text width was ~280 and a
-// noticeable bare arc remained at the bottom. The wrapper carries the
-// `quiz-radio-text` class which animates a slow 14-s rotation so the
-// curve reads as live, not static.
+// Static "ВГОРУ" circle text tuned to the Figma master (567:2040)
+// at native 1:1 from the 1440-wide footer reference.
+//   * Path radius 39 — baseline sits just outside the 28-radius
+//     orange circle, matching the design's tight ring spacing.
+//   * Path start at ~11 o'clock (-32° from top) so the first
+//     "ВГОРУ" reads centred across the top of the circle, with
+//     «В» at ~11 o'clock and «У» at ~1 o'clock (Figma layout).
+//   * Font size 9 / weight 400 — Manrope at SemiBold on Chrome
+//     renders visibly heavier and taller than the Figma mockup;
+//     Regular at 9 px matches the mockup stem width and cap
+//     height on Windows Chrome.
+//   * textLength = 2π × 39 (the exact path circumference) so the
+//     text spans the full loop with no bare arc.
+//   * lengthAdjust="spacing" stretches only inter-letter gaps,
+//     leaving the Manrope glyph shapes intact — matches Figma's
+//     natural letterforms. (spacingAndGlyphs would distort the
+//     В/Г/О/Р/У glyphs to fit, making them visibly wider than
+//     the mockup.)
+//   * Text repeats "ВГОРУ · " FOUR times INCLUDING a trailing
+//     space at the end. The trailing " " is load-bearing: it
+//     makes the gap between the last "·" and the wrap-around
+//     point identical to the gap between every interior "·" and
+//     its following "В". Without it the 4th dot sits flush
+//     against the first "В" while the other three dots sit
+//     space-pad-space-padded from their next "В", and the 4th
+//     dot reads as visibly closer to its neighbour than the rest.
+const PATH_RADIUS = 39;
+const PATH_CIRCUMFERENCE = 2 * Math.PI * PATH_RADIUS;
+
 function CircleText() {
   const pathId = useId();
-  // Path starts at the TOP of the circle (65, 10) so the first
-  // "ВГОРУ" sits centred at the top of the button — visually anchored
-  // to the up-arrow inside.
   return (
     <svg
       viewBox="0 0 130 130"
-      className="quiz-radio-text pointer-events-none absolute inset-0 size-full text-neutral-500"
+      className="pointer-events-none absolute inset-0 size-full text-white"
       aria-hidden
     >
       <defs>
+        {/* Radius 39 baseline puts the text just outside the 28-radius
+            orange circle. Path starts at ~11 o'clock (-32° from top)
+            and goes clockwise so the first "ВГОРУ" reads centred
+            across the top of the circle — matches the Figma master
+            where «В» sits at ~11 o'clock and «У» at ~1 o'clock. The
+            start point is (44.33, 31.93); diametrically opposite is
+            (85.67, 98.07). */}
         <path
           id={pathId}
-          d="M 65 10 A 55 55 0 1 1 65 120 A 55 55 0 1 1 65 10"
+          d="M 44.33 31.93 A 39 39 0 1 1 85.67 98.07 A 39 39 0 1 1 44.33 31.93"
           fill="none"
         />
       </defs>
       <text
         className="fill-current"
+        xmlSpace="preserve"
         style={{
-          fontSize: 12,
-          fontWeight: 700,
+          fontSize: 9,
+          fontWeight: 400,
           fontFamily: "var(--font-sans)",
         }}
       >
         <textPath
           href={`#${pathId}`}
-          textLength={345}
+          textLength={PATH_CIRCUMFERENCE}
           lengthAdjust="spacing"
         >
-          ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ ·
+          {"ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ · "}
         </textPath>
       </text>
     </svg>
@@ -70,23 +101,23 @@ export function ScrollToTopButton({ className }: Props) {
       aria-label="Догори"
       className={`group relative size-[88px] shrink-0 cursor-pointer sm:size-[110px] lg:size-[130px] ${className ?? ""}`}
     >
-      {/* Circle text — light grey, rotates slowly around the centre. */}
+      {/* Circle text — static, matches Figma master 567:2040. */}
       <CircleText />
 
-      {/* Orange circle — Figma 567:2039. */}
+      {/* Orange circle — Figma 567:2039. Static — Figma has no hover. */}
       <span
         aria-hidden
-        className="absolute left-1/2 top-1/2 size-[44px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand transition-transform duration-300 ease-out group-hover:scale-110 group-active:scale-95 sm:size-[52px] lg:size-[56px]"
+        className="absolute left-1/2 top-1/2 size-[44px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand sm:size-[52px] lg:size-[56px]"
       />
 
-      {/* Up-arrow glyph — Figma 567:2038. */}
+      {/* Up-arrow glyph — Figma 567:2038. Static. */}
       <img
         src="/figma-export/footer-up-arrow.svg"
         alt=""
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute left-1/2 top-1/2 h-5 w-4 -translate-x-1/2 -translate-y-1/2 transition-transform duration-300 ease-out group-hover:-translate-y-[58%] sm:h-[22px] sm:w-[16px] lg:h-[24px] lg:w-[17px]"
+        className="absolute left-1/2 top-1/2 h-5 w-4 -translate-x-1/2 -translate-y-1/2 sm:h-[22px] sm:w-[16px] lg:h-[24px] lg:w-[17px]"
       />
     </button>
   );

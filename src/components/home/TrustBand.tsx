@@ -10,16 +10,22 @@ const ICONS = [
 
 export function TrustBand() {
   return (
-    <section className="lg-pad-x px-5 py-12 sm:px-10 sm:py-16 lg:py-[120px]">
+    <section className="lg-pad-x px-5 py-12 sm:px-10 sm:py-16 lg:py-[160px]">
       <div className="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
-        <h2 className="max-w-[675px] text-neutral-900">
-          <span className="text-h2">Нам довіряють</span>
+        {/* Figma 1384:12745: 42/48/-0.84 (NOT the global text-h2 token
+            which is 44/48). Single-occurrence size override on this
+            section's heading. Mobile / tablet scale down to keep the
+            heading comfortable on narrow viewports (the arbitrary
+            text-[42px] above bypasses the .text-h2 responsive
+            overrides in globals.css). */}
+        <h2 className="max-w-[675px] text-[28px] font-light leading-[32px] tracking-[-0.6px] text-neutral-900 sm:text-[36px] sm:leading-[40px] sm:tracking-[-0.72px] lg:text-[42px] lg:leading-[48px] lg:tracking-[-0.84px]">
+          <span className="font-bold">Нам довіряють</span>
           <br aria-hidden />
-          <span className="text-h2-light">готелі, салони, медичні центри</span>
+          <span>готелі, салони, медичні центри</span>
           <br aria-hidden className="hidden lg:inline" />
-          <span className="text-h2-light"> та виробничі підприємства</span>
+          <span> та виробничі підприємства</span>
         </h2>
-        <ul className="-space-x-[10px] flex shrink-0 items-center sm:-space-x-[14.365px]">
+        <ul className="flex shrink-0 items-center gap-3 sm:gap-[14.365px]">
           {ICONS.map((i, idx) => (
             <Reveal
               as="li"
@@ -27,8 +33,7 @@ export function TrustBand() {
               delay={idx * 100}
               direction="right"
               aria-label={i.label}
-              className="relative flex size-[64px] items-center justify-center overflow-clip rounded-[14px] border border-stroke-default bg-white transition-all duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-md sm:size-[80px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
-              style={{ zIndex: ICONS.length - idx }}
+              className="relative flex size-[64px] items-center justify-center overflow-clip rounded-[14px] border border-stroke-default bg-white sm:size-[80px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
             >
               <img
                 src={i.src}
@@ -36,7 +41,7 @@ export function TrustBand() {
                 aria-hidden
                 loading="lazy"
                 decoding="async"
-                className={`${i.className} transition-transform duration-300 hover:scale-110`}
+                className={i.className}
               />
             </Reveal>
           ))}

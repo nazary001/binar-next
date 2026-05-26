@@ -1,16 +1,38 @@
 /* eslint-disable @next/next/no-img-element */
+"use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { MouseEvent } from "react";
 
 type LogoProps = {
   className?: string;
 };
 
 export function Logo({ className }: LogoProps) {
+  const pathname = usePathname();
+
+  // When already on `/`, clicking the same-route <Link> is a no-op
+  // (Next.js short-circuits navigations to the current path). To make
+  // the logo feel like a "back-to-top" affordance, intercept the click
+  // on the home route and scroll the window to 0 instead. Other
+  // routes fall through to Next's normal client-side navigation, which
+  // also resets scroll to 0 on arrival - so the perceived behaviour is
+  // uniform: clicking the logo ALWAYS takes you to the top of `/`.
+  // `behavior: 'smooth'` mirrors the existing ScrollToTopButton
+  // animation so both affordances feel like the same control.
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <Link
       href="/"
       aria-label="Binar — головна"
-      className={`group relative block h-[40px] w-[120px] shrink-0 cursor-pointer transition-opacity duration-300 hover:opacity-80 ${className ?? ""}`}
+      onClick={handleClick}
+      className={`group relative block h-[40px] w-[120px] shrink-0 cursor-pointer ${className ?? ""}`}
     >
       <div
         className="absolute"

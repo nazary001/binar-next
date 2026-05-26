@@ -6,7 +6,20 @@ const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 
 type Category =
   | { kind: "image"; label: string; image: string; tall?: boolean }
-  | { kind: "outline"; label: string; icon?: string }
+  | {
+      kind: "outline";
+      label: string;
+      icon?: string;
+      // Vertical gap between the illustration and the label inside
+      // the card. Figma assigns distinct gaps per card to keep each
+      // illustration centred in its native frame:
+      //   - "tight" (=  11 px at lg, Figma 1327:4027 "Одноразова
+      //     білизна") → illustration container 313 × 274.
+      //   - "loose" (=  40 px at lg, Figma 1327:4045 "Бахіли,
+      //     шапочки, нарукавники") → illustration container 313 × 217
+      //     with a taller two-line label.
+      gap?: "tight" | "loose";
+    }
   | { kind: "cta"; label: string };
 
 const COLUMNS: Category[][] = [
@@ -15,17 +28,19 @@ const COLUMNS: Category[][] = [
     {
       kind: "outline",
       label: "Одноразова білизна",
-      // 313x274 PNG - Figma Frame 1010106796, sized to exactly the
-      // card's content-area width at lg so w-full renders at 1:1.
+      // 313x274 PNG = exact Figma Frame 1010106796 dimensions, so it
+      // fills the card's 313-wide content area 1:1 at lg.
       icon: "/figma-export/protect/icon-bilizna.png",
+      gap: "tight",
     },
   ],
   [
     {
       kind: "outline",
       label: "Бахіли, шапочки, нарукавники",
-      // 313x217 PNG - Figma Frame 1010106793.
+      // 313x217 PNG = exact Figma Frame 1010106793 dimensions.
       icon: "/figma-export/protect/icon-bahily.png",
+      gap: "loose",
     },
     // cat-gowns.png in this folder is actually the bedroom photo
     // intended for Hotels (mislabeled when the assets were
@@ -56,7 +71,7 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
     : "h-[280px] sm:h-[340px] lg:h-[393px]";
   return (
     <div
-      className={`group relative flex w-full flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 transition-transform duration-500 ease-out hover:-translate-y-1 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+      className={`group relative flex w-full flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
       <img
         src={image}
@@ -64,17 +79,29 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full rounded-[28px] object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06] sm:rounded-[36px] lg:rounded-[40px]"
+        className="absolute inset-0 size-full rounded-[28px] object-cover sm:rounded-[36px] lg:rounded-[40px]"
       />
+      {/* Figma 1327:4022/4056/4061 — soft blurred dark ellipse anchored
+          bottom-left, mirrors the hotels ZonesGrid + cleaning Solutions
+          treatment so all image cards across the site share the same
+          label-legibility halo. Figma uses `mix-blend-mode: multiply`
+          so the dark blob multiplies into the photo behind instead of
+          painting a flat black wash over it; we mirror that with the
+          mixBlendMode style. */}
       <div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-[160px] sm:h-[200px]"
+        className="pointer-events-none absolute opacity-60"
         style={{
-          background:
-            "linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 100%)",
+          background: "rgba(0, 0, 0, 1)",
+          filter: "blur(22.15px)",
+          bottom: "-61.5px",
+          left: "-57.5px",
+          width: "507px",
+          height: "138.311px",
+          mixBlendMode: "multiply",
         }}
       />
-      <p className="relative w-full max-w-[313px] text-title-lg text-white transition-transform duration-500 group-hover:-translate-y-1">
+      <p className="relative w-full max-w-[313px] text-title-lg text-white">
         {label}
       </p>
     </div>
@@ -84,37 +111,43 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
 function OutlineCard({
   label,
   icon,
+  gap = "tight",
 }: {
   label: string;
   icon?: string;
+  gap?: "tight" | "loose";
 }) {
+  // Figma 1327:4027 / 1327:4045 — outline card with the illustration
+  // pinned to the top region of the card and the title pinned at
+  // bottom-left. Figma uses card-specific gaps between illustration
+  // and label so each PNG fills its native frame size exactly:
+  //   - Bilizna  Frame 1010106796: 313 × 274 → gap-11
+  //   - Bahily   Frame 1010106793: 313 × 217 → gap-40 (label is 2 lines)
+  // The PNGs are sized to those exact dimensions (see file metadata),
+  // so the illustration container is `absolute inset-0 size-full`
+  // with `object-contain` — at lg+ the container aspect matches the
+  // PNG aspect exactly and the icon fills the container 1:1 (no
+  // scale-down via the old `max-w-[60%]` cap which was shrinking the
+  // visible icon to ~60 % of the Figma design).
+  const gapClass =
+    gap === "loose"
+      ? "gap-4 sm:gap-6 lg:gap-[40px]"
+      : "gap-3 sm:gap-4 lg:gap-[11px]";
   return (
-    // Figma 1327:4027 / 1327:4045 - outline card with a soft
-    // neutral-100 illustration occupying the upper area (Frame
-    // 1010106796 = 313x274 for Bilizna, Frame 1010106793 = 313x217
-    // for Bahily - both exactly the width of the card's 313-px
-    // content area at lg) and the title at the bottom-left.
-    //
-    // Layout uses `justify-between` so the icon pins to the top of
-    // the content area and the title pins to the bottom, matching
-    // Figma exactly:
-    //   * icon top = card top + p-10 (40 px) padding
-    //   * title bottom = card bottom + p-10 padding
-    //   * the remaining vertical space sits between them
-    //
-    // The illustration is decorative (aria-hidden) and grows
-    // slightly on hover for a subtle interaction without altering
-    // the icon-less variant.
-    <div className="group flex h-[280px] w-full flex-col justify-between overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 transition-all duration-500 hover:-translate-y-1 hover:border-neutral-900 hover:shadow-md sm:h-[340px] sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:rounded-[40px] lg:p-10">
+    <div
+      className={`group flex h-[280px] w-full flex-col ${gapClass} overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:rounded-[40px] lg:p-10`}
+    >
       {icon && (
-        <img
-          src={icon}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          decoding="async"
-          className="block h-auto w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-        />
+        <div className="relative w-full flex-1">
+          <img
+            src={icon}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 size-full object-contain"
+          />
+        </div>
       )}
       <p className="w-full text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">
         {label}
@@ -124,17 +157,20 @@ function OutlineCard({
 }
 
 function CtaCard({ label }: { label: string }) {
+  // Figma 1327:4065 — bg uses backgroud/deep (#343435, neutral-800),
+  // label is Title/Large (24/28 SemiBold) not the smaller Button/Large
+  // (18/22) used elsewhere.
   return (
     <Link
       href="/#contact-form"
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] bg-neutral-800 transition-colors hover:bg-neutral-900 sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] bg-neutral-800 sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-button-lg text-white transition-transform duration-300 group-hover:-translate-x-1">
+        <span className="text-title-lg text-white">
           {label}
         </span>
-        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand transition-transform duration-300 group-hover:rotate-12 group-hover:scale-105">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-6" />
+        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
+          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[16.5px]" />
         </span>
       </span>
     </Link>
@@ -146,157 +182,181 @@ function CategoryRenderer({ card }: { card: Category }) {
     case "image":
       return <ImageCard label={card.label} image={card.image} tall={card.tall} />;
     case "outline":
-      return <OutlineCard label={card.label} icon={card.icon} />;
+      return <OutlineCard label={card.label} icon={card.icon} gap={card.gap} />;
     case "cta":
       return <CtaCard label={card.label} />;
   }
 }
 
-// Figma Frame 1010106680 - the dark cap's decorative cluster:
+// Decorative cluster for the protect dark cap (Figma 1327:3993). Same
+// pattern as home/TeamCta and hotels/Solutions DecorClusters: a single
+// absolutely-positioned wrapper holds four L-shaped <div>s that build
+// the cross and four <img> icons sitting in the cross quadrants. All
+// offsets are FIXED design pixels relative to the Figma 1440 x 392
+// master. `html { zoom: 100vw / 1440px }` (globals.css) keeps the cap
+// at 1440 CSS px on every lg+ viewport, so pixel offsets render as
+// designed on every laptop and desktop width.
 //
-//   * Cross-pattern of 4 rounded-corner rectangles drawn with thin
-//     white-30% strokes, dividing the right portion of the cap into
-//     a 2x2 grid. Each rectangle reuses Figma Group 38 (Rectangle
-//     104/105/106).
-//   * Orange medical mask icon in the top-right of the upper row
-//     (Figma OBJECTS frame 1327:4003, 175x72).
-//   * Gray gloves illustration straddling the cross's centre
-//     (Figma Group 43, 1327:4009, 194x192).
-//   * Gray T-shirt to the right of the gloves (Figma Vector "Union"
-//     1327:4014, 120x102).
-//   * Orange sparkles next to the shirt (Figma Group 69, 1327:4015,
-//     44x46).
+// Cross center: (1114, 168) on the 1440 x 392 master, i.e. right=326,
+// top=168. Inner-corner radius 48 px. Identical geometry to the home
+// TeamCta DecorCluster.
 //
-// Each decoration is anchored to the cap's RIGHT edge via `right`
-// in pixels matching Figma (cap_right - figma.x - figma.width). That
-// way the cluster always hugs the right side regardless of how wide
-// the viewport gets - the cap is full-bleed at lg+, so the
-// composition stays correct on ultra-wide screens too. The whole
-// cluster is `pointer-events-none` and `xl:block` so it only paints
-// at the design viewport (>=1280 px), matching the Figma master.
+// Protect-only addition: the LEFT cross arms (upper-left + lower-left)
+// fade from transparent on the left to fully opaque around x=900
+// (~64% of the arm), so the cross dissolves under the 3-line heading
+// instead of running through the text. Implemented with a CSS
+// `mask-image: linear-gradient(...)` on just the two left-arm divs.
+//
+// Icon coordinates (Plugin MCP design-context, cap is 1440 x 392):
+//   Mask     1327:4003  x=890     y=66     175    x 72
+//   Gloves   1327:4009  x=904.90  y=158.30 194.19 x 192.17  (inset-left
+//                                                            62.84%)
+//   Shirt    1327:4014  x=1140.68 y=191.45 120.37 x 101.86
+//   Sparkles 1327:4015  x=1257.68 y=254.68 44.76  x 45.79   (inset-left
+//                                                            87.34%)
+// The earlier code used Figma frame-metadata x values for Gloves
+// (971.31) and Sparkles (1302.44), which are not the rendered bbox
+// left edges - they are the rotated-bbox right edges. The design-
+// context CSS (and pixel-scan of the Figma render) put gloves at x=905
+// and sparkles at x=1258. Mask + Shirt were already at the rendered
+// positions.
+const CROSS_RIGHT = 326;
+const CROSS_TOP = 168;
+const CROSS_BOTTOM_HEIGHT = 224;
+const CROSS_LEFT_ARM_WIDTH = 598;
+const CROSS_RIGHT_ARM_WIDTH = 326;
+const CROSS_RADIUS = 48;
+// Fade ends at x=900 in the 1440 master. The left arm spans x=516 to
+// x=1114, so x=900 is (900-516)/598 = 64.2% of the arm's width.
+const LEFT_ARM_FADE = "linear-gradient(to right, transparent 0%, #000 64%, #000 100%)";
+
 function ProtectDecorCluster() {
   return (
+    // Cluster shows at lg+ — the page applies `html { zoom: 100vw /
+    // 1440px }` at the same breakpoint, so the fixed Figma-master pixel
+    // offsets below scale uniformly to physical pixels at every laptop
+    // and desktop width. Below lg the dark cap collapses to a narrow
+    // mobile layout and the cluster is hidden (the cap reads cleanly
+    // as just heading + button on small screens). Earlier `xl:block`
+    // was too strict — at lg/standard laptops (1024-1279 px wide) the
+    // cap was decoration-less, which made the page feel incomplete.
+    //
+    // Cross border opacity is `white/40` (was `/30`). On the dark
+    // #2d2d2f cap the 30 % white read as a barely-visible gray that
+    // the user reported as missing; 40 % matches the Figma master's
+    // visible-but-subtle gray hairline.
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:rounded-t-[68px] xl:block"
+      className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
     >
-      {/* Cross + decor positioned with PERCENT coords across the full
-          cap (no 922-wide inner wrapper). This matches Figma's
-          intent: the cluster scales proportionally with cap width
-          (cap is full-bleed at lg+, so the proportion is constant).
+      {/* Icons render FIRST so the cross arms can sit on top (later
+          in DOM = higher in the stacking order). The icon PNGs were
+          exported with a baked-in #2d2d2f rectangular background that
+          matches the cap — that background hid the cross lines wherever
+          an icon overlapped them (gloves bbox crosses the horizontal
+          arm at top=168). Drawing the cross AFTER the icons makes the
+          1-px hairline visible across the icon area, matching Figma's
+          rendering where the cross reads as continuous through the
+          gloves frame.
 
-          Earlier this used a fixed 922 px wrapper anchored to the
-          cap right (or worse: to a virtual 1440 content column with
-          dead space on the right). At wide viewports both broke the
-          visual:
-          * Cluster glued to cap right -> cross center landed at ~83%
-            of viewport (was 77.4% in Figma 1440 master); cluster
-            looked compressed in the right corner.
-          * Cluster anchored to content column -> empty dark band on
-            the right of the cluster, since the cap continues past
-            the cluster to the viewport edge.
+          Cross color is `border-white` (100% white, matching Figma
+          1327:3993 — the design-context for the cap shows every cross
+          piece as `border border-solid border-white` with no opacity
+          modifier). Earlier `border-white/30` and `/40` were guesses
+          to "match the gray-looking cross" in the static Figma render,
+          but Figma actually draws the cross at full white — the lines
+          read as light gray only because they're 1 px hairlines on a
+          #2d2d2f background. Browsers anti-alias them the same way, so
+          full opacity gives the correct visual at lg+. */}
 
-          Percent-based positioning fixes both: the cross horizontal
-          arm stretches to match cap width, decor sits at the same
-          Figma-master percentage of cap width, and the inner cross
-          corners always meet at 77.41% / 42.86% no matter how wide
-          the viewport gets.
-
-          Cap height is locked to 392 px (pt-43/pb-105) so y-values
-          are kept as fixed pixels - they're already correct against
-          Figma's 392-tall master. */}
-      {/* Figma applies a linear fade ONLY to the left horizontal
-          arm (the long arm that extends into the headline area) -
-          starts ~1% white at the outer end (x~525) and ramps up to
-          full white by ~64% of the arm's length (x~900), then stays
-          solid through the rounded corner into the cross center. The
-          other 3 arms (right horizontal, vertical top, vertical
-          bottom) are uniform full white. We use a mask-image linear
-          gradient on the two LEFT-cell rectangles only - it leaves
-          their right border (the vertical arm half) fully opaque
-          since that border lives at the gradient's solid (right)
-          end. */}
-      <div
-        className="absolute rounded-br-[48px] border-b border-r border-white"
-        style={{
-          left: "35.93%",
-          right: "22.59%",
-          top: 0,
-          bottom: "57.14%",
-          maskImage: "linear-gradient(to right, transparent 0%, black 64%)",
-          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 64%)",
-        }}
-      />
-      <div
-        className="absolute rounded-bl-[48px] border-b border-l border-white"
-        style={{ left: "77.41%", right: 0, top: 0, bottom: "57.14%" }}
-      />
-      <div
-        className="absolute rounded-tr-[48px] border-t border-r border-white"
-        style={{
-          left: "35.93%",
-          right: "22.59%",
-          top: "42.86%",
-          bottom: 0,
-          maskImage: "linear-gradient(to right, transparent 0%, black 64%)",
-          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 64%)",
-        }}
-      />
-      <div
-        className="absolute rounded-tl-[48px] border-t border-l border-white"
-        style={{ left: "77.41%", right: 0, top: "42.86%", bottom: 0 }}
-      />
-      {/* Decorations: horizontal POSITION as Figma master percent of
-          cap width so each icon stays in the same quadrant of the
-          (stretching) cross at every viewport. Figma master x
-          positions / 1440 (from Figma metadata, node 1327:3993):
-            mask     890.00 / 1440 = 61.806%
-            shirt   1140.68 / 1440 = 79.214%
-            sparkles 1302.44 / 1440 = 90.447%
-
-          GLOVES note: the Figma group bbox for `1327:4009` is
-          194x192, but Figma's actual vector renders the gloves at
-          a wider-than-tall visible extent (~160x158 in the cap). The
-          PNG export currently in `decor-gloves.png` fills the entire
-          194x192 bbox with the gloves shape stretched to be near-
-          square - so rendering it at width=194 makes the gloves
-          oversized and bleed past the vertical cross arm at 77.41%
-          (= 1115px) into the bottom-right cell, on top of the t-
-          shirt. Until the asset is re-exported, we render it at the
-          Figma vector's visible size (160 wide) and pin its left
-          edge to where the Figma children leftmost vector sits
-          (x=940 = 65.28%) so it stays inside the bottom-left cell. */}
+      {/* Mask (Figma 1327:4003) - sits above the cross horizontal
+          line, just left of the cross center. right = 1440-890-175 = 375. */}
       <img
         src="/figma-export/protect/decor-mask.png"
         alt=""
-        loading="lazy"
-        decoding="async"
-        className="absolute block"
-        style={{ left: "61.806%", top: "66px", width: "175px", height: "72px" }}
+        className="absolute"
+        style={{ right: "375px", top: "66px", width: "175px", height: "72px" }}
       />
+      {/* Gloves (Figma 1327:4009) - lower-LEFT quadrant of the cross.
+          right = 1440-904.90-194.19 = 340.91. */}
       <img
         src="/figma-export/protect/decor-gloves.png"
         alt=""
-        loading="lazy"
-        decoding="async"
-        className="absolute block"
-        style={{ left: "65.28%", top: "185px", width: "160px", height: "158px" }}
+        className="absolute"
+        style={{ right: "340.91px", top: "158.30px", width: "194.19px", height: "192.17px" }}
       />
+      {/* Shirt (Figma 1327:4014) - lower-right quadrant. right =
+          1440-1140.68-120.37 = 178.95. */}
       <img
         src="/figma-export/protect/decor-shirt.png"
         alt=""
-        loading="lazy"
-        decoding="async"
-        className="absolute block"
-        style={{ left: "79.214%", top: "191px", width: "120px", height: "102px" }}
+        className="absolute"
+        style={{ right: "178.95px", top: "191.45px", width: "120.37px", height: "101.86px" }}
       />
+      {/* Sparkles (Figma 1327:4015) - tucked against the right edge of
+          the shirt. right = 1440-1257.68-44.76 = 137.56. */}
       <img
         src="/figma-export/protect/decor-sparkles.png"
         alt=""
-        loading="lazy"
-        decoding="async"
-        className="absolute block"
-        style={{ left: "90.447%", top: "255px", width: "44px", height: "46px" }}
+        className="absolute"
+        style={{ right: "137.56px", top: "254.68px", width: "44.76px", height: "45.79px" }}
+      />
+
+      {/* Cross arms — drawn AFTER icons so the 1-px hairline stays
+          visible across the entire cap, including over the gloves /
+          shirt frames where it would otherwise be hidden by the
+          icons' opaque export backgrounds. */}
+      {/* Upper-left quadrant - bottom + right borders, rounded br
+          inner corner. Masked with the fade so the bottom border
+          dissolves into the dark cap under the heading. */}
+      <div
+        className="absolute border-b border-r border-white"
+        style={{
+          top: 0,
+          right: `${CROSS_RIGHT}px`,
+          width: `${CROSS_LEFT_ARM_WIDTH}px`,
+          height: `${CROSS_TOP}px`,
+          borderBottomRightRadius: `${CROSS_RADIUS}px`,
+          maskImage: LEFT_ARM_FADE,
+          WebkitMaskImage: LEFT_ARM_FADE,
+        }}
+      />
+      {/* Upper-right quadrant - bottom + left borders, rounded bl
+          inner corner. No fade (sits over empty dark band). */}
+      <div
+        className="absolute border-b border-l border-white"
+        style={{
+          top: 0,
+          right: 0,
+          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          height: `${CROSS_TOP}px`,
+          borderBottomLeftRadius: `${CROSS_RADIUS}px`,
+        }}
+      />
+      {/* Lower-left quadrant - top + right borders, rounded tr. Also
+          faded on the left (same gradient stop as the UL arm). */}
+      <div
+        className="absolute border-t border-r border-white"
+        style={{
+          top: `${CROSS_TOP}px`,
+          right: `${CROSS_RIGHT}px`,
+          width: `${CROSS_LEFT_ARM_WIDTH}px`,
+          height: `${CROSS_BOTTOM_HEIGHT}px`,
+          borderTopRightRadius: `${CROSS_RADIUS}px`,
+          maskImage: LEFT_ARM_FADE,
+          WebkitMaskImage: LEFT_ARM_FADE,
+        }}
+      />
+      {/* Lower-right quadrant - top + left borders, rounded tl. */}
+      <div
+        className="absolute border-t border-l border-white"
+        style={{
+          top: `${CROSS_TOP}px`,
+          right: 0,
+          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          height: `${CROSS_BOTTOM_HEIGHT}px`,
+          borderTopLeftRadius: `${CROSS_RADIUS}px`,
+        }}
       />
     </div>
   );
@@ -321,6 +381,18 @@ export function ProtectSolutions() {
           cluster uses fixed-pixel offsets from the cap's top/right
           edge (matching Figma's master), so locking the cap height
           to 392 also keeps decorations in their designed positions. */}
+      {/* Dark cap shell. At lg+ the page is rendered through
+          `html { zoom: calc(100vw / 1440px) }` (see globals.css), so
+          the cap's intrinsic CSS dimensions are always Figma master
+          (1440 × 392 design px) regardless of physical laptop /
+          desktop width. Inside `ProtectDecorCluster` we therefore use
+          FIXED design-px coordinates that html-zoom scales uniformly
+          to physical pixels — no container queries (cqw was confusing
+          Chrome when combined with `zoom` at non-integer factors like
+          1.201 on a 1729-wide laptop, producing visibly shifted icons
+          because `cqw` measured the post-zoom container size while
+          siblings measured pre-zoom). The cluster stays hidden below
+          lg where the cap collapses onto the heading anyway. */}
       <div
         className="lg-pad-x relative -mb-12 overflow-hidden rounded-t-[40px] px-6 pb-20 pt-10 sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:rounded-t-[68px] lg:pb-[105px] lg:pt-[43px]"
         style={{ background: "#2d2d2f" }}
@@ -354,7 +426,7 @@ export function ProtectSolutions() {
         <ProtectDecorCluster />
       </div>
 
-      <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:rounded-[68px] lg:pb-[80px] lg:pt-[120px]">
+      <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
         <div className="lg-pad-x px-5 sm:px-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0">
             {COLUMNS.map((col, i) => (

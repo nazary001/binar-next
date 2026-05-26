@@ -37,7 +37,10 @@ const TAGS: Tag[] = [
     p4: { cx: 110, cy: 353.5, rot: 0 },
   },
   {
-    label: "підбір товарів",
+    // Figma node 1327:6058 carries a leading space inside the label
+    // string; preserve it so the chip's text matches the design pixel
+    // for pixel.
+    label: " підбір товарів",
     p1: { cx: 167.42, cy: -122.97, rot: -36.79 },
     p2: { cx: 153.86, cy: 309.13, rot: -17.61 },
     p3: { cx: 148.26, cy: 311.41, rot: -0.77 },

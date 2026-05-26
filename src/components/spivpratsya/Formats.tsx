@@ -52,11 +52,15 @@ const FORMATS: Format[] = [
 ];
 
 function BlockText({ title, body }: Format) {
+  // No hover variant — Figma 1870:6120 / 6123 / 6126 / 6129 render the
+  // title as static `text-default` (#1d1d1f = neutral-900) and the body
+  // as static `text-subtle` (#777779 = neutral-500). Earlier the title
+  // also carried `transition-colors duration-300 group-hover/format:
+  // text-brand` to flip it orange on hover, but that effect isn't part
+  // of the design master so we render the blocks fully static now.
   return (
     <>
-      <h3 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover/format:text-brand">
-        {title}
-      </h3>
+      <h3 className="text-title-lg text-neutral-900">{title}</h3>
       <p className="text-body-sm text-neutral-500">{body}</p>
     </>
   );
@@ -103,7 +107,15 @@ const PAD_RIGHT: CSSProperties = { right: "var(--lg-pad-x, 130px)" };
 
 export function Formats() {
   return (
-    <section className="relative w-full bg-white px-5 py-16 sm:px-10 sm:py-20 lg:px-0 lg:py-[120px]">
+    // Figma 1870:6117: section background is `Backgroud/Sublte #f8f8f8`
+    // with `rounded-[68px]` corners. Earlier code rendered this flat
+    // white, making the section indistinguishable from its white
+    // neighbours and losing the design's signature "subtle slab"
+    // shoulder. Note: the rounded corners only resolve into visible
+    // shoulders on viewports where the section can extend edge-to-edge
+    // — on the centred 1440 master they bleed into the parent's white,
+    // matching Figma.
+    <section className="relative w-full bg-bg-subtle px-5 py-16 sm:px-10 sm:py-20 lg:rounded-[68px] lg:px-0 lg:py-[160px]">
       {/* Title — left-anchored at lg-pad-x on desktop. No max-width so
           the two-tone "Формати співпраці" stays on one line at the
           44-px Figma size. */}
@@ -123,7 +135,7 @@ export function Formats() {
             key={f.title}
             delay={i * 70}
             direction="up"
-            className="group/format flex flex-col gap-4"
+            className="flex flex-col gap-4"
           >
             <BlockText {...f} />
           </Reveal>
@@ -143,14 +155,14 @@ export function Formats() {
             bottom (opens LEFT). Rounded top-right (40 px). */}
         <div
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 h-1/2 w-1/2 rounded-tr-[40px] border-y border-r border-stroke-subtle"
+          className="pointer-events-none absolute left-0 top-0 h-1/2 w-1/2 rounded-tr-[40px] border-y border-r border-stroke-default"
         />
         {/* Bottom L-frame — 50%×50% at bottom-right. Borders on top,
             left, bottom (opens RIGHT). Rounded bottom-left (40 px).
             Shares the midline edge with the top frame. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 h-1/2 w-1/2 rounded-bl-[40px] border-y border-l border-stroke-subtle"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-1/2 w-1/2 rounded-bl-[40px] border-y border-l border-stroke-default"
         />
 
         {/* Block A — INSIDE top frame, pinned to lg-pad-x left.
@@ -161,7 +173,7 @@ export function Formats() {
         <Reveal
           delay={0}
           direction="up"
-          className="group/format absolute flex max-w-[505px] flex-col gap-6"
+          className="absolute flex max-w-[505px] flex-col gap-6"
           style={{ ...PAD_LEFT, top: "15.7%" }}
         >
           <BlockText title={FORMATS[0].title} body={FORMATS[0].body} />
@@ -172,7 +184,7 @@ export function Formats() {
         <Reveal
           delay={140}
           direction="up"
-          className="group/format absolute flex max-w-[473px] flex-col gap-6"
+          className="absolute flex max-w-[473px] flex-col gap-6"
           style={{ ...PAD_RIGHT, top: "15.7%" }}
         >
           <BlockText title={FORMATS[2].title} body={FORMATS[2].body} />
@@ -183,7 +195,7 @@ export function Formats() {
         <Reveal
           delay={70}
           direction="up"
-          className="group/format absolute flex max-w-[473px] flex-col gap-6"
+          className="absolute flex max-w-[473px] flex-col gap-6"
           style={{ ...PAD_LEFT, top: "65.7%" }}
         >
           <BlockText title={FORMATS[1].title} body={FORMATS[1].body} />
@@ -193,7 +205,7 @@ export function Formats() {
         <Reveal
           delay={210}
           direction="up"
-          className="group/format absolute flex max-w-[473px] flex-col gap-6"
+          className="absolute flex max-w-[473px] flex-col gap-6"
           style={{ ...PAD_RIGHT, top: "65.7%" }}
         >
           <BlockText title={FORMATS[3].title} body={FORMATS[3].body} />

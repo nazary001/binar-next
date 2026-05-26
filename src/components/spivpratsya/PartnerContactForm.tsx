@@ -89,9 +89,14 @@ export function PartnerContactForm() {
   }
 
   return (
+    // Figma 1870:6184 has no internal vertical padding — the section's
+    // height (696 px on the 1440 master) is exactly the height of the
+    // stacked-cards content. Neighbour sections (HowItWorks above, FAQ
+    // below) already carry their own `py-[160px]`, so the stack still
+    // gets breathing room without an extra `lg:py-[120px]` here.
     <section
       id="contact-form"
-      className="relative w-full overflow-hidden bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[120px]"
+      className="relative w-full overflow-hidden bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-0"
     >
       {/* === Side ghost-product decorations — lg only ===
           Anchored to the section's left/right edges with Figma's offsets
@@ -130,22 +135,47 @@ export function PartnerContactForm() {
         />
       </div>
 
-      {/* === Quizz Card (Figma 1870:6249 = I…;308:2720) ===
-          Strict 1:1 with Figma:
-            • Outer dark `#2d2d2f` rounded-40, NO padding.
-            • Title row at top (px-60 py-32 in master) — white text on
-              dark fill.
-            • Inner white card flush below title, with its own
-              rounded-40 top corners and a thin 1-px black border
-              (Figma's `border border-black`).
-            • Form body inside the white card; bottom-right submit.
-          The earlier "rough" appearance came from an extra
-          `p-1.5` (6 px) on the outer wrapper that pushed a 6-px dark
-          frame around the white card. Removing it lets the white card
-          sit flush against the title row exactly like the Figma
-          render — no extra ring, just the thin 1-px border. */}
-      <div className="relative mx-auto w-full max-w-[948px]">
-        <div className="relative flex flex-col rounded-[28px] bg-[#2d2d2f] shadow-[0_24px_50px_-24px_rgba(29,29,31,0.30),0_8px_16px_-12px_rgba(29,29,31,0.20)] sm:rounded-[32px] lg:rounded-[40px]">
+      {/* === 3-card stack (Figma 1870:6228) ===
+          The form is the FOREGROUND of a 3-layer "stack of papers"
+          decoration. Figma stacks three cards centred horizontally,
+          each pushed down by `mb-[-533px]` so only ~48 px of each
+          previous card peeks above the next:
+            • Card 1 (rear):   812×581 white  border-stroke-subtle r-40
+            • Card 2 (middle): 902×581 white  border-stroke-subtle r-40
+            • Card 3 (front):  948×600 dark #2d2d2f r-40 (the Quizz Card)
+          Earlier code rendered only Card 3 — the section's signature
+          "paper stack" metaphor was lost. The two backdrops only make
+          sense on lg where the design has room for cards wider than
+          the form; below lg we hide them and let the form stand
+          on its own. */}
+      <div className="relative mx-auto flex w-full max-w-[948px] flex-col items-center">
+        {/* Rear card (812 wide) — peeks ~48 px above the middle card. */}
+        <div
+          aria-hidden
+          className="hidden h-[581px] w-[812px] rounded-[40px] border border-stroke-subtle bg-white lg:-mb-[533px] lg:block"
+        />
+        {/* Middle card (902 wide) — peeks ~48 px above the foreground. */}
+        <div
+          aria-hidden
+          className="hidden h-[581px] w-[902px] rounded-[40px] border border-stroke-subtle bg-white lg:-mb-[533px] lg:block"
+        />
+
+        {/* === Quizz Card (Figma 1870:6249 = I…;308:2720) ===
+            Strict 1:1 with Figma:
+              • Outer dark `#2d2d2f` rounded-40, NO padding.
+              • Title row at top (px-60 py-32 in master) — white text on
+                dark fill.
+              • Inner white card flush below title, with its own
+                rounded-40 top corners and a thin 1-px black border
+                (Figma's `border border-black`).
+              • Form body inside the white card; bottom-right submit. */}
+        {/* Figma 1870:6249 fixes the Quizz Card at 948x600 on lg. The
+            rear + middle cards peek 48 px each above this front card
+            (rear y=0..581 with mb-[-533] -> middle y=48..629 with
+            mb-[-533] -> front y=96..696). lg:h-[600px] locks the
+            front card to Figma's 600 px so the section bottom lands
+            at y=696 (matches Figma section height). */}
+        <div className="relative flex w-full flex-col rounded-[28px] bg-[#2d2d2f] sm:rounded-[32px] lg:h-[600px] lg:w-[948px] lg:rounded-[40px]">
           {/* Title row — white text on dark. Matches Figma's
               `px-[60px] py-[32px]` at lg; scales down on mobile. */}
           <div className="flex items-center gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:gap-8 lg:px-[60px] lg:py-8">
@@ -154,12 +184,14 @@ export function PartnerContactForm() {
             </h2>
           </div>
 
-          {/* Inner white card — flush with the title row's bottom edge
-              and bordered with a 1-px black stroke (Figma's `border
-              border-black`). Its own `rounded-40` carves a small dark
-              shoulder at the top-left / top-right corners against the
-              outer dark, reproducing Figma's "tab" effect. */}
-          <div className="flex flex-1 flex-col rounded-[24px] border border-black bg-white sm:rounded-[28px] lg:rounded-[40px]">
+          {/* Inner white card — flush with the title row's bottom edge.
+              Figma applies a 1-px black border (`border border-black`)
+              on lg+ to draw a hairline against the outer dark; on
+              mobile the dark frame is small and the heavy black hairline
+              reads as a double stroke against the rounded inner radius,
+              so we drop it below lg and only keep it once the design's
+              full proportions kick in. */}
+          <div className="flex flex-1 flex-col rounded-[24px] bg-white sm:rounded-[28px] lg:rounded-[40px] lg:border lg:border-black">
             {submitted ? (
               <div className="flex flex-col items-center gap-4 px-6 py-12 text-center sm:gap-6 sm:px-12 sm:py-16 lg:py-[80px]">
                 <p className="text-title-lg text-neutral-900">Запит надіслано</p>

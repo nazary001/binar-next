@@ -93,7 +93,7 @@ export function Faq({
   return (
     <section
       id="faq"
-      className="lg-pad-x flex flex-col items-center gap-12 bg-white px-5 py-16 sm:gap-16 sm:px-10 sm:py-24 lg:gap-[120px] lg:py-[160px]"
+      className="lg-pad-x flex flex-col items-center gap-10 bg-white px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]"
     >
       {/* === Header: title + decorative icon row === */}
       <div className="flex w-full flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
@@ -111,7 +111,7 @@ export function Faq({
                 direction="right"
                 aria-label={i.label}
                 title={i.label}
-                className="group relative size-[56px] cursor-default overflow-clip rounded-[14px] border border-stroke-default transition-all duration-300 hover:-translate-y-1 hover:border-neutral-900 sm:size-[72px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
+                className="relative size-[56px] cursor-default overflow-clip rounded-[14px] border border-stroke-default sm:size-[72px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
               >
                 {/* Glyph wrapper — absolute box whose top/right/bottom/left
                     percentages match this icon's natural aspect ratio (see
@@ -121,7 +121,7 @@ export function Faq({
                     wrapper scales the icon hover-up by a hair without
                     distorting its shape. */}
                 <span
-                  className="absolute block transition-transform duration-300 group-hover:scale-110"
+                  className="absolute block"
                   style={i.inset}
                 >
                   <img
@@ -139,8 +139,17 @@ export function Faq({
         )}
       </div>
 
-      {/* === Question list === */}
-      <ul className="flex w-full flex-col gap-12 sm:gap-20 lg:gap-[120px]">
+      {/* === Question list ===
+          Mobile / tablet (< lg): each item is a single column.
+            * Top row: small "01." badge inline with the divider so the
+              numeral reads as an index marker rather than a giant
+              decorative numeral that eats half the screen height. This
+              swaps the Figma desktop typography for a tighter mobile
+              variant — verticality recovered, hierarchy preserved.
+            * Body row: title, then body paragraph stacked.
+          lg+ (1024+): the Figma 120-px hero numeral returns in the
+          left column. */}
+      <ul className="flex w-full flex-col gap-8 sm:gap-12 lg:gap-[120px]">
         {faqs.map((item, i) => {
           const num = `${String(i + 1).padStart(2, "0")}.`;
           return (
@@ -152,24 +161,34 @@ export function Faq({
               className="flex w-full flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-8"
             >
               {/* Big numeral — Figma 120-px Manrope SemiBold with
-                  letter-spacing -2.4 and ~103 % line-height. The Figma
-                  block also pins the text box to its cap-alphabetic
-                  edges (text-box-trim) so the divider on the right
-                  column lines up with the visible top of the digits.
-                  We use the same CSS in browsers that support it;
-                  others get a tiny ascender gap which is fine. */}
-              <p className="font-semibold leading-[1.03] tracking-[-1.28px] text-neutral-900 text-[64px] sm:text-[88px] sm:tracking-[-1.76px] lg:w-[271px] lg:shrink-0 lg:text-[120px] lg:tracking-[-2.4px] [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]">
+                  letter-spacing -2.4 and ~103 % line-height (lg+ only).
+                  Below lg the inline `0N.` chip in the divider row
+                  takes over so the layout fits a phone screen without
+                  a giant numeral above each question. */}
+              <p className="hidden font-semibold leading-[1.03] tracking-[-2.4px] text-neutral-900 lg:block lg:w-[271px] lg:shrink-0 lg:text-[120px] [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]">
                 {num}
               </p>
 
               {/* Right column — divider line + title/body row. On lg the
                   title pins to 372 px and the body fills the remaining
                   space; below lg the body stacks under the title. */}
-              <div className="flex flex-1 flex-col gap-6 sm:gap-8">
-                <span
-                  aria-hidden
-                  className="block h-px w-full bg-stroke-default"
-                />
+              <div className="flex flex-1 flex-col gap-4 sm:gap-6 lg:gap-8">
+                {/* Below lg: small "01." badge sits inline with the
+                    divider — replaces the Figma-master giant numeral
+                    so the mobile section has the same index marker
+                    without the vertical cost. */}
+                <div className="flex items-center gap-4 lg:contents">
+                  <span
+                    aria-hidden
+                    className="text-[20px] font-semibold leading-none tracking-[-0.4px] text-neutral-400 sm:text-[22px] lg:hidden"
+                  >
+                    {num}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="block h-px flex-1 bg-stroke-default lg:w-full lg:flex-none"
+                  />
+                </div>
                 <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:gap-8">
                   <h3 className="text-title-lg text-neutral-900 lg:w-[372px] lg:shrink-0">
                     {item.q}

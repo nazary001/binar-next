@@ -1,36 +1,43 @@
 /* eslint-disable @next/next/no-img-element */
 import { Button } from "@/components/ui/Button";
 
+// Icon % sizes derived from the lg 96-px container in Figma 1327:3887
+// (and the matching Info icon instances on rows 2-5). Each Info icon has
+// a 9-px inset on the symbol layer (96 - 18 = 78 px usable), then the
+// Vector inside has its own per-icon inset percent within that 78-px
+// box. Width % = 78 * (1 - left - right) / 96; Height % computed the
+// same way against top/bottom insets. Values rounded to the nearest
+// whole percent so Tailwind arbitrary-value classes stay readable.
 const AUDIENCES = [
   {
     title: "Виробничі підприємства",
     body: "Харчові, фармацевтичні та промислові об'єкти з високими вимогами до чистоти, безпеки та контрольованих процесів.",
     icon: "/figma-export/hero/icon-factory.svg",
-    iconClass: "h-[80%] w-[86%]",
+    iconClass: "w-[70%] h-[66%]",
   },
   {
     title: "Медичні заклади",
     body: "Рішення для лікарень, медичних центрів, амбулаторій і інших закладів охорони здоров'я.",
     icon: "/figma-export/hero/icon-medical.svg",
-    iconClass: "h-[76%] w-[91%]",
+    iconClass: "w-[74%] h-[62%]",
   },
   {
     title: "Клінінгові компанії",
     body: "Для команд, яким потрібні ефективні, передбачувані та економічно виправдані рішення для обслуговування об'єктів.",
     icon: "/figma-export/protect/icon-cleaning.svg",
-    iconClass: "h-[84%] w-[80%]",
+    iconClass: "w-[65%] h-[68%]",
   },
   {
     title: "HoReCa",
     body: "Для готелів, кухонь, ресторанів і кейтерингу, де критично важливі стабільна гігієна та відповідність стандартам.",
     icon: "/figma-export/protect/icon-horeca.svg",
-    iconClass: "h-[76%] w-[79%]",
+    iconClass: "w-[64%] h-[62%]",
   },
   {
     title: "SPA, косметологія та салони",
     body: "Для просторів, де чистота, комфорт і враження клієнта напряму впливають на якість сервісу.",
     icon: "/figma-export/hero/icon-beauty.svg",
-    iconClass: "size-[77%]",
+    iconClass: "size-[63%]",
   },
 ];
 
@@ -42,7 +49,7 @@ export function TargetAudiences() {
     // line at the join. Matches Figma where Hero ends at y=746 and the
     // next section starts at y=747 to share one visual edge.
     <section className="bg-white lg:-mt-px lg:rounded-t-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default">
-      <div className="lg-pad-x flex flex-col gap-10 px-5 pb-12 pt-16 sm:gap-12 sm:px-10 sm:pb-16 sm:pt-20 lg:gap-[120px] lg:pb-[120px] lg:pt-[160px]">
+      <div className="lg-pad-x flex flex-col gap-10 px-5 pb-12 pt-16 sm:gap-12 sm:px-10 sm:pb-16 sm:pt-20 lg:gap-[54px] lg:pb-[136px] lg:pt-[160px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-center">
           <h2 className="max-w-[540px] text-neutral-900">
             <span className="text-h2">Для яких бізнесів </span>
@@ -54,31 +61,44 @@ export function TargetAudiences() {
         </div>
 
         <ul className="flex flex-col">
-          {AUDIENCES.map((a, i) => (
+          {AUDIENCES.map((a, i) => {
+            const isLast = i === AUDIENCES.length - 1;
+            return (
             <li
               key={a.title}
-              className={`group/row flex flex-col gap-4 py-6 transition-colors duration-300 sm:gap-6 sm:py-10 lg:flex-row lg:items-center lg:gap-8 ${
-                i > 0 ? "border-t border-stroke-subtle" : ""
-              }`}
+              className={`flex flex-col gap-4 py-6 sm:gap-6 sm:py-10 lg:flex-row lg:items-center lg:gap-0 ${
+                i > 0 ? "border-t border-stroke-default" : ""
+              } ${isLast ? "lg:pb-0" : ""}`}
             >
-              <p className="flex-1 max-w-[574px] text-h2 text-neutral-900 transition-colors duration-300 group-hover/row:text-brand">
-                {a.title}
-              </p>
-              <p className="flex-1 max-w-[480px] text-body-sm text-neutral-500">
+              {/* Mobile / sm: title + icon sit in one row at the top
+                  (title LEFT, icon RIGHT — cross-page mobile
+                  consistency), body below. lg restores Figma's exact
+                  row geometry (1327:3882): title-block w=574 + gap 33
+                  + body w=270 + auto gap 207 + icon w=96 = total 1180.
+                  Implemented with `lg:contents` to flatten the
+                  inner row into the li flex, per-item `lg:order`, and
+                  `lg:ml-auto` on the icon to absorb the 207-px gap. */}
+              <div className="flex items-center justify-between gap-4 lg:contents">
+                <p className="flex-1 text-h2 text-neutral-900 lg:order-1 lg:w-[574px] lg:flex-none">
+                  {a.title}
+                </p>
+                <span className="flex size-[56px] shrink-0 items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[14px] lg:order-3 lg:ml-auto lg:size-[96px] lg:rounded-[18px]">
+                  <img
+                    src={a.icon}
+                    alt=""
+                    aria-hidden
+                    loading="lazy"
+                    decoding="async"
+                    className={a.iconClass}
+                  />
+                </span>
+              </div>
+              <p className="text-body-sm text-neutral-500 lg:order-2 lg:ml-[33px] lg:w-[270px] lg:flex-none">
                 {a.body}
               </p>
-              <span className="flex size-[72px] shrink-0 items-center justify-center overflow-clip rounded-[14px] border border-stroke-default transition-all duration-500 group-hover/row:rotate-3 group-hover/row:scale-105 sm:size-[96px] sm:rounded-[18px]">
-                <img
-                  src={a.icon}
-                  alt=""
-                  aria-hidden
-                  loading="lazy"
-                  decoding="async"
-                  className={a.iconClass}
-                />
-              </span>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
     </section>

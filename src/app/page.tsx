@@ -25,7 +25,7 @@ export default function HomePage() {
       <Cases />
       <LogosMarquee />
       <TeamCta />
-      <QuizForm />
+      <QuizForm decorations="home" />
       <Faq />
     </main>
   );

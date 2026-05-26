@@ -27,12 +27,18 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 
 // Sizes shrink slightly on mobile so long Ukrainian labels (e.g.
 // "Домовитись про зустріч" = 22 chars) fit the narrow column without
-// wrapping. Desktop keeps the Figma 18-px / 52-px arrow proportions.
+// wrapping. Desktop matches Figma exactly:
+//   Small  → px-24 py-10  rounded-24  Manrope Medium  16/22  weight 500
+//   Large  → px-24 py-15  rounded-25  Manrope SemiBold 18/22 weight 600
+// The Figma hover state is an INVERSE: solid swaps to outlined (border
+// appears, bg disappears, text flips dark). Keeping a 1-px transparent
+// border on the default state means the hover border addition does not
+// shift layout by 1 px when the user mouses over.
 const labelSize = {
   large:
-    "rounded-[25px] px-5 py-[12px] text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[15px] sm:text-button-lg",
+    "rounded-[25px] border border-transparent px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[15px] sm:text-button-lg",
   small:
-    "rounded-[24px] px-5 py-[10px] text-button-md whitespace-nowrap sm:px-6",
+    "rounded-[24px] border border-transparent px-5 py-[10px] text-button-md whitespace-nowrap sm:px-6",
 };
 
 const arrowWrap = {
@@ -40,18 +46,44 @@ const arrowWrap = {
   small: "size-[38px] rounded-[19px] sm:size-[42px] sm:rounded-[21px]",
 };
 
+// Figma `heroicons-outline/arrow-up-right` lives inside a 24-px (large)
+// / 16-px (small) container with an inset of 15.625 % around the SVG.
+// The visual arrow is therefore ~16.5 px on large and ~11 px on small —
+// noticeably smaller than my old `size-6` / `size-4` which let the path
+// fill the full container. We size the img to that visual measurement
+// (Tailwind arbitrary px values) so the rendered arrow matches Figma.
 const arrowIcon = {
-  large: "size-5 sm:size-6",
-  small: "size-4",
+  large: "size-[14px] sm:size-[16.5px]",
+  small: "size-[11px]",
 };
 
+// All transitions are colour-only — no slide, no rotate, no scale on
+// the arrow. Figma defines hover as bg/text/border inversion only.
+// `solid` hover: black pill inverts to a SOLID-WHITE pill with a black
+// outline and black text. Using bg-white (not bg-transparent) means
+// the hover state shows pure white regardless of what's behind the
+// button, which matches Figma's hover variant and reads cleanly on
+// any section background.
+//
+// Hover triggers on TWO visible elements (the pill itself AND the
+// orange arrow circle), but NOT on the 8 px gap between them or any
+// invisible area of the link wrapper:
+//   • `hover:…` rules fire when the cursor sits on the pill directly.
+//   • `peer-hover:…` rules fire when the arrow (which is rendered with
+//     `peer` BEFORE the pill in DOM order and brought back to its
+//     visual right-of-pill position with `order-2`) is hovered, since
+//     the peer-hover Tailwind variant follows the CSS `~` sibling
+//     combinator (which only sees prior peers).
+// Earlier `group-hover:` on the wrapper let the pill flip colour when
+// the cursor was in the gap, which the user flagged ("когда наводишь
+// мимо стрелочки").
 const labelVariant = {
   solid:
-    "bg-neutral-900 text-white transition-all duration-300 group-enabled:group-hover:bg-neutral-800 group-enabled:group-hover:translate-x-1",
+    "bg-neutral-900 text-white transition-colors duration-300 hover:bg-white hover:border-neutral-900 hover:text-neutral-900 peer-hover:bg-white peer-hover:border-neutral-900 peer-hover:text-neutral-900",
   outlined:
-    "border border-white text-white transition-all duration-300 group-enabled:group-hover:bg-white group-enabled:group-hover:text-neutral-900 group-enabled:group-hover:translate-x-1",
+    "bg-transparent border-white text-white transition-colors duration-300 hover:bg-white hover:text-neutral-900 peer-hover:bg-white peer-hover:text-neutral-900",
   light:
-    "bg-bg-subtle text-neutral-900 transition-all duration-300 group-enabled:group-hover:bg-white group-enabled:group-hover:translate-x-1",
+    "bg-bg-subtle text-neutral-900 transition-colors duration-300 hover:bg-white peer-hover:bg-white",
 };
 
 function ButtonInner({
@@ -62,16 +94,19 @@ function ButtonInner({
 }: Required<Pick<ButtonStyle, "size" | "variant" | "arrow">> & {
   children: ReactNode;
 }) {
+  // DOM order is arrow → pill so the pill can pick up the arrow's
+  // hover state via Tailwind's `peer-hover:` (the `~` CSS sibling
+  // combinator only looks at PRIOR peers, so the peer has to come
+  // first in markup). Visual order is restored with `order-1` on the
+  // pill / `order-2` on the arrow inside the flex wrapper.
+  // `cursor-pointer` lives on the two visible elements (pill + arrow
+  // circle) so the pointer ONLY shows on those shapes — the 8-px gap
+  // between them keeps the wrapper's `cursor-default`.
   return (
     <>
-      <span
-        className={`inline-flex items-center justify-center ${labelSize[size]} ${labelVariant[variant]}`}
-      >
-        {children}
-      </span>
       {arrow && (
         <span
-          className={`inline-flex items-center justify-center bg-brand transition-transform duration-300 ease-out group-enabled:group-hover:rotate-12 group-enabled:group-hover:scale-110 ${arrowWrap[size]}`}
+          className={`peer order-2 inline-flex cursor-pointer items-center justify-center bg-brand ${arrowWrap[size]}`}
         >
           <img
             src={ARROW_SRC}
@@ -79,16 +114,28 @@ function ButtonInner({
             aria-hidden
             loading="lazy"
             decoding="async"
-            className={`transition-transform duration-300 group-enabled:group-hover:translate-x-0.5 group-enabled:group-hover:-translate-y-0.5 ${arrowIcon[size]}`}
+            className={arrowIcon[size]}
           />
         </span>
       )}
+      <span
+        className={`order-1 inline-flex cursor-pointer items-center justify-center ${labelSize[size]} ${labelVariant[variant]}`}
+      >
+        {children}
+      </span>
     </>
   );
 }
 
+// Wrapper holds the disabled-state affordances + the flex layout.
+// `cursor-default` (not pointer) so the 8-px gap between the pill and
+// the arrow circle reads as inert empty space — the two visible
+// children each set `cursor-pointer` on themselves so the pointer
+// shows up only when the cursor sits on the actual interactive
+// shapes. `gap-2` keeps the 8-px space; the link is still navigable
+// across the whole wrapper area, the cursor change is purely visual.
 const wrapperClass = (className?: string) =>
-  `group inline-flex shrink-0 cursor-pointer items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 ${className ?? ""}`.trim();
+  `inline-flex shrink-0 cursor-default items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 ${className ?? ""}`.trim();
 
 export function Button(props: ButtonProps) {
   const size = props.size ?? "large";

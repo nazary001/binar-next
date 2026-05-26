@@ -79,9 +79,14 @@ export function AnimatedNumber({
     };
   }, [value, duration]);
 
+  // Default rendering = plain digits, no locale thousand separators.
+  // Figma master shows raw numbers like "1200+" / "15000+", not
+  // "1 200+" / "15 000+" — Ukrainian locale's NBSP separator was
+  // adding visual noise that doesn't match the design. Call sites
+  // that genuinely need a formatter (rare) can pass one explicitly.
   return (
     <span ref={ref} className={className}>
-      {formatter ? formatter(display) : display.toLocaleString("uk-UA")}
+      {formatter ? formatter(display) : String(display)}
     </span>
   );
 }

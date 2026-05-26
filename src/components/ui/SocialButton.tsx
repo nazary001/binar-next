@@ -24,11 +24,16 @@ type SocialAsButton = SocialButtonStyle & {
 
 export type SocialButtonProps = SocialAsLink | SocialAsButton;
 
+// Figma "Social button" (726:5422) has 2 variants:
+//   Default  → 1-px neutral-600 (#616162) border, transparent bg
+//   Variant2 → brand-orange bg, no visible border
+// The default→variant2 transition is the hover behaviour. No scale,
+// no opacity changes.
 const variantMap = {
   default:
-    "group/social border border-neutral-600 text-white transition-all duration-300 hover:scale-105 hover:border-white hover:bg-neutral-800",
+    "group/social border border-neutral-600 text-white transition-colors duration-300 hover:bg-brand hover:border-brand",
   primary:
-    "group/social bg-brand text-white transition-all duration-300 hover:scale-105 hover:opacity-90",
+    "group/social bg-brand border border-brand text-white",
 };
 
 export function SocialButton(props: SocialButtonProps) {
@@ -44,7 +49,7 @@ export function SocialButton(props: SocialButtonProps) {
         aria-hidden
         loading="lazy"
         decoding="async"
-        className={`transition-transform duration-300 group-hover/social:scale-110 ${props.iconClassName ?? "size-6"}`}
+        className={props.iconClassName ?? "size-6"}
       />
     ) : null);
 

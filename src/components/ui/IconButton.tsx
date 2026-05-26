@@ -31,16 +31,22 @@ const sizeMap = {
   small: "size-[42px] rounded-[21px]",
 };
 
+// Same Figma 15.625 % inset around the SVG path as the standard Button —
+// see Button.tsx for the math. Visual arrow ~16.5 px on large, ~11 px
+// on small.
 const iconSizeMap = {
-  large: "size-6",
-  small: "size-4",
+  large: "size-[16.5px]",
+  small: "size-[11px]",
 };
 
+// Figma "Icon button" (230:904) has only 2 variants — Primary (orange
+// solid) and Outlined (1-px black border). No hover variant defined,
+// so we keep both states static with no scale/rotate.
 const variantMap = {
   primary:
-    "bg-brand transition-transform duration-300 ease-out hover:rotate-12 hover:scale-105 active:scale-95",
+    "bg-brand text-white",
   outlined:
-    "border border-neutral-900 text-neutral-900 transition-all duration-300 hover:scale-105 hover:bg-neutral-900 hover:text-white active:scale-95",
+    "border border-neutral-900 text-neutral-900",
 };
 
 export function IconButton(props: IconButtonProps) {

@@ -144,13 +144,13 @@ const FEATURES: Feature[] = [
 
 function Block({ title, icon }: Feature) {
   return (
-    <article className="group/why flex h-full w-full min-w-0 flex-col-reverse items-start gap-5 rounded-[24px] bg-bg-subtle p-6 transition-[transform,background-color,box-shadow] duration-500 hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_24px_50px_-22px_rgba(29,29,31,0.22)] sm:gap-6 sm:rounded-[28px] sm:p-7 lg:flex-col lg:items-end lg:justify-between lg:gap-10 lg:min-h-[240px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6 lg:hover:translate-y-0 lg:hover:bg-transparent lg:hover:shadow-none">
-      <h3 className="w-full text-title-lg text-neutral-900 transition-colors duration-300 group-hover/why:text-brand">
+    <article className="flex h-full w-full min-w-0 flex-col-reverse items-start gap-5 rounded-[24px] bg-bg-subtle p-6 sm:gap-6 sm:rounded-[28px] sm:p-7 lg:flex-col lg:items-end lg:justify-between lg:gap-0 lg:min-h-[240px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6">
+      <h3 className="w-full text-title-lg text-neutral-900">
         {title}
       </h3>
       <span
         aria-hidden
-        className="relative block size-[96px] overflow-clip transition-transform duration-500 ease-out group-hover/why:-translate-y-1 group-hover/why:scale-[1.06] lg:size-[120px]"
+        className="relative block size-[96px] overflow-clip lg:size-[120px]"
       >
         {typeof icon === "string" ? (
           <img
@@ -170,18 +170,28 @@ function Block({ title, icon }: Feature) {
 
 export function WhyPartners() {
   return (
-    <section className="lg-pad-x w-full bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[120px]">
+    <section className="lg-pad-x w-full bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[160px]">
       <div className="flex flex-col gap-10 sm:gap-14 lg:gap-[120px]">
         <Reveal
           as="h2"
           className="text-neutral-900 lg:max-w-[574px]"
         >
-          <span className="text-h2-light">Чому партнери </span>
+          <span className="text-h2-light">
+            Чому партнери
+            <br aria-hidden className="hidden lg:inline" />{" "}
+          </span>
           <span className="text-h2">обирають нас?</span>
         </Reveal>
 
-        <div className="relative lg:py-2">
-          <ul className="relative z-10 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-20">
+        {/* lg grid matches Figma 1870:6141 — 3 cards x 340 wide with
+            80 px between cards (= the 80-px gap-x where Figma puts its
+            zero-width Vector67 divider). Use lg:gap-x-20 (80 px) so
+            each column lands at (1180 - 160) / 3 = 340 px on the master.
+            Rows are 240 tall with min-h-[240px] on cards; gap-y-20
+            (80 px) matches Figma's 80-px row gap between the two
+            240-tall rows. */}
+        <div className="relative">
+          <ul className="relative z-10 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-20 lg:gap-y-20">
             {FEATURES.map((f, i) => (
               <Reveal
                 as="li"
@@ -194,19 +204,27 @@ export function WhyPartners() {
             ))}
           </ul>
 
-          {/* lg dividers — single horizontal between row 1 and row 2,
-              two vertical lines at 1/3 and 2/3 marks in each row,
-              insets trim them so they don't touch the section edges
-              (Figma Vector 67/68). */}
+          {/* lg dividers - matches Figma 1870:6141 exactly.
+              COLORS: Vector67 (verticals) uses `#D2D2D2` (stroke-subtle),
+              Vector68 (horizontal) uses `#8E8E8F` (stroke-default) -
+              the two tokens are intentionally different in Figma so the
+              horizontal row separator reads as the dominant rule.
+              POSITIONS: each vertical sits at the centre of its 80-px
+              gap, i.e. `calc(33.333% - 13.333px)` / `calc(66.667% + 13.333px)`
+              (= card-width + half-gap, expressed responsively).
+              LENGTHS: verticals span ONLY one row height (240 px in
+              Figma) - they stop 40 px before the horizontal centre
+              line so the cross-free intersection matches Figma's
+              master. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 hidden lg:block"
           >
-            <span className="absolute left-0 right-0 top-1/2 block h-px -translate-y-1/2 bg-stroke-subtle" />
-            <span className="absolute left-1/3 top-[8%] bottom-[58%] block w-px -translate-x-1/2 bg-stroke-subtle" />
-            <span className="absolute left-2/3 top-[8%] bottom-[58%] block w-px -translate-x-1/2 bg-stroke-subtle" />
-            <span className="absolute left-1/3 top-[58%] bottom-[8%] block w-px -translate-x-1/2 bg-stroke-subtle" />
-            <span className="absolute left-2/3 top-[58%] bottom-[8%] block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-0 right-0 top-1/2 block h-px -translate-y-1/2 bg-stroke-default" />
+            <span className="absolute left-[calc(33.333%_-_13.333px)] top-0 bottom-[calc(50%+40px)] block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-[calc(66.667%_+_13.333px)] top-0 bottom-[calc(50%+40px)] block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-[calc(33.333%_-_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
+            <span className="absolute left-[calc(66.667%_+_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
           </div>
         </div>
       </div>
