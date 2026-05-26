@@ -222,30 +222,12 @@ export function AboutUs() {
                   The full L-shape returns at lg+ where the column layout
                   actually exists. */}
               <div className="relative flex-1 xl:h-full">
-                <div
-                  className="relative block h-[160px] w-full overflow-hidden rounded-[32px] sm:h-[200px] sm:rounded-[48px] lg:hidden"
-                  style={{ background: "#F7580C" }}
-                >
-                  <img
-                    src="/figma-export/about-us/img-shape-content.png"
-                    alt=""
-                    aria-hidden
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 size-full object-cover opacity-70 mix-blend-soft-light"
-                  />
-                  {/* Brand-accent watermark — gives the card a clear
-                      visual identity instead of a flat orange swatch.
-                      Big "20+" mirrors the years-of-experience stat
-                      below, reinforcing the section's headline number
-                      with a softer typographic accent. */}
-                  <p
-                    aria-hidden
-                    className="absolute bottom-4 right-5 text-[64px] font-semibold leading-none tracking-[-1.6px] text-white/30 sm:bottom-6 sm:right-7 sm:text-[88px] sm:tracking-[-2.2px]"
-                  >
-                    20<span className="text-white/60">+</span>
-                  </p>
-                </div>
+                {/* Mobile/sm/md only renders the lg L-shape from `lg`
+                    up - the orange brand-accent card that previously
+                    sat here on mobile was removed per design feedback
+                    (the section reads cleaner without it on narrow
+                    viewports; the 20+ stat is already covered by the
+                    Stats block below). */}
                 <svg
                   viewBox="0 0 927 445"
                   preserveAspectRatio="xMidYMid meet"

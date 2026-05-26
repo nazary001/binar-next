@@ -52,7 +52,7 @@ function DirectionCard({ href, title, body, image }: Card) {
         />
         <span
           aria-hidden
-          className="absolute bottom-4 right-4 flex size-[44px] items-center justify-center rounded-[22px] border border-neutral-900 bg-white/85 text-neutral-900 backdrop-blur-sm transition-colors duration-300 ease-out group-hover:border-brand group-hover:bg-brand group-hover:text-white sm:bottom-auto sm:top-[268px] sm:size-[52px] sm:rounded-[26px] sm:bg-transparent sm:backdrop-blur-none"
+          className="absolute bottom-4 right-4 flex size-[44px] items-center justify-center rounded-[22px] border border-neutral-900 text-neutral-900 transition-colors duration-300 ease-out group-hover:border-brand group-hover:bg-brand group-hover:text-white sm:bottom-auto sm:top-[268px] sm:size-[52px] sm:rounded-[26px]"
         >
           <svg
             width="16.5"

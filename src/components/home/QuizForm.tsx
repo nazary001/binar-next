@@ -15,7 +15,19 @@ export type QuizStep = {
   customInputField?: string;
 };
 
-type Answers = Record<string, string>;
+// Option-pick steps store their selection as `string[]` (multi-select);
+// free-text fields (`customInputField`, contact name/email/phone) stay
+// as plain strings. The same Answers map carries both.
+type Answers = Record<string, string | string[]>;
+
+function getStr(a: Answers, k: string): string {
+  const v = a[k];
+  return typeof v === "string" ? v : "";
+}
+function getArr(a: Answers, k: string): string[] {
+  const v = a[k];
+  return Array.isArray(v) ? v : [];
+}
 
 // Step copy and options drawn directly from Figma component-set
 // `Quizz Card` variants:
@@ -318,19 +330,29 @@ export function QuizForm({
 
   const current = STEPS[step];
   const isContactStep = current.custom === "contact";
-  // Step 2 has a custom free-text fallback. Treat the step as advanceable
-  // when EITHER a radio option is picked OR the free-text input has
-  // content.
+  // Step is advanceable when at least one option is picked OR the
+  // optional free-text fallback has content (or, for the contact step,
+  // when the required text fields are filled in).
   const canAdvance = isContactStep
-    ? (answers.name?.length ?? 0) > 1 &&
-      ((answers.phone?.length ?? 0) > 5 || (answers.email ?? "").includes("@"))
-    : Boolean(answers[current.field]) ||
+    ? getStr(answers, "name").length > 1 &&
+      (getStr(answers, "phone").length > 5 ||
+        getStr(answers, "email").includes("@"))
+    : getArr(answers, current.field).length > 0 ||
       (current.customInputField
-        ? (answers[current.customInputField]?.length ?? 0) > 0
+        ? getStr(answers, current.customInputField).length > 0
         : false);
 
+  // Toggle multi-select: add the value if not present, remove it if
+  // already in the array. Each option step's answer is therefore a
+  // `string[]` regardless of whether the user picked one or many.
   function handleSelect(value: string) {
-    setAnswers((prev) => ({ ...prev, [current.field]: value }));
+    setAnswers((prev) => {
+      const cur = Array.isArray(prev[current.field]) ? (prev[current.field] as string[]) : [];
+      const next = cur.includes(value)
+        ? cur.filter((v) => v !== value)
+        : [...cur, value];
+      return { ...prev, [current.field]: next };
+    });
   }
   function handleNext() {
     if (!canAdvance) return;
@@ -532,14 +554,14 @@ function CardInner({
             <OptionGrid
               options={step.options ?? []}
               fieldKey={step.field}
-              selectedValue={answers[step.field] ?? ""}
+              selectedValues={getArr(answers, step.field)}
               onSelect={onSelect}
               animate={isActive}
               customInputPlaceholder={step.customInputPlaceholder}
               customInputField={step.customInputField}
               customInputValue={
                 step.customInputField
-                  ? answers[step.customInputField] ?? ""
+                  ? getStr(answers, step.customInputField)
                   : ""
               }
               onCustomInputChange={

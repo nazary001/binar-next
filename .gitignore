@@ -57,12 +57,10 @@ next-env.d.ts
 /.tmp-assets/
 
 # Backup of pre-optimisation Figma PNG exports — 75 MB, unreferenced.
-# Kept locally for re-running scripts/optimize-images.mjs if needed.
 /public/figma-export/_originals/
 
 # Local design-review artefacts: Figma compares, audit screenshots,
-# scratch crops. Combined ~570 MB across these three dirs — kept on
-# disk for re-running the capture scripts, but should not bloat the
+# scratch crops. Excluded so design-review work doesn't bloat the
 # remote repo.
 /audit/
 /.figma-review/
