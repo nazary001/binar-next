@@ -205,7 +205,7 @@ export function Hero() {
           bottom-aligned, while letting the photo grow if the left column
           ever exceeds 746 px (e.g. text wraps on narrower lg widths). */}
       <div className="flex flex-col items-stretch lg:flex-row">
-        <div className="hero-left flex flex-1 flex-col gap-12 px-5 pb-8 pt-10 sm:gap-16 sm:px-10 sm:pb-10 sm:pt-14 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+        <div className="hero-left flex flex-1 flex-col gap-12 px-5 pb-8 pt-10 sm:gap-16 sm:px-10 sm:pb-10 sm:pt-14 lg:gap-[88px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-10 sm:gap-12 lg:max-w-[575px] lg:gap-14">
             <div className="flex flex-col gap-5 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -319,7 +319,7 @@ export function Hero() {
                 wood-tree:   pos (-76.4, -65),  size 729x934
                 driftwood:   pos (-6.78, -35),  size 667.4x817.0 */}
           <div
-            className="ken-burns-stage absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
+            className="ken-burns-stage absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-none lg:rounded-tl-[48px] lg:rounded-br-none"
             style={{ background: "#c34924" }}
           >
             {/* Locked-aspect canvas (603/746) + single ken-burns-follow

@@ -55,7 +55,16 @@ export function HotelsHero() {
             (tr 48, br 48), padding 130/32/80/40. The left border
             bleeds past the visible viewport on >1440 monitors so the
             screen edge always looks like a flush card. */}
-        <div className="flex flex-col gap-12 px-5 pb-8 pt-10 sm:gap-16 sm:px-10 sm:pb-10 sm:pt-14 lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
+        {/* At lg+ the Hero card draws border only on TOP, LEFT, RIGHT
+            (no border-b) and keeps just `lg:rounded-tr-[48px]` on its
+            outer corner. The seam between Hero and the next section is
+            painted ENTIRELY by the next section's border-t — so the
+            user sees one uniformly thin hairline curving with the
+            ZonesGrid rounded-tl/tr, instead of two parallel strokes +
+            corner cutouts that read as a thick gap. Square bottom
+            corners + open bottom edge let the next section's border
+            "cap" the Hero cleanly. */}
+        <div className="flex flex-col gap-12 px-5 pb-8 pt-10 sm:gap-16 sm:px-10 sm:pb-10 sm:pt-14 lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
           {/* Top block — Figma 1384:11589: w 575, gap-[56] between
               the heading column and the CTA button. */}
           <div className="flex w-full flex-col gap-10 sm:gap-12 lg:w-[575px] lg:gap-14">
@@ -144,7 +153,7 @@ export function HotelsHero() {
             so the image positioned right-[33px] inside stays anchored
             to the design frame, exactly as Figma renders the master. */}
         <div
-          className="relative h-[320px] overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:h-[420px] sm:rounded-bl-[40px] sm:rounded-br-[40px] md:h-[520px] lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
+          className="relative h-[320px] overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:h-[420px] sm:rounded-bl-[40px] sm:rounded-br-[40px] md:h-[520px] lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-none lg:rounded-br-none lg:rounded-tl-[48px]"
           style={{ background: "#726053" }}
         >
           {/* Figma 1384:11618 — `hotel03 1` is a 718 x 721 wrapper at

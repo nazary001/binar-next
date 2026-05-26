@@ -11,7 +11,7 @@ export function ProtectHero() {
           edge; html { overflow-x: clip } absorbs the overflow). On <lg
           the columns stack and the photo becomes a full-bleed card. */}
       <div className="flex flex-col items-stretch lg:flex-row">
-        <div className="hero-left flex flex-col gap-10 px-5 pb-8 pt-10 sm:gap-12 sm:px-10 sm:pb-10 sm:pt-14 lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-r-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+        <div className="hero-left flex flex-col gap-10 px-5 pb-8 pt-10 sm:gap-12 sm:px-10 sm:pb-10 sm:pt-14 lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-10 sm:gap-12 lg:max-w-[575px] lg:gap-14">
             <div className="flex flex-col gap-5 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -46,7 +46,7 @@ export function ProtectHero() {
           style={{ "--hero-photo-w": "721px" } as CSSProperties}
         >
           <div
-            className="absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
+            className="absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-none lg:rounded-tl-[48px] lg:rounded-br-none"
             style={{ background: "#726053" }}
           >
             {/* Below lg the image fills the column edge-to-edge (no

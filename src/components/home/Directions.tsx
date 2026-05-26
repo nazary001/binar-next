@@ -81,14 +81,12 @@ function DirectionCard({ href, title, body, image }: Card) {
 export function Directions() {
   return (
     <section id="segments">
-      {/* `lg:-mt-px` collapses the doubled hairline at the Hero/Directions
-          seam. Hero's left card carries a full 4-side border (lg:border)
-          and this section carries a top border, so without the overlap
-          both 1-px strokes would render on adjacent pixel rows and read
-          as a 2-px stroke at the join. Matches the Figma source where
-          Hero (y=0..746) and Directions (y=747..) sit one px apart so
-          the strokes share a single visual edge. */}
-      <div className="lg-pad-x flex flex-col gap-10 px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:-mt-px lg:gap-[120px] lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pt-[160px] lg:pb-0">
+      {/* Hero now omits border-b at lg+ (see home/Hero.tsx) so
+          Directions's border-t draws the seam on its own as a single
+          uniformly-thin hairline across the full width. Dropping the
+          rounded-tl/tr at lg eliminates the triangular page-bg cutouts
+          that previously made the join read as a thick gap. */}
+      <div className="lg-pad-x flex flex-col gap-10 px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:gap-[120px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pt-[160px] lg:pb-0">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900 lg:max-w-[574px]">
             <span className="text-h2">Оберіть напрямок, </span>

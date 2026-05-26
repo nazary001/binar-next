@@ -14,7 +14,7 @@ export function SpivpratsyaHero() {
   return (
     <section className="w-full">
       <div className="flex flex-col items-stretch lg:flex-row">
-        <div className="hero-left flex flex-1 flex-col justify-between gap-12 px-5 pb-10 pt-10 sm:gap-16 sm:px-10 sm:pb-14 sm:pt-14 lg:gap-[88px] lg:rounded-r-[48px] lg:border lg:border-stroke-default lg:pb-20 lg:pr-8 lg:pt-20">
+        <div className="hero-left flex flex-1 flex-col justify-between gap-12 px-5 pb-10 pt-10 sm:gap-16 sm:px-10 sm:pb-14 sm:pt-14 lg:gap-[88px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-20 lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-10 sm:gap-12 lg:max-w-[575px] lg:gap-14">
             <div className="flex flex-col gap-7 sm:gap-9 lg:gap-6">
               {/* Figma 1870:6005 enforces a 3-line stack with explicit
@@ -65,7 +65,7 @@ export function SpivpratsyaHero() {
           style={{ "--hero-photo-w": "603px" } as CSSProperties}
         >
           <div
-            className="absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
+            className="absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-none lg:rounded-tl-[48px] lg:rounded-br-none"
           >
             <img
               src="/figma-export/spivpratsya/hero-photo.png"

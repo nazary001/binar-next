@@ -469,10 +469,15 @@ function IllustrationCard({
   );
 }
 
-function CtaCard({ label }: { label: string }) {
+function CtaCard({ label, onHover }: { label: string; onHover?: () => void }) {
   return (
     <Link
       href="/#contact-form"
+      // CTA has no zone items, so hovering it should DISMISS any open
+      // zone-details popup — without this the popup from the previously
+      // hovered zone keeps showing because the cursor is still inside
+      // the grid bbox that the close-on-leave listener guards.
+      onMouseEnter={onHover}
       className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
       style={{ background: "#343435" }}
     >
@@ -501,12 +506,14 @@ function CtaCard({ label }: { label: string }) {
 function ZoneRenderer({
   card,
   onHover,
+  onClearHover,
 }: {
   card: ZoneCard;
   onHover: (card: ZoneCard, el: HTMLDivElement) => void;
+  onClearHover: () => void;
 }) {
   if (card.kind === "cta") {
-    return <CtaCard label={card.label} />;
+    return <CtaCard label={card.label} onHover={onClearHover} />;
   }
   const handleHover = (el: HTMLDivElement) => {
     if (card.items?.length) onHover(card, el);
@@ -909,11 +916,14 @@ export function ZonesGrid() {
   }, [active, popupPos]);
 
   return (
-    // Figma 1384:11619 — the Zones section is a rounded-top container
-    // that visually caps the Hero with a curved top. It has white bg,
-    // left/right/top borders (#8e8e8f), and rounded-tl/tr 48px corners.
-    // The padding is 160px top + 130px sides at the design master.
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
+    // Figma 1384:11619 — the Zones section caps the Hero with a thin
+    // top hairline. The rounded-tl/tr corners that Figma's master shows
+    // were collapsing here into triangular page-bg cutouts at the seam
+    // that visually thickened the join; with the Hero's bottom border
+    // removed (see hotels/Hero.tsx) the next section's flat border-t
+    // provides ONE clean uniformly-thin line across the entire width.
+    // Padding is 160px top + 130px sides at the design master.
+    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900">
@@ -946,7 +956,11 @@ export function ZonesGrid() {
                   key={j}
                   className={card.lgOnly ? "hidden lg:block" : "contents lg:block"}
                 >
-                  <ZoneRenderer card={card} onHover={handleHover} />
+                  <ZoneRenderer
+                    card={card}
+                    onHover={handleHover}
+                    onClearHover={() => setActive(null)}
+                  />
                 </div>
               ))}
             </div>
