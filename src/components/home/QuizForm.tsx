@@ -177,11 +177,6 @@ type DecorVariant = {
   rightTop: string;
   rightBL: string;
   rightBR: string;
-  // The left bottom-left frame ships rounded LEFT in the export but
-  // Figma renders it with rounded RIGHT corners (so the rounded edge
-  // faces the form, not the page edge). We scaleX(-1) at render time
-  // to match the canvas.
-  flipLeftBL?: boolean;
 };
 
 // Figma master uses the SAME Group 49 + Group 50 layout across all 4
@@ -198,10 +193,16 @@ type DecorVariant = {
 // on hotels and protect compared to home / cleaning.
 //
 // Fix: point every variant at the SAME shared asset set (the home
-// SVGs) with `flipLeftBL: true` uniformly. All 4 pages now render
-// identically and match the Figma canvas. The `decorations` prop
-// stays for API compatibility but its value no longer selects
-// different files.
+// SVGs). Orientation per Figma: the RIGHT group (Group 50) is the base
+// (no transform); the LEFT group (Group 49) is that group MIRRORED, so
+// ALL THREE of its frames carry scaleX(-1) and the top frame is
+// right-aligned in the 246-wide stack (left:30, the 30px gutter sits on
+// the page-edge side, mirroring the right stack's right:30). The left
+// stack therefore flips every frame and offsets the top frame by 30px.
+// (An earlier version flipped only the bottom-left frame and left the
+// top frame at left:0, so the top-left tile read mirrored vs the
+// canvas.) The `decorations` prop stays for API compatibility but its
+// value no longer selects different files.
 const SHARED_DECOR: DecorVariant = {
   leftTop: "/figma-export/home/decor-l-top.svg",
   leftBL: "/figma-export/home/decor-l-bl.svg",
@@ -209,7 +210,6 @@ const SHARED_DECOR: DecorVariant = {
   rightTop: "/figma-export/home/decor-r-top.svg",
   rightBL: "/figma-export/home/decor-r-bl.svg",
   rightBR: "/figma-export/home/decor-r-br.svg",
-  flipLeftBL: true,
 };
 
 const DECOR_VARIANTS: Record<string, DecorVariant> = {
@@ -246,15 +246,15 @@ function DecorStack({ variant }: { variant: keyof typeof DECOR_VARIANTS }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute"
-          style={{ left: "0", top: "0", width: "216px", height: "147px" }}
+          className="absolute -scale-x-100"
+          style={{ left: "30px", top: "0", width: "216px", height: "147px" }}
         />
         <img
           src={v.leftBL}
           alt=""
           loading="lazy"
           decoding="async"
-          className={`absolute${v.flipLeftBL ? " -scale-x-100" : ""}`}
+          className="absolute -scale-x-100"
           style={{ left: "0", top: "147px", width: "97px", height: "147px" }}
         />
         <img
@@ -262,7 +262,7 @@ function DecorStack({ variant }: { variant: keyof typeof DECOR_VARIANTS }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute"
+          className="absolute -scale-x-100"
           style={{ left: "97px", top: "147px", width: "149px", height: "147px" }}
         />
       </div>
@@ -391,7 +391,7 @@ export function QuizForm({
       >
         <div className="mx-auto flex max-w-[948px] flex-col items-center gap-6 rounded-[40px] bg-bg-subtle p-12 text-center">
           <h2 className="text-h2 text-neutral-900">Дякуємо!</h2>
-          <p className="max-w-md text-body-md text-neutral-500">
+          <p className="max-w-md text-body-sm text-neutral-500">
             {`Менеджер зв'яжеться з вами найближчим часом, щоб обговорити деталі
             та підготувати пропозицію.`}
           </p>
@@ -415,7 +415,7 @@ export function QuizForm({
             </>
           )}
         </h2>
-        <div className="flex flex-1 flex-col gap-2 text-body-md text-neutral-500">
+        <div className="flex flex-1 flex-col gap-2 text-body-sm text-neutral-500">
           {headingBody ?? (
             <>
               <p>

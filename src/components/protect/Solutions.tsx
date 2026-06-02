@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
+const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 
 type Category =
   | { kind: "image"; label: string; image: string; tall?: boolean }
@@ -60,6 +61,52 @@ const COLUMNS: Category[][] = [
   ],
 ];
 
+// 6-px brand border that fades in on card hover - the hotels ZonesGrid
+// "HoverRing". Each card is `relative` + `group`, so this hugs the
+// card's rounded edge and lights up orange on hover.
+function HoverRing() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 rounded-[28px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:rounded-[36px] lg:rounded-[40px]"
+    />
+  );
+}
+
+// Arrow circle, mirroring the hotels ZonesGrid arrow button (minus its
+// rotating "ДЕТАЛІ" text - that belongs to the details-popup behaviour
+// these link-only cards do not use). A 40/48/52-px bordered circle that
+// fills brand on card hover, with the arrow crossfading: `light` (over
+// photos) keeps a white arrow; `dark` (white cards) swaps the dark
+// arrow for the white one as the circle turns orange.
+function CardArrow({ tone }: { tone: "light" | "dark" }) {
+  const border = tone === "light" ? "border-white" : "border-neutral-900";
+  const restArrow = tone === "light" ? ARROW_WHITE : ARROW_DARK;
+  return (
+    <span
+      aria-hidden
+      className={`relative flex size-[40px] shrink-0 items-center justify-center rounded-[20px] border transition-[background-color,border-color] duration-300 group-hover:border-brand group-hover:bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px] ${border}`}
+    >
+      <img
+        src={restArrow}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="absolute size-[13px] transition-opacity duration-300 group-hover:opacity-0 sm:size-[15px] lg:size-[16.5px]"
+      />
+      <img
+        src={ARROW_WHITE}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="absolute size-[13px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:size-[15px] lg:size-[16.5px]"
+      />
+    </span>
+  );
+}
+
 function ImageCard({ label, image, tall }: { label: string; image: string; tall?: boolean }) {
   // `tall` mirrors Figma's bento layout - the third column's image
   // card is taller so the cluster reads as an asymmetric grid rather
@@ -70,8 +117,9 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
     ? "h-[393px] sm:h-[467px] lg:h-[655px]"
     : "h-[280px] sm:h-[340px] lg:h-[393px]";
   return (
-    <div
-      className={`group relative flex w-full flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+    <Link
+      href="/#contact-form"
+      className={`group relative flex w-full cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
       <img
         src={image}
@@ -79,32 +127,28 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full rounded-[28px] object-cover sm:rounded-[36px] lg:rounded-[40px]"
+        className="absolute inset-0 size-full object-cover"
       />
-      {/* Figma 1327:4022/4056/4061 — soft blurred dark ellipse anchored
-          bottom-left, mirrors the hotels ZonesGrid + cleaning Solutions
-          treatment so all image cards across the site share the same
-          label-legibility halo. Figma uses `mix-blend-mode: multiply`
-          so the dark blob multiplies into the photo behind instead of
-          painting a flat black wash over it; we mirror that with the
-          mixBlendMode style. */}
+      {/* On hover the photo desaturates - a dark #151511 square painted
+          with mix-blend-mode: saturation drains the colour, matching the
+          hotels ZonesGrid image-card hover. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute opacity-60"
-        style={{
-          background: "rgba(0, 0, 0, 1)",
-          filter: "blur(22.15px)",
-          bottom: "-61.5px",
-          left: "-57.5px",
-          width: "507px",
-          height: "138.311px",
-          mixBlendMode: "multiply",
-        }}
+        className="pointer-events-none absolute top-[-6px] bottom-[-6px] left-1/2 aspect-square -translate-x-1/2 bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100"
       />
-      <p className="relative w-full max-w-[313px] text-title-lg text-white">
-        {label}
-      </p>
-    </div>
+      {/* Soft blurred dark ellipse anchored bottom-left for label
+          legibility - same #151511 / blur-22 halo the hotels image
+          cards use. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
+      />
+      <HoverRing />
+      <div className="relative flex w-full max-w-[313px] items-center gap-4 sm:gap-8">
+        <p className="flex-1 text-button-lg text-white">{label}</p>
+        <CardArrow tone="light" />
+      </div>
+    </Link>
   );
 }
 
@@ -134,8 +178,9 @@ function OutlineCard({
       ? "gap-4 sm:gap-6 lg:gap-[40px]"
       : "gap-3 sm:gap-4 lg:gap-[11px]";
   return (
-    <div
-      className={`group flex h-[280px] w-full flex-col ${gapClass} overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:rounded-[40px] lg:p-10`}
+    <Link
+      href="/#contact-form"
+      className={`group relative flex h-[280px] w-full cursor-pointer flex-col ${gapClass} overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:rounded-[40px] lg:p-10`}
     >
       {icon && (
         <div className="relative w-full flex-1">
@@ -149,28 +194,34 @@ function OutlineCard({
           />
         </div>
       )}
-      <p className="w-full text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">
-        {label}
-      </p>
-    </div>
+      <HoverRing />
+      <div className="relative flex w-full items-center gap-4 sm:gap-8">
+        <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
+          {label}
+        </p>
+        <CardArrow tone="dark" />
+      </div>
+    </Link>
   );
 }
 
 function CtaCard({ label }: { label: string }) {
-  // Figma 1327:4065 — bg uses backgroud/deep (#343435, neutral-800),
-  // label is Title/Large (24/28 SemiBold) not the smaller Button/Large
-  // (18/22) used elsewhere.
+  // Matches the hotels ZonesGrid catalog button: deep #343435 pill that
+  // inverts to white (with a stroke border) on hover, the label flips to
+  // neutral-900 and the filled-brand arrow circle stays. Border starts
+  // transparent so the hover border does not shift layout. Label is
+  // Button/Large (18) like the cards; the arrow circle scales 40/48/52.
   return (
     <Link
       href="/#contact-form"
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] bg-neutral-800 sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-title-lg text-white">
+        <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
           {label}
         </span>
-        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[16.5px]" />
+        <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
+          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[13px] sm:size-[15px] lg:size-[16.5px]" />
         </span>
       </span>
     </Link>
@@ -270,15 +321,25 @@ function ProtectDecorCluster() {
           full opacity gives the correct visual at lg+. */}
 
       {/* Mask (Figma 1327:4003) - sits above the cross horizontal
-          line, just left of the cross center. right = 1440-890-175 = 375. */}
+          line, just left of the cross center. right = 1440-890-175 = 375.
+          Crisp flattened vector (single "OBJECTS" node) re-exported from
+          Figma to replace the old blurry 1x PNG. */}
       <img
-        src="/figma-export/protect/decor-mask.png"
+        src="/figma-export/protect/decor/mask.svg"
         alt=""
         className="absolute"
         style={{ right: "375px", top: "66px", width: "175px", height: "72px" }}
       />
       {/* Gloves (Figma 1327:4009) - lower-LEFT quadrant of the cross.
-          right = 1440-904.90-194.19 = 340.91. */}
+          right = 1440-904.90-194.19 = 340.91.
+          NOTE: gloves + sparkles are still 1x PNGs (blurry on retina).
+          Unlike mask/shirt (single vector nodes), these are rotated
+          multi-piece Figma Groups. A crisp fix needs a FLATTENED vector
+          export (node.exportAsync SVG_STRING) - the per-piece dev-mode
+          code uses container-query units (cqw) that break under this
+          cap's `html { zoom }`. Re-export both as flattened SVG once the
+          Figma plugin quota is available (Starter/View seat is capped),
+          then swap to /figma-export/protect/decor/gloves.svg etc. */}
       <img
         src="/figma-export/protect/decor-gloves.png"
         alt=""
@@ -286,9 +347,10 @@ function ProtectDecorCluster() {
         style={{ right: "340.91px", top: "158.30px", width: "194.19px", height: "192.17px" }}
       />
       {/* Shirt (Figma 1327:4014) - lower-right quadrant. right =
-          1440-1140.68-120.37 = 178.95. */}
+          1440-1140.68-120.37 = 178.95. Crisp flattened vector (single
+          "Union" node) re-exported from Figma to replace the 1x PNG. */}
       <img
-        src="/figma-export/protect/decor-shirt.png"
+        src="/figma-export/protect/decor/shirt.svg"
         alt=""
         className="absolute"
         style={{ right: "178.95px", top: "191.45px", width: "120.37px", height: "101.86px" }}
@@ -428,11 +490,24 @@ export function ProtectSolutions() {
 
       <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
         <div className="lg-pad-x px-5 sm:px-10">
+          {/* lg grid is edge-to-edge (gap-0). To stop adjacent 1px card
+              borders from doubling to 2px where cards touch, columns 2+
+              overlap the previous column's right border via `lg:-ml-px`,
+              and each non-first card overlaps the card above via
+              `lg:-mt-px`. The `contents` wrapper is transparent below lg
+              (so the column's mobile `gap-3 sm:gap-4` still applies),
+              becoming a real block only at lg. Same de-doubling trick as
+              the hotels ZonesGrid. */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0">
             {COLUMNS.map((col, i) => (
-              <div key={i} className="flex flex-col gap-3 sm:gap-4 lg:gap-0">
+              <div
+                key={i}
+                className={`flex flex-col gap-3 sm:gap-4 lg:gap-0${i > 0 ? " lg:-ml-px" : ""}`}
+              >
                 {col.map((card, j) => (
-                  <CategoryRenderer key={j} card={card} />
+                  <div key={j} className={`contents lg:block${j > 0 ? " lg:-mt-px" : ""}`}>
+                    <CategoryRenderer card={card} />
+                  </div>
                 ))}
               </div>
             ))}

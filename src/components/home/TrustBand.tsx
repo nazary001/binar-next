@@ -1,11 +1,20 @@
 /* eslint-disable @next/next/no-img-element */
 import { Reveal } from "@/components/ui/Reveal";
 
+// Glyph sizes are % of the 96px tile, taken 1:1 from Figma's "Info icon"
+// component (node 1384:12746): each tile has a 9px inner clip zone and the
+// vector sits centred inside it. The hero SVGs are the SAME glyphs (their
+// viewBox aspect ratios match the Figma boxes exactly), so a meet-fit at
+// these percentages reproduces the design pixel-for-pixel.
+//   hotel   33.61×71.62 (rotated 90; long edge 71.62/96 = 74.6%)
+//   beauty  60.06×60.06 (square → 62.6%)
+//   medical 71.35×59.58 (w 74.3% / h 62.1%)
+//   factory 66.73×63.11 (w 69.5% / h 65.7%)
 const ICONS = [
-  { src: "/figma-export/hero/icon-hotel.svg", className: "size-[60%] rotate-90", label: "Готелі" },
-  { src: "/figma-export/hero/icon-beauty.svg", className: "size-[68%]", label: "Салони краси" },
-  { src: "/figma-export/hero/icon-medical.svg", className: "h-[68%] w-[80%]", label: "Медичні заклади" },
-  { src: "/figma-export/hero/icon-factory.svg", className: "h-[72%] w-[78%]", label: "Виробничі підприємства" },
+  { src: "/figma-export/hero/icon-hotel.svg", className: "size-[74.6%] rotate-90", label: "Готелі" },
+  { src: "/figma-export/hero/icon-beauty.svg", className: "size-[62.6%]", label: "Салони краси" },
+  { src: "/figma-export/hero/icon-medical.svg", className: "h-[62.1%] w-[74.3%]", label: "Медичні заклади" },
+  { src: "/figma-export/hero/icon-factory.svg", className: "h-[65.7%] w-[69.5%]", label: "Виробничі підприємства" },
 ];
 
 export function TrustBand() {

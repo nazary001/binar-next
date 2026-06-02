@@ -1,49 +1,31 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 
-// Figma 1870:6039 + 1870:6041 — "Що ми закриваємо?" bento grid.
-//
-// 1440-master spec: section is full-width, 130-px gutters, h2 title row
-// 168 px tall, then a 1180 x 786 three-column grid:
-//
-//   Column 1 (393 px)
-//     - photo card 393 x 393 — Тапочки (стандарт / кастом) — dark
-//       overlay, white title pinned to bottom-left.
-//     - white card 393 x 131 — Галантерея та витратні матеріали
-//     - white card 393 x 131 — Текстиль і комплектація номерів
-//     - white card 393 x 131 — PROTECT (ЗІЗ, одноразовий одяг)
-//
-//   Column 2 (393 px)
-//     - white card 393 x 196 — HoReCa Hygiene (гігієна, прибирання)
-//     - white card 393 x 196 — Брендування та пакування
-//     - photo card 393 x 393 — Міні-косметика та аксесуари
-//
-//   Column 3 (394 px)
-//     - photo card 394 x 655 — Оснащення ванної (включно з Valera)
-//     - button card 394 x 131 — Підбір під проєкт (dark bg + brand arrow)
-//
-// Master is STATIC — no hover transitions, no numeric overlays, no
-// scroll-in fade. Below lg the grid collapses to a single stacked
-// column with each card keeping its rounded corners + Figma copy
-// (proportional adaptive only, no extra mobile chrome).
+const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
+const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 
-type TextCardData = {
-  kind: "text";
-  title: string;
-};
+// "Що ми закриваємо?" bento grid. The clickable variant lives at Figma
+// 1870:6039 / grid 2532:7660 - the same card system used on the protect
+// and hotels pages: every card is a link with a 52-px arrow-circle
+// button bottom-right and a brand hover ring.
+//
+// 1440-master: section is full-width, 130-px gutters, h2 title row, then
+// a 1180 x 786 three-column grid:
+//   Column 1 (393): photo 393 + 3 text cards 131
+//   Column 2 (393): 2 text cards 196.5 + photo 393
+//   Column 3 (394): photo 655 + button card 131
+//
+// On lg the grid is edge-to-edge (gap-0); adjacent 1px borders are
+// de-doubled to a single line by overlapping columns (lg:-ml-px) and
+// stacked cards (lg:-mt-px). Below lg the bento collapses to one stacked
+// column with a small gap.
 
-type PhotoCardData = {
-  kind: "photo";
-  title: string;
-  src: string;
-};
+// All cards point at the same lead form the "Підбір під проєкт" button uses.
+const CARD_HREF = "#contact-form";
 
-type ButtonCardData = {
-  kind: "button";
-  title: string;
-  href: string;
-};
-
+type TextCardData = { kind: "text"; title: string };
+type PhotoCardData = { kind: "photo"; title: string; src: string };
+type ButtonCardData = { kind: "button"; title: string; href: string };
 type Card = TextCardData | PhotoCardData | ButtonCardData;
 
 const COL_1: Card[] = [
@@ -73,12 +55,52 @@ const COL_3: Card[] = [
     title: "Оснащення ванної (включно з Valera)",
     src: "/figma-export/spivpratsya/cover-bathroom.png",
   },
-  {
-    kind: "button",
-    title: "Підбір під проєкт",
-    href: "#contact-form",
-  },
+  { kind: "button", title: "Підбір під проєкт", href: CARD_HREF },
 ];
+
+// 6-px brand border that fades in on card hover (the hotels/protect
+// "HoverRing"). Each card is `relative` + `group` so this hugs the
+// card's rounded edge and lights up on hover.
+function HoverRing() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 rounded-[28px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:rounded-[40px]"
+    />
+  );
+}
+
+// Arrow circle (Figma "Icon button" 2609:xxxx): a 40/48/52-px bordered
+// circle that fills brand on card hover, arrow crossfading. `light` (over
+// photos) stays a white arrow; `dark` (white cards) swaps the dark arrow
+// for the white one as the circle turns orange.
+function CardArrow({ tone }: { tone: "light" | "dark" }) {
+  const border = tone === "light" ? "border-white" : "border-neutral-900";
+  const restArrow = tone === "light" ? ARROW_WHITE : ARROW_DARK;
+  return (
+    <span
+      aria-hidden
+      className={`relative flex size-[40px] shrink-0 items-center justify-center rounded-[20px] border transition-[background-color,border-color] duration-300 group-hover:border-brand group-hover:bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px] ${border}`}
+    >
+      <img
+        src={restArrow}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="absolute size-[13px] transition-opacity duration-300 group-hover:opacity-0 sm:size-[15px] lg:size-[16.5px]"
+      />
+      <img
+        src={ARROW_WHITE}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="absolute size-[13px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:size-[15px] lg:size-[16.5px]"
+      />
+    </span>
+  );
+}
 
 function PhotoCardEl({
   title,
@@ -90,8 +112,9 @@ function PhotoCardEl({
   className?: string;
 }) {
   return (
-    <div
-      className={`relative overflow-clip rounded-[28px] border border-stroke-default lg:rounded-[40px] ${className ?? ""}`}
+    <Link
+      href={CARD_HREF}
+      className={`group relative flex cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
     >
       <img
         src={src}
@@ -101,39 +124,44 @@ function PhotoCardEl({
         decoding="async"
         className="absolute inset-0 size-full max-w-none object-cover"
       />
-      {/* Dark blur gradient at bottom — pre-rendered in Figma via a blur
-          22.15 ellipse below the bottom edge. We approximate with a CSS
-          gradient that keeps the title readable on any photo. */}
+      {/* Desaturate the photo on hover (saturation-blend square), same as
+          the hotels / protect image cards. */}
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 block h-[55%] bg-[linear-gradient(to_top,rgba(21,21,17,0.78)_0%,rgba(21,21,17,0.55)_45%,rgba(21,21,17,0)_100%)]"
+        className="pointer-events-none absolute top-[-6px] bottom-[-6px] left-1/2 aspect-square -translate-x-1/2 bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100"
       />
-      <p className="absolute bottom-6 left-6 right-6 text-title-lg text-white sm:bottom-8 sm:left-8 sm:right-8 lg:bottom-10 lg:left-10 lg:right-10">
-        {title}
-      </p>
-    </div>
+      {/* Dark bottom gradient for title legibility (approximates the
+          Figma blur-22 ellipse below the bottom edge). */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 block h-[55%] bg-[linear-gradient(to_top,rgba(21,21,17,0.78)_0%,rgba(21,21,17,0.55)_45%,rgba(21,21,17,0)_100%)]"
+      />
+      <HoverRing />
+      <div className="relative flex w-full items-center gap-4 sm:gap-8">
+        <p className="flex-1 text-button-lg text-white">{title}</p>
+        <CardArrow tone="light" />
+      </div>
+    </Link>
   );
 }
 
-function TextCardEl({
-  title,
-  className,
-}: {
-  title: string;
-  className?: string;
-}) {
-  // Figma text card: white bg, 1-px stroke-default border, title
-  // vertically centered with 40-px padding on all sides at lg
-  // (Title/Large SemiBold 24/28, #1d1d1f). items-center handles the
-  // vertical centering for both 1- and 2-line titles per Figma's
-  // text-frame y math (e.g. Брендування at y=84.25 in a 196.5-tall
-  // card → 84.25 / (196.5 - 28) = centred).
+function TextCardEl({ title, className }: { title: string; className?: string }) {
+  // White card: title + dark arrow circle in a bottom-pinned row
+  // (Figma 2532 row sits p-10 from the card bottom). Title eases to brand
+  // on hover, the arrow circle fills brand - same as the protect cards.
   return (
-    <div
-      className={`flex items-center rounded-[28px] border border-stroke-default bg-white p-7 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
+    <Link
+      href={CARD_HREF}
+      className={`group relative flex cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-7 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
     >
-      <p className="text-title-lg text-neutral-900 lg:w-full">{title}</p>
-    </div>
+      <HoverRing />
+      <div className="relative flex w-full items-center gap-4 sm:gap-8">
+        <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
+          {title}
+        </p>
+        <CardArrow tone="dark" />
+      </div>
+    </Link>
   );
 }
 
@@ -146,20 +174,20 @@ function ButtonCardEl({
   href: string;
   className?: string;
 }) {
-  // Figma 1870:6116 fills the dark slab with Backgroud/Deep #343435
-  // (= neutral-800). Arrow disc Button/Orange #f85a0b on a 52-px
-  // rounded square.
-  // Mobile: anchor the title to the left and push the arrow to the
-  // right (justify-between) so the CTA reads like a real button rather
-  // than a centred banner — that mirrors the home page's CTA rhythm and
-  // makes the tap affordance clearer at narrow widths.
+  // Figma 1870:6116 - deep #343435 (= neutral-800) slab with a Title/Large
+  // label and a filled-brand arrow disc. Hover matches the catalog button
+  // on hotels / protect / cleaning: the slab inverts to white with a
+  // stroke border, the label flips to neutral-900, the arrow disc stays.
+  // Border starts transparent so the hover border does not shift layout.
   return (
     <Link
       href={href}
-      className={`group flex cursor-pointer items-center justify-between gap-4 rounded-[28px] bg-neutral-800 px-6 py-6 transition-colors hover:bg-neutral-900 sm:px-8 sm:py-8 lg:justify-center lg:rounded-[40px] lg:px-10 lg:py-10 ${className ?? ""}`}
+      className={`group flex cursor-pointer items-center justify-between gap-4 rounded-[28px] border border-transparent bg-neutral-800 px-6 py-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:px-8 sm:py-8 lg:justify-center lg:rounded-[40px] lg:px-10 lg:py-10 ${className ?? ""}`}
     >
-      <span className="text-title-lg text-white">{title}</span>
-      <span className="inline-flex size-[42px] shrink-0 items-center justify-center rounded-[26px] bg-brand transition-transform group-hover:scale-105 sm:size-[52px]">
+      <span className="text-title-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {title}
+      </span>
+      <span className="inline-flex size-[42px] shrink-0 items-center justify-center rounded-[26px] bg-brand sm:size-[52px]">
         <svg
           width="24"
           height="24"
@@ -190,24 +218,38 @@ function renderCard(card: Card, className?: string) {
 function Column({
   cards,
   ratios,
+  index,
 }: {
   cards: Card[];
   // Visual heights at lg in px, summing to the 786-px column height.
-  // Each entry maps 1:1 to `cards`. Below lg the card sizes to its own
-  // content (text cards: intrinsic, photo cards: aspect-square via the
-  // className renderCard hands down).
+  // Below lg each card sizes to its own content (photos via aspect-square).
   ratios: number[];
+  index: number;
 }) {
   return (
-    <div className="flex w-full flex-col gap-4 sm:gap-5 lg:h-[786px] lg:gap-0">
+    <div
+      className={`flex w-full flex-col gap-4 sm:gap-5 lg:h-[786px] lg:gap-0${
+        // Columns 2+ overlap the previous column's right border (de-double).
+        index > 0 ? " lg:-ml-px" : ""
+      }`}
+    >
       {cards.map((card, i) => (
         <div
           key={i}
           // `--lg-basis` resolves into flex-basis only inside the lg:
-          // variant — below lg the card sizes to its own intrinsic
-          // content (otherwise the 131-px text-card slabs would force
-          // tall empty boxes on mobile).
-          className="flex w-full lg:[flex-basis:var(--lg-basis)] lg:shrink-0 lg:grow-0"
+          // variant. `lg:min-h-0` is critical: without it a flex item
+          // defaults to `min-height: auto` (its content size), so the
+          // 131-px cards - whose 52-px arrow row + p-10 padding measure
+          // ~132 px - refuse to shrink to their basis and grow, pushing
+          // column 1 to ~795 px and breaking the 786-px alignment. With
+          // min-h-0 each card stays exactly on its flex-basis (the 1-px
+          // content overflow on the short cards is clipped from the empty
+          // top padding, the bottom-pinned row stays fully visible).
+          // `lg:-mt-px` on cards 2+ overlaps the card above so the
+          // touching 1px borders collapse to a single line.
+          className={`flex w-full lg:[flex-basis:var(--lg-basis)] lg:min-h-0 lg:shrink-0 lg:grow-0${
+            i > 0 ? " lg:-mt-px" : ""
+          }`}
           style={{ ["--lg-basis" as string]: `${ratios[i]}px` }}
         >
           {renderCard(
@@ -227,16 +269,10 @@ export function Coverage() {
         Що ми <span className="text-h2">закриваємо?</span>
       </h2>
 
-      {/* Figma 1870:6041 packs the 3 columns and the cards within each
-          column edge-to-edge on lg — visual separation there comes
-          purely from the cards' rounded corners. On mobile / sm we
-          break the bento and stack everything in a single column with
-          a small gap (16-24 px) — matches the gap rhythm used by the
-          rest of the spivpratsya page. */}
       <div className="flex w-full flex-col gap-4 sm:gap-5 lg:flex-row lg:items-stretch lg:gap-0">
-        <Column cards={COL_1} ratios={[393, 131, 131, 131]} />
-        <Column cards={COL_2} ratios={[196.5, 196.5, 393]} />
-        <Column cards={COL_3} ratios={[655, 131]} />
+        <Column cards={COL_1} ratios={[393, 131, 131, 131]} index={0} />
+        <Column cards={COL_2} ratios={[196.5, 196.5, 393]} index={1} />
+        <Column cards={COL_3} ratios={[655, 131]} index={2} />
       </div>
     </section>
   );

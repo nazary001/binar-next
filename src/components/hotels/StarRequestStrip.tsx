@@ -7,14 +7,28 @@ import { Button } from "@/components/ui/Button";
 // 14.07%_11.85%]` (≈ a 30×30 star). Our `viewBox="0 0 24 24"` star
 // scales up to fill `size-10` (40 px) so the rendered glyph lands at
 // the same visual size as Figma's master.
+//
+// Stroke weight: the Figma asset (viewBox 32.02x30.62) is drawn with a
+// 1.5-px stroke, i.e. a 1.5-px outline at the 40-px display size. Our
+// 24-unit viewBox is scaled up by 40/24, so to land that same 1.5-px
+// rendered stroke we set strokeWidth = 1.5 * 24/40 = 0.9 (a flat 1.5
+// here would render ~2.5 px, visibly heavier than the design).
+//
+// Fill swap is animated: the empty star carries a fully-transparent
+// orange fill (same RGB, 0 alpha) so the transition is a pure alpha
+// fade with no grey fringe, while the stroke colour eases from
+// Text/Default (#1d1d1f) to Brand (#f85a0b) over the same 250 ms.
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill={filled ? "#f85a0b" : "none"}
-      stroke={filled ? "#f85a0b" : "#1d1d1f"}
-      strokeWidth="1.5"
+      strokeWidth="0.9"
       className="size-9 sm:size-10"
+      style={{
+        fill: filled ? "#f85a0b" : "rgba(248, 90, 11, 0)",
+        stroke: filled ? "#f85a0b" : "#1d1d1f",
+        transition: "fill 250ms ease-out, stroke 250ms ease-out",
+      }}
       aria-hidden
     >
       <path
@@ -57,7 +71,7 @@ export function StarRequestStrip() {
             </svg>
           </div>
           <h3 className="text-h2 text-neutral-900">Дякуємо!</h3>
-          <p className="mt-4 text-body-md text-neutral-500">
+          <p className="mt-4 text-body-sm text-neutral-500">
             Ми надішлемо чеклист на {email} протягом доби.
           </p>
         </div>
@@ -105,8 +119,9 @@ export function StarRequestStrip() {
               gap-[4px] between title and the 5-star row. Stars are
               40×40 with gap-[16px] between them, static outline icons
               (Figma is decorative — no hover state). We add functional
-              click handlers + a non-animated fill swap so the user gets
-              feedback without overriding the static Figma look. */}
+              click handlers + a smoothly-animated fill swap (the 250-ms
+              fade lives in StarIcon) so the user gets feedback without
+              overriding the static Figma look. */}
           <div className="flex items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
             <span
               aria-hidden

@@ -62,7 +62,7 @@ export function ProtectQualityProcess() {
             <span className="text-h2">Стабільна якість і відповідність вимогам</span>
             <span className="text-h2-light"> — у кожній поставці</span>
           </h2>
-          <p className="flex-1 lg:w-[574px] text-body-md text-neutral-500">
+          <p className="flex-1 lg:w-[574px] text-body-sm text-neutral-500">
             У засобах індивідуального захисту важливо не просто закупити товар,
             а отримувати однаковий результат у кожній партії — без ризиків для
             процесів, персоналу і перевірок.

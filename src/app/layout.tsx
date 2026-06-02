@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Manrope, Onest } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { ScrollTopFab } from "@/components/ScrollTopFab";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -95,6 +96,9 @@ export default function RootLayout({
         <Header />
         <div className="flex flex-1 flex-col">{children}</div>
         <Footer />
+        {/* Global floating scroll-to-top FAB (appears on scroll, hides
+            over the footer which has its own copy of the button). */}
+        <ScrollTopFab />
       </body>
     </html>
   );

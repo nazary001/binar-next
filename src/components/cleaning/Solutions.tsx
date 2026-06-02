@@ -86,7 +86,7 @@ function ImageCard({
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full rounded-[28px] object-cover sm:rounded-[36px] lg:rounded-[40px]"
+        className="absolute inset-0 size-full object-cover"
         style={objectPosition ? { objectPosition } : undefined}
       />
       {/* Figma 1327:4536 — soft blurred rectangle behind the label:
@@ -145,15 +145,18 @@ function CtaCard({ label }: { label: string }) {
   // label uses `Title/Large` (24/28 SemiBold) as a designer override
   // applied to the button label. NOT bg-bg-primary (#303137) nor
   // text-button-lg (18 px).
-  // Figma 1327:4608 has no hover variant defined — removed the `group`
-  // wrapper that was carrying nothing.
+  // Hover (matching the hotels / protect catalog button): the deep pill
+  // inverts to white with a stroke border and the label flips to
+  // neutral-900; the filled-brand arrow circle stays. Border starts
+  // transparent so the hover border does not shift layout. Only the
+  // button gets a hover - the cards stay static per Figma.
   return (
     <Link
       href="/#contact-form"
-      className="flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] bg-neutral-800 sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-neutral-800 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-title-lg text-white">
+        <span className="text-title-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
           {label}
         </span>
         <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
@@ -307,11 +310,24 @@ export function CleaningSolutions() {
 
       <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:min-h-[1074px] lg:rounded-[68px] lg:pb-[80px] lg:pt-[120px]">
         <div className="lg-pad-x px-5 sm:px-10">
+          {/* lg grid is edge-to-edge (gap-0). To stop adjacent 1px card
+              borders from doubling to 2px where cards touch, columns 2+
+              overlap the previous column's right border via `lg:-ml-px`,
+              and each non-first card overlaps the card above via
+              `lg:-mt-px`. The `contents` wrapper is transparent below lg
+              (so the column's mobile `gap-3 sm:gap-4` still applies),
+              becoming a real block only at lg. Same de-doubling trick as
+              the hotels ZonesGrid. */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0">
             {COLUMNS.map((col, i) => (
-              <div key={i} className="flex flex-col gap-3 sm:gap-4 lg:gap-0">
+              <div
+                key={i}
+                className={`flex flex-col gap-3 sm:gap-4 lg:gap-0${i > 0 ? " lg:-ml-px" : ""}`}
+              >
                 {col.map((card, j) => (
-                  <CategoryRenderer key={j} card={card} />
+                  <div key={j} className={`contents lg:block${j > 0 ? " lg:-mt-px" : ""}`}>
+                    <CategoryRenderer card={card} />
+                  </div>
                 ))}
               </div>
             ))}

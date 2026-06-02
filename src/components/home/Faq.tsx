@@ -1,4 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
+"use client";
+import { useState } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 
@@ -39,7 +41,10 @@ const HEADER_ICONS = [
   },
 ];
 
-export type FaqEntry = { q: string; a: string };
+// An answer is one or more paragraphs. Single-paragraph answers stay a
+// plain string; multi-paragraph answers (the extra questions below) are
+// an array, rendered as stacked <p> blocks.
+export type FaqEntry = { q: string; a: string | string[] };
 
 // Question copy and order from Figma instances 1384:12945–12948.
 const DEFAULT_FAQS: FaqEntry[] = [
@@ -61,13 +66,110 @@ const DEFAULT_FAQS: FaqEntry[] = [
   },
 ];
 
+// The four questions revealed by "Показати більше" on the home page.
+// They belong to the DEFAULT question set only (the other landing pages
+// override `faqs`, so they never get these — see `extraFaqs` below).
+const EXTRA_FAQS: FaqEntry[] = [
+  {
+    q: "Що робити, якщо товар не підійшов по якості або виникла спірна ситуація?",
+    a: [
+      "Ми системно працюємо з якістю, тому більшість ризиків закриваємо ще до поставки. Працюємо з перевіреними постачальниками та узгоджуємо характеристики на етапі замовлення. Якщо замовлення складне — за потреби замовляємо зразки до запуску партії.",
+      "Ми також зберігаємо референтні зразки кожної поставленої партії в архіві, щоб у разі спірної ситуації можна було обʼєктивно перевірити відповідність. Компанія працює за сертифікованою системою якості ISO 9001.",
+      "Для нас репутація важливіша за короткострокові вигоди, тому якщо виникає проблема — ми не перекладаємо відповідальність, а оперативно вирішуємо питання та готові компенсувати втрати або запропонувати заміну/альтернативу.",
+    ],
+  },
+  {
+    q: "Чи можна отримати взірці перед замовленням?",
+    a: [
+      "Так. Ми можемо надати безкоштовні зразки стандартних позицій, щоб ви могли оцінити якість до закупівлі.",
+      "Для кастомізованих проєктів ми також можемо виготовити зразки з вашим брендом перед запуском партії (умови узгоджуємо індивідуально).",
+    ],
+  },
+  {
+    q: "Чи працюєте ви з мережами та великими компаніями?",
+    a: [
+      "Так. Ми маємо досвід співпраці з мережевими клієнтами та великими компаніями, де важливі стандарти, стабільність, контроль якості та передбачувані поставки.",
+      "Працюємо системно: узгоджені специфікації, графіки постачання та відповідальність за результат.",
+    ],
+  },
+  {
+    q: "З якими відомими брендами/компаніями ви працюєте?",
+    a: "Ми співпрацюємо з міжнародними брендами та виробниками, зокрема: Valera, Diversey, Allagrini, Hunter Amenities, Rituals, ALDA, Papoutsanis та іншими.",
+  },
+];
+
+// One FAQ row. `reveal` is undefined for the always-visible questions and
+// a boolean for the expandable ones — when it's a boolean the row also
+// fades + slides into place (driven by the show-more toggle, staggered by
+// `delay`) on top of the container's height animation.
+function FaqRow({
+  item,
+  num,
+  reveal,
+  delay = 0,
+}: {
+  item: FaqEntry;
+  num: string;
+  reveal?: boolean;
+  delay?: number;
+}) {
+  const paragraphs = Array.isArray(item.a) ? item.a : [item.a];
+  const animated = reveal !== undefined;
+  return (
+    <li
+      className={`flex w-full flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-8${
+        animated
+          ? ` transition-[opacity,transform] duration-500 ease-out ${
+              reveal ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+            }`
+          : ""
+      }`}
+      // Stagger the entrance on reveal; collapse all together (delay 0).
+      style={animated ? { transitionDelay: reveal ? `${delay}ms` : "0ms" } : undefined}
+    >
+      {/* Big numeral — Figma 120-px Manrope SemiBold (lg+ only). */}
+      <p className="hidden font-semibold leading-[1.03] tracking-[-2.4px] text-neutral-900 lg:block lg:w-[271px] lg:shrink-0 lg:text-[120px] [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]">
+        {num}
+      </p>
+
+      <div className="flex flex-1 flex-col gap-4 sm:gap-6 lg:gap-8">
+        {/* Below lg: small "0N." badge inline with the divider. */}
+        <div className="flex items-center gap-4 lg:contents">
+          <span
+            aria-hidden
+            className="text-[20px] font-semibold leading-none tracking-[-0.4px] text-neutral-400 sm:text-[22px] lg:hidden"
+          >
+            {num}
+          </span>
+          <span
+            aria-hidden
+            className="block h-px flex-1 bg-stroke-default lg:w-full lg:flex-none"
+          />
+        </div>
+        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:gap-8">
+          <h3 className="text-title-lg text-neutral-900 lg:w-[372px] lg:shrink-0">
+            {item.q}
+          </h3>
+          <div className="flex flex-1 flex-col gap-4">
+            {paragraphs.map((para, k) => (
+              <p key={k} className="text-body-sm text-neutral-800">
+                {para}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 type FaqProps = {
   faqs?: FaqEntry[];
   showFilters?: boolean;
   // Whether to render the "Показати більше" CTA below the question list.
-  // The home page wants it (Figma 1384:12949), but downstream landing
-  // pages (e.g. Spivpratsya) render the same component without the CTA
-  // because their Figma frames end right after the last question.
+  // The home page wants it (Figma 1384:12949); landing pages that override
+  // `faqs` pass `showMoreButton={false}` because their frames end right
+  // after the last question.
   showMoreButton?: boolean;
 };
 
@@ -90,6 +192,15 @@ export function Faq({
   showFilters = true,
   showMoreButton = true,
 }: FaqProps = {}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // The four extra questions are home-only: they belong to the DEFAULT
+  // question set, so pages that pass their own `faqs` (cleaning, protect,
+  // hotels) never get them and their "Показати більше" button stays the
+  // inert design element it has always been.
+  const extraFaqs = faqs === DEFAULT_FAQS ? EXTRA_FAQS : [];
+  const canExpand = showMoreButton && extraFaqs.length > 0;
+
   return (
     <section
       id="faq"
@@ -115,15 +226,8 @@ export function Faq({
               >
                 {/* Glyph wrapper — absolute box whose top/right/bottom/left
                     percentages match this icon's natural aspect ratio (see
-                    HEADER_ICONS comment). The SVG fills the wrapper exactly,
-                    so even with preserveAspectRatio="none" the rendered
-                    glyph is in correct proportion, not stretched. The
-                    wrapper scales the icon hover-up by a hair without
-                    distorting its shape. */}
-                <span
-                  className="absolute block"
-                  style={i.inset}
-                >
+                    HEADER_ICONS comment). */}
+                <span className="absolute block" style={i.inset}>
                   <img
                     src={i.src}
                     alt=""
@@ -140,80 +244,66 @@ export function Faq({
       </div>
 
       {/* === Question list ===
-          Mobile / tablet (< lg): each item is a single column.
-            * Top row: small "01." badge inline with the divider so the
-              numeral reads as an index marker rather than a giant
-              decorative numeral that eats half the screen height. This
-              swaps the Figma desktop typography for a tighter mobile
-              variant — verticality recovered, hierarchy preserved.
-            * Body row: title, then body paragraph stacked.
-          lg+ (1024+): the Figma 120-px hero numeral returns in the
-          left column. */}
-      <ul className="flex w-full flex-col gap-8 sm:gap-12 lg:gap-[120px]">
-        {faqs.map((item, i) => {
-          const num = `${String(i + 1).padStart(2, "0")}.`;
-          return (
-            <Reveal
-              as="li"
+          The always-visible questions, then the expandable extra ones.
+          Both live in one block-flow wrapper (NOT a gapped flex parent) so
+          the collapsed expander adds zero height/gap; the gap to the first
+          extra question lives inside the collapsible area (its `pt`), so it
+          animates open/closed with the content. */}
+      <div className="w-full">
+        <ul className="flex w-full flex-col gap-8 sm:gap-12 lg:gap-[120px]">
+          {faqs.map((item, i) => (
+            <FaqRow
               key={i}
-              delay={i * 60}
-              direction="up"
-              className="flex w-full flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-8"
-            >
-              {/* Big numeral — Figma 120-px Manrope SemiBold with
-                  letter-spacing -2.4 and ~103 % line-height (lg+ only).
-                  Below lg the inline `0N.` chip in the divider row
-                  takes over so the layout fits a phone screen without
-                  a giant numeral above each question. */}
-              <p className="hidden font-semibold leading-[1.03] tracking-[-2.4px] text-neutral-900 lg:block lg:w-[271px] lg:shrink-0 lg:text-[120px] [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]">
-                {num}
-              </p>
+              item={item}
+              num={`${String(i + 1).padStart(2, "0")}.`}
+            />
+          ))}
+        </ul>
 
-              {/* Right column — divider line + title/body row. On lg the
-                  title pins to 372 px and the body fills the remaining
-                  space; below lg the body stacks under the title. */}
-              <div className="flex flex-1 flex-col gap-4 sm:gap-6 lg:gap-8">
-                {/* Below lg: small "01." badge sits inline with the
-                    divider — replaces the Figma-master giant numeral
-                    so the mobile section has the same index marker
-                    without the vertical cost. */}
-                <div className="flex items-center gap-4 lg:contents">
-                  <span
-                    aria-hidden
-                    className="text-[20px] font-semibold leading-none tracking-[-0.4px] text-neutral-400 sm:text-[22px] lg:hidden"
-                  >
-                    {num}
-                  </span>
-                  <span
-                    aria-hidden
-                    className="block h-px flex-1 bg-stroke-default lg:w-full lg:flex-none"
+        {/* Expandable extra questions. The grid `0fr → 1fr` row track is
+            the height-auto animation: the inner wrapper is overflow-clipped,
+            so the row grows from 0 to the content's natural height with a
+            single smooth CSS transition — no JS measuring. `inert` keeps the
+            collapsed content out of tab/AT order. */}
+        {canExpand && (
+          <div
+            id="faq-more"
+            inert={!expanded}
+            className={`grid w-full transition-[grid-template-rows] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <ul className="flex w-full flex-col gap-8 pt-8 sm:gap-12 sm:pt-12 lg:gap-[120px] lg:pt-[120px]">
+                {extraFaqs.map((item, j) => (
+                  <FaqRow
+                    key={j}
+                    item={item}
+                    num={`${String(faqs.length + j + 1).padStart(2, "0")}.`}
+                    reveal={expanded}
+                    delay={j * 90}
                   />
-                </div>
-                <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:gap-8">
-                  <h3 className="text-title-lg text-neutral-900 lg:w-[372px] lg:shrink-0">
-                    {item.q}
-                  </h3>
-                  <p className="flex-1 text-body-sm text-neutral-800">
-                    {item.a}
-                  </p>
-                </div>
-              </div>
-            </Reveal>
-          );
-        })}
-      </ul>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* === CTA button — Figma 1384:12949 "Показати більше" ===
-          Solid black pill, no arrow icon. Currently links to the contact
-          form anchor; swap the href if/when an actual "more questions"
-          destination exists. Hidden on landing pages whose Figma frame
-          ends right after the last question (Spivpratsya 1870:6250). */}
+      {/* === CTA button — Figma 1384:12949 ===
+          On the home page it toggles the four extra questions and swaps its
+          label to "Приховати". On landing pages that have no extra
+          questions it renders as the inert design element from Figma. */}
       {showMoreButton && (
-        <Reveal direction="up">
-          <Button href="/#contact-form" variant="solid" size="large">
-            Показати більше
-          </Button>
-        </Reveal>
+        <Button
+          variant="solid"
+          size="large"
+          onClick={canExpand ? () => setExpanded((v) => !v) : undefined}
+          aria-expanded={canExpand ? expanded : undefined}
+          aria-controls={canExpand ? "faq-more" : undefined}
+        >
+          {canExpand && expanded ? "Приховати" : "Показати більше"}
+        </Button>
       )}
     </section>
   );

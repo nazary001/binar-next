@@ -1,19 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 
-// Figma 1870:6180 — "Як відбувається співпраця?" (1440×729).
+// Figma 1870:6180 - "Як відбувається співпраця?" (1440x729). The Figma
+// component is literally named "Animation" (1589:11504); its "Default"
+// frame shows step 01 active and the intent is a looping walk through the
+// 6 steps.
 //
-// Figma's Animation component (1589:11504) is a variant SET — the visible
-// "Default" frame shows step 01 active, and the designer keyframes the
-// other step variants separately rather than as auto-rotating motion.
-// The previous implementation auto-cycled every 3.4 s and tinted the
-// active label brand-orange — both inventions on top of Figma's static
-// design. This version renders the timeline statically and lets the
-// user click a step to swap the active one (an accessible accordion-
-// style switch); no JS timer drives the change.
-//
-// At first paint step 01 is active (matching Figma's "Default" variant).
+// We auto-cycle the active step (0 -> 5 -> loop): the big "0N. Name"
+// headline (top-left) reveals up on each change while the large orange
+// hex tracks the active step's column and the rest stay small + grey.
+// Labels are NOT tinted orange - the Figma headline is neutral, only the
+// hex is brand. The loop pauses while the pointer is over the section (so
+// a step can be read / clicked) and while the section is scrolled out of
+// view; clicking a step still jumps to it.
 
 const STEPS = [
   "Запит",
@@ -42,6 +42,13 @@ const LINE_TOP = 188; // y-px within the 200-px animation row
 const LABEL_TOP = 130; // y-px for the small step label baseline
 const ACTIVE_HEX_HALF = 12; // half of the 24-px-wide active hex bbox
 const SMALL_HEX_HALF = 5; // half of the 10-px-wide small hex bbox
+
+// Motion tuning. SLIDE_MS is the glide of the orange hex + the growth of
+// the orange progress line between steps; STEP_MS is how long each step
+// holds. Expo-out easing gives a premium, decelerating glide.
+const EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+const SLIDE_MS = 700;
+const STEP_MS = 2800;
 
 // Active marker — Polygon 23 (20.78×24) rotated -90° to point left/right.
 // Rendered inside a centered flex parent, so the SVG itself has no
@@ -72,13 +79,53 @@ function SmallHex() {
 }
 
 export function HowItWorks() {
-  // First paint matches Figma's "Default" variant (step 01 active). The
-  // user can click another step label or its hex marker to make that
-  // step active — no auto-cycle.
-  const [active, setActive] = useState(0);
+  // First paint matches Figma's "Default" variant (step 01 active). We
+  // track `active` and `prev` (the OUTGOING step) in one state object so
+  // the headline can crossfade between them. `goTo` and the loop both
+  // carry the old active into `prev` (prev === active = no exit).
+  const [{ active, prev }, setStep] = useState({ active: 0, prev: 0 });
+  const goTo = (i: number) => setStep((s) => ({ active: i, prev: s.active }));
+  const sectionRef = useRef<HTMLElement>(null);
+  const pausedRef = useRef(false); // pointer is over the section
+  const visibleRef = useRef(false); // section is in the viewport
+
+  // Loop the active step. Refs (not state) gate each tick so the single
+  // interval never re-creates and never goes stale. Respects
+  // prefers-reduced-motion (no auto-advance; the steps stay clickable).
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = window.setInterval(() => {
+      if (pausedRef.current || !visibleRef.current) return;
+      setStep((s) => ({ active: (s.active + 1) % STEPS.length, prev: s.active }));
+    }, STEP_MS);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Only run the loop while the section is on screen.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        visibleRef.current = entries[0].isIntersecting;
+      },
+      { threshold: 0.25 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   return (
-    <section className="relative w-full overflow-clip bg-white">
+    <section
+      ref={sectionRef}
+      onMouseEnter={() => {
+        pausedRef.current = true;
+      }}
+      onMouseLeave={() => {
+        pausedRef.current = false;
+      }}
+      className="relative w-full overflow-clip bg-white"
+    >
       {/* === Title row — Figma 1870:6181 (py-160, lg-pad-x) ===
           Mobile: add `pb-` so the heading isn't flush with the big
           status label below it (the previous layout made
@@ -102,79 +149,110 @@ export function HowItWorks() {
             Shows the active step's "0N. Name" with a soft reveal-up on
             each change. Independent of the slot row below — this is
             the section's headline state. */}
-        <div
-          className="absolute flex items-baseline gap-4"
-          style={{ left: SLOT_X[0], top: 0 }}
-        >
-          <span
-            key={`num-${active}`}
-            className="animate-[reveal-up_500ms_cubic-bezier(0.22,1,0.36,1)_both] whitespace-nowrap text-h1 font-bold tabular-nums text-neutral-900"
-          >
-            0{active + 1}.
-          </span>
-          <span
-            key={`name-${active}`}
-            className="animate-[reveal-up_500ms_cubic-bezier(0.22,1,0.36,1)_120ms_both] whitespace-nowrap text-h1 font-light text-neutral-900"
-          >
-            {STEPS[active]}
-          </span>
+        <div className="absolute" style={{ left: SLOT_X[0], top: 0 }}>
+          {/* incoming step — rises + fades in */}
+          <div className="flex items-baseline gap-4">
+            <span
+              key={`num-${active}`}
+              className="animate-[reveal-up_620ms_cubic-bezier(0.16,1,0.3,1)_both] whitespace-nowrap text-h1 font-bold tabular-nums text-neutral-900"
+            >
+              0{active + 1}.
+            </span>
+            <span
+              key={`name-${active}`}
+              className="animate-[reveal-up_620ms_cubic-bezier(0.16,1,0.3,1)_90ms_both] whitespace-nowrap text-h1 font-light text-neutral-900"
+            >
+              {STEPS[active]}
+            </span>
+          </div>
+          {/* outgoing step — stacked overlay, rolls up + fades out so the
+              two cross with no empty frame */}
+          {prev !== active && (
+            <div
+              key={`prev-${active}`}
+              aria-hidden
+              className="pointer-events-none absolute left-0 top-0 flex items-baseline gap-4 animate-[step-roll-out_520ms_cubic-bezier(0.4,0,0.2,1)_both]"
+            >
+              <span className="whitespace-nowrap text-h1 font-bold tabular-nums text-neutral-900">
+                0{prev + 1}.
+              </span>
+              <span className="whitespace-nowrap text-h1 font-light text-neutral-900">
+                {STEPS[prev]}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* 5 small step labels at fixed slots — Figma `1589:11504`
-            ("Default" variant) only renders the labels for the NON-
-            active steps. The active step is shown solely via the BIG
-            bold-light accent above; without the guard the active
-            label duplicates ("01. Запит" appears twice on first
-            paint). Labels remain clickable for accordion switching. */}
-        {STEPS.map((step, i) => {
-          if (i === active) return null;
-          return (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setActive(i)}
-              className="absolute flex cursor-pointer items-center gap-1 whitespace-nowrap font-normal text-[22px] leading-[28px] tracking-[0.22px] text-neutral-500"
-              style={{ left: SLOT_X[i], top: LABEL_TOP }}
-            >
-              <span>0{i + 1}.</span>
-              <span>{step}</span>
-            </button>
-          );
-        })}
+        {/* Six step labels at fixed slots. All stay mounted; the active
+            step's label fades out (its name shows big in the headline),
+            so switching crossfades instead of popping. Clickable. */}
+        {STEPS.map((step, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => goTo(i)}
+            className={`absolute flex items-center gap-1 whitespace-nowrap font-normal text-[22px] leading-[28px] tracking-[0.22px] text-neutral-500 transition-opacity duration-500 ${
+              i === active ? "pointer-events-none opacity-0" : "cursor-pointer opacity-100"
+            }`}
+            style={{ left: SLOT_X[i], top: LABEL_TOP }}
+          >
+            <span>0{i + 1}.</span>
+            <span>{step}</span>
+          </button>
+        ))}
 
-        {/* Horizontal hairline edge-to-edge at y:188 (Figma Line 1). */}
+        {/* Timeline: grey base rule (Figma Line 1) + an orange progress
+            line that grows from the first step to the active hex, easing
+            in sync with the gliding marker. */}
         <span
           aria-hidden
           className="absolute left-0 right-0 block h-px bg-stroke-default"
           style={{ top: LINE_TOP }}
         />
+        <span
+          aria-hidden
+          className="absolute block h-px bg-brand"
+          style={{
+            left: SLOT_X[0],
+            top: LINE_TOP,
+            width: `calc(${SLOT_X[active]} - ${SLOT_X[0]})`,
+            transition: `width ${SLIDE_MS}ms ${EASE}`,
+          }}
+        />
 
-        {/* 6 hex markers — active position gets the large orange hex,
-            others are small dark hexes. Marker position = step position
-            (no shifting), so the active highlight tracks the step's
-            own column. Click handled by the marker itself (and there's
-            an invisible hit-area wider than the 10-px hex so a tap
-            close to the marker also works). */}
-        {SLOT_X.map((x, i) => {
-          const isActive = i === active;
-          const half = isActive ? ACTIVE_HEX_HALF : SMALL_HEX_HALF;
-          return (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setActive(i)}
-              aria-label={`${STEPS[i]} (крок ${i + 1})`}
-              className="absolute flex h-10 w-10 cursor-pointer items-center justify-center"
-              style={{
-                left: `calc(${x} + ${half}px)`,
-                top: LINE_TOP,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              {isActive ? <ActiveHex /> : <SmallHex />}
-            </button>
-          );
-        })}
+        {/* Six small grey hex markers at fixed slots (clickable). */}
+        {SLOT_X.map((x, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => goTo(i)}
+            aria-label={`${STEPS[i]} (крок ${i + 1})`}
+            className="absolute flex h-10 w-10 cursor-pointer items-center justify-center"
+            style={{
+              left: `calc(${x} + ${SMALL_HEX_HALF}px)`,
+              top: LINE_TOP,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <SmallHex />
+          </button>
+        ))}
+
+        {/* One large orange hex that GLIDES to the active step's column
+            (instead of popping per slot), covering that step's small
+            marker. pointer-events-none so clicks pass to the markers. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex h-10 w-10 items-center justify-center"
+          style={{
+            left: `calc(${SLOT_X[active]} + ${ACTIVE_HEX_HALF}px)`,
+            top: LINE_TOP,
+            transform: "translate(-50%, -50%)",
+            transition: `left ${SLIDE_MS}ms ${EASE}`,
+          }}
+        >
+          <ActiveHex />
+        </span>
       </div>
 
       {/* === Mobile / tablet (< lg) ===
@@ -214,7 +292,7 @@ export function HowItWorks() {
               <li key={s} className="relative">
                 <button
                   type="button"
-                  onClick={() => setActive(i)}
+                  onClick={() => goTo(i)}
                   aria-pressed={isActive}
                   className="flex w-full cursor-pointer items-center gap-4 py-3 text-left transition-colors active:scale-[0.99] sm:gap-5"
                 >

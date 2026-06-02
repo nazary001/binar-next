@@ -271,23 +271,27 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
 
   // rAF-throttled scroll listener that publishes per-card progress
   // variables on every `[data-case-card]` article inside the section.
-  // CSS rules in globals.css (`@media (min-width: 1024px)`) read these
-  // to drive the dock-stack polish (magnetic settle, photo parallax,
-  // elevation shadow, push-back dim). We gate the listener behind an
-  // IntersectionObserver with a generous 240-px rootMargin so it's idle
-  // on every other page section and during long scrolls past Cases —
-  // and bail early below lg where the cards aren't sticky-stacked.
+  // CSS rules in globals.css (`@media (min-width: 1024px)`) read these.
+  // Of the original dock-stack polish only the magnetic settle is still
+  // active — the elevation shadow, push-back dim, and fold hairline were
+  // all removed to keep the cards flat like Figma (no darkening, no
+  // stray lines appearing as the next card approaches). We gate the
+  // listener behind an IntersectionObserver with a generous 240-px
+  // rootMargin so it's idle on every other page section and during long
+  // scrolls past Cases — and bail early below lg where the cards aren't
+  // sticky-stacked.
   //
   // Published per-card (clamped to [0, 1]):
   //   • --dock-p   1 when the card has reached its sticky dock position,
   //                ramping from 0 at `LG_DOCK_RAMP` px above the dock.
-  //                Drives the magnetic settle (translateY 6 → 0) and the
-  //                soft elevation shadow.
+  //                Drives the magnetic settle (translateY 6 → 0). The
+  //                soft elevation shadow it once drove is disabled.
   //   • --push-p   1 when the NEXT card has fully docked on top of this
   //                one (i.e. this card has been pushed into the
-  //                background of the stack). Drives the subtle
-  //                brightness dim + the "fold" shadow at the bottom of
-  //                this card's visible 197-px tab. Stays 0 for the last
+  //                background of the stack). Currently unused by CSS —
+  //                it drove the brightness dim + fold hairline, both now
+  //                disabled. Still published so either can be re-enabled
+  //                without touching this listener. Stays 0 for the last
   //                card and for cards with no next docked yet.
   //   • --enter-p  Linear 0..1 traversal of the card through the
   //                viewport: 0 when its top is at viewport bottom, 1

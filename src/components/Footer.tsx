@@ -190,19 +190,19 @@ export function Footer() {
                   decoding="async"
                   className="h-[28px] w-[24px] shrink-0 sm:h-[33.684px] sm:w-[29.237px]"
                 />
-                <p className="text-[14px] leading-[22px] text-white sm:text-[16px] sm:leading-[30px] lg:whitespace-nowrap">
+                <p className="text-[14px] leading-[22px] text-white sm:leading-[30px] lg:whitespace-nowrap">
                   © {new Date().getFullYear()} Binar-2000. All rights reserved
                 </p>
               </div>
               <Link
                 href="/privacy"
-                className="cursor-pointer text-[14px] leading-[22px] text-white underline decoration-white underline-offset-2 sm:text-[16px] sm:leading-[30px] lg:whitespace-nowrap"
+                className="cursor-pointer text-[14px] leading-[22px] text-white underline decoration-white underline-offset-2 sm:leading-[30px] lg:whitespace-nowrap"
               >
                 Політика конфіденційності
               </Link>
               <Link
                 href="/terms"
-                className="cursor-pointer text-[14px] leading-[22px] text-white underline decoration-white underline-offset-2 sm:text-[16px] sm:leading-[30px] lg:whitespace-nowrap"
+                className="cursor-pointer text-[14px] leading-[22px] text-white underline decoration-white underline-offset-2 sm:leading-[30px] lg:whitespace-nowrap"
               >
                 Угода про публічну оферту
               </Link>

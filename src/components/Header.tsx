@@ -200,9 +200,20 @@ export function Header() {
               same swap and additionally rotates its chevron when the
               dropdown is open. */}
           <ul className="flex items-center gap-[35px]">
-            <li ref={segmentsRef} className="relative">
+            <li
+              ref={segmentsRef}
+              className="relative"
+              // Open on hover (desktop nav is lg+ / hover-capable). The
+              // mouseenter/leave live on the <li>, which contains both the
+              // trigger AND the absolutely-positioned dropdown, so the menu
+              // stays open while the cursor is anywhere inside either.
+              onMouseEnter={() => setSegmentsOpen(true)}
+              onMouseLeave={() => setSegmentsOpen(false)}
+            >
               <button
                 type="button"
+                // Click toggle kept as a fallback for touch screens and
+                // keyboard (Enter) - there is no hover there.
                 onClick={() => setSegmentsOpen((v) => !v)}
                 aria-expanded={segmentsOpen}
                 aria-haspopup="true"
@@ -212,39 +223,49 @@ export function Header() {
               >
                 Напрями
                 <ChevronDown
-                  className={`transition-transform duration-300 ${segmentsOpen ? "rotate-180" : ""}`}
+                  className={`transition-[rotate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${segmentsOpen ? "rotate-180" : ""}`}
                 />
               </button>
-              <ul
-                role="menu"
-                aria-hidden={!segmentsOpen}
-                inert={!segmentsOpen}
-                className={`absolute left-0 top-full min-w-[180px] origin-top rounded-2xl border border-stroke-subtle bg-white p-2 shadow-lg transition-[opacity,transform,margin-top] duration-200 ${
-                  segmentsOpen
-                    ? "pointer-events-auto mt-3 translate-y-0 scale-100 opacity-100"
-                    : "pointer-events-none mt-2 -translate-y-1 scale-95 opacity-0"
+              {/* Dropdown wrapper sits flush under the trigger (top-full,
+                  no margin) and uses a transparent `pt-3` as a HOVER BRIDGE:
+                  it fills the 12-px visual gap so the cursor can travel from
+                  the trigger down to the menu without crossing a dead zone
+                  that would fire mouseleave and snap the menu shut. The white
+                  box keeps its 12-px offset via this padding. */}
+              <div
+                className={`absolute left-0 top-full pt-3 ${
+                  segmentsOpen ? "pointer-events-auto" : "pointer-events-none"
                 }`}
               >
-                {SEGMENTS.map((s, i) => (
-                  <li key={s.href} role="none">
-                    <Link
-                      role="menuitem"
-                      href={s.href}
-                      onClick={() => setSegmentsOpen(false)}
-                      style={{
-                        transitionDelay: segmentsOpen ? `${i * 30}ms` : "0ms",
-                      }}
-                      className={`block cursor-pointer rounded-xl px-4 py-2 text-button-md text-neutral-700 transition-[color,opacity,transform] duration-200 hover:text-brand ${
-                        segmentsOpen
-                          ? "translate-x-0 opacity-100"
-                          : "-translate-x-1 opacity-0"
-                      }`}
-                    >
-                      {s.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                <ul
+                  role="menu"
+                  aria-hidden={!segmentsOpen}
+                  inert={!segmentsOpen}
+                  // Single cohesive reveal: fade + a gentle 8px slide-down
+                  // on one premium ease-out curve, GPU-composited. No scale
+                  // (scaling the border/text reads slightly fuzzy mid-motion)
+                  // and no per-item stagger (a second competing animation is
+                  // what made it feel jittery) - the panel moves as one unit.
+                  className={`min-w-[180px] rounded-2xl border border-stroke-subtle bg-white p-2 shadow-lg transition-[opacity,translate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] ${
+                    segmentsOpen
+                      ? "translate-y-0 opacity-100"
+                      : "-translate-y-2 opacity-0"
+                  }`}
+                >
+                  {SEGMENTS.map((s) => (
+                    <li key={s.href} role="none">
+                      <Link
+                        role="menuitem"
+                        href={s.href}
+                        onClick={() => setSegmentsOpen(false)}
+                        className="block cursor-pointer rounded-xl px-4 py-2 text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
+                      >
+                        {s.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </li>
             {TOP_LINKS.map((link) => (
               <li key={link.href}>

@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 // Figma 1870:6184 — partner contact section. The Figma master nests
@@ -32,6 +32,24 @@ const EMPTY: Fields = {
   comment: "",
 };
 
+// Shared underline styling for every field. Defined once so the comment
+// <textarea> renders pixel-identical to the <input> fields and can never
+// drift from them. text-body-sm = 16/24, so a rows=1 textarea using this
+// class is exactly the same height as a single-line input.
+const FIELD_CLASS =
+  "block w-full border-b border-neutral-800 bg-transparent py-3 text-body-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-900 focus:border-brand focus:placeholder:text-neutral-400 sm:py-2";
+
+// Comment styling, derived from FIELD_CLASS so the two never drift. We
+// swap the colour-only `transition-colors` for a transition that ALSO
+// animates `height` (the auto-grow) — keeping both in one transition
+// declaration avoids the two `transition-property` utilities clobbering
+// each other — and add the grow cap (max-h) + no manual resize.
+const COMMENT_CLASS =
+  FIELD_CLASS.replace(
+    "transition-colors",
+    "transition-[border-color,height] duration-200 ease-out",
+  ) + " max-h-[120px] resize-none";
+
 function UnderlineInput({
   label,
   value,
@@ -50,7 +68,65 @@ function UnderlineInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={label}
-        className="block w-full border-b border-neutral-800 bg-transparent py-3 text-body-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-900 focus:border-brand focus:placeholder:text-neutral-400 sm:py-2"
+        className={FIELD_CLASS}
+      />
+    </label>
+  );
+}
+
+// Comment field. Starts as a normal single-line field, identical to the
+// other inputs (it reuses FIELD_CLASS, so an empty/short comment matches
+// them exactly). As the user types it GROWS DOWNWARD a few rows at a
+// time, animated by a CSS height transition; once it reaches the cap
+// (max-h-[120px], ~4 rows) it stops growing and a small inner scrollbar
+// appears instead (overflow flips to auto only when capped, so no
+// scrollbar flickers during the grow).
+//
+// Growth is downward-only and never reflows the rest of the form: the
+// field row is top-anchored and the submit button is pinned to the card
+// bottom (lg:mt-auto), so the grown comment simply expands into the empty
+// space above the button — name/role/email and the button all stay put.
+//
+// On each keystroke we collapse the textarea to read its natural content
+// height, then set that height back; the browser only paints the final
+// value, so the transition animates from the previous height to the new
+// one. We add the border width because scrollHeight excludes it, keeping
+// the one-line state pixel-equal to the inputs.
+function CommentField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    const border =
+      parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    const max = parseFloat(cs.maxHeight);
+    el.style.height = "auto";
+    const full = el.scrollHeight + border;
+    const capped = Number.isFinite(max) && full > max;
+    el.style.height = `${capped ? max : full}px`;
+    setScrollable(capped);
+  }, [value]);
+  return (
+    <label className="group/field block w-full cursor-text">
+      <textarea
+        ref={ref}
+        rows={1}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={label}
+        className={`${COMMENT_CLASS} ${
+          scrollable ? "overflow-y-auto" : "overflow-hidden"
+        }`}
       />
     </label>
   );
@@ -91,9 +167,10 @@ export function PartnerContactForm() {
   return (
     // Figma 1870:6184 has no internal vertical padding — the section's
     // height (696 px on the 1440 master) is exactly the height of the
-    // stacked-cards content. Neighbour sections (HowItWorks above, FAQ
-    // below) already carry their own `py-[160px]`, so the stack still
-    // gets breathing room without an extra `lg:py-[120px]` here.
+    // stacked-cards content, and the side ghost-product decorations are
+    // positioned against that 696 px. Neighbour sections (HowItWorks
+    // above, FAQ below) already carry their own `py-[160px]`, so the
+    // stack still gets breathing room without an extra `lg:py-[120px]`.
     <section
       id="contact-form"
       className="relative w-full overflow-hidden bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-0"
@@ -107,18 +184,23 @@ export function PartnerContactForm() {
         aria-hidden
         className="pointer-events-none absolute inset-0 hidden lg:block"
       >
-        {/* LEFT group — Frame 1870:6185 */}
+        {/* LEFT group — Frame 1870:6185. The exported SVGs are the
+            un-flipped base glyphs; Figma renders the left group as the
+            horizontal mirror of those bases (rotate-180 + scale-y-(-1) =
+            scaleX(-1)), so each left card carries `-scale-x-100` to face
+            the form correctly. The right group uses the same bases with
+            no flip. */}
         <GhostCard
           src="/figma-export/spivpratsya/partner-left-top.svg"
-          className="left-[30px] top-[402px] h-[147px] w-[216px]"
+          className="left-[30px] top-[402px] h-[147px] w-[216px] -scale-x-100"
         />
         <GhostCard
           src="/figma-export/spivpratsya/partner-left-mid.svg"
-          className="left-0 top-[549px] h-[147px] w-[97px]"
+          className="left-0 top-[549px] h-[147px] w-[97px] -scale-x-100"
         />
         <GhostCard
           src="/figma-export/spivpratsya/partner-left-bot.svg"
-          className="left-[97px] top-[549px] h-[147px] w-[149px]"
+          className="left-[97px] top-[549px] h-[147px] w-[149px] -scale-x-100"
         />
         {/* RIGHT group — Frame 1870:6206 */}
         <GhostCard
@@ -169,12 +251,16 @@ export function PartnerContactForm() {
                 rounded-40 top corners and a thin 1-px black border
                 (Figma's `border border-black`).
               • Form body inside the white card; bottom-right submit. */}
-        {/* Figma 1870:6249 fixes the Quizz Card at 948x600 on lg. The
-            rear + middle cards peek 48 px each above this front card
-            (rear y=0..581 with mb-[-533] -> middle y=48..629 with
-            mb-[-533] -> front y=96..696). lg:h-[600px] locks the
-            front card to Figma's 600 px so the section bottom lands
-            at y=696 (matches Figma section height). */}
+        {/* Figma 1870:6249 fixes the Quizz Card at 948x600 on lg. This
+            600 px is load-bearing: the side ghost-product decorations are
+            absolutely positioned against the resulting 696 px section
+            height (top-[402]/[549], bottom edge at y=696). Shrinking the
+            card clips them and they slide out the bottom, so we keep the
+            full 600 px. The field row is top-anchored (`lg:pt-[86px]`,
+            which also visually centres the single-line state) and the
+            submit button row is pinned to the bottom (`lg:mt-auto`). That
+            leaves the gap above the button as headroom for the comment
+            field to grow downward into without moving anything else. */}
         <div className="relative flex w-full flex-col rounded-[28px] bg-[#2d2d2f] sm:rounded-[32px] lg:h-[600px] lg:w-[948px] lg:rounded-[40px]">
           {/* Title row — white text on dark. Matches Figma's
               `px-[60px] py-[32px]` at lg; scales down on mobile. */}
@@ -195,13 +281,13 @@ export function PartnerContactForm() {
             {submitted ? (
               <div className="flex flex-col items-center gap-4 px-6 py-12 text-center sm:gap-6 sm:px-12 sm:py-16 lg:py-[80px]">
                 <p className="text-title-lg text-neutral-900">Запит надіслано</p>
-                <p className="max-w-md text-body-md text-neutral-500">
+                <p className="max-w-md text-body-sm text-neutral-500">
                   Менеджер зв{"’"}яжеться з вами найближчим часом, щоб обговорити деталі співпраці.
                 </p>
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-6 px-5 pb-2 pt-6 sm:gap-10 sm:px-10 sm:pt-10 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[60px]">
+                <div className="flex flex-col gap-6 px-5 pb-2 pt-6 sm:gap-10 sm:px-10 sm:pt-10 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[86px]">
                   <div className="flex w-full flex-col gap-6 sm:gap-8 lg:flex-1">
                     <UnderlineInput
                       label="Ваше Ім’я"
@@ -238,7 +324,7 @@ export function PartnerContactForm() {
                       value={f.phone}
                       onChange={(v) => setField("phone", v)}
                     />
-                    <UnderlineInput
+                    <CommentField
                       label="Коментар"
                       value={f.comment}
                       onChange={(v) => setField("comment", v)}
@@ -246,7 +332,7 @@ export function PartnerContactForm() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end px-5 pb-6 pt-6 sm:px-10 sm:pb-10 lg:px-[40px] lg:pb-10 lg:pt-4">
+                <div className="flex items-center justify-end px-5 pb-6 pt-6 sm:px-10 sm:pb-10 lg:mt-auto lg:px-[60px] lg:pb-[40px] lg:pt-4">
                   <Button
                     type="button"
                     onClick={() => canSubmit && setSubmitted(true)}

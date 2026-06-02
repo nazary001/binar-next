@@ -173,7 +173,7 @@ export function Formats() {
         <Reveal
           delay={0}
           direction="up"
-          className="absolute flex max-w-[505px] flex-col gap-6"
+          className="absolute flex w-[505px] flex-col gap-6"
           style={{ ...PAD_LEFT, top: "15.7%" }}
         >
           <BlockText title={FORMATS[0].title} body={FORMATS[0].body} />
@@ -184,7 +184,7 @@ export function Formats() {
         <Reveal
           delay={140}
           direction="up"
-          className="absolute flex max-w-[473px] flex-col gap-6"
+          className="absolute flex w-[473px] flex-col gap-6"
           style={{ ...PAD_RIGHT, top: "15.7%" }}
         >
           <BlockText title={FORMATS[2].title} body={FORMATS[2].body} />
@@ -195,7 +195,7 @@ export function Formats() {
         <Reveal
           delay={70}
           direction="up"
-          className="absolute flex max-w-[473px] flex-col gap-6"
+          className="absolute flex w-[473px] flex-col gap-6"
           style={{ ...PAD_LEFT, top: "65.7%" }}
         >
           <BlockText title={FORMATS[1].title} body={FORMATS[1].body} />
@@ -205,7 +205,7 @@ export function Formats() {
         <Reveal
           delay={210}
           direction="up"
-          className="absolute flex max-w-[473px] flex-col gap-6"
+          className="absolute flex w-[473px] flex-col gap-6"
           style={{ ...PAD_RIGHT, top: "65.7%" }}
         >
           <BlockText title={FORMATS[3].title} body={FORMATS[3].body} />

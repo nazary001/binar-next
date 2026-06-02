@@ -178,7 +178,7 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
               </>
             )}
           </h2>
-          <div className="flex-1 max-w-[574px] text-body-md text-neutral-500">
+          <div className="flex-1 max-w-[574px] text-body-sm text-neutral-500">
             {body ?? (
               <p>
                 Ми постачаємо продукцію перевірених виробників. Це дає вам
@@ -232,9 +232,17 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
 
         <ul className="relative grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6 lg:grid-rows-3 lg:gap-0">
           {partners.map((p, i) => (
+            // The last cell spans 2 columns ONLY in the 2-col mobile grid
+            // (`max-sm:`). It must NOT carry any `last:col-span-*` at sm/lg:
+            // the `:last-child` pseudo raises specificity above
+            // `lg:col-start-*`, so a `col-span` shorthand there overrides the
+            // explicit grid-column-start and the last logo auto-places into
+            // the wrong column (it "escapes" its puzzle frame, which is drawn
+            // separately from p.col/p.row). At sm+ the default span-1 +
+            // base `aspect-square` already give the right shape.
             <li
               key={i}
-              className={`group flex aspect-square items-center justify-center rounded-[24px] border border-stroke-default bg-white p-3 last:col-span-2 last:aspect-[2/1] sm:p-4 sm:last:col-span-1 sm:last:aspect-square lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:last:col-span-1 lg:last:aspect-square ${p.pos}`}
+              className={`group flex aspect-square items-center justify-center rounded-[24px] border border-stroke-default bg-white p-3 max-sm:last:col-span-2 max-sm:last:aspect-[2/1] sm:p-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 ${p.pos}`}
             >
               <img
                 src={p.src}

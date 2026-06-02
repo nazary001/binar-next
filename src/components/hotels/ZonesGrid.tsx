@@ -1,7 +1,15 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
@@ -213,14 +221,14 @@ const COLUMNS: ZoneCard[][] = [
 // Path geometry: Figma "Circle text" master 572:4542 is an 86×86 frame
 // with the text-path bounds at (10.83, 10.83) size 64.37 — i.e. a
 // radius-32 circle centred at (44, 44). We mirror that in an 88×88
-// viewBox (icon 52 + -inset-18 wrapper). At 9 px Manrope Bold the
-// natural text width of `ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ` is
-// ~170 SVG units — well under the 2π × 32 ≈ 201.06 path circumference,
-// so `textLength=201.06` + `lengthAdjust=spacingAndGlyphs` stretches
-// both glyphs and inter-letter spacing evenly to fill the loop. The
-// last "·" lands exactly where the next "Д" would start, so the
-// rotation is seamless and the spacing reads as uniform around the
-// icon — matching the Figma `ОБРАТИ · ОБРАТИ` master verbatim.
+// viewBox (icon 52 + -inset-18 wrapper). The Figma text-path 2567:2617
+// spells the ring with FIVE "ДЕТАЛІ" reps (not four). At 9 px Manrope
+// Regular five reps sit just under the ~201 path circumference
+// (2*pi*32), so `textLength=201` + `lengthAdjust="spacing"` evens out
+// only the inter-glyph SPACING to fill the loop seamlessly WITHOUT
+// stretching the glyph shapes. (The earlier four-rep Bold version used
+// `spacingAndGlyphs`, which deformed the glyphs to fill the ring.)
+// Same approach as the ScrollToTopButton circle text.
 const DETAILS_PATH_RADIUS = 32;
 const DETAILS_PATH_CIRCUMFERENCE = 2 * Math.PI * DETAILS_PATH_RADIUS;
 
@@ -243,16 +251,26 @@ function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
       </defs>
       <text
         className="fill-current"
-        textLength={DETAILS_PATH_CIRCUMFERENCE}
-        lengthAdjust="spacingAndGlyphs"
+        // xml:space="preserve" keeps the TRAILING space after the last
+        // "ДЕТАЛІ · ". Without it SVG trims trailing whitespace, so at the
+        // loop seam the final "·" butts straight against the first "Д"
+        // (one dot reads too close to the word). Preserving it makes the
+        // seam gap identical to every interior " · " gap. textLength +
+        // lengthAdjust live on the textPath so only spacing is evened
+        // out to fill the ring (glyph shapes stay intact).
+        xmlSpace="preserve"
         style={{
           fontSize: 9,
-          fontWeight: 700,
+          fontWeight: 400,
           fontFamily: "var(--font-sans)",
         }}
       >
-        <textPath href={`#${pathId}`}>
-          ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ ·
+        <textPath
+          href={`#${pathId}`}
+          textLength={DETAILS_PATH_CIRCUMFERENCE}
+          lengthAdjust="spacing"
+        >
+          {"ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · "}
         </textPath>
       </text>
     </svg>
@@ -274,12 +292,15 @@ function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
 // mobile card at ~40 % of its height versus ~13 % on image cards at
 // lg). All inner pieces scale together so the visible composition
 // stays identical at every viewport:
-//   base   size-40  rounded-20  arrow-18  hover-ring -inset-14 (=68²)
-//   sm     size-48  rounded-24  arrow-22  hover-ring -inset-16 (=80²)
-//   lg     size-52  rounded-26  arrow-24  hover-ring -inset-18 (=88²)
-// lg matches Figma master 1127:5808 (52×52 outlined, 24×24 arrow, 88
-// hover envelope); below lg the same ratios are preserved so the
-// icon doesn't "jump" between breakpoints.
+//   base   size-40  rounded-20  arrow-13    hover-ring -inset-14
+//   sm     size-48  rounded-24  arrow-15    hover-ring -inset-16
+//   lg     size-52  rounded-26  arrow-16.5  hover-ring -inset-18
+// lg matches Figma master 1127:5808 (52x52 outlined). NOTE: Figma's
+// arrow lives in a 24px `heroicons-outline/arrow-up-right` container
+// with the glyph inset 15.62%, so the VISIBLE arrow is ~16.5px, NOT
+// 24px. Sizing the img to 16.5 keeps the stroke exactly as thin as the
+// design (the old size-6 / 24px rendered the arrow ~1.45x too big, so
+// its lines looked too thick). Matches the CTA card arrow (13/15/16.5).
 function IconButton({ variant }: { variant: "light" | "dark" }) {
   return (
     <span className="relative size-[40px] shrink-0 sm:size-[48px] lg:size-[52px]">
@@ -306,7 +327,7 @@ function IconButton({ variant }: { variant: "light" | "dark" }) {
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute size-[18px] transition-opacity duration-300 group-hover:opacity-0 sm:size-[22px] lg:size-6"
+          className="absolute size-[13px] transition-opacity duration-300 group-hover:opacity-0 sm:size-[15px] lg:size-[16.5px]"
         />
         {/* Hover arrow (always white, fades in over the orange fill). */}
         <img
@@ -315,22 +336,40 @@ function IconButton({ variant }: { variant: "light" | "dark" }) {
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute size-[18px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:size-[22px] lg:size-6"
+          className="absolute size-[13px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:size-[15px] lg:size-[16.5px]"
         />
       </span>
     </span>
   );
 }
 
-// Hover-aware variants: each card type accepts an `onHover` callback
-// (mouse enter) that publishes both the hovered zone AND its DOM
-// element to the parent. The element lets the parent measure the
-// card's position via getBoundingClientRect so it can place the
-// popup intelligently relative to the hovered card (opposite side
+// Click-aware variants: each card type accepts an `onSelect` callback
+// (fired on click / Enter / Space) that publishes both the chosen zone
+// AND its DOM element to the parent. The element lets the parent measure
+// the card's position via getBoundingClientRect so it can place the
+// popup intelligently relative to the clicked card (opposite side
 // horizontally, vertically aligned with the card top).
-type HoverHandlers = {
-  onHover: (el: HTMLDivElement) => void;
+type SelectHandlers = {
+  onSelect: (el: HTMLDivElement) => void;
 };
+
+// Shared click + keyboard wiring for the (non-link) zone cards so a
+// click OR Enter/Space opens the details panel and the card reads as a
+// button to assistive tech.
+function cardActivationProps(onSelect: (el: HTMLDivElement) => void) {
+  return {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-haspopup": "dialog" as const,
+    onClick: (e: ReactMouseEvent<HTMLDivElement>) => onSelect(e.currentTarget),
+    onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onSelect(e.currentTarget);
+      }
+    },
+  };
+}
 
 // Figma 1127:5789 "Property 1=Hover, Fill=yes" defines the active-card
 // look used in frame 1333:7764 "While howering". Three things change
@@ -378,22 +417,29 @@ function ImageCard({
   label,
   image,
   tall,
-  onHover,
-}: HoverHandlers & { label: string; image: string; tall?: boolean }) {
+  onSelect,
+}: SelectHandlers & { label: string; image: string; tall?: boolean }) {
   return (
     <div
-      onMouseEnter={(e) => onHover(e.currentTarget)}
-      className={`group relative flex flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${
+      {...cardActivationProps(onSelect)}
+      className={`group relative flex cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${
         tall ? "h-[460px] sm:h-[600px] lg:h-[786px]" : "h-[280px] sm:h-[340px] lg:h-[393px]"
       } w-full`}
     >
+      {/* No own border-radius on the photo: the card is `overflow-clip`
+          + rounded, so it already clips the photo to its INNER rounded
+          edge (card radius minus the 1px border). Giving the <img> its
+          own rounded-40 made the image corner 1px looser than the
+          border's inner curve, so the two radii didn't line up and a
+          thin gap showed at each corner. Letting the parent clip handle
+          it makes the photo edge sit flush against the border. */}
       <img
         src={image}
         alt=""
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full rounded-[28px] object-cover sm:rounded-[36px] lg:rounded-[40px]"
+        className="absolute inset-0 size-full object-cover"
       />
       {/* Figma 1127:6470 — `aspect-[526/526] bg-[#151511] mix-blend-
           saturation top-[-6px] bottom-[-6px] left-1/2 -translate-x-1/2`.
@@ -423,11 +469,11 @@ function ImageCard({
   );
 }
 
-function CompactCard({ label, onHover }: HoverHandlers & { label: string }) {
+function CompactCard({ label, onSelect }: SelectHandlers & { label: string }) {
   return (
     <div
-      onMouseEnter={(e) => onHover(e.currentTarget)}
-      className="group relative flex h-[100px] w-full flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[120px] sm:rounded-[36px] sm:p-8 lg:h-[131px] lg:rounded-[40px] lg:p-10"
+      {...cardActivationProps(onSelect)}
+      className="group relative flex h-[100px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[120px] sm:rounded-[36px] sm:p-8 lg:h-[131px] lg:rounded-[40px] lg:p-10"
     >
       <HoverRing />
       <div className="relative flex items-center gap-4 sm:gap-8">
@@ -443,12 +489,12 @@ function CompactCard({ label, onHover }: HoverHandlers & { label: string }) {
 function IllustrationCard({
   label,
   svg,
-  onHover,
-}: HoverHandlers & { label: string; svg: string }) {
+  onSelect,
+}: SelectHandlers & { label: string; svg: string }) {
   return (
     <div
-      onMouseEnter={(e) => onHover(e.currentTarget)}
-      className="group relative flex h-[300px] w-full flex-col items-center justify-end gap-6 rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:gap-8 sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:gap-10 lg:rounded-[40px] lg:p-10"
+      {...cardActivationProps(onSelect)}
+      className="group relative flex h-[300px] w-full cursor-pointer flex-col items-center justify-end gap-6 rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:gap-8 sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:gap-10 lg:rounded-[40px] lg:p-10"
     >
       <img
         src={svg}
@@ -469,20 +515,25 @@ function IllustrationCard({
   );
 }
 
-function CtaCard({ label, onHover }: { label: string; onHover?: () => void }) {
+function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void }) {
   return (
     <Link
       href="/#contact-form"
-      // CTA has no zone items, so hovering it should DISMISS any open
-      // zone-details popup — without this the popup from the previously
-      // hovered zone keeps showing because the cursor is still inside
-      // the grid bbox that the close-on-leave listener guards.
-      onMouseEnter={onHover}
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
-      style={{ background: "#343435" }}
+      // CTA has no zone items, so clicking it dismisses any open
+      // zone-details popup before scrolling to the contact form.
+      onClick={onActivate}
+      // Hover = Figma "Button catalog" Variant2 (2395:5450): an inverse of
+      // the default - the dark fill drops to a 1px outline and the label
+      // flips to dark; the orange circle + arrow stay unchanged. The border
+      // uses `stroke-default` (#8e8e8f) so it matches the neighbouring
+      // zone-card borders in the grid - Figma's Variant2 drew it in #343435,
+      // but that reads noticeably darker than the cards it sits beside. A
+      // transparent 1px border is kept by default so the hover adds no 1px
+      // layout shift.
+      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-button-lg text-white">
+        <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
           {label}
         </span>
         {/* Orange circle button + arrow scale with the same
@@ -505,19 +556,20 @@ function CtaCard({ label, onHover }: { label: string; onHover?: () => void }) {
 
 function ZoneRenderer({
   card,
-  onHover,
-  onClearHover,
+  onSelect,
+  onClose,
 }: {
   card: ZoneCard;
-  onHover: (card: ZoneCard, el: HTMLDivElement) => void;
-  onClearHover: () => void;
+  onSelect: (card: ZoneCard, el: HTMLDivElement) => void;
+  onClose: () => void;
 }) {
   if (card.kind === "cta") {
-    return <CtaCard label={card.label} onHover={onClearHover} />;
+    return <CtaCard label={card.label} onActivate={onClose} />;
   }
-  const handleHover = (el: HTMLDivElement) => {
-    if (card.items?.length) onHover(card, el);
-  };
+  // Every non-link card reports its click to the parent; the parent
+  // decides whether to open a panel (card has items), toggle it shut
+  // (same card clicked again), or just close (no-items filler card).
+  const handleSelect = (el: HTMLDivElement) => onSelect(card, el);
   switch (card.kind) {
     case "image":
       return (
@@ -525,17 +577,17 @@ function ZoneRenderer({
           label={card.label}
           image={card.image}
           tall={card.tall}
-          onHover={handleHover}
+          onSelect={handleSelect}
         />
       );
     case "compact":
-      return <CompactCard label={card.label} onHover={handleHover} />;
+      return <CompactCard label={card.label} onSelect={handleSelect} />;
     case "illustration":
       return (
         <IllustrationCard
           label={card.label}
           svg={card.svg}
-          onHover={handleHover}
+          onSelect={handleSelect}
         />
       );
   }
@@ -546,12 +598,19 @@ function ZoneRenderer({
 //     the StarRequestStrip header uses)
 //   • rounded-[40px]
 //   • Title: text-h2 (44 / 48 bold) white
-//   • Close X icon in the top-right (informational only — the popup
-//     closes automatically when the mouse leaves the grid)
+//   • Close X icon in the top-right — a real button that closes the
+//     panel (the panel now opens on click, so it stays open until the
+//     user closes it via the X, clicks outside, or presses Escape)
 //   • Chips: white border, white text, transparent fill — opposite
 //     of the light-grid chips used elsewhere on the site, suited to
 //     the dark surface.
-function ItemsPanel({ zone }: { zone: ZoneCard & { items?: string[] } }) {
+function ItemsPanel({
+  zone,
+  onClose,
+}: {
+  zone: ZoneCard & { items?: string[] };
+  onClose: () => void;
+}) {
   return (
     // Figma Frame 803 (1333:7785) — 587×624 dark slab with rounded
     // corners. Panel sizes itself to its content (header + chips
@@ -560,6 +619,8 @@ function ItemsPanel({ zone }: { zone: ZoneCard & { items?: string[] } }) {
     // overflow-hidden clips any rare overflow silently rather than
     // showing a scrollbar.
     <div
+      role="dialog"
+      aria-label={zone.label}
       className="flex max-h-full flex-col overflow-hidden rounded-[28px] shadow-[0_24px_64px_-12px_rgba(15,15,20,0.42)] sm:rounded-[36px] lg:rounded-[40px]"
       style={{ background: "#343435" }}
     >
@@ -572,11 +633,14 @@ function ItemsPanel({ zone }: { zone: ZoneCard & { items?: string[] } }) {
           {zone.label}
         </h3>
         {/* Figma 1333:7788 — heroicons-outline/x-mark inside a 40-px
-            container with inset 21.88% → visual X ~22.5 px. Stroke
-            color = white via currentColor. */}
-        <span
-          aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center text-white"
+            container with inset 21.88% → visual X ~22.5 px. Now a real
+            close button (panel opens on click, so it needs an explicit
+            way to dismiss). Stroke color = white via currentColor. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрити"
+          className="flex size-10 shrink-0 cursor-pointer items-center justify-center text-white transition-colors duration-200 hover:text-brand"
         >
           <svg
             viewBox="0 0 24 24"
@@ -584,11 +648,12 @@ function ItemsPanel({ zone }: { zone: ZoneCard & { items?: string[] } }) {
             stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
+            aria-hidden
             className="size-[22.5px]"
           >
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
-        </span>
+        </button>
       </div>
       {/* Chips area — Figma 1333:7789 sits below the header at
           `pb-[32px] px-[32px]` (no top padding; the first chip row
@@ -810,27 +875,26 @@ export function ZonesGrid() {
   // scroll/resize listeners can re-measure it without re-running
   // handleHover.
   const activeCardElRef = useRef<HTMLDivElement | null>(null);
-  // Latest known pointer position (viewport coords). The OS only fires
-  // mousemove when the cursor itself moves — a page scroll that slides
-  // the grid out from under a still cursor fires no mousemove, so the
-  // close-on-leave check would never run. We stash the cursor's last
-  // coords here and re-run the outside-the-grid test on scroll too.
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  // The popup is position:fixed (viewport space), so it can float
+  // outside the grid. We keep a ref to it to tell whether a click
+  // landed inside the panel (keep open) vs outside (close).
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      pointerRef.current = { x: e.clientX, y: e.clientY };
-    };
-    document.addEventListener("mousemove", onMove);
-    return () => document.removeEventListener("mousemove", onMove);
-  }, []);
-
-  const handleHover = useCallback((card: ZoneCard, cardEl: HTMLDivElement) => {
-    setActive(card);
-    setLast(card);
-    activeCardElRef.current = cardEl;
-    setPopupPos(computePos(cardEl));
-  }, []);
+  const handleSelect = useCallback(
+    (card: ZoneCard, cardEl: HTMLDivElement) => {
+      // No-details filler card, or clicking the already-open card:
+      // dismiss the panel. Otherwise open (or switch to) this card.
+      if (!card.items?.length || active === card) {
+        setActive(null);
+        return;
+      }
+      setActive(card);
+      setLast(card);
+      activeCardElRef.current = cardEl;
+      setPopupPos(computePos(cardEl));
+    },
+    [active],
+  );
 
   // Track the active card while the user scrolls or the viewport
   // resizes — recompute the panel's position so it follows the card
@@ -847,31 +911,9 @@ export function ZonesGrid() {
         ticking = false;
         const el = activeCardElRef.current;
         if (!el) return;
-        const newPos = computePos(el);
-        setPopupPos(newPos);
-
-        // Scroll moves the grid under the cursor without firing
-        // mousemove, so the mousemove-only close-on-leave listener
-        // can't catch it — the popup would stay visible until the
-        // user wiggled the mouse. Re-run the outside-region test
-        // here against the last known pointer coords + the freshly
-        // computed popup position so the popup auto-dismisses the
-        // moment the cursor effectively leaves the grid+popup
-        // region during a scroll.
-        const p = pointerRef.current;
-        if (!p) return;
-        const gridEl = gridRef.current;
-        if (!gridEl) return;
-        const g = gridEl.getBoundingClientRect();
-        const inGrid =
-          p.x >= g.left && p.x < g.right &&
-          p.y >= g.top && p.y < g.bottom;
-        const inPopup =
-          p.x >= newPos.left && p.x < newPos.left + newPos.width &&
-          p.y >= newPos.top && p.y < newPos.top + newPos.height;
-        if (!inGrid && !inPopup) {
-          setActive(null);
-        }
+        // In click mode the panel stays open across scrolls - it only
+        // follows the card. Closing is explicit (X / outside / Escape).
+        setPopupPos(computePos(el));
       });
     };
     window.addEventListener("scroll", recalc, { passive: true });
@@ -882,38 +924,31 @@ export function ZonesGrid() {
     };
   }, [active]);
 
-  // Close-on-leave detection. The panel is position:fixed so it can
-  // float outside the grid's bounding box — that means we can't rely
-  // on a grid-level onMouseLeave, which would fire as soon as the
-  // mouse crossed the grid edge into a fixed panel that hangs over
-  // an adjacent section. Instead we listen on document.mousemove and
-  // close the panel only when the cursor sits OUTSIDE both the grid
-  // AND the panel rectangles. mousemove is cheap (the work is two
-  // bbox checks) and we only attach the listener while a panel is
-  // actually visible.
+  // Close the panel when the user clicks outside both the grid and the
+  // panel, or presses Escape. Clicks INSIDE the grid are handled by the
+  // cards' own onClick (open / toggle / switch); clicks inside the panel
+  // are ignored here (its X button closes it). pointerdown fires before
+  // click, and the listener only attaches once a panel is open, so the
+  // opening click itself can never trip it.
   useEffect(() => {
-    if (!active || !popupPos) return;
-    const onMove = (e: MouseEvent) => {
-      const gridEl = gridRef.current;
-      if (!gridEl) return;
-      const g = gridEl.getBoundingClientRect();
-      const inGrid =
-        e.clientX >= g.left &&
-        e.clientX < g.right &&
-        e.clientY >= g.top &&
-        e.clientY < g.bottom;
-      const inPopup =
-        e.clientX >= popupPos.left &&
-        e.clientX < popupPos.left + popupPos.width &&
-        e.clientY >= popupPos.top &&
-        e.clientY < popupPos.top + popupPos.height;
-      if (!inGrid && !inPopup) {
-        setActive(null);
-      }
+    if (!active) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target;
+      if (!(t instanceof Node)) return;
+      if (gridRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setActive(null);
     };
-    document.addEventListener("mousemove", onMove);
-    return () => document.removeEventListener("mousemove", onMove);
-  }, [active, popupPos]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActive(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [active]);
 
   return (
     // Figma 1384:11619 — the Zones section caps the Hero with a thin
@@ -950,16 +985,29 @@ export function ZonesGrid() {
           className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0"
         >
           {COLUMNS.map((col, i) => (
-            <div key={i} className="flex flex-col gap-3 sm:gap-4 lg:gap-0">
+            // lg grid is gap-0, so adjacent card borders touch and a shared
+            // seam reads as 2px (1px + 1px), looking thicker than the outer
+            // 1px edges. Pull every column after the first 1px LEFT so its
+            // cards' left borders land ON the previous column's right
+            // borders -> the vertical seam collapses to a single 1px line.
+            <div
+              key={i}
+              className={`flex flex-col gap-3 sm:gap-4 lg:gap-0${i > 0 ? " lg:-ml-px" : ""}`}
+            >
               {col.map((card, j) => (
+                // Same overlap vertically: every card after the first in its
+                // column is pulled 1px UP so its top border sits on the
+                // previous card's bottom border (1px seam, not 2px).
                 <div
                   key={j}
-                  className={card.lgOnly ? "hidden lg:block" : "contents lg:block"}
+                  className={`${
+                    card.lgOnly ? "hidden lg:block" : "contents lg:block"
+                  }${j > 0 ? " lg:-mt-px" : ""}`}
                 >
                   <ZoneRenderer
                     card={card}
-                    onHover={handleHover}
-                    onClearHover={() => setActive(null)}
+                    onSelect={handleSelect}
+                    onClose={() => setActive(null)}
                   />
                 </div>
               ))}
@@ -975,13 +1023,10 @@ export function ZonesGrid() {
                   edges (e.g. the bottom-of-column "Ресторан / Бар")
                   without being cropped by the grid's bounding box.
 
-              `pointer-events-none` is intentional ALWAYS so the mouse
-              passes straight through the panel onto the cards behind
-              it. That lets the user sweep across cards and have the
-              panel hop to each one without needing to dodge the
-              panel itself. Chips inside are informational labels —
-              never click targets — so giving up pointer events costs
-              nothing UX-wise.
+              The panel is `pointer-events-auto` while open so its close
+              (X) button is clickable, and `pointer-events-none` while
+              hidden so it never blocks the cards during the fade-out.
+              Chips inside are informational labels (not click targets).
 
               The transition list includes `left,top,width,height` so
               the panel animates smoothly when:
@@ -989,11 +1034,12 @@ export function ZonesGrid() {
                 • the window resizes (width/height clamp updates),
                 • the user scrolls (top tracks the card). */}
           <div
+            ref={panelRef}
             aria-hidden={!active}
-            className={`pointer-events-none fixed z-50 hidden transition-[opacity,transform,left,top,width,height] duration-300 ease-out lg:block ${
+            className={`fixed z-50 hidden transition-[opacity,translate,scale,left,top,width,height] duration-300 ease-out lg:block ${
               active
-                ? "translate-y-0 scale-100 opacity-100"
-                : "translate-y-1 scale-[0.98] opacity-0"
+                ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                : "pointer-events-none translate-y-1 scale-[0.98] opacity-0"
             }`}
             style={{
               left: popupPos?.left ?? 0,
@@ -1006,7 +1052,7 @@ export function ZonesGrid() {
             }}
           >
             {last && last.kind !== "cta" && last.items && (
-              <ItemsPanel zone={last} />
+              <ItemsPanel zone={last} onClose={() => setActive(null)} />
             )}
           </div>
         </div>

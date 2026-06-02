@@ -56,7 +56,7 @@ export function CleaningProcess() {
             <span className="text-h2">Гігієна як система,</span>
             <span className="text-h2-light"> а не хаотичні закупівлі</span>
           </h2>
-          <p className="flex-1 max-w-[574px] text-body-md text-neutral-500">
+          <p className="flex-1 max-w-[574px] text-body-sm text-neutral-500">
             {`Ми допомагаємо вибудувати логіку забезпечення гігієни на об'єкті:
             від підбору засобів і інвентарю до регулярних поставок та
             повторюваного стандарту. `}

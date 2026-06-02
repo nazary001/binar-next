@@ -9,16 +9,24 @@ import { useId } from "react";
 //   • "ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ ·" text wrapped around the
 //     outside of the orange circle (Figma's circle-text).
 //
-// The Figma component is named "UpAnimation" but the design file
-// itself shows a STATIC ring of text - no rotation in the master.
-// We render the same static composition (no CSS spin) to match the
-// mockup 1:1.
+// The Figma component is a SET named "Up Animation" (567:2041) whose
+// 4 variants (Default, Variant2-4) keyframe the circular text ring at
+// successive rotation angles - i.e. the ring is meant to SPIN. We
+// reproduce that as one continuous clockwise rotation of the text SVG
+// (`up-ring-spin` in globals.css); the orange circle + arrow are
+// separate siblings and stay static. Spin is killed under
+// prefers-reduced-motion.
 //
 // Mobile shrinks both the circle and the surrounding text radius
 // proportionally so the footer's social row still fits.
 
 type Props = {
   className?: string;
+  // When false, the spinning "ВГОРУ" text ring is omitted and the hit
+  // area shrinks to just the orange circle. Used by the floating FAB,
+  // where the decorative ring isn't wanted (and a 130-px ghost hit area
+  // floating in the corner would block clicks on content beneath it).
+  showRing?: boolean;
 };
 
 // Static "ВГОРУ" circle text tuned to the Figma master (567:2040)
@@ -55,7 +63,7 @@ function CircleText() {
   return (
     <svg
       viewBox="0 0 130 130"
-      className="pointer-events-none absolute inset-0 size-full text-white"
+      className="up-ring-spin pointer-events-none absolute inset-0 size-full text-white"
       aria-hidden
     >
       <defs>
@@ -93,16 +101,22 @@ function CircleText() {
   );
 }
 
-export function ScrollToTopButton({ className }: Props) {
+export function ScrollToTopButton({ className, showRing = true }: Props) {
   return (
     <button
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="Догори"
-      className={`group relative size-[88px] shrink-0 cursor-pointer sm:size-[110px] lg:size-[130px] ${className ?? ""}`}
+      className={`group relative shrink-0 cursor-pointer ${
+        showRing
+          ? "size-[88px] sm:size-[110px] lg:size-[130px]"
+          : "size-[44px] sm:size-[52px] lg:size-[56px]"
+      } ${className ?? ""}`}
     >
-      {/* Circle text — static, matches Figma master 567:2040. */}
-      <CircleText />
+      {/* Circle text — spins continuously (Figma "Up Animation" set).
+          Omitted in the FAB (showRing=false), which shows only the
+          orange circle + arrow. */}
+      {showRing && <CircleText />}
 
       {/* Orange circle — Figma 567:2039. Static — Figma has no hover. */}
       <span

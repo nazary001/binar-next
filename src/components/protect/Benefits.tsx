@@ -38,8 +38,7 @@ export function ProtectBenefits() {
             mobile/tablet: each feature is a self-contained
             `bg-bg-subtle` rounded card with a mono index badge in the
             top-right (`02 / 03`), icon stacked on TOP via
-            flex-col-reverse, title + body below. Hover lifts the card
-            to white with a soft shadow.
+            flex-col-reverse, title + body below.
             lg: cards melt into the bare-divider grid from Figma
             (rounded-none, bg-transparent, p-0, no shadow, no lift),
             with hairline vertical lines between the three columns. */}
@@ -66,7 +65,7 @@ export function ProtectBenefits() {
               )}
               <article
                 className="
-                  group relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-5
+                  relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-5
                   rounded-[24px] bg-bg-subtle p-6
 
 
@@ -78,7 +77,7 @@ export function ProtectBenefits() {
               >
                 <span
                   aria-hidden
-                  className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 transition-colors duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:text-brand sm:right-6 sm:top-6 sm:text-[13px] lg:hidden"
+                  className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 sm:right-6 sm:top-6 sm:text-[13px] lg:hidden"
                 >
                   {String(i + 1).padStart(2, "0")}
                   <span className="text-neutral-200">
@@ -87,7 +86,7 @@ export function ProtectBenefits() {
                 </span>
 
                 <div className="flex w-full flex-col gap-3 sm:gap-4">
-                  <h3 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">
+                  <h3 className="text-title-lg text-neutral-900">
                     {f.title}
                   </h3>
                   <p className="text-body-sm text-neutral-500">{f.body}</p>

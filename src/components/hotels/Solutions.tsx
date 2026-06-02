@@ -3,8 +3,12 @@ import { Button } from "@/components/ui/Button";
 
 // Decorative cluster on the dark CTA — cross pattern + orange tag
 // (shared with home TeamCta) PLUS the 4 hotels-specific silhouette
-// PNGs from Figma Group 73 (slippers), Group 76 (bottle), Group 69
-// (flower) and Group 77. Coordinates are right-anchored pixel offsets
+// shapes from Figma Group 73 (slippers), Group 76 (bottle), Group 69
+// (flower) and Group 77. These are flattened vector SVGs exported
+// straight from the Figma groups (node.exportAsync SVG_STRING) so they
+// stay crisp at any DPI — the earlier 1x PNG exports were blurry on
+// retina because they were rasterised at the exact display pixel size.
+// Coordinates are right-anchored pixel offsets
 // inside the 1440-wide dark cap so the cluster stays glued to the
 // design's right edge as the cap grows on viewports > 1440.
 function HotelsDecorCluster() {
@@ -84,7 +88,7 @@ function HotelsDecorCluster() {
           metadata x=1095.74, which is actually the rotated bbox's right
           edge, putting the slippers one whole icon-width too far right.) */}
       <img
-        src="/figma-export/hotels/solutions/decor/slippers.png"
+        src="/figma-export/hotels/solutions/decor/slippers.svg"
         alt=""
         className="absolute"
         style={{ right: "344.28px", top: "178.95px", width: "141.14px", height: "138.07px" }}
@@ -93,7 +97,7 @@ function HotelsDecorCluster() {
           the lower-RIGHT quadrant. left=82.92%=1194, top=53.65%=210.30,
           w=99.93, h=126.30. Already matches the design. */}
       <img
-        src="/figma-export/hotels/solutions/decor/bottle.png"
+        src="/figma-export/hotels/solutions/decor/bottle.svg"
         alt=""
         className="absolute"
         style={{ right: "146px", top: "210.30px", width: "100px", height: "126px" }}
@@ -104,7 +108,7 @@ function HotelsDecorCluster() {
           right=214.48 was off by ~45 px, same metadata mismatch as the
           slippers.) */}
       <img
-        src="/figma-export/hotels/solutions/decor/flower.png"
+        src="/figma-export/hotels/solutions/decor/flower.svg"
         alt=""
         className="absolute"
         style={{ right: "259.22px", top: "196px", width: "44.76px", height: "45.79px" }}
@@ -113,7 +117,7 @@ function HotelsDecorCluster() {
           Design-context anchors it at left=1290px so right = 1440-1290-
           89 = 61. Already matches the design. */}
       <img
-        src="/figma-export/hotels/solutions/decor/group77.png"
+        src="/figma-export/hotels/solutions/decor/group77.svg"
         alt=""
         className="absolute"
         style={{ right: "61px", top: "257px", width: "89px", height: "63px" }}
@@ -200,21 +204,21 @@ export function Solutions() {
         <HotelsDecorCluster />
       </div>
 
-      <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:rounded-[68px] lg:pb-[80px] lg:pt-0">
+      <div className="relative rounded-[40px] bg-bg-subtle pb-16 pt-12 sm:rounded-[56px] sm:pb-24 sm:pt-16 lg:rounded-[68px] lg:pb-[225px] lg:pt-0">
         <div className="lg-pad-x px-5 sm:px-10">
-          {/* Figma 1384:11993 header band — frame is exactly 384 px
-              tall on the 1440 master with pt=160 + 112 content (the
-              description paragraph wraps to 4 × 28 lines, which is
-              taller than the 96-px h2) + pb=112. The inner Frame
-              1010106569 (1384:11994) is `flex items-start gap-32`
-              between h2 and p. */}
-          <div className="flex flex-col gap-6 pt-8 sm:gap-8 sm:pt-12 lg:flex-row lg:items-start lg:gap-[32px] lg:pb-[112px] lg:pt-[160px]">
+          {/* Figma 1384:11993 header band - frame is exactly 384 px
+              tall on the 1440 master: pt=160 + 96 content + pb=128
+              (the 96-px h2 sets the content height; the description
+              paragraph is 72 px / 3 lines and sits beside it). The
+              inner Frame 1010106569 (1384:11994) is `flex items-start
+              gap-32` between h2 and p. */}
+          <div className="flex flex-col gap-6 pt-8 sm:gap-8 sm:pt-12 lg:flex-row lg:items-start lg:gap-[32px] lg:pb-[128px] lg:pt-[160px]">
             <h3 className="flex-1 text-neutral-900">
               <span className="text-h2">Кастомізація</span>
               <br aria-hidden />
               <span className="text-h2-light">під ваш бренд</span>
             </h3>
-            <p className="flex-1 max-w-[574px] text-body-md text-neutral-500">
+            <p className="flex-1 max-w-[574px] text-body-sm text-neutral-500">
               Кастомізовані деталі — це не просто витратні матеріали, а частина
               сервісу, яку гість помічає одразу. Саме вони формують відчуття
               рівня готелю, уваги до деталей і турботи.
@@ -298,7 +302,14 @@ export function Solutions() {
           </ul>
         </div>
 
-        <div className="relative mt-10 overflow-hidden sm:mt-12">
+        {/* Figma 1384:12044 "Cases" marquee - a fixed 720-px block on
+            the 1440 master with the 370-px card row centred +30 px, so
+            the design leaves 205 px above the cards and 145 px below;
+            the card then adds its own 80-px bottom pad (145 + 80 = 225
+            px from the cards to the card's rounded bottom edge). We put
+            the 205 above as this block's `lg:pt` and fold the 225 below
+            into the card's `lg:pb`. Mobile/tablet scale down to 64/96 px. */}
+        <div className="relative overflow-hidden pt-16 sm:pt-24 lg:pt-[205px]">
           <ul
             className="animate-marquee flex w-max items-center"
             style={
