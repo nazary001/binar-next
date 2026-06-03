@@ -1,6 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { ScrollToTopButton } from "./ScrollToTopButton";
 import { SocialButton } from "./ui/SocialButton";
 
 const SOCIALS = [
@@ -91,7 +90,16 @@ export function Footer() {
                   </li>
                 ))}
               </ul>
-              <ScrollToTopButton />
+              {/* Empty docking slot — the single travelling scroll-to-top
+                  button (ScrollUpDock, fixed) glides into this exact spot
+                  as the footer enters view. Reserves the button's footprint
+                  so the row layout is unchanged whether or not it has docked
+                  yet. */}
+              <div
+                data-scrollup-slot
+                aria-hidden
+                className="shrink-0 size-[88px] sm:size-[110px] lg:size-[130px]"
+              />
             </div>
           </div>
 

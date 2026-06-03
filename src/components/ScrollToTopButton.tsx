@@ -58,7 +58,14 @@ type Props = {
 const PATH_RADIUS = 39;
 const PATH_CIRCUMFERENCE = 2 * Math.PI * PATH_RADIUS;
 
-function CircleText() {
+// The spinning "ВГОРУ" text ring, exported on its own so ScrollUpDock can
+// render it as a SEPARATE fixed layer. That separation is what lets the ring
+// use `mix-blend-mode: difference` to invert against the page: the blend only
+// reaches the page backdrop when it sits on a fixed element directly, not when
+// it is nested inside another fixed/transformed (and therefore blend-isolating)
+// wrapper. So the blend lives on ScrollUpDock's ring layer, not here; this stays
+// plain white and the layer above decides whether to blend it.
+export function RingText() {
   const pathId = useId();
   return (
     <svg
@@ -116,7 +123,7 @@ export function ScrollToTopButton({ className, showRing = true }: Props) {
       {/* Circle text — spins continuously (Figma "Up Animation" set).
           Omitted in the FAB (showRing=false), which shows only the
           orange circle + arrow. */}
-      {showRing && <CircleText />}
+      {showRing && <RingText />}
 
       {/* Orange circle — Figma 567:2039. Static — Figma has no hover. */}
       <span
