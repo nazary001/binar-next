@@ -882,9 +882,10 @@ export function ZonesGrid() {
 
   const handleSelect = useCallback(
     (card: ZoneCard, cardEl: HTMLDivElement) => {
-      // No-details filler card, or clicking the already-open card:
-      // dismiss the panel. Otherwise open (or switch to) this card.
-      if (!card.items?.length || active === card) {
+      // No-details filler card (the "cta" tile has no items), or clicking
+      // the already-open card: dismiss the panel. Otherwise open (or switch
+      // to) this card.
+      if (card.kind === "cta" || !card.items?.length || active === card) {
         setActive(null);
         return;
       }
