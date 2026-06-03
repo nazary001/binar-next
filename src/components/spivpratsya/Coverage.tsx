@@ -20,7 +20,7 @@ const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 // stacked cards (lg:-mt-px). Below lg the bento collapses to one stacked
 // column with a small gap.
 
-// All cards point at the same lead form the "Підбір під проєкт" button uses.
+// All cards point at the same lead form the "Переглянути каталог" button uses.
 const CARD_HREF = "#contact-form";
 
 type TextCardData = { kind: "text"; title: string };
@@ -55,7 +55,7 @@ const COL_3: Card[] = [
     title: "Оснащення ванної (включно з Valera)",
     src: "/figma-export/spivpratsya/cover-bathroom.png",
   },
-  { kind: "button", title: "Підбір під проєкт", href: CARD_HREF },
+  { kind: "button", title: "Переглянути каталог", href: CARD_HREF },
 ];
 
 // 6-px brand border that fades in on card hover (the hotels/protect
@@ -174,36 +174,34 @@ function ButtonCardEl({
   href: string;
   className?: string;
 }) {
-  // Figma 1870:6116 - deep #343435 (= neutral-800) slab with a Title/Large
-  // label and a filled-brand arrow disc. Hover matches the catalog button
-  // on hotels / protect / cleaning: the slab inverts to white with a
-  // stroke border, the label flips to neutral-900, the arrow disc stays.
-  // Border starts transparent so the hover border does not shift layout.
+  // Figma 2532:7673 ("Button catalog") - deep #343435 (= neutral-800) slab
+  // holding the STANDARD Button/Large label (18 px text-button-lg). This
+  // differs from the cleaning / protect / hotels catalog cards, which carry
+  // a 24-px Title/Large designer override; the spivpratsya frame uses the
+  // default button size, so the label is text-button-lg, centered as a
+  // compact pill (text + 8-px gap + 52-px arrow disc) like those cards.
+  // Hover matches them: the slab inverts to white with a stroke border, the
+  // label flips to neutral-900, the filled-brand arrow disc stays. Border
+  // starts transparent so the hover border does not shift layout.
   return (
     <Link
       href={href}
-      className={`group flex cursor-pointer items-center justify-between gap-4 rounded-[28px] border border-transparent bg-neutral-800 px-6 py-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:px-8 sm:py-8 lg:justify-center lg:rounded-[40px] lg:px-10 lg:py-10 ${className ?? ""}`}
+      className={`group flex cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-neutral-800 px-6 py-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:px-8 sm:py-8 lg:rounded-[40px] lg:px-10 lg:py-10 ${className ?? ""}`}
     >
-      <span className="text-title-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
-        {title}
-      </span>
-      <span className="inline-flex size-[42px] shrink-0 items-center justify-center rounded-[26px] bg-brand sm:size-[52px]">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-          className="size-5 sm:size-6"
-        >
-          <path
-            d="M7 17L17 7M17 7H8M17 7V16"
-            stroke="white"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      <span className="inline-flex items-center gap-2">
+        <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+          {title}
+        </span>
+        <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
+          <img
+            src={ARROW_WHITE}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="size-[16.5px]"
           />
-        </svg>
+        </span>
       </span>
     </Link>
   );
