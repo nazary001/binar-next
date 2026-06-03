@@ -3,11 +3,19 @@ import Link from "next/link";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 const ARROW_SRC = "/figma-export/hero/arrow-up-right.svg";
+const PLUS_SRC = "/figma-export/plus.svg";
+const MINUS_SRC = "/figma-export/minus.svg";
 
 type ButtonStyle = {
   size?: "large" | "small";
   variant?: "solid" | "outlined" | "light";
   arrow?: boolean;
+  // Swap the trailing up-right arrow for a plus glyph (Figma 1327:4985 -
+  // the FAQ "Показати більше" button). Same orange square, plus icon.
+  plus?: boolean;
+  // Like `plus` but a minus glyph - the FAQ button uses this for its
+  // expanded "Приховати" state. Takes precedence over `plus` / `arrow`.
+  minus?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -57,6 +65,13 @@ const arrowIcon = {
   small: "size-[11px]",
 };
 
+// The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px
+// orange square - slightly larger in its box than the arrow glyph.
+const plusIcon = {
+  large: "size-[16px] sm:size-[18.75px]",
+  small: "size-[13px]",
+};
+
 // All transitions are colour-only — no slide, no rotate, no scale on
 // the arrow. Figma defines hover as bg/text/border inversion only.
 // `solid` hover: black pill inverts to a SOLID-WHITE pill with a black
@@ -90,10 +105,18 @@ function ButtonInner({
   size,
   variant,
   arrow,
+  plus,
+  minus,
   children,
-}: Required<Pick<ButtonStyle, "size" | "variant" | "arrow">> & {
+}: Required<
+  Pick<ButtonStyle, "size" | "variant" | "arrow" | "plus" | "minus">
+> & {
   children: ReactNode;
 }) {
+  const showIcon = arrow || plus || minus;
+  const iconSrc = minus ? MINUS_SRC : plus ? PLUS_SRC : ARROW_SRC;
+  // Plus and minus share the same (larger) glyph box; only the arrow differs.
+  const iconClass = plus || minus ? plusIcon[size] : arrowIcon[size];
   // DOM order is arrow → pill so the pill can pick up the arrow's
   // hover state via Tailwind's `peer-hover:` (the `~` CSS sibling
   // combinator only looks at PRIOR peers, so the peer has to come
@@ -104,17 +127,17 @@ function ButtonInner({
   // between them keeps the wrapper's `cursor-default`.
   return (
     <>
-      {arrow && (
+      {showIcon && (
         <span
           className={`peer order-2 inline-flex cursor-pointer items-center justify-center bg-brand ${arrowWrap[size]}`}
         >
           <img
-            src={ARROW_SRC}
+            src={iconSrc}
             alt=""
             aria-hidden
             loading="lazy"
             decoding="async"
-            className={arrowIcon[size]}
+            className={iconClass}
           />
         </span>
       )}
@@ -141,9 +164,17 @@ export function Button(props: ButtonProps) {
   const size = props.size ?? "large";
   const variant = props.variant ?? "solid";
   const arrow = props.arrow ?? false;
+  const plus = props.plus ?? false;
+  const minus = props.minus ?? false;
 
   const inner = (
-    <ButtonInner size={size} variant={variant} arrow={arrow}>
+    <ButtonInner
+      size={size}
+      variant={variant}
+      arrow={arrow}
+      plus={plus}
+      minus={minus}
+    >
       {props.children}
     </ButtonInner>
   );
@@ -153,6 +184,8 @@ export function Button(props: ButtonProps) {
       size: _size,
       variant: _variant,
       arrow: _arrow,
+      plus: _plus,
+      minus: _minus,
       className,
       children: _children,
       href,
@@ -161,6 +194,8 @@ export function Button(props: ButtonProps) {
     void _size;
     void _variant;
     void _arrow;
+    void _plus;
+    void _minus;
     void _children;
     return (
       <Link href={href} className={wrapperClass(className)} {...rest}>
@@ -173,6 +208,8 @@ export function Button(props: ButtonProps) {
     size: _size,
     variant: _variant,
     arrow: _arrow,
+    plus: _plus,
+    minus: _minus,
     className,
     children: _children,
     type,
@@ -181,6 +218,8 @@ export function Button(props: ButtonProps) {
   void _size;
   void _variant;
   void _arrow;
+  void _plus;
+  void _minus;
   void _children;
   return (
     <button

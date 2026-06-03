@@ -206,6 +206,9 @@ export function Faq({
   const extraFaqs =
     extraFaqsProp ?? (faqs === DEFAULT_FAQS ? EXTRA_FAQS : []);
   const canExpand = showMoreButton && extraFaqs.length > 0;
+  // Toggle CTA state: minus + "Приховати" when open, plus + "Показати
+  // більше" when closed (or on the inert landing-page button, canExpand false).
+  const showMinus = canExpand && expanded;
 
   return (
     <section
@@ -304,11 +307,13 @@ export function Faq({
         <Button
           variant="solid"
           size="large"
+          plus={!showMinus}
+          minus={showMinus}
           onClick={canExpand ? () => setExpanded((v) => !v) : undefined}
           aria-expanded={canExpand ? expanded : undefined}
           aria-controls={canExpand ? "faq-more" : undefined}
         >
-          {canExpand && expanded ? "Приховати" : "Показати більше"}
+          {showMinus ? "Приховати" : "Показати більше"}
         </Button>
       )}
     </section>
