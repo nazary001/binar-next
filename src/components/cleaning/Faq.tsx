@@ -19,6 +19,19 @@ const CLEANING_FAQS: FaqEntry[] = [
   },
 ];
 
+// Revealed by the "Показати більше" button — same expand mechanism as the
+// home page (questions 05-06 below the always-visible four above).
+const CLEANING_EXTRA_FAQS: FaqEntry[] = [
+  {
+    q: "Чи надаєте документи?",
+    a: "Так, за потреби надаємо супровідні документи та підтвердження якості.",
+  },
+  {
+    q: "Чи працюєте з мережами та великими об'єктами?",
+    a: "Так. Ми маємо досвід роботи з великими компаніями та об'єктами з високими вимогами до стабільності.",
+  },
+];
+
 export function CleaningFaq() {
-  return <Faq faqs={CLEANING_FAQS} />;
+  return <Faq faqs={CLEANING_FAQS} extraFaqs={CLEANING_EXTRA_FAQS} />;
 }

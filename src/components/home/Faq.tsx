@@ -165,6 +165,10 @@ function FaqRow({
 
 type FaqProps = {
   faqs?: FaqEntry[];
+  // Extra questions revealed by the "Показати більше" CTA. Pages can pass
+  // their own set (e.g. cleaning); if omitted, the home DEFAULT_FAQS set
+  // falls back to EXTRA_FAQS and every other page gets none.
+  extraFaqs?: FaqEntry[];
   showFilters?: boolean;
   // Whether to render the "Показати більше" CTA below the question list.
   // The home page wants it (Figma 1384:12949); landing pages that override
@@ -189,16 +193,18 @@ type FaqProps = {
 // the home page.
 export function Faq({
   faqs = DEFAULT_FAQS,
+  extraFaqs: extraFaqsProp,
   showFilters = true,
   showMoreButton = true,
 }: FaqProps = {}) {
   const [expanded, setExpanded] = useState(false);
 
-  // The four extra questions are home-only: they belong to the DEFAULT
-  // question set, so pages that pass their own `faqs` (cleaning, protect,
-  // hotels) never get them and their "Показати більше" button stays the
-  // inert design element it has always been.
-  const extraFaqs = faqs === DEFAULT_FAQS ? EXTRA_FAQS : [];
+  // Extra questions revealed by "Показати більше". A page can pass its own
+  // set via `extraFaqs` (cleaning does); otherwise the home DEFAULT_FAQS
+  // set falls back to EXTRA_FAQS and pages with their own `faqs` (protect,
+  // hotels) get none, so their button stays the inert design element.
+  const extraFaqs =
+    extraFaqsProp ?? (faqs === DEFAULT_FAQS ? EXTRA_FAQS : []);
   const canExpand = showMoreButton && extraFaqs.length > 0;
 
   return (
