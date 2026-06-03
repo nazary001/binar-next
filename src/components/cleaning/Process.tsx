@@ -12,25 +12,27 @@ const STEPS = [
 // master: symmetric arms tapering to points, with bulging cubic curves
 // rather than flat plus rectangles.
 //
-// All three sparkles use the same DOM/layout — `justify-between` on
-// the row puts each one at the geometric midpoint of its disc-to-disc
-// gap (x=275 / 590 / 905 on the 1180-wide master). The LAST sparkle
-// (between disc 3 and disc 4) lands at x=905 which is exactly the
-// left edge of disc 4's outer ring — that's where Figma puts it, on
-// the ring's axis. No special-case translate.
-function PlusConnector() {
+// Adaptive on EVERY breakpoint. The whole row is flex at all sizes, so
+// `justify-between` always drops each sparkle at the geometric midpoint
+// of its disc-to-disc gap — exactly on the circles' connecting axis,
+// like Figma. It scales with the discs (20 -> 24 -> 32 px). On the lg
+// row the LAST sparkle lands on disc 4's outer-ring axis, same as the
+// master. `hideOnMobile` is set on the middle connector only: in the
+// mobile 2-up wrap that connector would fall at a row's edge (the
+// 2 -> 3 step is the line break), so we drop it there and keep the two
+// that genuinely sit between side-by-side circles.
+function PlusConnector({ hideOnMobile = false }: { hideOnMobile?: boolean }) {
   return (
-    // `relative z-10` lifts the sparkle above disc 4's outer ring. In
-    // Figma the ring is the first child of the row frame (bottom of
-    // the stacking order), so the sparkle between disc 3 and disc 4
-    // paints on top of the ring even though their visual bounds
-    // intersect. In our DOM the ring lives on the last flex item
-    // (disc 4) which renders AFTER the sparkle, so without an
-    // explicit z-index the ring would cover the sparkle's right half.
-    // Same z-index on every connector keeps the markup uniform.
+    // `relative z-10` lifts the sparkle above disc 4's outer ring. The
+    // ring lives on the last flex item (disc 4) which renders AFTER the
+    // sparkle, so without an explicit z-index it would cover the
+    // sparkle's right half on lg. Same z-index on every connector keeps
+    // the markup uniform.
     <span
       aria-hidden
-      className="relative z-10 hidden size-8 shrink-0 items-center justify-center text-brand lg:flex"
+      className={`relative z-10 flex size-5 shrink-0 items-center justify-center text-brand md:size-6 lg:size-8 ${
+        hideOnMobile ? "max-md:hidden" : ""
+      }`}
     >
       <svg
         viewBox="0 0 32 32"
@@ -75,29 +77,42 @@ export function CleaningProcess() {
             perfect circles, white Title/Small label centred (Bold 16/22
             +1% letter-spacing). Mobile collapses to a 2-col grid because
             four full-size discs in a row exceed the viewport. */}
-        <ul className="grid grid-cols-2 items-center justify-items-center gap-4 sm:grid-cols-4 sm:gap-6 lg:flex lg:flex-nowrap lg:items-center lg:justify-between lg:gap-0">
+        {/* The sparkles are in-flow on EVERY breakpoint so they always
+            land on the circles' connecting axis, like Figma:
+              • < md  : a [1fr auto 1fr] grid — two disc columns with the
+                        sparkle in the centre column, so it sits exactly
+                        between the column-centred discs. It wraps to 2x2;
+                        the middle (2 -> 3) connector is the line break, so
+                        it is dropped via hideOnMobile (see PlusConnector).
+                        The grid is width-capped + centred so the sparkle
+                        stays close to the discs on wide phones instead of
+                        floating. Four 113-px discs in one row can't hold
+                        "Стабільний результат", so the 2x2 runs up to md.
+              • md–lg : single nowrap flex row, discs flex-grow to share
+                        space, sparkles centred in each gap (justify-between).
+              • lg    : Figma row — fixed 235-px discs, 32-px sparkles,
+                        last disc carries the 317-px outer ring. */}
+        <ul className="mx-auto grid max-w-[480px] grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-x-2 gap-y-6 md:mx-0 md:max-w-none md:flex md:flex-nowrap md:justify-between md:gap-x-1.5 md:gap-y-0 lg:gap-0">
           {STEPS.map((label, i) => {
             const isLast = i === STEPS.length - 1;
             return (
               <li key={label} className="contents">
                 <div
-                  className={`relative flex aspect-square w-full max-w-[180px] items-center justify-center sm:max-w-[200px] lg:size-[235px] lg:max-w-none lg:shrink-0 ${
+                  className={`relative flex aspect-square w-full max-w-[180px] items-center justify-center md:w-auto md:min-w-0 md:max-w-[200px] md:flex-1 lg:size-[235px] lg:max-w-none lg:flex-none lg:shrink-0 ${
                     isLast
                       ? "lg:rounded-full lg:ring-1 lg:ring-stroke-default lg:ring-offset-[40px] lg:ring-offset-white"
                       : ""
                   }`}
                 >
                   {/* Disc body: --colour/neutral/800 = #343435.
-                      Label: Title/Small (Bold 16/22 +1%) white.
-                      lg padding reduced from 32 -> 24 px so the longest
-                      label "Стабільний результат" fits on a single line
-                      inside the 235-px disc (lg:p-8 left 171 px for the
-                      label, not enough at 16-px Title/Small). */}
-                  <div className="flex aspect-square size-full items-center justify-center rounded-full bg-neutral-800 p-5 text-center sm:p-6 lg:p-6">
+                      Label: Title/Small (Bold 16/22 +1%) white. p-5 keeps
+                      room for "Стабільний результат" down to the ~145-px
+                      md disc; lg bumps to 24 px for the 235-px disc. */}
+                  <div className="flex aspect-square size-full items-center justify-center rounded-full bg-neutral-800 p-5 text-center lg:p-6">
                     <p className="text-title-sm text-white">{label}</p>
                   </div>
                 </div>
-                {i < STEPS.length - 1 && <PlusConnector />}
+                {!isLast && <PlusConnector hideOnMobile={i === 1} />}
               </li>
             );
           })}
