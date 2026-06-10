@@ -10,11 +10,14 @@ import { RingText, ScrollToTopButton } from "./ScrollToTopButton";
 //      bottom-right corner — the spinning "ВГОРУ" ring text auto-inverts
 //      against whatever is behind it (black over light, light over dark).
 //   3. As the footer scrolls up, the empty [data-scrollup-slot] placeholder
-//      it reserves rises with it; we interpolate the button's transform from
-//      the corner to the slot's *live* centre so it glides into place,
-//      scroll-linked. Once fully docked it tracks the slot exactly (so it
-//      reads as part of the footer) and the ring switches to plain white —
-//      the on-spec look against the dark footer.
+//      it reserves rises with it; we interpolate the button's *vertical*
+//      transform from the corner to the slot's live centre so it glides into
+//      place, scroll-linked. Horizontally it never moves — it stays pinned at
+//      its corner offset from the right edge (the slot sits further in, inside
+//      the 1440 container padding, and flying left to meet it reads wrong).
+//      Once fully docked it tracks the slot's height exactly (so it reads as
+//      part of the footer) and the ring switches to plain white — the on-spec
+//      look against the dark footer.
 //
 // Everything is a pure function of scroll position, so scrolling back up
 // reverses the flight smoothly.
@@ -54,7 +57,6 @@ export function ScrollUpDock() {
   // Last applied local-px translate — lets us recover the resting corner
   // centre each frame (curCentre - appliedTranslate*zoom) without clearing
   // the transform first (which would cause a reflow flicker).
-  const txRef = useRef(0);
   const tyRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const reducedRef = useRef(false);
@@ -91,7 +93,6 @@ export function ScrollUpDock() {
       const scrolledEnough = window.scrollY > vh * 0.75;
 
       let t = 0;
-      let slotCx = 0;
       let slotCy = 0;
       let haveSlot = false;
       if (slot) {
@@ -101,7 +102,6 @@ export function ScrollUpDock() {
         const startTop = vh * 0.92;
         const endTop = vh * 0.42;
         t = clamp((startTop - s.top) / (startTop - endTop), 0, 1);
-        slotCx = s.left + s.width / 2;
         slotCy = s.top + s.height / 2;
         haveSlot = true;
       }
@@ -122,26 +122,21 @@ export function ScrollUpDock() {
         setDocked(nextDocked);
       }
 
-      let txLocal = 0;
       let tyLocal = 0;
       if (haveSlot && e > 0) {
         const z = readZoom();
         // btn shares the ring's box + transform, so either measures the home.
         const w = btn.getBoundingClientRect();
-        const curCx = w.left + w.width / 2;
         const curCy = w.top + w.height / 2;
-        const homeCx = curCx - txRef.current * z;
         const homeCy = curCy - tyRef.current * z;
-        txLocal = ((slotCx - homeCx) * e) / z;
         tyLocal = ((slotCy - homeCy) * e) / z;
       }
 
-      if (txLocal !== txRef.current || tyLocal !== tyRef.current) {
-        txRef.current = txLocal;
+      if (tyLocal !== tyRef.current) {
         tyRef.current = tyLocal;
         // 2D translate (not translate3d): a 3D transform / its own composite
         // layer would break the ring's mix-blend against the page.
-        const tf = `translate(${txLocal}px, ${tyLocal}px)`;
+        const tf = `translate(0px, ${tyLocal}px)`;
         ring.style.transform = tf;
         btn.style.transform = tf;
       }

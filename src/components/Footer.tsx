@@ -91,10 +91,11 @@ export function Footer() {
                 ))}
               </ul>
               {/* Empty docking slot — the single travelling scroll-to-top
-                  button (ScrollUpDock, fixed) glides into this exact spot
-                  as the footer enters view. Reserves the button's footprint
-                  so the row layout is unchanged whether or not it has docked
-                  yet. */}
+                  button (ScrollUpDock, fixed) rises to this row's height as
+                  the footer enters view (vertical-only; horizontally it stays
+                  at its corner offset from the right viewport edge). Reserves
+                  the button's footprint so the row layout is unchanged
+                  whether or not it has docked yet. */}
               <div
                 data-scrollup-slot
                 aria-hidden
