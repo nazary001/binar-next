@@ -217,7 +217,11 @@ function CtaCard({ label }: { label: string }) {
       className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {/* Figma "Button catalog" (1217:2490): the label sits in a
+            Button/Large container with px-[24px], so the visible
+            text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
+            gap-2. px scales 20/24 with the Button component. */}
+        <span className="px-5 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
           {label}
         </span>
         <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
@@ -301,14 +305,11 @@ function ProtectDecorCluster() {
       className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
     >
       {/* Icons render FIRST so the cross arms can sit on top (later
-          in DOM = higher in the stacking order). The icon PNGs were
-          exported with a baked-in #2d2d2f rectangular background that
-          matches the cap — that background hid the cross lines wherever
-          an icon overlapped them (gloves bbox crosses the horizontal
-          arm at top=168). Drawing the cross AFTER the icons makes the
-          1-px hairline visible across the icon area, matching Figma's
-          rendering where the cross reads as continuous through the
-          gloves frame.
+          in DOM = higher in the stacking order). All four icons are
+          now transparent SVGs, but the order still matters: the gloves
+          bbox crosses the horizontal arm at top=168, and Figma renders
+          the 1-px hairline as continuous THROUGH the gloves frame —
+          drawing the cross after the icons reproduces that.
 
           Cross color is `border-white` (100% white, matching Figma
           1327:3993 — the design-context for the cap shows every cross
@@ -331,17 +332,11 @@ function ProtectDecorCluster() {
         style={{ right: "375px", top: "66px", width: "175px", height: "72px" }}
       />
       {/* Gloves (Figma 1327:4009) - lower-LEFT quadrant of the cross.
-          right = 1440-904.90-194.19 = 340.91.
-          NOTE: gloves + sparkles are still 1x PNGs (blurry on retina).
-          Unlike mask/shirt (single vector nodes), these are rotated
-          multi-piece Figma Groups. A crisp fix needs a FLATTENED vector
-          export (node.exportAsync SVG_STRING) - the per-piece dev-mode
-          code uses container-query units (cqw) that break under this
-          cap's `html { zoom }`. Re-export both as flattened SVG once the
-          Figma plugin quota is available (Starter/View seat is capped),
-          then swap to /figma-export/protect/decor/gloves.svg etc. */}
+          right = 1440-904.90-194.19 = 340.91. Crisp flattened vector
+          (rotated multi-piece Group, rotation baked into the paths by
+          node.exportAsync SVG_STRING) replacing the old blurry 1x PNG. */}
       <img
-        src="/figma-export/protect/decor-gloves.png"
+        src="/figma-export/protect/decor/gloves.svg"
         alt=""
         className="absolute"
         style={{ right: "340.91px", top: "158.30px", width: "194.19px", height: "192.17px" }}
@@ -356,9 +351,10 @@ function ProtectDecorCluster() {
         style={{ right: "178.95px", top: "191.45px", width: "120.37px", height: "101.86px" }}
       />
       {/* Sparkles (Figma 1327:4015) - tucked against the right edge of
-          the shirt. right = 1440-1257.68-44.76 = 137.56. */}
+          the shirt. right = 1440-1257.68-44.76 = 137.56. Crisp flattened
+          vector (exportAsync SVG_STRING) replacing the old 1x PNG. */}
       <img
-        src="/figma-export/protect/decor-sparkles.png"
+        src="/figma-export/protect/decor/sparkles.svg"
         alt=""
         className="absolute"
         style={{ right: "137.56px", top: "254.68px", width: "44.76px", height: "45.79px" }}

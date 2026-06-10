@@ -21,29 +21,21 @@ type ZoneCard =
       image: string;
       tall?: boolean;
       items?: string[];
-      // Hide this card below the lg breakpoint. Used for the
-      // duplicate-label filler tile that Figma stacks in the 6-col
-      // grid; below lg the column collapses to a single stack and the
-      // duplicate reads as a list bug instead of as designed.
-      lgOnly?: boolean;
     }
   | {
       kind: "compact";
       label: string;
       items?: string[];
-      lgOnly?: boolean;
     }
   | {
       kind: "illustration";
       label: string;
       svg: string;
       items?: string[];
-      lgOnly?: boolean;
     }
   | {
       kind: "cta";
       label: string;
-      lgOnly?: boolean;
     };
 
 // Item lists per zone. Source of truth for "Ванна кімната" is the
@@ -107,12 +99,15 @@ const COLUMNS: ZoneCard[][] = [
     },
     {
       kind: "compact",
-      label: "Засоби індивідуального захисту",
-      // Figma 1384:11629 duplicates card 3's label with no items list,
-      // so omit `items` so the hover popup carries no invented chips.
-      // On mobile the single-stack flow reads the duplicate as a list
-      // bug rather than a designed filler tile - hide below lg.
-      lgOnly: true,
+      label: "Обслуговування номерів та приміщень",
+      items: [
+        "Засоби для прибирання номерів",
+        "Візок покоївки",
+        "Таблички «Не турбувати»",
+        "Мішки для білизни",
+        "Засоби для прання",
+        "Набір для прасування",
+      ],
     },
     {
       kind: "image",
@@ -533,7 +528,11 @@ function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void
       className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {/* Figma "Button catalog" (1217:2490): the label sits in a
+            Button/Large container with px-[24px], so the visible
+            text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
+            gap-2. px scales 20/24 with the Button component. */}
+        <span className="px-5 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
           {label}
         </span>
         {/* Orange circle button + arrow scale with the same
@@ -1001,9 +1000,7 @@ export function ZonesGrid() {
                 // previous card's bottom border (1px seam, not 2px).
                 <div
                   key={j}
-                  className={`${
-                    card.lgOnly ? "hidden lg:block" : "contents lg:block"
-                  }${j > 0 ? " lg:-mt-px" : ""}`}
+                  className={`contents lg:block${j > 0 ? " lg:-mt-px" : ""}`}
                 >
                   <ZoneRenderer
                     card={card}

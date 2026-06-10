@@ -3,18 +3,23 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
+const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 
 type Category =
   | { kind: "image"; label: string; image: string; tall?: boolean; objectPosition?: string }
   | { kind: "outline"; label: string; tall?: boolean }
   | { kind: "cta"; label: string };
 
-// Figma reference: 1327:4509 (CLEANING / "Основні рішення для прибирання").
+// Figma reference: 2532:7590 (CLEANING / "Основні рішення для прибирання",
+// updated master — supersedes the old static 1327:4509 frame).
 // The grid is 1180 px wide x 786 tall at lg, three columns of 393 px:
 //   col 0: image (h=393) + 3 outlines (h=131 each) = 786
 //   col 1: 2 outlines (h=196.5 each) + image (h=393) = 786
 //   col 2: image (h=655 tall) + CTA (h=131) = 786
 // `tall: true` on an outline switches it to the col-1 height variant.
+// In the updated master every card carries the hotels/protect label +
+// 52-px arrow-circle row (Button/Large 18px), so the cards are CLICKABLE
+// links to the contact form with the shared hover treatment.
 const COLUMNS: Category[][] = [
   [
     {
@@ -56,6 +61,50 @@ const COLUMNS: Category[][] = [
   ],
 ];
 
+// 6-px brand border that fades in on card hover — the same HoverRing
+// the hotels ZonesGrid and protect Solutions cards use.
+function HoverRing() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 rounded-[28px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:rounded-[36px] lg:rounded-[40px]"
+    />
+  );
+}
+
+// Arrow circle from the updated Figma master (2532:7591 "Icon button"):
+// a 40/48/52-px bordered circle that fills brand on card hover, with the
+// arrow crossfading. `light` (over photos) keeps a white arrow; `dark`
+// (white cards) swaps the dark arrow for the white one as the circle
+// turns orange. Identical to the protect Solutions CardArrow.
+function CardArrow({ tone }: { tone: "light" | "dark" }) {
+  const border = tone === "light" ? "border-white" : "border-neutral-900";
+  const restArrow = tone === "light" ? ARROW_WHITE : ARROW_DARK;
+  return (
+    <span
+      aria-hidden
+      className={`relative flex size-[40px] shrink-0 items-center justify-center rounded-[20px] border transition-[background-color,border-color] duration-300 group-hover:border-brand group-hover:bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px] ${border}`}
+    >
+      <img
+        src={restArrow}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="absolute size-[13px] transition-opacity duration-300 group-hover:opacity-0 sm:size-[15px] lg:size-[16.5px]"
+      />
+      <img
+        src={ARROW_WHITE}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="absolute size-[13px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:size-[15px] lg:size-[16.5px]"
+      />
+    </span>
+  );
+}
+
 function ImageCard({
   label,
   image,
@@ -73,12 +122,14 @@ function ImageCard({
   const heightClass = tall
     ? "h-[400px] sm:h-[500px] lg:h-[655px]"
     : "h-[280px] sm:h-[340px] lg:h-[393px]";
-  // No `group` wrapper — Figma 1327:4535 / 1327:4599 / 1327:4604 have no
-  // hover variant defined for the image cards, so there's nothing for a
-  // `group` selector to anchor.
+  // Updated Figma master 2532:7593 / 7601 / 7603: the card is a link
+  // with the shared label + arrow-circle row (Button/Large 18px) and
+  // the hotels/protect hover treatment (brand ring + photo
+  // desaturation + arrow fill).
   return (
-    <div
-      className={`relative flex w-full flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+    <Link
+      href="/#contact-form"
+      className={`group relative flex w-full cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
       <img
         src={image}
@@ -88,6 +139,13 @@ function ImageCard({
         decoding="async"
         className="absolute inset-0 size-full object-cover"
         style={objectPosition ? { objectPosition } : undefined}
+      />
+      {/* On hover the photo desaturates — a dark #151511 square painted
+          with mix-blend-mode: saturation drains the colour, matching
+          the hotels / protect image-card hover. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-[-6px] bottom-[-6px] left-1/2 aspect-square -translate-x-1/2 bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100"
       />
       {/* Figma 1327:4536 — soft blurred rectangle behind the label:
           bg-[rgba(21,21,17,0.7)] blur-[22.15px] opacity-80 sitting at
@@ -106,10 +164,12 @@ function ImageCard({
           height: "137px",
         }}
       />
-      <p className="relative w-full max-w-[313px] text-title-lg text-white">
-        {label}
-      </p>
-    </div>
+      <HoverRing />
+      <div className="relative flex w-full max-w-[313px] items-center gap-4 sm:gap-8">
+        <p className="flex-1 text-button-lg text-white">{label}</p>
+        <CardArrow tone="light" />
+      </div>
+    </Link>
   );
 }
 
@@ -117,50 +177,52 @@ function OutlineCard({ label, tall }: { label: string; tall?: boolean }) {
   // Figma has two outline-card heights inside this grid:
   //   * 131 px = col-1 thin row (3 stacked outlines fill the bottom 393 px of the column)
   //   * 197 px = col-2 tall row (2 stacked outlines fill the top 393 px of the column)
-  // Figma 1327:4540 / 1327:4583 wrap the title in a `flex items-center`
-  // row inside a `flex-col` card, vertically centering the text in the
-  // 131-/197-px tall card. justify-center on the column gets the same
-  // effect since there's only one row of content.
+  // Updated Figma master 2532:7595..7600: the label row (Button/Large
+  // 18px + 52-px arrow circle) is pinned to the BOTTOM of the card
+  // (`justify-end`, p-40), the card links to the contact form and gets
+  // the shared hover treatment (brand ring + brand label + arrow fill).
   const heightClass = tall
     ? "h-[150px] sm:h-[180px] lg:h-[197px]"
     : "h-[100px] sm:h-[120px] lg:h-[131px]";
-  // No hover variant on outline cards in Figma (1327:4540 / 1327:4554 /
-  // 1327:4568 / 1327:4583 / 1327:4591). The text stays neutral-900
-  // regardless of pointer position — removed the `group` wrapper, the
-  // `transition-colors duration-300` and the `group-hover:text-brand`
-  // override that previously flipped the label to brand orange on hover.
   return (
-    <div
-      className={`flex w-full flex-col items-center justify-center overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+    <Link
+      href="/#contact-form"
+      className={`group relative flex w-full cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
-      <p className="w-full text-title-lg text-neutral-900">
-        {label}
-      </p>
-    </div>
+      <HoverRing />
+      <div className="relative flex w-full items-center gap-4 sm:gap-8">
+        <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
+          {label}
+        </p>
+        <CardArrow tone="dark" />
+      </div>
+    </Link>
   );
 }
 
 function CtaCard({ label }: { label: string }) {
-  // Figma 1327:4608 — bg `--backgroud/deep` (#343435 = neutral-800),
-  // label uses `Title/Large` (24/28 SemiBold) as a designer override
-  // applied to the button label. NOT bg-bg-primary (#303137) nor
-  // text-button-lg (18 px).
-  // Hover (matching the hotels / protect catalog button): the deep pill
-  // inverts to white with a stroke border and the label flips to
-  // neutral-900; the filled-brand arrow circle stays. Border starts
-  // transparent so the hover border does not shift layout. Only the
-  // button gets a hover - the cards stay static per Figma.
+  // Updated Figma master 2532:7604 ("Button catalog") — bg
+  // `--backgroud/deep` (#343435 = neutral-800), label is Button/Large
+  // (18/22 SemiBold), same as the hotels / protect catalog buttons.
+  // Hover: the deep pill inverts to white with a stroke border and the
+  // label flips to neutral-900; the filled-brand arrow circle stays.
+  // Border starts transparent so the hover border does not shift
+  // layout. Arrow circle scales 40/48/52 with the cards' CardArrow.
   return (
     <Link
       href="/#contact-form"
       className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-neutral-800 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
     >
       <span className="inline-flex items-center gap-2">
-        <span className="text-title-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {/* Figma "Button catalog" (1217:2490): the label sits in a
+            Button/Large container with px-[24px], so the visible
+            text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
+            gap-2. px scales 20/24 with the Button component. */}
+        <span className="px-5 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
           {label}
         </span>
-        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[16.5px]" />
+        <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
+          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[13px] sm:size-[15px] lg:size-[16.5px]" />
         </span>
       </span>
     </Link>
