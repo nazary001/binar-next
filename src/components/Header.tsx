@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "./ui/Button";
@@ -21,7 +22,16 @@ const TOP_LINKS: NavLink[] = [
   { href: "/#faq", label: "FAQ" },
   { href: "/#contacts", label: "Контакти" },
   { href: "/spivpratsya", label: "Співпраця" },
+  { href: "/blog", label: "Блог" },
 ];
+
+// A top-level route link is "active" when the current path is inside it.
+// Anchor links (/#...) never highlight — only real routes like /blog or
+// /spivpratsya pick up the brand-orange active colour seen in Figma.
+function isActiveRoute(href: string, pathname: string) {
+  if (!href.startsWith("/") || href.includes("#")) return false;
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 function ChevronDown({ className }: { className?: string }) {
   return (
@@ -76,6 +86,7 @@ function Burger({ open }: { open: boolean }) {
 export function Header() {
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
   const segmentsRef = useRef<HTMLLIElement | null>(null);
   // True when the mobile menu is being closed BECAUSE the user clicked
   // a navigation link (vs. dismissing the menu with Escape / outside-
@@ -271,7 +282,14 @@ export function Header() {
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="block cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
+                  aria-current={
+                    isActiveRoute(link.href, pathname) ? "page" : undefined
+                  }
+                  className={`block cursor-pointer text-button-md transition-colors duration-200 hover:text-brand ${
+                    isActiveRoute(link.href, pathname)
+                      ? "text-brand"
+                      : "text-neutral-700"
+                  }`}
                 >
                   {link.label}
                 </Link>
