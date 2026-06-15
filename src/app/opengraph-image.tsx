@@ -1,7 +1,8 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
-
+// No `runtime = "edge"`: on the default Node.js runtime this self-contained
+// OG image (no fonts/data fetches, no dynamic params) is generated once at
+// build time as a static PNG instead of on every request.
 export const alt = "Binar 2000 — готельний текстиль, ЗІЗ та засоби прибирання";
 export const size = {
   width: 1200,
