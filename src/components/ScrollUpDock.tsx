@@ -54,9 +54,10 @@ const LAYER_BOX =
 export function ScrollUpDock() {
   const ringRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLDivElement>(null);
-  // Last applied local-px translate — lets us recover the resting corner
-  // centre each frame (curCentre - appliedTranslate*zoom) without clearing
-  // the transform first (which would cause a reflow flicker).
+  // Last applied local-px translate. Lets recalcHome() recover the resting
+  // corner centre (curCentre - appliedTranslate*zoom) without clearing the
+  // transform first (which would flicker), so a resize mid-glide re-anchors
+  // cleanly.
   const tyRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const reducedRef = useRef(false);
@@ -87,8 +88,28 @@ export function ScrollUpDock() {
     let lastVisible: boolean | null = null;
     let lastDocked: boolean | null = null;
 
+    // Scroll-INVARIANT geometry, cached so the per-frame path stays cheap.
+    // The resting corner centre and the page zoom only change on resize (the
+    // button is position:fixed; zoom is calc(100vw/1440px)), so reading them
+    // every scroll frame was pure waste: a getComputedStyle(zoom) style flush
+    // (always 1 on mobile, where zoom is off) plus a second
+    // getBoundingClientRect on the button. We measure them once here and on
+    // resize instead, leaving ONE slot rect read per frame (the slot is the
+    // only thing that genuinely moves with scroll).
+    let homeCy = 0;
+    let zoom = 1;
+
+    const recalcHome = () => {
+      zoom = readZoom();
+      // Recover the resting corner centre without clearing the transform
+      // (which would flicker): current visual centre minus the translate we
+      // applied (tyLocal is pre-zoom px, so x zoom to get visual px). Valid
+      // mid-glide, so a resize part-way through the flight re-anchors cleanly.
+      const w = btn.getBoundingClientRect();
+      homeCy = w.top + w.height / 2 - tyRef.current * zoom;
+    };
+
     const measure = () => {
-      rafRef.current = null;
       const vh = window.innerHeight;
       const scrolledEnough = window.scrollY > vh * 0.75;
 
@@ -98,7 +119,7 @@ export function ScrollUpDock() {
       if (slot) {
         const s = slot.getBoundingClientRect();
         // 0 while the slot sits low in / below the viewport, ramping to 1 as
-        // it rises into the upper-middle band — that span is the fly-in zone.
+        // it rises into the upper-middle band - that span is the fly-in zone.
         const startTop = vh * 0.92;
         const endTop = vh * 0.42;
         t = clamp((startTop - s.top) / (startTop - endTop), 0, 1);
@@ -112,8 +133,8 @@ export function ScrollUpDock() {
         setVisible(nextVisible);
       }
 
-      // Reduced motion: no glide — a single snap into the slot half-way through
-      // the fly-in zone, otherwise the corner.
+      // Reduced motion: no glide - a single snap into the slot half-way
+      // through the fly-in zone, otherwise the corner.
       const e = reducedRef.current ? (t >= 0.5 ? 1 : 0) : easeInOut(t);
 
       const nextDocked = haveSlot && e >= 0.999;
@@ -124,12 +145,7 @@ export function ScrollUpDock() {
 
       let tyLocal = 0;
       if (haveSlot && e > 0) {
-        const z = readZoom();
-        // btn shares the ring's box + transform, so either measures the home.
-        const w = btn.getBoundingClientRect();
-        const curCy = w.top + w.height / 2;
-        const homeCy = curCy - tyRef.current * z;
-        tyLocal = ((slotCy - homeCy) * e) / z;
+        tyLocal = ((slotCy - homeCy) * e) / zoom;
       }
 
       if (tyLocal !== tyRef.current) {
@@ -142,17 +158,50 @@ export function ScrollUpDock() {
       }
     };
 
-    const schedule = () => {
-      if (rafRef.current == null)
-        rafRef.current = requestAnimationFrame(measure);
+    // Per-frame driver. The page (and the footer slot) is scrolled by the
+    // COMPOSITOR, which keeps painting smoothly on mobile even when `scroll`
+    // events fire late or unevenly during momentum. Sampling once per scroll
+    // EVENT therefore made the arrow update in chunky steps and visibly lag
+    // the footer near the dock. Instead we self-perpetuate a rAF while the
+    // page is moving and sample every FRAME, so the arrow tracks the slot at
+    // the display refresh rate. The loop parks itself a few idle frames after
+    // the scroll settles, so an idle page costs nothing.
+    let lastSampledY = Number.NaN;
+    let idleFrames = 0;
+
+    const frame = () => {
+      rafRef.current = null;
+      const y = window.scrollY;
+      if (y === lastSampledY) {
+        idleFrames += 1;
+      } else {
+        idleFrames = 0;
+        lastSampledY = y;
+      }
+      measure();
+      // Keep ticking while the scroll is live; a few extra frames let any
+      // momentum / settle land before we park.
+      if (idleFrames < 3) loop();
     };
 
-    schedule();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    const loop = () => {
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(frame);
+    };
+
+    const onResize = () => {
+      recalcHome();
+      lastSampledY = Number.NaN;
+      idleFrames = 0;
+      loop();
+    };
+
+    recalcHome();
+    loop();
+    window.addEventListener("scroll", loop, { passive: true });
+    window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", loop);
+      window.removeEventListener("resize", onResize);
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
   }, []);
@@ -186,7 +235,7 @@ export function ScrollUpDock() {
       <div
         ref={btnRef}
         inert={!visible}
-        className={`${LAYER_BOX} flex items-center justify-center pointer-events-none ${fade} ${vis}`}
+        className={`${LAYER_BOX} flex items-center justify-center pointer-events-none will-change-transform ${fade} ${vis}`}
       >
         <ScrollToTopButton showRing={false} className="pointer-events-auto" />
       </div>
