@@ -299,18 +299,23 @@ function CornerFab() {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    // Fade the FAB out as the footer slot approaches. The rootMargin extends
-    // the viewport's bottom by half a screen, so "near" fires while the slot is
-    // still ~half a viewport below the fold - the FAB has fully faded by the
-    // time the footer's own static ring scrolls into view.
-    const slot = document.querySelector<HTMLElement>("[data-scrollup-slot]");
+    // Fade the FAB out for the whole footer region and keep it out all the way
+    // to the page bottom. We observe the <footer> itself, NOT the small slot:
+    // the footer spans to the very bottom of the page, so once it is in view it
+    // stays intersecting until you scroll back up out of it. Observing the slot
+    // made the FAB REAPPEAR at the very bottom - the slot scrolls up and out the
+    // top of the viewport, isIntersecting flips back to false, and `show` turned
+    // true again (it only stayed hidden on tall viewports where a sliver of the
+    // slot lingered on screen). The rootMargin extends the viewport's bottom by
+    // half a screen so the FAB has faded before the footer ring scrolls in.
+    const footerEl = document.querySelector<HTMLElement>("footer");
     let io: IntersectionObserver | null = null;
-    if (slot) {
+    if (footerEl) {
       io = new IntersectionObserver(
         ([entry]) => setFooterNear(entry.isIntersecting),
         { rootMargin: "0px 0px 50% 0px" }
       );
-      io.observe(slot);
+      io.observe(footerEl);
     }
 
     return () => {
