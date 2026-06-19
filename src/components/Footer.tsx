@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { SocialButton } from "./ui/SocialButton";
+import { FooterScrollUpSlot } from "./ScrollUpDock";
 
 const SOCIALS = [
   {
@@ -90,17 +91,13 @@ export function Footer() {
                   </li>
                 ))}
               </ul>
-              {/* Empty docking slot — the single travelling scroll-to-top
-                  button (ScrollUpDock, fixed) rises to this row's height as
-                  the footer enters view (vertical-only; horizontally it stays
-                  at its corner offset from the right viewport edge). Reserves
-                  the button's footprint so the row layout is unchanged
-                  whether or not it has docked yet. */}
-              <div
-                data-scrollup-slot
-                aria-hidden
-                className="shrink-0 size-[88px] sm:size-[110px] lg:size-[130px]"
-              />
+              {/* Docking slot. On the desktop flight this stays an empty
+                  placeholder that the travelling arrow (ScrollUpDock, fixed)
+                  rises into as the footer enters view. On touch it renders the
+                  ring statically so it scrolls in natively with the footer -
+                  the stable hand-off. Either way it reserves the same footprint
+                  so the row layout is unchanged. */}
+              <FooterScrollUpSlot />
             </div>
           </div>
 
