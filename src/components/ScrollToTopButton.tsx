@@ -2,61 +2,68 @@
 /* eslint-disable @next/next/no-img-element */
 import { useId } from "react";
 
-// Figma 567:2040 — `UpAnimation / Property 1=Default`.
-//   • 130×130 outer hit area (rounded-full).
-//   • Centred 56-px orange circle.
-//   • Centred up-arrow glyph (~17×24 at lg).
-//   • "ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ ·" text wrapped around the
-//     outside of the orange circle (Figma's circle-text).
+// Figma 567:2040 - `UpAnimation / Property 1=Default`.
+//   - 130x130 component (rounded-full hit area).
+//   - Centred 56.17-px orange circle (node 567:2039).
+//   - Centred up-arrow glyph, 17.47x23.66 (node 567:2038).
+//   - "ВГОРУ" text-on-path wrapped around the outside of the circle
+//     (node 567:2018), Manrope Regular 14, on a radius-45.685 ring,
+//     repeated 5x.
 //
-// The Figma component is a SET named "Up Animation" (567:2041) whose
-// 4 variants (Default, Variant2-4) keyframe the circular text ring at
-// successive rotation angles - i.e. the ring is meant to SPIN. We
-// reproduce that as one continuous clockwise rotation of the text SVG
-// (`up-ring-spin` in globals.css); the orange circle + arrow are
-// separate siblings and stay static. Spin is killed under
+// In Figma this is ONE component used at 130 px on desktop and uniformly
+// SCALED to 100 px on mobile - so the circle, arrow and ring text all shrink
+// together (mobile: circle 43.2, arrow 13.4x18.2, ring text 10.77). We
+// reproduce that faithfully: a single 130-viewBox ring SVG that scales with
+// the button (so its radius/font track the box at every size), and the circle
+// + arrow sized as fixed PERCENTAGES of the button so they scale with it too.
+// The button itself is 100 / 110 / 130 across the mobile / sm / desktop
+// breakpoints, matching Figma's two endpoints.
+//
+// The Figma component SET (567:2041) keyframes the ring at successive rotation
+// angles - i.e. the ring SPINS. We reproduce that as one continuous clockwise
+// rotation of the text SVG (`up-ring-spin` in globals.css); the orange circle
+// + arrow are separate siblings and stay static. Spin is killed under
 // prefers-reduced-motion.
-//
-// Mobile shrinks both the circle and the surrounding text radius
-// proportionally so the footer's social row still fits.
 
 type Props = {
   className?: string;
-  // When false, the spinning "ВГОРУ" text ring is omitted and the hit
-  // area shrinks to just the orange circle. Used by the floating FAB,
-  // where the decorative ring isn't wanted (and a 130-px ghost hit area
-  // floating in the corner would block clicks on content beneath it).
+  // When false, the spinning "ВГОРУ" text ring is omitted and the hit area
+  // shrinks to just the orange circle. Used by the desktop flight's button
+  // layer, where the ring is rendered as a SEPARATE blended fixed layer (so
+  // the orange circle is not inverted by the blend).
   showRing?: boolean;
+  // Tailwind text-colour class for the ring text (the SVG uses fill-current).
+  // Defaults to white (footer = white on the dark footer). The mobile corner
+  // FAB overrides it to a dark colour so the text stays readable on the light
+  // page instead of relying on mix-blend (which washed out over mid-tones).
+  ringColorClassName?: string;
 };
 
-// Static "ВГОРУ" circle text tuned to the Figma master (567:2040)
-// at native 1:1 from the 1440-wide footer reference.
-//   * Path radius 39 — baseline sits just outside the 28-radius
-//     orange circle, matching the design's tight ring spacing.
-//   * Path start at ~11 o'clock (-32° from top) so the first
-//     "ВГОРУ" reads centred across the top of the circle, with
-//     «В» at ~11 o'clock and «У» at ~1 o'clock (Figma layout).
-//   * Font size 9 / weight 400 — Manrope at SemiBold on Chrome
-//     renders visibly heavier and taller than the Figma mockup;
-//     Regular at 9 px matches the mockup stem width and cap
-//     height on Windows Chrome.
-//   * textLength = 2π × 39 (the exact path circumference) so the
-//     text spans the full loop with no bare arc.
-//   * lengthAdjust="spacing" stretches only inter-letter gaps,
-//     leaving the Manrope glyph shapes intact — matches Figma's
-//     natural letterforms. (spacingAndGlyphs would distort the
-//     В/Г/О/Р/У glyphs to fit, making them visibly wider than
-//     the mockup.)
-//   * Text repeats "ВГОРУ · " FOUR times INCLUDING a trailing
-//     space at the end. The trailing " " is load-bearing: it
-//     makes the gap between the last "·" and the wrap-around
-//     point identical to the gap between every interior "·" and
-//     its following "В". Without it the 4th dot sits flush
-//     against the first "В" while the other three dots sit
-//     space-pad-space-padded from their next "В", and the 4th
-//     dot reads as visibly closer to its neighbour than the rest.
-const PATH_RADIUS = 39;
-const PATH_CIRCUMFERENCE = 2 * Math.PI * PATH_RADIUS;
+// Ring geometry, all from the Figma 130-px master so the SVG is an exact copy
+// that simply scales down with its container.
+//   * VIEW 130 - the master component size; the SVG fills its box (size-full),
+//     so at a 100-px button it renders at 100/130 = 0.769 scale, which lands
+//     the ring radius at 35.14 and the font at 10.77 - exactly Figma mobile.
+//   * RING_RADIUS 45.685 - half the text-path bbox (91.37) of node 567:2018.
+//     The previous code used 39, which (scaled) pulled the text tight against
+//     the circle and forced the font down; 45.685 keeps Figma's ~17.6 px gap.
+//   * RING_FONT 14 / weight 400 - Manrope Regular, read straight from the
+//     Figma text node. (SemiBold renders heavier than the mockup; Regular is
+//     what the design uses.)
+//   * textLength = ring circumference + lengthAdjust="spacing" - guarantees the
+//     5 "ВГОРУ" wrap the full loop with no bare arc regardless of cross-platform
+//     Manrope metrics, stretching only the inter-letter gaps (glyph shapes stay
+//     intact). The trailing " " after the last "·" is load-bearing: it keeps the
+//     gap before the wrap-around "В" identical to every interior gap.
+const VIEW = 130;
+const RING_RADIUS = 45.685;
+const RING_FONT = 14;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+// Unit start direction at ~11 o'clock (preserved from the master's start
+// offset), so the first "ВГОРУ" reads centred across the top with «В» near
+// 11 o'clock and «У» near 1 o'clock, running clockwise.
+const START_UX = -0.52999;
+const START_UY = -0.84795;
 
 // The spinning "ВГОРУ" text ring, exported on its own so ScrollUpDock can
 // render it as a SEPARATE fixed layer. That separation is what lets the ring
@@ -65,29 +72,24 @@ const PATH_CIRCUMFERENCE = 2 * Math.PI * PATH_RADIUS;
 // it is nested inside another fixed/transformed (and therefore blend-isolating)
 // wrapper. So the blend lives on ScrollUpDock's ring layer, not here; this stays
 // plain white and the layer above decides whether to blend it.
-// One ring SVG at a given square viewBox. The text baseline sits on a
-// radius-39 circle centred in the viewBox, starting at ~11 o'clock
-// (-32deg from top, the original (44.33,31.93) offset of (-20.67,-33.07)
-// from the centre) and running clockwise.
-function RingTextSvg({ vb, className }: { vb: number; className?: string }) {
+function RingTextSvg({ colorClassName = "text-white" }: { colorClassName?: string }) {
   const pathId = useId();
-  const c = vb / 2;
-  const sx = (c - 20.67).toFixed(2);
-  const sy = (c - 33.07).toFixed(2);
-  const ox = (c + 20.67).toFixed(2);
-  const oy = (c + 33.07).toFixed(2);
+  const c = VIEW / 2;
+  const sx = (c + RING_RADIUS * START_UX).toFixed(2);
+  const sy = (c + RING_RADIUS * START_UY).toFixed(2);
+  const ox = (c - RING_RADIUS * START_UX).toFixed(2);
+  const oy = (c - RING_RADIUS * START_UY).toFixed(2);
+  const r = RING_RADIUS.toFixed(3);
   return (
     <svg
-      viewBox={`0 0 ${vb} ${vb}`}
-      className={`up-ring-spin pointer-events-none absolute inset-0 size-full text-white ${
-        className ?? ""
-      }`}
+      viewBox={`0 0 ${VIEW} ${VIEW}`}
+      className={`up-ring-spin pointer-events-none absolute inset-0 size-full ${colorClassName}`}
       aria-hidden
     >
       <defs>
         <path
           id={pathId}
-          d={`M ${sx} ${sy} A 39 39 0 1 1 ${ox} ${oy} A 39 39 0 1 1 ${sx} ${sy}`}
+          d={`M ${sx} ${sy} A ${r} ${r} 0 1 1 ${ox} ${oy} A ${r} ${r} 0 1 1 ${sx} ${sy}`}
           fill="none"
         />
       </defs>
@@ -95,39 +97,37 @@ function RingTextSvg({ vb, className }: { vb: number; className?: string }) {
         className="fill-current"
         xmlSpace="preserve"
         style={{
-          fontSize: 9,
+          fontSize: RING_FONT,
           fontWeight: 400,
           fontFamily: "var(--font-sans)",
         }}
       >
         <textPath
           href={`#${pathId}`}
-          textLength={PATH_CIRCUMFERENCE}
+          textLength={RING_CIRCUMFERENCE}
           lengthAdjust="spacing"
         >
-          {"ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ · "}
+          {"ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ · ВГОРУ · "}
         </textPath>
       </text>
     </svg>
   );
 }
 
-export function RingText() {
-  // The orange circle is a fixed 56 px on both mobile and desktop, but a
-  // single 130-viewBox ring scales with the button, which pulled the text
-  // tight against the circle on the smaller 100-px mobile button (radius
-  // ~30 -> ~2 px gap). Render a 100-viewBox ring below lg so the ring
-  // radius stays 39 px (matching Figma's ~11 px gap to the circle), and
-  // the 130-viewBox ring at lg so desktop is unchanged.
-  return (
-    <>
-      <RingTextSvg vb={100} className="lg:hidden" />
-      <RingTextSvg vb={130} className="hidden lg:block" />
-    </>
-  );
+export function RingText({ colorClassName }: { colorClassName?: string }) {
+  // One ring SVG at the 130-viewBox master scale. It fills its container, so it
+  // scales to whatever button size renders it (100 / 110 / 130), keeping the
+  // ring radius and font exactly proportional to the box - the Figma behaviour.
+  // colorClassName sets the text colour (default white); the mobile FAB passes
+  // a dark colour so the ring reads on the light page without mix-blend.
+  return <RingTextSvg colorClassName={colorClassName} />;
 }
 
-export function ScrollToTopButton({ className, showRing = true }: Props) {
+export function ScrollToTopButton({
+  className,
+  showRing = true,
+  ringColorClassName,
+}: Props) {
   return (
     <button
       type="button"
@@ -139,25 +139,35 @@ export function ScrollToTopButton({ className, showRing = true }: Props) {
           : "size-[56px]"
       } ${className ?? ""}`}
     >
-      {/* Circle text — spins continuously (Figma "Up Animation" set).
-          Omitted in the FAB (showRing=false), which shows only the
-          orange circle + arrow. */}
-      {showRing && <RingText />}
+      {/* Circle text - spins continuously (Figma "Up Animation" set).
+          Omitted when showRing=false (desktop flight button layer), which
+          shows only the orange circle + arrow. */}
+      {showRing && <RingText colorClassName={ringColorClassName} />}
 
-      {/* Orange circle — Figma 567:2039. Static — Figma has no hover. */}
+      {/* Orange circle - Figma 567:2039 (56.17 in the 130 master). In the ring
+          version it is 56.17/130 = 43.21% of the button, so it scales with the
+          ring (mobile 43.2, desktop 56.17) - matching Figma's uniformly-scaled
+          component. The FAB shows the circle at its full 56 px. Static - Figma
+          has no hover. */}
       <span
         aria-hidden
-        className="absolute left-1/2 top-1/2 size-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand"
+        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand ${
+          showRing ? "size-[43.21%]" : "size-full"
+        }`}
       />
 
-      {/* Up-arrow glyph — Figma 567:2038. Static. */}
+      {/* Up-arrow glyph - Figma 567:2038 (17.47x23.66 in the 130 master). Scales
+          with the button in the ring version (13.44% x 18.20%), fixed master
+          size in the FAB. Static. */}
       <img
         src="/figma-export/footer-up-arrow.svg"
         alt=""
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute left-1/2 top-1/2 h-[24px] w-[17px] -translate-x-1/2 -translate-y-1/2"
+        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${
+          showRing ? "h-[18.20%] w-[13.44%]" : "h-[24px] w-[17px]"
+        }`}
       />
     </button>
   );

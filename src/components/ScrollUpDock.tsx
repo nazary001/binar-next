@@ -21,13 +21,14 @@ import { RingText, ScrollToTopButton } from "./ScrollToTopButton";
 //   footer. No fixed element is positioned from scroll, so nothing can desync.
 //   See CornerFab + FooterScrollUpSlot.
 //
-// TWO LAYERS, not one (both the flight and the FAB): `mix-blend-mode: difference`
+// The DESKTOP flight uses TWO fixed layers, not one: `mix-blend-mode: difference`
 // only reaches the page backdrop on a `position: fixed` element directly -
 // nesting it inside another fixed/transformed wrapper isolates the blend. So the
 // spinning "ВГОРУ" ring is its own fixed layer (blended, inverts against the
 // page) and the orange circle + arrow are a second fixed layer (un-blended, so
 // the brand circle keeps its colour). Both share the exact same box so they stay
-// concentric.
+// concentric. The mobile corner FAB does NOT blend - it renders the same single
+// scaled button as the footer with a solid dark ring colour (see CornerFab).
 
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, v));
@@ -329,20 +330,23 @@ function CornerFab() {
   const vis = show ? "opacity-100" : "pointer-events-none opacity-0";
 
   return (
-    <>
-      <div
-        aria-hidden
-        className={`${LAYER_BOX} pointer-events-none mix-blend-difference ${fade} ${vis}`}
-      >
-        <RingText />
-      </div>
-      <div
-        inert={!show}
-        className={`${LAYER_BOX} flex items-center justify-center pointer-events-none ${fade} ${vis}`}
-      >
-        <ScrollToTopButton showRing={false} className="pointer-events-auto" />
-      </div>
-    </>
+    <div
+      inert={!show}
+      className={`${LAYER_BOX} flex items-center justify-center pointer-events-none ${fade} ${vis}`}
+    >
+      {/* Identical to the footer button - one scaled assembly (43px circle +
+          ring), not the split blended layers the desktop flight uses. The ring
+          text is a solid dark colour instead of mix-blend-difference: on mobile
+          the page is light and the blend washed the text out over mid-tone
+          backgrounds, so a dark colour keeps it readable. The FAB fades out
+          before the dark TeamCta/footer band, so it is only ever over light
+          sections. */}
+      <ScrollToTopButton
+        showRing
+        ringColorClassName="text-neutral-900"
+        className="pointer-events-auto"
+      />
+    </div>
   );
 }
 
