@@ -97,7 +97,7 @@ export function StarRequestStrip() {
             design master. Title is text-h2-light (Manrope Light 44/48
             -0.88) + text-h2 Bold for the emphasis word "за зірковістю". */}
         <div
-          className="lg-pad-l flex flex-1 items-start self-stretch rounded-[32px] px-6 py-[60px] max-lg:-mb-[72px] sm:px-10 lg:items-center lg:rounded-bl-none lg:rounded-tl-none lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:pb-[130px] lg:pr-20 lg:pt-[130px]"
+          className="lg-pad-l flex flex-1 items-start self-stretch rounded-[32px] px-6 pt-[60px] pb-[120px] max-lg:-mb-[72px] sm:px-10 lg:items-center lg:rounded-bl-none lg:rounded-tl-none lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:pb-[130px] lg:pr-20 lg:pt-[130px]"
           style={{ background: "#343435" }}
         >
           {/* Figma 1384:11659 — `w-[510px]` fixed (not max-w). The two

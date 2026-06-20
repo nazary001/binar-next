@@ -116,8 +116,8 @@ export function ScrollToTopButton({ className, showRing = true }: Props) {
       aria-label="Догори"
       className={`group relative shrink-0 cursor-pointer ${
         showRing
-          ? "size-[88px] sm:size-[110px] lg:size-[130px]"
-          : "size-[44px] sm:size-[52px] lg:size-[56px]"
+          ? "size-[100px] sm:size-[110px] lg:size-[130px]"
+          : "size-[56px]"
       } ${className ?? ""}`}
     >
       {/* Circle text — spins continuously (Figma "Up Animation" set).
@@ -128,7 +128,7 @@ export function ScrollToTopButton({ className, showRing = true }: Props) {
       {/* Orange circle — Figma 567:2039. Static — Figma has no hover. */}
       <span
         aria-hidden
-        className="absolute left-1/2 top-1/2 size-[44px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand sm:size-[52px] lg:size-[56px]"
+        className="absolute left-1/2 top-1/2 size-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand"
       />
 
       {/* Up-arrow glyph — Figma 567:2038. Static. */}
@@ -138,7 +138,7 @@ export function ScrollToTopButton({ className, showRing = true }: Props) {
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute left-1/2 top-1/2 h-5 w-4 -translate-x-1/2 -translate-y-1/2 sm:h-[22px] sm:w-[16px] lg:h-[24px] lg:w-[17px]"
+        className="absolute left-1/2 top-1/2 h-[24px] w-[17px] -translate-x-1/2 -translate-y-1/2"
       />
     </button>
   );

@@ -16,7 +16,7 @@ export function MobileCapCross({ className }: { className?: string }) {
     >
       {/* upper-left quadrant - bottom + right borders, rounded bottom-right */}
       <div
-        className="absolute right-[33px] top-0 h-[44%] w-[280px] border-b border-r border-white/40"
+        className="absolute right-[33px] top-0 h-[44%] w-[150px] border-b border-r border-white/40"
         style={{
           borderBottomRightRadius: r,
           maskImage: fade,
@@ -30,7 +30,7 @@ export function MobileCapCross({ className }: { className?: string }) {
       />
       {/* lower-left quadrant - top + right borders, rounded top-right */}
       <div
-        className="absolute bottom-[11%] right-[33px] top-[44%] w-[280px] border-t border-r border-white/40"
+        className="absolute bottom-[11%] right-[33px] top-[44%] w-[150px] border-t border-r border-white/40"
         style={{
           borderTopRightRadius: r,
           maskImage: fade,

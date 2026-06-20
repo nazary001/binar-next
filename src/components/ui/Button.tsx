@@ -74,9 +74,9 @@ const arrowWrap = {
 // (Tailwind arbitrary px values) so the rendered arrow matches Figma.
 const arrowIcon = {
   large: "size-[14px] sm:size-[16.5px]",
-  // Figma mobile compact button arrow glyph is ~16px in the 42px square.
-  small: "size-[16px]",
-  responsive: "size-[16px] lg:size-[16.5px]",
+  // Figma mobile compact button arrow glyph sits ~18px in the 42px square.
+  small: "size-[18px]",
+  responsive: "size-[18px] lg:size-[16.5px]",
 };
 
 // The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px
