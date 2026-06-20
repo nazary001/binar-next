@@ -33,8 +33,10 @@ const FEATURES = [
   },
   {
     title: "Зберігання кастомізованої продукції та поставки партіями",
+    // Figma block 3117:14439 uses the "Гарантія задоволеності" smiley
+    // speech-bubble + sparkles icon here (not a storage glyph).
     body: "Можемо зберігати ваш кастомізований запас на наших складах і відвантажувати за графіком.",
-    icon: "/figma-export/hotels/icon-storage.svg",
+    icon: "/figma-export/why-us/icon-guarantee.svg",
   },
 ];
 

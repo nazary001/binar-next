@@ -614,17 +614,28 @@ function CardInner({
             lg breakpoint. Previously sm used px-12 pb-6 and lg used
             px-10 pb-10, which jumped the button 8 px left and 16 px
             up the moment the deck animation came online. */}
-        <div className="flex items-center gap-3 px-6 pb-8 pt-0 sm:gap-4 sm:px-10 sm:pb-10 sm:pt-0">
+        <div className="flex items-center gap-2 px-6 pb-8 pt-0 sm:gap-4 sm:px-10 sm:pb-10 sm:pt-0">
+          {/* Back collapses to a bare "←" on phones so the compact Figma
+              next/submit button (size="responsive" = Button/Small below lg)
+              always fits inside the 340-wide card without overflowing. */}
           <button
             type="button"
             onClick={onBack}
             disabled={!isActive || stepIndex === 0}
-            className="cursor-pointer whitespace-nowrap text-button-md text-neutral-500 transition-colors hover:text-neutral-900 disabled:hidden"
+            aria-label="Назад"
+            className="shrink-0 cursor-pointer whitespace-nowrap text-button-md text-neutral-500 transition-colors hover:text-neutral-900 disabled:hidden"
           >
-            ← Назад
+            <span aria-hidden>&larr;</span>
+            <span className="hidden sm:inline"> Назад</span>
           </button>
-          <div className="ml-auto">
-            <Button type="button" onClick={onNext} disabled={!canAdvance} arrow>
+          <div className="ml-auto min-w-0">
+            <Button
+              type="button"
+              onClick={onNext}
+              disabled={!canAdvance}
+              size="responsive"
+              arrow
+            >
               {isLast ? submitLabel : "Наступне питання"}
             </Button>
           </div>
