@@ -48,7 +48,7 @@ const readZoom = () => {
 // Same size + corner anchor for both fixed layers so they stay concentric and
 // dock onto the footer slot (which reserves the identical 88/110/130 footprint).
 const LAYER_BOX =
-  "fixed bottom-5 right-5 z-40 size-[88px] sm:bottom-8 sm:right-8 sm:size-[110px] lg:size-[130px]";
+  "fixed bottom-5 right-5 z-40 size-[100px] sm:bottom-8 sm:right-8 sm:size-[110px] lg:size-[130px]";
 
 // prefers-reduced-motion, tracked live and mirrored into a ref by callers that
 // need it inside a rAF loop without re-subscribing.
@@ -360,7 +360,7 @@ export function FooterScrollUpSlot() {
     <div
       data-scrollup-slot
       aria-hidden={flight ? true : undefined}
-      className="flex shrink-0 items-center justify-center size-[88px] sm:size-[110px] lg:size-[130px]"
+      className="flex shrink-0 items-center justify-center size-[100px] sm:size-[110px] lg:size-[130px]"
     >
       {!flight && <ScrollToTopButton showRing />}
     </div>

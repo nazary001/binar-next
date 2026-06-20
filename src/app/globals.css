@@ -775,7 +775,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  border-radius: 24px;
+  /* Figma mobile Quizz Card (3111:14541) is 32px; the sm/lg blocks below
+     already step to 32/40. */
+  border-radius: 32px;
   /* Dark card body — Figma 1384:12935. The white Content panel below
      sits on top of this dark layer; its rounded TOP corners reveal the
      dark body in the corner notches under the title bar. No shadow —
@@ -818,7 +820,7 @@
      container (and drop the old elevation shadow). */
   background: #ffffff;
   border: 1px solid #1d1d1f;
-  border-radius: 24px;
+  border-radius: 32px;
 }
 
 @media (min-width: 1024px) {
@@ -1327,65 +1329,82 @@ label {
    Below `lg` we shrink them so headings fit narrow viewports without
    wrapping awkwardly or pushing content off-screen. */
 
+/* Below `lg` the page follows Figma's MOBILE typescale (documented in
+   Figma node 3085:3865 "Mobile typescale"). These are the exact mobile
+   master values — H1 40/42, H2 30/36, Title Large 22/28, Body Small
+   14/20 etc. Desktop (>= 1024, the `zoom` layer) keeps the @theme tokens
+   untouched, since these are `max-width` queries. The 640-1023 tablet
+   tier mirrors the same mobile scale (Figma only ships one mobile
+   master) with a hair more line-height headroom on H1. */
 @media (max-width: 1023px) {
   .text-h1 {
     font-size: 40px;
     line-height: 44px;
-    letter-spacing: -1.2px;
+    letter-spacing: -0.8px;
   }
   .text-h2 {
-    font-size: 32px;
+    font-size: 30px;
     line-height: 36px;
-    letter-spacing: -1.4px;
+    letter-spacing: -0.6px;
   }
   .text-h2-light {
-    font-size: 32px;
+    font-size: 30px;
     line-height: 36px;
-    letter-spacing: -1.4px;
+    letter-spacing: -0.6px;
   }
   .text-title-lg {
-    font-size: 20px;
-    line-height: 26px;
-    letter-spacing: -0.5px;
+    font-size: 22px;
+    line-height: 28px;
+    letter-spacing: -0.44px;
   }
   .text-body-lg {
     font-size: 18px;
     line-height: 26px;
   }
   .text-body-md {
-    font-size: 17px;
-    line-height: 26px;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .text-body-sm {
+    font-size: 14px;
+    line-height: 20px;
   }
   .text-button-lg {
     font-size: 16px;
     line-height: 22px;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.16px;
   }
 }
 
+/* Phone (Figma 390 master) — the exact values the designer documented. */
 @media (max-width: 639px) {
   .text-h1 {
-    font-size: 36px;
-    line-height: 40px;
-    letter-spacing: -1px;
+    font-size: 40px;
+    line-height: 42px;
+    letter-spacing: -0.8px;
   }
   .text-h2,
   .text-h2-light {
-    font-size: 28px;
-    line-height: 32px;
-    letter-spacing: -1px;
+    font-size: 30px;
+    line-height: 36px;
+    letter-spacing: -0.6px;
   }
   .text-title-lg {
-    font-size: 18px;
-    line-height: 24px;
+    font-size: 22px;
+    line-height: 28px;
+    letter-spacing: -0.44px;
   }
   .text-body-lg {
-    font-size: 17px;
-    line-height: 25px;
+    font-size: 18px;
+    line-height: 26px;
   }
   .text-body-md {
     font-size: 16px;
     line-height: 24px;
+  }
+  .text-body-sm {
+    font-size: 14px;
+    line-height: 20px;
   }
 }
 

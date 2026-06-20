@@ -117,7 +117,7 @@ function FaqRow({
   const animated = reveal !== undefined;
   return (
     <li
-      className={`flex w-full flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-8${
+      className={`flex w-full flex-row items-start gap-3 lg:gap-8${
         animated
           ? ` transition-[opacity,transform] duration-500 ease-out ${
               reveal ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
@@ -132,22 +132,27 @@ function FaqRow({
         {num}
       </p>
 
-      <div className="flex flex-1 flex-col gap-4 sm:gap-6 lg:gap-8">
-        {/* Below lg: small "0N." badge inline with the divider. */}
-        <div className="flex items-center gap-4 lg:contents">
-          <span
-            aria-hidden
-            className="text-[20px] font-semibold leading-none tracking-[-0.4px] text-neutral-400 sm:text-[22px] lg:hidden"
-          >
-            {num}
-          </span>
+      {/* Below lg (Figma 3137:15534): the "0N." numeral sits in a 56-px
+          column to the LEFT of the content; cap-trimmed so it aligns with
+          the divider line at the top of the content column. 30/36 Bold. */}
+      <p
+        aria-hidden
+        className="block w-[56px] shrink-0 text-[30px] font-bold leading-[36px] tracking-[-0.6px] text-neutral-900 [text-box-edge:cap_alphabetic] [text-box-trim:trim-both] lg:hidden"
+      >
+        {num}
+      </p>
+
+      <div className="flex flex-1 flex-col gap-6 lg:gap-8">
+        {/* Top hairline divider. On lg `lg:contents` flattens this wrapper
+            so the divider becomes a direct flex child beside the numeral. */}
+        <div className="flex items-center lg:contents">
           <span
             aria-hidden
             className="block h-px flex-1 bg-stroke-default lg:w-full lg:flex-none"
           />
         </div>
-        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:gap-8">
-          <h3 className="text-title-lg text-neutral-900 lg:w-[372px] lg:shrink-0">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+          <h3 className="text-[16px] font-bold leading-[24px] text-neutral-900 lg:w-[372px] lg:shrink-0 lg:text-title-lg lg:font-semibold">
             {item.q}
           </h3>
           <div className="flex flex-1 flex-col gap-4">
@@ -175,6 +180,10 @@ type FaqProps = {
   // `faqs` pass `showMoreButton={false}` because their frames end right
   // after the last question.
   showMoreButton?: boolean;
+  // Show the "Показати більше" CTA only below lg. Used by the hotels page,
+  // whose Figma MOBILE master ends with the button while its desktop
+  // layout keeps the current button-less ending.
+  moreButtonMobileOnly?: boolean;
 };
 
 // Figma layout (1384:12936) — 1440-master spec:
@@ -196,6 +205,7 @@ export function Faq({
   extraFaqs: extraFaqsProp,
   showFilters = true,
   showMoreButton = true,
+  moreButtonMobileOnly = false,
 }: FaqProps = {}) {
   const [expanded, setExpanded] = useState(false);
 
@@ -213,16 +223,16 @@ export function Faq({
   return (
     <section
       id="faq"
-      className="lg-pad-x flex flex-col items-center gap-10 bg-white px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]"
+      className="lg-pad-x flex flex-col items-center gap-12 bg-white px-6 py-[60px] sm:gap-16 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]"
     >
       {/* === Header: title + decorative icon row === */}
-      <div className="flex w-full flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
+      <div className="flex w-full flex-col items-start justify-between gap-8 lg:flex-row lg:items-start lg:gap-8">
         <h2 className="flex-1 text-neutral-900">
           <span className="text-h2-light">Часті </span>
           <span className="text-h2">питання</span>
         </h2>
         {showFilters && (
-          <ul className="flex shrink-0 flex-wrap items-center gap-3 sm:gap-4">
+          <ul className="flex shrink-0 flex-wrap items-center gap-[14px] sm:gap-4">
             {HEADER_ICONS.map((i, idx) => (
               <Reveal
                 as="li"
@@ -231,7 +241,7 @@ export function Faq({
                 direction="right"
                 aria-label={i.label}
                 title={i.label}
-                className="relative size-[56px] cursor-default overflow-clip rounded-[14px] border border-stroke-default sm:size-[72px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
+                className="relative size-[52px] cursor-default overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
               >
                 {/* Glyph wrapper — absolute box whose top/right/bottom/left
                     percentages match this icon's natural aspect ratio (see
@@ -259,7 +269,7 @@ export function Faq({
           extra question lives inside the collapsible area (its `pt`), so it
           animates open/closed with the content. */}
       <div className="w-full">
-        <ul className="flex w-full flex-col gap-8 sm:gap-12 lg:gap-[120px]">
+        <ul className="flex w-full flex-col gap-[60px] sm:gap-12 lg:gap-[120px]">
           {faqs.map((item, i) => (
             <FaqRow
               key={i}
@@ -283,7 +293,7 @@ export function Faq({
             }`}
           >
             <div className="overflow-hidden">
-              <ul className="flex w-full flex-col gap-8 pt-8 sm:gap-12 sm:pt-12 lg:gap-[120px] lg:pt-[120px]">
+              <ul className="flex w-full flex-col gap-[60px] pt-[60px] sm:gap-12 sm:pt-12 lg:gap-[120px] lg:pt-[120px]">
                 {extraFaqs.map((item, j) => (
                   <FaqRow
                     key={j}
@@ -306,7 +316,12 @@ export function Faq({
       {showMoreButton && (
         <Button
           variant="solid"
-          size="large"
+          size="responsive"
+          // Figma mobile master shows a bare pill (no plus/minus icon square),
+          // so hide the icon below lg; desktop keeps it. moreButtonMobileOnly
+          // also hides the whole button on desktop for the hotels page.
+          iconDesktopOnly
+          className={moreButtonMobileOnly ? "lg:hidden" : undefined}
           plus={!showMinus}
           minus={showMinus}
           onClick={canExpand ? () => setExpanded((v) => !v) : undefined}

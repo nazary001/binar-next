@@ -7,7 +7,10 @@ const PLUS_SRC = "/figma-export/plus.svg";
 const MINUS_SRC = "/figma-export/minus.svg";
 
 type ButtonStyle = {
-  size?: "large" | "small";
+  // "responsive" renders the compact (small) button below lg and the
+  // large button at lg+ in a single instance — used where Figma's mobile
+  // master shows the small CTA but desktop keeps the large one.
+  size?: "large" | "small" | "responsive";
   variant?: "solid" | "outlined" | "light";
   arrow?: boolean;
   // Swap the trailing up-right arrow for a plus glyph (Figma 1327:4985 -
@@ -16,6 +19,9 @@ type ButtonStyle = {
   // Like `plus` but a minus glyph - the FAQ button uses this for its
   // expanded "Приховати" state. Takes precedence over `plus` / `arrow`.
   minus?: boolean;
+  // Hide the icon square below lg (bare pill on mobile, icon on desktop).
+  // The Figma mobile FAQ "Показати більше" button has no icon square.
+  iconDesktopOnly?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -46,12 +52,18 @@ const labelSize = {
   large:
     "rounded-[25px] border border-transparent px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[15px] sm:text-button-lg",
   small:
-    "rounded-[24px] border border-transparent px-5 py-[10px] text-button-md whitespace-nowrap sm:px-6",
+    "rounded-[24px] border border-transparent px-6 py-[10px] text-button-md whitespace-nowrap",
+  // Small below lg, large at lg (the lg overrides equal the `large`
+  // value resolved at >=1024, so desktop is identical to size="large").
+  responsive:
+    "rounded-[24px] border border-transparent px-6 py-[10px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[15px] lg:text-button-lg",
 };
 
 const arrowWrap = {
   large: "size-[44px] rounded-[22px] sm:size-[52px] sm:rounded-[26px]",
-  small: "size-[38px] rounded-[19px] sm:size-[42px] sm:rounded-[21px]",
+  // Figma mobile compact button (e.g. 3082:3250): 42px arrow square.
+  small: "size-[42px] rounded-[21px]",
+  responsive: "size-[42px] rounded-[21px] lg:size-[52px] lg:rounded-[26px]",
 };
 
 // Figma `heroicons-outline/arrow-up-right` lives inside a 24-px (large)
@@ -62,7 +74,9 @@ const arrowWrap = {
 // (Tailwind arbitrary px values) so the rendered arrow matches Figma.
 const arrowIcon = {
   large: "size-[14px] sm:size-[16.5px]",
-  small: "size-[11px]",
+  // Figma mobile compact button arrow glyph is ~16px in the 42px square.
+  small: "size-[16px]",
+  responsive: "size-[16px] lg:size-[16.5px]",
 };
 
 // The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px
@@ -70,6 +84,7 @@ const arrowIcon = {
 const plusIcon = {
   large: "size-[16px] sm:size-[18.75px]",
   small: "size-[13px]",
+  responsive: "size-[16px] lg:size-[18.75px]",
 };
 
 // All transitions are colour-only — no slide, no rotate, no scale on
@@ -107,9 +122,13 @@ function ButtonInner({
   arrow,
   plus,
   minus,
+  iconDesktopOnly,
   children,
 }: Required<
-  Pick<ButtonStyle, "size" | "variant" | "arrow" | "plus" | "minus">
+  Pick<
+    ButtonStyle,
+    "size" | "variant" | "arrow" | "plus" | "minus" | "iconDesktopOnly"
+  >
 > & {
   children: ReactNode;
 }) {
@@ -129,7 +148,7 @@ function ButtonInner({
     <>
       {showIcon && (
         <span
-          className={`peer order-2 inline-flex cursor-pointer items-center justify-center bg-brand ${arrowWrap[size]}`}
+          className={`peer order-2 ${iconDesktopOnly ? "max-lg:hidden " : ""}inline-flex cursor-pointer items-center justify-center bg-brand ${arrowWrap[size]}`}
         >
           <img
             src={iconSrc}
@@ -166,6 +185,7 @@ export function Button(props: ButtonProps) {
   const arrow = props.arrow ?? false;
   const plus = props.plus ?? false;
   const minus = props.minus ?? false;
+  const iconDesktopOnly = props.iconDesktopOnly ?? false;
 
   const inner = (
     <ButtonInner
@@ -174,6 +194,7 @@ export function Button(props: ButtonProps) {
       arrow={arrow}
       plus={plus}
       minus={minus}
+      iconDesktopOnly={iconDesktopOnly}
     >
       {props.children}
     </ButtonInner>
@@ -186,6 +207,7 @@ export function Button(props: ButtonProps) {
       arrow: _arrow,
       plus: _plus,
       minus: _minus,
+      iconDesktopOnly: _iconDesktopOnly,
       className,
       children: _children,
       href,
@@ -196,6 +218,7 @@ export function Button(props: ButtonProps) {
     void _arrow;
     void _plus;
     void _minus;
+    void _iconDesktopOnly;
     void _children;
     return (
       <Link href={href} className={wrapperClass(className)} {...rest}>
@@ -210,6 +233,7 @@ export function Button(props: ButtonProps) {
     arrow: _arrow,
     plus: _plus,
     minus: _minus,
+    iconDesktopOnly: _iconDesktopOnly,
     className,
     children: _children,
     type,
@@ -220,6 +244,7 @@ export function Button(props: ButtonProps) {
   void _arrow;
   void _plus;
   void _minus;
+  void _iconDesktopOnly;
   void _children;
   return (
     <button

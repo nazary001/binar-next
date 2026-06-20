@@ -19,7 +19,7 @@ type Feature = {
    orange sparkles, top-right and bottom-left. */
 function SimpleIcon({ src }: { src: string }) {
   return (
-    <span aria-hidden className="relative block size-[96px] overflow-clip lg:size-[120px]">
+    <span aria-hidden className="relative block size-[120px] overflow-clip lg:size-[120px]">
       <img
         src={src}
         alt=""
@@ -67,12 +67,10 @@ const FEATURES: Feature[] = [
 /**
  * FeatureBlock has two looks selected by breakpoint:
  *
- *   below lg — a card. `bg-bg-subtle` panel with rounded corners,
- *   icon at the top, title + body below, number badge floating in the
- *   top-right. Hover lifts the card and swaps to a white surface with
- *   a soft shadow so the cards feel tactile on a phone tap. This was
- *   added because the mobile section was previously six unframed
- *   blocks with nothing separating them visually.
+ *   below lg — Figma mobile Block (3085:3974): a `bg-bg-subtle`
+ *   rounded-[32px] card, p-[24px], with the 120 px icon at the TOP,
+ *   then Title (22/28 SemiBold) + body (14/20) below, gap-[40px]
+ *   between icon and text. No index badge.
  *
  *   lg and up — the original Figma layout. Transparent, no padding,
  *   icon at the bottom-right of the cell, title on top, vertical
@@ -81,38 +79,20 @@ const FEATURES: Feature[] = [
  *
  * Order classes flip the visual stack between the two layouts without
  * duplicating DOM: on mobile the icon is shown ABOVE the text
- * (`flex-col-reverse` + reading flow Icon → Title → Body), on lg
+ * (`flex-col-reverse` + reading flow Icon -> Title -> Body), on lg
  * `lg:flex-col` + `lg:justify-between` returns to the title-top /
  * icon-bottom Figma layout. */
-function FeatureBlock({
-  title,
-  body,
-  icon,
-  index,
-  total,
-}: Feature & { index: number; total: number }) {
+function FeatureBlock({ title, body, icon }: Feature) {
   return (
     <article
       className="
-        relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-5
-        rounded-[24px] bg-bg-subtle p-6
-        sm:gap-6 sm:rounded-[28px] sm:p-7
+        relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-10
+        rounded-[32px] bg-bg-subtle p-6
         lg:flex-col lg:items-end lg:justify-between lg:gap-0
         lg:min-h-[344px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6
       "
     >
-      {/* Mono-style index badge — only on the card layout (mobile/tablet).
-          Pairs with the AboutUs "01./02./..." pattern for a consistent
-          rhythm. */}
-      <span
-        aria-hidden
-        className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 sm:right-6 sm:top-6 sm:text-[13px] lg:hidden"
-      >
-        {String(index + 1).padStart(2, "0")}
-        <span className="text-neutral-200"> / {String(total).padStart(2, "0")}</span>
-      </span>
-
-      <div className="flex w-full min-w-0 max-w-full flex-col gap-3 sm:gap-4">
+      <div className="flex w-full min-w-0 max-w-full flex-col gap-3 lg:gap-4">
         <h3 className="max-w-full text-title-lg text-neutral-900">{title}</h3>
         <p className="max-w-full text-body-sm text-neutral-500">{body}</p>
       </div>
@@ -123,15 +103,19 @@ function FeatureBlock({
 
 export function WhyUs() {
   return (
-    <section className="lg-pad-x px-5 py-12 sm:px-10 sm:py-20 lg:py-[160px]">
-      <div className="flex flex-col gap-10 sm:gap-16 lg:gap-[120px]">
+    <section className="lg-pad-x px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
+      <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-center">
           <h2 className="max-w-[574px] text-h2-light text-neutral-900">
             <span className="text-h2-light">Чому </span>
             <span className="text-h2">Binar 2000</span>
             <span className="text-h2-light"> обирають як постачальника</span>
           </h2>
-          <Button href="/#contact-form" arrow>
+          {/* Heading-row button is the DESKTOP placement only. On mobile
+              Figma 3085:3956 moves the CTA to the bottom of the column
+              (see the centered button after the grid), so it's hidden
+              here below lg. */}
+          <Button href="/#contact-form" arrow className="max-lg:hidden">
             Отримати пропозицію
           </Button>
         </div>
@@ -148,7 +132,7 @@ export function WhyUs() {
             gap-y-20 (80) matches Figma's 80 px row gap; the horizontal
             line then lands exactly on the wrapper's vertical mid-line. */}
         <div className="relative">
-          <ul className="relative z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-20 lg:gap-y-20">
+          <ul className="relative z-10 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-20 lg:gap-y-20">
             {FEATURES.map((f, i) => (
               <Reveal
                 as="li"
@@ -156,7 +140,7 @@ export function WhyUs() {
                 delay={(i % 3) * 100}
                 className="flex min-w-0"
               >
-                <FeatureBlock {...f} index={i} total={FEATURES.length} />
+                <FeatureBlock {...f} />
               </Reveal>
             ))}
           </ul>
@@ -201,6 +185,15 @@ export function WhyUs() {
             <span className="absolute left-[calc(33.333%_-_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
             <span className="absolute left-[calc(66.667%_+_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
           </div>
+        </div>
+
+        {/* Mobile CTA — Figma 3085:3956 places the button at the BOTTOM
+            of the column, centered, ~240px wide (small size). Hidden on
+            lg where the CTA lives in the heading row instead. */}
+        <div className="flex justify-end -mt-6 lg:mt-0 lg:hidden">
+          <Button href="/#contact-form" size="small" arrow>
+            Отримати пропозицію
+          </Button>
         </div>
       </div>
     </section>

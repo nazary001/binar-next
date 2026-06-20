@@ -72,8 +72,9 @@ function Block({ f }: { f: Feature }) {
 export function HotelBenefits() {
   return (
     // Figma 1384:11641 — `px-[130px] py-[160px]` (lg-pad-x = 130) with
-    // a 120-px gap between the heading row and the grid frame.
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[160px]">
+    // a 120-px gap between the heading row and the grid frame. Mobile
+    // master 3117:14416 — `px-[24px] py-[60px]`.
+    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         {/* Figma 1384:11642 — "Що ви " Light 44 / "отримуєте?" Bold 44,
             w 574 at lg. */}
@@ -82,38 +83,20 @@ export function HotelBenefits() {
           <span className="text-h2">отримуєте?</span>
         </h2>
 
-        {/* Mobile / tablet — Figma master defines no layout here, so
-            we adapt the home/WhyUs card pattern so feature blocks read
-            as proper cards instead of a flat icon+text list. Each card
-            gets bg-bg-subtle + rounded + padding + a numbered badge in
-            the top-right (matches the visual rhythm used on /home's
-            "Чому Binar 2000" mobile cards). flex-col-reverse puts the
-            icon ABOVE the text on mobile (Figma reading flow Icon →
-            Title → Body), while items-start keeps the icon
-            left-aligned inside the card. */}
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:hidden">
-          {FEATURES.map((f, i) => (
-            <li key={f.title}>
-              <article className="relative flex h-full w-full flex-col-reverse items-start gap-5 rounded-[24px] bg-bg-subtle p-6 sm:gap-6 sm:rounded-[28px] sm:p-7">
-                {/* Numbered index badge — same mono-style 01 / 06 as
-                    /home WhyUs mobile cards for cross-page rhythm. */}
+        {/* Mobile / tablet — Figma master 3117:14419 "Card": a single
+            centered column of 340-wide Blocks, gap-[24px] between cards.
+            Each Block (3117:14424) is `bg-bg-subtle flex flex-col
+            gap-[40px] items-start p-[24px] rounded-[32px]` with the
+            120-px icon ON TOP, then the Title+body group (gap-[12px],
+            title 22/28 SemiBold, body 14/20 subtle). No numbered badge
+            and no 2-col grid in the master. */}
+        <ul className="mx-auto flex w-[340px] max-w-full flex-col items-center gap-6 lg:hidden">
+          {FEATURES.map((f) => (
+            <li key={f.title} className="w-full">
+              <article className="flex w-full flex-col items-start gap-10 rounded-[32px] bg-bg-subtle p-6">
                 <span
                   aria-hidden
-                  className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 sm:right-6 sm:top-6 sm:text-[13px]"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                  <span className="text-neutral-200">
-                    {" "}
-                    / {String(FEATURES.length).padStart(2, "0")}
-                  </span>
-                </span>
-                <div className="flex w-full flex-col gap-3 sm:gap-4">
-                  <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
-                  <p className="text-body-sm text-neutral-500">{f.body}</p>
-                </div>
-                <span
-                  aria-hidden
-                  className="relative block size-[88px] shrink-0 overflow-clip sm:size-[96px]"
+                  className="relative block size-[120px] shrink-0 overflow-clip"
                 >
                   <img
                     src={f.icon}
@@ -123,6 +106,10 @@ export function HotelBenefits() {
                     className="absolute inset-0 size-full object-contain"
                   />
                 </span>
+                <div className="flex w-full flex-col gap-3">
+                  <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
+                  <p className="text-body-sm text-neutral-500">{f.body}</p>
+                </div>
               </article>
             </li>
           ))}

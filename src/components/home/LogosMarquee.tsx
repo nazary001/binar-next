@@ -56,7 +56,10 @@ export function LogosMarquee() {
   return (
     <section
       aria-label="Клієнти, які нам довіряють"
-      className="overflow-hidden py-12 sm:py-16 lg:py-[160px]"
+      // The Figma mobile master has no scrolling logo marquee (the
+      // "Нам довіряють" band already carries client icons on mobile), so
+      // this section is desktop-only. Hidden below lg; unchanged on lg+.
+      className="hidden overflow-hidden py-12 sm:py-16 lg:block lg:py-[160px]"
     >
       <div className="relative w-full">
         {/* Soft fade at the edges — logos enter / leave smoothly instead

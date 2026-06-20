@@ -59,17 +59,19 @@ export function Footer() {
       style={{ background: "#2d2d2f" }}
     >
       <div
-        className="relative rounded-t-[40px] sm:rounded-t-[48px] lg:rounded-t-[60px]"
+        className="relative rounded-t-[32px] sm:rounded-t-[48px] lg:rounded-t-[60px]"
         style={{ background: "#2d2d2f" }}
       >
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-5 pb-12 pt-8 sm:gap-16 sm:px-10 sm:pb-16 sm:pt-10 lg:gap-[80px] lg:px-[130px] lg:pb-20">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:gap-[100px]">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-[60px] px-6 pb-20 pt-10 sm:gap-16 sm:px-10 sm:pb-20 sm:pt-10 lg:gap-[80px] lg:px-[130px] lg:pb-20">
+          <div className="flex flex-col gap-12 lg:flex-row lg:items-end lg:gap-[100px]">
             {/* Figma: «Контакти» = Manrope SemiBold 62/68 (weight 600).
                 The shared text-h1 token sits at weight 700 — override to
                 600 here with `font-semibold` to stay on-spec. */}
             <div className="flex flex-1 flex-wrap items-end gap-x-6 gap-y-2">
               <h2 className="text-h1 font-semibold text-white">Контакти</h2>
-              <p className="text-button-md text-neutral-500">Відділ продажу</p>
+              <p className="text-body-sm font-medium text-neutral-500 lg:text-button-md">
+                Відділ продажу
+              </p>
             </div>
 
             {/* Figma master `568:3880`: socials cluster bottom-aligns with
@@ -77,7 +79,7 @@ export function Footer() {
                 social buttons to the bottom edge of the row so they sit on
                 the same baseline as the orange up-arrow. */}
             <div className="flex flex-1 items-center justify-between gap-4 sm:gap-6 lg:items-end">
-              <ul className="flex items-center gap-3 sm:gap-[19px] sm:px-4">
+              <ul className="flex items-center gap-[19px] lg:px-4">
                 {SOCIALS.map((s) => (
                   <li key={s.label}>
                     <SocialButton
@@ -101,12 +103,12 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-10 sm:gap-12 lg:flex-row lg:items-end lg:gap-[100px]">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:gap-[100px]">
             <ul className="flex flex-1 flex-col">
               {CONTACTS.map((c, i) => (
                 <li
                   key={c.n}
-                  className={`flex items-start gap-4 py-4 sm:gap-6 ${i === 0 ? "border-y" : "border-b"}`}
+                  className={`flex flex-col gap-4 py-4 lg:flex-row lg:items-start lg:gap-6 ${i === 0 ? "border-y" : "border-b"}`}
                   style={{ borderColor: "#616162" }}
                 >
                   <span className="text-body-md text-neutral-400 whitespace-nowrap">
@@ -115,9 +117,11 @@ export function Footer() {
                   {/* Figma cell `568:3199` vertically centres the label/value
                       block inside the 16-px-padded row and pads the right
                       edge by 32 px so long values like the address don't
-                      crowd the trailing edge. */}
-                  <div className="flex flex-1 flex-col justify-center gap-[10px] min-w-0 lg:pr-[32px]">
-                    <span className="text-button-md text-neutral-400">
+                      crowd the trailing edge. On the 390 phone master the
+                      number sits ABOVE the block (flex-col); lg restores the
+                      side-by-side desktop row. */}
+                  <div className="flex flex-1 flex-col justify-center gap-[10px] min-w-0 pr-8 lg:pr-[32px]">
+                    <span className="text-body-sm font-medium text-neutral-400 lg:text-button-md">
                       {c.label}
                     </span>
                     <Link
@@ -142,12 +146,12 @@ export function Footer() {
                 >
                   <Link
                     href={link.href}
-                    className="group flex h-[80px] cursor-pointer items-end justify-between p-4 transition-colors duration-300 sm:h-[92px]"
+                    className="group flex h-[92px] cursor-pointer items-end justify-between py-4 transition-colors duration-300 lg:px-4"
                   >
                     <span className="text-title-lg font-semibold text-white transition-colors duration-300 group-hover:text-brand">
                       {link.label}
                     </span>
-                    <span className="relative size-9 shrink-0 sm:size-10">
+                    <span className="relative size-10 shrink-0">
                       <img
                         src="/figma-export/footer-arrow-circle.svg"
                         alt=""
@@ -162,7 +166,7 @@ export function Footer() {
                         aria-hidden
                         loading="lazy"
                         decoding="async"
-                        className="absolute left-1/2 top-1/2 size-7 -translate-x-1/2 -translate-y-1/2 sm:size-8"
+                        className="absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2"
                       />
                     </span>
                   </Link>
@@ -185,30 +189,30 @@ export function Footer() {
               1024+. flex-wrap on the inner group catches the tight
               1024-1280 band so the second link drops to a second row
               inside the 60-px container rather than overflowing. */}
-          <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-3 px-5 py-5 sm:gap-4 sm:px-10 lg:h-[60px] lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:overflow-clip lg:py-0 lg:px-[130px]">
-            <div className="flex flex-col items-start gap-3 sm:gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-6 lg:gap-y-2">
-              <div className="flex items-center gap-3 sm:gap-4">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 px-6 py-6 sm:gap-4 sm:px-10 lg:h-[60px] lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:overflow-clip lg:py-0 lg:px-[130px]">
+            <div className="flex flex-col items-start gap-6 sm:gap-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-6 lg:gap-y-2">
+              <div className="flex items-center gap-4">
                 <img
                   src="/figma-export/footer-mini-logo.svg"
                   alt=""
                   aria-hidden
                   loading="lazy"
                   decoding="async"
-                  className="h-[28px] w-[24px] shrink-0 sm:h-[33.684px] sm:w-[29.237px]"
+                  className="h-[33.684px] w-[29.237px] shrink-0"
                 />
-                <p className="text-[14px] leading-[22px] text-white sm:leading-[30px] lg:whitespace-nowrap">
+                <p className="text-[14px] leading-[30px] text-white lg:whitespace-nowrap">
                   © {new Date().getFullYear()} Binar-2000. All rights reserved
                 </p>
               </div>
               <Link
                 href="/privacy"
-                className="cursor-pointer text-[14px] leading-[22px] text-white underline decoration-white underline-offset-2 sm:leading-[30px] lg:whitespace-nowrap"
+                className="cursor-pointer text-[14px] leading-[30px] text-white underline decoration-white underline-offset-2 lg:whitespace-nowrap"
               >
                 Політика конфіденційності
               </Link>
               <Link
                 href="/terms"
-                className="cursor-pointer text-[14px] leading-[22px] text-white underline decoration-white underline-offset-2 sm:leading-[30px] lg:whitespace-nowrap"
+                className="cursor-pointer text-[14px] leading-[30px] text-white underline decoration-white underline-offset-2 lg:whitespace-nowrap"
               >
                 Угода про публічну оферту
               </Link>
@@ -225,7 +229,7 @@ export function Footer() {
                 alt="Chilline"
                 loading="lazy"
                 decoding="async"
-                className="h-[24px] w-[80px] sm:h-[27px] sm:w-[92px]"
+                className="h-[26.908px] w-[91.763px] sm:h-[27px] sm:w-[92px]"
               />
             </Link>
           </div>

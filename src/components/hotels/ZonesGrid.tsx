@@ -298,18 +298,22 @@ function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
 // its lines looked too thick). Matches the CTA card arrow (13/15/16.5).
 function IconButton({ variant }: { variant: "light" | "dark" }) {
   return (
-    <span className="relative size-[40px] shrink-0 sm:size-[48px] lg:size-[52px]">
+    // Figma mobile master 3117:14389 sizes the icon at the SAME 52px the
+    // desktop master uses (each card is the compact 131-px tile on mobile),
+    // so the icon no longer scales down below lg — base already equals the
+    // prior lg value, so desktop stays byte-for-byte identical.
+    <span className="relative size-[52px] shrink-0">
       {/* Circular ДЕТАЛІ text — wrapper grows in lock-step with the
           icon so the 88-unit SVG viewBox stays centred and the path
           radius reads as a consistent ring around the icon at every
           viewport. Hidden by default; the parent card's :hover state
           fades it in. */}
-      <span className="pointer-events-none absolute -inset-[14px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:-inset-[16px] lg:-inset-[18px]">
+      <span className="pointer-events-none absolute -inset-[18px] opacity-0 transition-opacity duration-300 group-hover:opacity-100">
         <DetailsCircleText variant={variant} />
       </span>
 
       <span
-        className={`absolute inset-0 flex items-center justify-center rounded-[20px] border transition-[background-color,border-color] duration-300 sm:rounded-[24px] lg:rounded-[26px] ${
+        className={`absolute inset-0 flex items-center justify-center rounded-[26px] border transition-[background-color,border-color] duration-300 ${
           variant === "light"
             ? "border-white"
             : "border-neutral-900 bg-white"
@@ -322,7 +326,7 @@ function IconButton({ variant }: { variant: "light" | "dark" }) {
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute size-[13px] transition-opacity duration-300 group-hover:opacity-0 sm:size-[15px] lg:size-[16.5px]"
+          className="absolute size-[16.5px] transition-opacity duration-300 group-hover:opacity-0"
         />
         {/* Hover arrow (always white, fades in over the orange fill). */}
         <img
@@ -331,7 +335,7 @@ function IconButton({ variant }: { variant: "light" | "dark" }) {
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute size-[13px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:size-[15px] lg:size-[16.5px]"
+          className="absolute size-[16.5px] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         />
       </span>
     </span>
@@ -403,7 +407,7 @@ function HoverRing() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 rounded-[28px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:rounded-[36px] lg:rounded-[40px]"
+      className="pointer-events-none absolute inset-0 rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100"
     />
   );
 }
@@ -417,8 +421,13 @@ function ImageCard({
   return (
     <div
       {...cardActivationProps(onSelect)}
-      className={`group relative flex cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${
-        tall ? "h-[460px] sm:h-[600px] lg:h-[786px]" : "h-[280px] sm:h-[340px] lg:h-[393px]"
+      // Figma mobile master 3117:14389 collapses EVERY card (image cards
+      // included, and the СПА `tall` one) into the compact 131-px tile —
+      // the photo fills it as a background. Only at lg do the image cards
+      // grow to their distinct master heights (786 tall / 393 standard),
+      // so those heights are re-pinned at lg: and desktop stays identical.
+      className={`group relative flex min-h-[131px] cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] border border-stroke-default p-10 ${
+        tall ? "lg:h-[786px]" : "lg:h-[393px]"
       } w-full`}
     >
       {/* No own border-radius on the photo: the card is `overflow-clip`
@@ -434,7 +443,10 @@ function ImageCard({
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full object-cover"
+        // Figma anchors the photo to its bottom inside the compact mobile
+        // tile; the desktop master centres it in the taller card, so restore
+        // object-center at lg to keep desktop byte-for-byte identical.
+        className="absolute inset-0 size-full object-cover object-bottom lg:object-center"
       />
       {/* Figma 1127:6470 — `aspect-[526/526] bg-[#151511] mix-blend-
           saturation top-[-6px] bottom-[-6px] left-1/2 -translate-x-1/2`.
@@ -456,7 +468,10 @@ function ImageCard({
         className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
       />
       <HoverRing />
-      <div className="relative flex w-full max-w-[313px] items-center gap-4 sm:gap-8">
+      {/* Figma mobile label row is full-width inside the p-40 card with a
+          gap-32 (gap-8) to the icon; the 313-px cap is a desktop-only
+          constraint, re-pinned at lg so desktop is unchanged. */}
+      <div className="relative flex w-full items-center gap-8 lg:max-w-[313px]">
         <p className="flex-1 text-button-lg text-white">{label}</p>
         <IconButton variant="light" />
       </div>
@@ -468,10 +483,15 @@ function CompactCard({ label, onSelect }: SelectHandlers & { label: string }) {
   return (
     <div
       {...cardActivationProps(onSelect)}
-      className="group relative flex h-[100px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[120px] sm:rounded-[36px] sm:p-8 lg:h-[131px] lg:rounded-[40px] lg:p-10"
+      // Figma mobile master 3117:14389 sizes the compact tile at the SAME
+      // 131-px / rounded-40 / p-40 the desktop master uses, but as a
+      // min-height so a 2-line label (e.g. "Засоби індивідуального захисту")
+      // grows the tile on the 340-wide mobile column. Desktop kept its
+      // fixed 131-px height, re-pinned at lg so it stays byte-for-byte.
+      className="group relative flex min-h-[131px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[131px]"
     >
       <HoverRing />
-      <div className="relative flex items-center gap-4 sm:gap-8">
+      <div className="relative flex items-center gap-8">
         <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
           {label}
         </p>
@@ -489,7 +509,11 @@ function IllustrationCard({
   return (
     <div
       {...cardActivationProps(onSelect)}
-      className="group relative flex h-[300px] w-full cursor-pointer flex-col items-center justify-end gap-6 rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:gap-8 sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:gap-10 lg:rounded-[40px] lg:p-10"
+      // Figma mobile master 3117:14389 hides the illustration and renders
+      // these zones as the compact 131-px tile (label + icon only). The
+      // illustration, the 393-px height and the gap to it are desktop-only
+      // and re-pinned at lg so desktop stays byte-for-byte identical.
+      className="group relative flex min-h-[131px] w-full cursor-pointer flex-col items-center justify-end rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[393px] lg:gap-10"
     >
       <img
         src={svg}
@@ -497,10 +521,12 @@ function IllustrationCard({
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="relative h-[140px] w-[164px] sm:h-[180px] sm:w-[210px] lg:h-[200px] lg:w-[234px]"
+        // Illustration only exists on the desktop master; mobile is the
+        // compact label-only tile, so hide it below lg.
+        className="relative hidden lg:block lg:h-[200px] lg:w-[234px]"
       />
       <HoverRing />
-      <div className="relative flex w-full items-center gap-4 sm:gap-8">
+      <div className="relative flex w-full items-center gap-8">
         <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
           {label}
         </p>
@@ -525,27 +551,30 @@ function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void
       // but that reads noticeably darker than the cards it sits beside. A
       // transparent 1px border is kept by default so the hover adds no 1px
       // layout shift.
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      // Figma mobile master 3117:14389 sizes the CTA tile at the SAME
+      // 131-px / rounded-40 the desktop master uses, so it no longer steps
+      // down below lg — base equals the prior lg value, desktop unchanged.
+      className="group flex h-[131px] w-full cursor-pointer items-center justify-center rounded-[40px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white"
     >
       <span className="inline-flex items-center gap-2">
         {/* Figma "Button catalog" (1217:2490): the label sits in a
             Button/Large container with px-[24px], so the visible
             text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
             gap-2. px scales 20/24 with the Button component. */}
-        <span className="px-5 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
+        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
           {label}
         </span>
-        {/* Orange circle button + arrow scale with the same
-            40 / 48 / 52 ratio as the IconButton so the dark CTA card
-            visually matches its row-mates at every viewport. */}
-        <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
+        {/* Orange circle button + arrow now sit at the 52-px master size on
+            every viewport (mobile cards are the compact tile too), matching
+            the IconButton — base equals the prior lg value, desktop kept. */}
+        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
           <img
             src={ARROW_WHITE}
             alt=""
             aria-hidden
             loading="lazy"
             decoding="async"
-            className="size-[13px] sm:size-[15px] lg:size-[16.5px]"
+            className="size-[16.5px]"
           />
         </span>
       </span>
@@ -958,12 +987,14 @@ export function ZonesGrid() {
     // removed (see hotels/Hero.tsx) the next section's flat border-t
     // provides ONE clean uniformly-thin line across the entire width.
     // Padding is 160px top + 130px sides at the design master.
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
+    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900">
             <span className="text-h2-light">Комплектація під </span>
-            <br aria-hidden className="hidden lg:inline" />
+            {/* Figma forces a line break after "під" on BOTH the mobile
+                master (3117:14391) and desktop, so the break is always on. */}
+            <br aria-hidden />
             <span className="text-h2">кожну зону готелю</span>
           </h2>
           <p className="flex-1 text-body-sm text-neutral-500">
@@ -982,7 +1013,12 @@ export function ZonesGrid() {
             moment the mouse crossed that bound. */}
         <div
           ref={gridRef}
-          className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0"
+          // Figma mobile master 3117:14389 stacks all 12 cards as ONE
+          // 340-wide column with 0 spacing (borders touch, seams collapse
+          // to 1px like the desktop grid). Hence gap-0 on the mobile grid;
+          // the sm 2-col tablet step and the lg 3-col desktop grid are
+          // untouched (lg:gap-0 was already the desktop value).
+          className="relative grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0"
         >
           {COLUMNS.map((col, i) => (
             // lg grid is gap-0, so adjacent card borders touch and a shared
@@ -990,17 +1026,26 @@ export function ZonesGrid() {
             // 1px edges. Pull every column after the first 1px LEFT so its
             // cards' left borders land ON the previous column's right
             // borders -> the vertical seam collapses to a single 1px line.
+            // On mobile the columns stack vertically, so the same overlap
+            // is applied UPWARD (-mt-px) to collapse the column-to-column
+            // seam; sm:mt-0 cancels it from the 2-col tablet step onward (it
+            // persists through lg) so the desktop side-by-side row, which
+            // only needs the horizontal lg:-ml-px overlap, is untouched.
             <div
               key={i}
-              className={`flex flex-col gap-3 sm:gap-4 lg:gap-0${i > 0 ? " lg:-ml-px" : ""}`}
+              className={`flex flex-col gap-0 sm:gap-4 lg:gap-0${i > 0 ? " -mt-px sm:mt-0 lg:-ml-px" : ""}`}
             >
               {col.map((card, j) => (
                 // Same overlap vertically: every card after the first in its
                 // column is pulled 1px UP so its top border sits on the
-                // previous card's bottom border (1px seam, not 2px).
+                // previous card's bottom border (1px seam, not 2px). On
+                // mobile the cards stack flush in one column, so the wrapper
+                // is a real block (not display:contents) and the -mt-px
+                // overlap applies there too; sm:mt-0 cancels it at the 2-col
+                // tablet step where cards are gap-spaced instead.
                 <div
                   key={j}
-                  className={`contents lg:block${j > 0 ? " lg:-mt-px" : ""}`}
+                  className={`block${j > 0 ? " -mt-px sm:mt-0 lg:-mt-px" : ""}`}
                 >
                   <ZoneRenderer
                     card={card}

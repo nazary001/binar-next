@@ -25,6 +25,21 @@ const TOP_LINKS: NavLink[] = [
   { href: "/blog", label: "Блог" },
 ];
 
+// Mobile menu (Figma 3117:13578) lists the directions by their full
+// product names under the "Напрями" label, then a second group of links.
+const MOBILE_DIRECTIONS: NavLink[] = [
+  { href: "/hotels", label: "Усе для готелів" },
+  { href: "/protect", label: "Засоби індивідуального захисту" },
+  { href: "/cleaning", label: "Засоби та інвентар для прибирання" },
+];
+
+const MOBILE_LINKS: NavLink[] = [
+  { href: "/#segments", label: "Каталог" },
+  { href: "/spivpratsya", label: "Співпраця" },
+  { href: "/blog", label: "Блог" },
+  { href: "/#contacts", label: "Контакти" },
+];
+
 // A top-level route link is "active" when the current path is inside it.
 // Anchor links (/#...) never highlight — only real routes like /blog or
 // /spivpratsya pick up the brand-orange active colour seen in Figma.
@@ -45,6 +60,30 @@ function ChevronDown({ className }: { className?: string }) {
     >
       <path
         d="M4 6l4 4 4-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// heroicons-outline/arrow-up-right — the trailing glyph on every mobile
+// menu row (Figma 3117:14194 etc.). Inherits the row's text colour via
+// currentColor so it tracks the hover -> brand transition.
+function ArrowUpRight({ className }: { className?: string }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={className}
+    >
+      <path
+        d="M4.5 19.5 19.5 4.5m0 0H8.25m11.25 0v11.25"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
@@ -336,87 +375,98 @@ export function Header() {
         style={{
           top: "var(--site-header-h, 84px)",
         }}
-        className={`fixed inset-x-0 bottom-0 z-40 overflow-y-auto overscroll-contain bg-white/95 backdrop-blur-2xl transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
+        className={`fixed inset-x-0 bottom-0 z-40 overflow-y-auto overscroll-contain bg-white transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
           mobileOpen
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-3 opacity-0"
         }`}
       >
+        {/* Figma 3117:13841 — px-24 py-60, gap-48 between the label
+            group / divider / link group / divider / full-width button,
+            vertically centred in the panel. Each row is a Manrope Medium
+            14/20 link (#4a4a4c) with a trailing arrow-up-right glyph. */}
         <nav
           aria-label="Мобільна навігація"
-          className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-6 pb-12 pt-6 sm:px-10 sm:pt-8"
+          className="mx-auto flex min-h-full w-full max-w-[480px] flex-col justify-center gap-12 px-6 py-[60px] sm:px-10"
         >
-          <p className="px-4 pb-2 text-title-sm uppercase text-neutral-500">
-            Напрями
-          </p>
-          {SEGMENTS.map((s, i) => (
-            <Link
-              key={s.href}
-              href={s.href}
-              onClick={() => {
-                navigatingRef.current = true;
-                setMobileOpen(false);
-              }}
-              style={{
-                transitionDelay: mobileOpen ? `${80 + i * 50}ms` : "0ms",
-              }}
-              className={`group/link flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-button-lg text-neutral-900 transition-[color,opacity,transform] duration-300 hover:text-brand active:scale-[0.98] ${
-                mobileOpen
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-3 opacity-0"
+          <div className="flex flex-col gap-8">
+            <p
+              style={{ transitionDelay: mobileOpen ? "80ms" : "0ms" }}
+              className={`text-body-sm font-medium text-neutral-500 transition-[opacity,transform] duration-300 ${
+                mobileOpen ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
               }`}
             >
-              <span>{s.label}</span>
-              <span
-                aria-hidden
-                className="text-neutral-400 transition-colors duration-300 group-hover/link:text-brand"
+              Напрями
+            </p>
+            {MOBILE_DIRECTIONS.map((s, i) => (
+              <Link
+                key={s.href}
+                href={s.href}
+                onClick={() => {
+                  navigatingRef.current = true;
+                  setMobileOpen(false);
+                }}
+                style={{
+                  transitionDelay: mobileOpen ? `${120 + i * 50}ms` : "0ms",
+                }}
+                className={`group/link flex cursor-pointer items-center justify-between gap-4 text-body-sm font-medium text-neutral-700 transition-[color,opacity,transform] duration-300 hover:text-brand active:opacity-70 ${
+                  mobileOpen
+                    ? "translate-y-0 opacity-100"
+                    : "translate-y-3 opacity-0"
+                }`}
               >
-                →
-              </span>
-            </Link>
-          ))}
-          <p className="mt-4 px-4 pb-2 text-title-sm uppercase text-neutral-500">
-            Інше
-          </p>
-          {TOP_LINKS.map((link, i) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => {
-                navigatingRef.current = true;
-                setMobileOpen(false);
-              }}
-              style={{
-                transitionDelay: mobileOpen
-                  ? `${230 + i * 50}ms`
-                  : "0ms",
-              }}
-              className={`group/link flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-button-lg text-neutral-900 transition-[color,opacity,transform] duration-300 hover:text-brand active:scale-[0.98] ${
-                mobileOpen
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-3 opacity-0"
-              }`}
-            >
-              <span>{link.label}</span>
-              <span
-                aria-hidden
-                className="text-neutral-400 transition-colors duration-300 group-hover/link:text-brand"
+                <span>{s.label}</span>
+                <ArrowUpRight className="size-4 shrink-0" />
+              </Link>
+            ))}
+          </div>
+
+          <div
+            style={{ transitionDelay: mobileOpen ? "280ms" : "0ms" }}
+            className={`h-px w-full bg-stroke-subtle transition-opacity duration-300 ${
+              mobileOpen ? "opacity-100" : "opacity-0"
+            }`}
+          />
+
+          <div className="flex flex-col gap-8">
+            {MOBILE_LINKS.map((link, i) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => {
+                  navigatingRef.current = true;
+                  setMobileOpen(false);
+                }}
+                style={{
+                  transitionDelay: mobileOpen ? `${320 + i * 50}ms` : "0ms",
+                }}
+                className={`group/link flex cursor-pointer items-center justify-between gap-4 text-body-sm font-medium text-neutral-700 transition-[color,opacity,transform] duration-300 hover:text-brand active:opacity-70 ${
+                  mobileOpen
+                    ? "translate-y-0 opacity-100"
+                    : "translate-y-3 opacity-0"
+                }`}
               >
-                →
-              </span>
-            </Link>
-          ))}
+                <span>{link.label}</span>
+                <ArrowUpRight className="size-4 shrink-0" />
+              </Link>
+            ))}
+          </div>
+
+          <div
+            style={{ transitionDelay: mobileOpen ? "520ms" : "0ms" }}
+            className={`h-px w-full bg-stroke-subtle transition-opacity duration-300 ${
+              mobileOpen ? "opacity-100" : "opacity-0"
+            }`}
+          />
+
           <div
             style={{
-              // Use individual transition longhand props so React
-              // doesn't warn about mixing the `transition` shorthand
-              // with `transitionDelay` on rerender.
               transitionProperty: "opacity, transform",
               transitionDuration: "300ms",
               transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-              transitionDelay: mobileOpen ? "460ms" : "0ms",
+              transitionDelay: mobileOpen ? "560ms" : "0ms",
             }}
-            className={`mt-6 px-4 ${
+            className={`${
               mobileOpen
                 ? "translate-y-0 opacity-100"
                 : "translate-y-3 opacity-0"
@@ -424,12 +474,12 @@ export function Header() {
           >
             <Button
               href="/#contact-form"
-              size="large"
-              arrow
+              size="small"
               onClick={() => {
                 navigatingRef.current = true;
                 setMobileOpen(false);
               }}
+              className="w-full [&>span]:flex-1"
             >
               Отримати пропозицію
             </Button>

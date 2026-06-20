@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { Button } from "@/components/ui/Button";
+import { MobileCapCross } from "@/components/ui/MobileCapCross";
 import { TeamTagsCloud } from "@/components/home/TeamTagsCloud";
 
 const PROCESS = [
@@ -262,10 +263,10 @@ export function TeamCta() {
           the gap between the heading (ends 164 px) and the button
           (starts 212 px) - same negative space as the design. */}
       <div
-        className="lg-pad-x relative -mb-12 overflow-hidden rounded-t-[40px] px-6 pb-20 pt-10 sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:rounded-t-[68px] lg:pb-[128px] lg:pt-[68px]"
-        style={{ background: "#2d2d2f" }}
+        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 py-[60px] sm:rounded-t-[56px] sm:px-10 sm:py-[60px] lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[128px] lg:pt-[68px]"
       >
-        <div className="relative z-10 flex flex-col items-start gap-7 sm:gap-9 lg:max-w-[571px] lg:gap-12">
+        <MobileCapCross className="lg:hidden" />
+        <div className="relative z-10 flex flex-col items-start gap-6 sm:gap-7 lg:max-w-[571px] lg:gap-12">
           {/* h2 carries text-h2 directly so its strut line-height matches the
               inner span's (48 px). Without this the h2 inherits body
               line-height (24 px) from the page; CSS then takes max(strut,
@@ -277,7 +278,7 @@ export function TeamCta() {
             Підберемо рішення
             <span className="text-h2-light"> для вашого бізнесу</span>
           </h2>
-          <Button href="/#contact-form" variant="outlined" size="large" arrow>
+          <Button href="/#contact-form" variant="outlined" size="responsive" arrow>
             Підібрати рішення
           </Button>
         </div>
@@ -291,11 +292,12 @@ export function TeamCta() {
           bottom margin above. `relative` + no z-index puts it on top
           of the dark cap in DOM order so its rounded top corners are
           visible against the dark band. */}
-      <div className="relative flex flex-col rounded-[40px] bg-bg-subtle sm:rounded-[56px] lg:rounded-[68px]">
+      <div className="relative flex flex-col rounded-[32px] bg-bg-subtle sm:rounded-[56px] lg:rounded-[68px]">
       {/* === Команда title + intro paragraph ===
           Figma 1384:12839: pt-160 pb-120 px-130, two columns gap-32 each
-          1fr. Below lg the paragraph drops under the heading. */}
-      <div className="lg-pad-x flex flex-col items-start gap-6 px-5 pb-10 pt-12 sm:gap-8 sm:px-10 sm:pb-12 sm:pt-16 lg:flex-row lg:gap-8 lg:pb-[120px] lg:pt-[160px]">
+          1fr. Below lg the paragraph drops under the heading.
+          Mobile (Figma 3109:14096): px-24 py-60 gap-24, single column. */}
+      <div className="lg-pad-x flex flex-col items-start gap-6 px-6 py-[60px] sm:gap-8 sm:px-10 sm:py-[60px] lg:flex-row lg:gap-8 lg:pb-[120px] lg:pt-[160px]">
         <h3 className="flex-1 text-h2 text-neutral-900">
           Команда,{" "}
           <span className="text-h2-light">яка супроводжує ваше замовлення</span>
@@ -328,7 +330,75 @@ export function TeamCta() {
             order rules visually re-place tags between the two photos on
             lg. Mobile / md keep DOM order so the natural reading flow
             (director, group, then tags) is preserved. */}
-      <div className="lg-pad-x px-5 pb-12 sm:px-10 sm:pb-16 lg:pb-[80px]">
+      {/* === Mobile photo section (Figma 3109:14099 + 3117:12887) ===
+          The phone master abandons the desktop 3-column photo grid and
+          the falling team-tags cloud entirely. Instead it stacks:
+            1. Director block — px-24 py-48, a tall 342×393.534 portrait
+               (rounded-20) with the director's name (title-lg) + role
+               (body-sm) below, gap-32.
+            2. Group block — a bordered (t/b/r) box with rounded-tr/br-32,
+               px-24 py-48 gap-40, holding the wide group photo
+               (aspect 508/336) and a right-aligned 24+ tile sitting under
+               a hairline divider with a small orange polygon marker.
+          This whole block is hidden on lg; the desktop grid below takes
+          over from 1024 up. */}
+      <div className="flex flex-col lg:hidden">
+        {/* Director block */}
+        <div className="flex flex-col items-start gap-8 px-6 py-12 sm:px-10">
+          <div className="relative aspect-[342/393.534] w-full overflow-clip rounded-[20px]">
+            <img
+              src="/figma-export/team/director.png"
+              alt="Михайло Цигелик - директор Binar 2000"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 size-full object-cover"
+              style={{ objectPosition: "50% 35%" }}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-title-lg text-neutral-900">Михайло Цигелик</p>
+            <p className="text-body-sm text-neutral-500">Директор компанії</p>
+          </div>
+        </div>
+
+        {/* Group block — bordered box (t/b/r) with the wide team photo
+            and the 24+ tile under a hairline divider. */}
+        <div className="flex flex-col gap-10 rounded-br-[32px] rounded-tr-[32px] border-y border-r border-stroke-default px-6 py-12 sm:px-10">
+          <div className="relative aspect-[508/336] w-full overflow-clip rounded-[20px]">
+            <img
+              src="/figma-export/team/production.png"
+              alt="Команда Binar 2000"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 size-full object-cover"
+            />
+          </div>
+          <div className="flex flex-col items-end">
+            {/* Hairline divider + orange polygon marker (Figma Group 80) */}
+            <div className="relative -mb-1 h-2 w-full">
+              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-stroke-subtle" />
+              <svg
+                aria-hidden
+                viewBox="0 0 6.9282 8"
+                className="absolute left-[54px] top-0 h-2 w-[6.9282px] fill-brand"
+              >
+                <path d="M3.4641 0L6.9282 2V6L3.4641 8L0 6V2L3.4641 0Z" />
+              </svg>
+            </div>
+            <div
+              className="flex h-[72px] w-[226px] items-center justify-center gap-4"
+              style={{ background: "#f85a0b" }}
+            >
+              <p className="text-[30px] font-semibold leading-[36px] tracking-[-0.6px] text-white">
+                24+
+              </p>
+              <p className="text-body-sm text-white">працівників</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="lg-pad-x hidden px-5 pb-12 sm:px-10 sm:pb-16 lg:block lg:pb-[80px]">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-x-6 md:gap-y-12 lg:grid-cols-[372fr_220px_588fr] lg:gap-0">
           {/* === Director column === */}
           <div className="relative flex flex-col gap-8 lg:order-1 lg:border-l lg:border-r lg:border-stroke-subtle lg:pb-6 lg:pl-10 lg:pr-10">
@@ -403,65 +473,32 @@ export function TeamCta() {
       </div>
 
       {/* === Process steps ===
-          Figma 1384:12859 — desktop is a clean 3-column row (icon at
-          top, title + body below) with no card chrome, since the
-          section already sits inside the light team card.
-          On mobile the same bare stack felt too plain against the
-          page's other carded mobile blocks (WhyPartners, Audiences),
-          so we wrap each step in a `bg-white border rounded-[24px]`
-          card with hover lift + shadow — matching the broader mobile
-          card vocabulary. At `lg` the card chrome dissolves
-          (`lg:bg-transparent lg:border-0 lg:p-0`) to recover Figma's
-          plain layout, and the hover-lift detaches too so the desktop
-          tile feels rooted on the section's surface. */}
-      {/* === Process steps ===
-          Figma 1384:12859 — desktop is a clean 3-column row (icon at
-          top, title + body below) with no card chrome since the
-          section sits inside the light team card.
-          Mobile gets a richer card treatment: bg-white card with a
-          large oversized "0N" numeral as a typographic accent in the
-          corner, the illustration sitting prominently below it with
-          a soft bg-bg-subtle disk behind for depth, and the
-          title/body anchored to the bottom of the card. The numeral
-          + disk + larger icon combination gives the mobile section
-          the visual weight that the bare-stack version was missing,
-          and matches the typographic-accent rhythm of FAQ / AboutUs
-          / WhyUs on the rest of the site. At `lg` all of this
-          dissolves back to Figma's plain 3-column layout. */}
-      <div className="lg-pad-x px-5 pb-16 pt-4 sm:px-10 sm:pb-20 sm:pt-10 lg:pb-[80px] lg:pt-[80px]">
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-8">
-          {PROCESS.map((p, i) => (
+          Figma 1384:12859 (desktop) / 3109:14115 (mobile) — a clean
+          column of bare blocks: a 120-px illustration on top with the
+          title (title-lg) + body (body-sm) below, gap-12. No card
+          chrome, no numeral — the section already sits inside the
+          light team card. Desktop is a 3-column row; mobile stacks the
+          same bare blocks (px-24 pt-48, gap-40 inside each block,
+          gap-24 between blocks). */}
+      <div className="lg-pad-x px-6 pb-12 pt-12 sm:px-10 sm:pb-16 sm:pt-12 lg:pb-[80px] lg:pt-[80px]">
+        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:gap-8">
+          {PROCESS.map((p) => (
             <li
               key={p.title}
-              className="relative flex flex-col gap-6 overflow-hidden rounded-[28px] border border-stroke-subtle bg-white p-7 sm:gap-7 sm:rounded-[32px] sm:p-8 lg:gap-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0"
+              className="relative flex flex-col gap-10 lg:gap-4"
             >
-              {/* === Top row: BIG step numeral + large illustration ===
-                  The "0N" is a hero-scale typographic accent
-                  (text-h1, font-light, neutral-200) — same family
-                  used by AboutUs and FAQ. The icon sits on the
-                  right inside a soft bg-bg-subtle disk that
-                  "spotlights" the illustration. Both dissolve on lg
-                  back to Figma's plain icon-on-top layout. */}
-              <div className="flex items-center justify-between gap-4 lg:contents">
-                <span
+              <span className="relative flex size-[120px] shrink-0 items-center justify-center">
+                <img
+                  src={p.icon}
+                  alt=""
                   aria-hidden
-                  className="text-h1 font-light leading-none tracking-[-1px] text-neutral-200 lg:hidden"
-                >
-                  0{i + 1}
-                </span>
-                <span className="relative flex size-[120px] shrink-0 items-center justify-center rounded-full bg-bg-subtle sm:size-[132px] lg:size-[120px] lg:bg-transparent">
-                  <img
-                    src={p.icon}
-                    alt=""
-                    aria-hidden
-                    loading="lazy"
-                    decoding="async"
-                    className="block size-[64%] object-contain lg:size-full"
-                  />
-                </span>
-              </div>
+                  loading="lazy"
+                  decoding="async"
+                  className="block size-full object-contain"
+                />
+              </span>
 
-              <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex flex-col gap-3 lg:gap-4">
                 <h4 className="text-title-lg text-neutral-900">{p.title}</h4>
                 <p className="text-body-sm text-neutral-500">{p.body}</p>
               </div>

@@ -153,12 +153,12 @@ function RadioMarker({ selected }: { selected: boolean }) {
   // Figma master is static — no hover scale on the radio, no transition.
   // Selection swap is instantaneous (matches the design state-by-state).
   return (
-    <span className="relative flex size-[44px] shrink-0 items-center justify-center sm:size-[88px]">
+    <span className="relative flex size-10 shrink-0 items-center justify-center sm:size-[88px]">
       <span className="hidden sm:block">
         <CircleText selected={selected} />
       </span>
       <span
-        className={`relative flex size-[44px] items-center justify-center rounded-full sm:size-10 ${
+        className={`relative flex size-10 items-center justify-center rounded-full sm:size-10 ${
           selected
             ? "bg-brand"
             : "border-[1.5px] border-brand bg-white"
@@ -403,10 +403,10 @@ export function QuizForm({
   return (
     <section
       id="contact-form"
-      className="lg-pad-x relative bg-white px-5 py-12 sm:px-10 sm:py-20 lg:py-[160px]"
+      className="lg-pad-x relative bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]"
     >
       {decorations && <DecorStack variant={decorations} />}
-      <div className="relative flex flex-col items-start gap-5 sm:gap-8 lg:flex-row lg:gap-8">
+      <div className="relative flex flex-col items-start gap-6 sm:gap-8 lg:flex-row lg:gap-8">
         <h2 className="flex-1 text-neutral-900">
           {headingTitle ?? (
             <>
@@ -438,7 +438,7 @@ export function QuizForm({
           are -1/-2 (swiped off-screen to the right). CSS at lg+
           transitions transform+opacity between these states, so
           step-change is a smooth deck flip in either direction. */}
-      <div className="quiz-deck relative mx-auto mt-8 w-full max-w-[948px] sm:mt-16 lg:mt-[160px]">
+      <div className="quiz-deck relative mx-auto mt-12 w-full max-w-[948px] sm:mt-16 lg:mt-[160px]">
         {STEPS.map((s, i) => {
           const rel = i - step;
           const isActive = rel === 0;
@@ -522,17 +522,18 @@ function CardInner({
     <div className="quiz-deck-card-inner">
       {/* Title row — sits inside the dark outer frame; the .meta children
           are faded out for peek cards so only the active step's counter
-          and question text are ever visible above the deck. Figma spec:
+          and question text are ever visible above the deck. lg spec:
           gap-32, items-center, px-60 py-32.
-          Mobile: counter sits inside an orange pill so the "1/4" reads
-          as a clear progress indicator, freeing space next to the
-          title and giving the dark band a stronger hierarchy on narrow
-          screens. */}
-      <div className="quiz-deck-card-title flex items-center gap-3 px-5 py-4 sm:gap-8 sm:px-8 sm:py-6 lg:gap-8 lg:px-[60px] lg:py-8">
-        <span className="quiz-deck-card-title-meta inline-flex shrink-0 items-center justify-center rounded-full bg-brand px-2.5 py-1 text-[12px] font-semibold leading-none tracking-[0.04em] text-white tabular-nums sm:bg-transparent sm:px-0 sm:py-0 sm:text-body-sm sm:font-normal sm:tracking-normal">
+          Mobile (Figma 3111:14541 Title): gap-32, items-center, p-24.
+          The counter is plain white Body/Small (16/24 Regular) — the
+          phone master shows no orange pill — and the title is SemiBold
+          24/28 tracking-[-0.48px]. sm:/lg: keep their previous values so
+          tablet and desktop render unchanged. */}
+      <div className="quiz-deck-card-title flex items-center gap-8 px-6 py-6 sm:gap-8 sm:px-8 sm:py-6 lg:gap-8 lg:px-[60px] lg:py-8">
+        <span className="quiz-deck-card-title-meta shrink-0 text-[16px] leading-[24px] text-white tabular-nums">
           {stepIndex + 1}/{totalSteps}
         </span>
-        <h3 className="quiz-deck-card-title-meta min-w-0 flex-1 text-[18px] font-semibold leading-[22px] tracking-[-0.36px] text-white sm:text-[24px] sm:leading-[28px] sm:tracking-[-0.48px] lg:text-[32px] lg:leading-[28px] lg:tracking-[-0.64px]">
+        <h3 className="quiz-deck-card-title-meta min-w-0 flex-1 text-[24px] font-semibold leading-[28px] tracking-[-0.48px] text-white sm:text-[24px] sm:leading-[28px] sm:tracking-[-0.48px] lg:text-[32px] lg:leading-[28px] lg:tracking-[-0.64px]">
           {step.title}
         </h3>
       </div>
@@ -545,8 +546,9 @@ function CardInner({
             pt-60 pb-16 px-60 on lg. items-start (not stretch) keeps each
             column at its content height. */}
         {/* Body layout — three responsive modes:
-              < 640 (mobile): single column, gap-0, options stitched with
-                              hairline border-b dividers; compact radio.
+              < 640 (mobile): single column, gap-40 between options (no
+                              dividers — Figma 3111:14541), 40-px radio,
+                              px-24 pt-32 pb-48 body padding.
               640-1023 (tablet): single column, sm:gap-10 vertical spacing
                               between options; full 88-px curved radio
                               circles (room on the right of each option).
@@ -559,7 +561,7 @@ function CardInner({
                               broken-word wraps.
             items-start at lg+ keeps each column at its content height
             so step 4's right-aligned phone field can `justify-end`. */}
-        <div className="flex flex-col gap-0 px-5 pb-4 pt-6 sm:gap-10 sm:px-12 sm:pt-8 lg:flex-1 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[60px]">
+        <div className="flex flex-col gap-10 px-6 pb-12 pt-8 sm:gap-10 sm:px-12 sm:pb-4 sm:pt-8 lg:flex-1 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[60px]">
           {isContactStep ? (
             <ContactFields
               answers={answers}
@@ -612,7 +614,7 @@ function CardInner({
             lg breakpoint. Previously sm used px-12 pb-6 and lg used
             px-10 pb-10, which jumped the button 8 px left and 16 px
             up the moment the deck animation came online. */}
-        <div className="flex items-center gap-3 px-5 pb-5 pt-4 sm:gap-4 sm:px-10 sm:pb-10 sm:pt-0">
+        <div className="flex items-center gap-3 px-6 pb-8 pt-0 sm:gap-4 sm:px-10 sm:pb-10 sm:pt-0">
           <button
             type="button"
             onClick={onBack}
@@ -675,7 +677,7 @@ function OptionGrid({
   // static.
   return (
     <>
-      <div className={`flex flex-1 flex-col gap-0 sm:gap-10 ${lgGapClass}`}>
+      <div className={`flex flex-1 flex-col gap-10 sm:gap-10 ${lgGapClass}`}>
         {left.map((opt, i) => (
           <Option
             key={`${fieldKey}-${opt.value}`}
@@ -693,7 +695,7 @@ function OptionGrid({
         ))}
       </div>
       {(right.length > 0 || showCustomInput) && (
-        <div className={`flex flex-1 flex-col justify-center gap-0 sm:gap-10 ${lgGapClass}`}>
+        <div className={`flex flex-1 flex-col justify-center gap-10 sm:gap-10 ${lgGapClass}`}>
           {right.map((opt, i) => (
             <Option
               key={`${fieldKey}-${opt.value}`}
@@ -769,21 +771,25 @@ function Option({
   // is static — no hover translate, no active scale, no color flip on
   // hover, no staggered entrance — so the option behaves as a clean
   // click target with only its selected ↔ unselected radio fill as
-  // visible state change. On mobile the options share a hairline
-  // divider so the list reads as a structured set instead of
-  // un-bordered text blobs.
+  // visible state change.
+  //
+  // Mobile (Figma 3111:14541 option rows): each row is gap-16,
+  // items-center, ~48-px tall with NO divider — the rows are separated
+  // only by the column's 40-px gap. `isLast` no longer toggles a border
+  // (the phone master has none) but is still consumed to keep the prop
+  // contract intact; the divider returns nowhere across breakpoints.
   return (
     <button
       type="button"
       onClick={() => onSelect(opt.value)}
       tabIndex={animate ? undefined : -1}
-      className={`group/option flex min-h-[72px] w-full cursor-pointer items-center gap-4 py-4 text-left sm:min-h-[92px] sm:gap-8 sm:py-0 ${
-        isLast ? "" : "border-b border-stroke-subtle sm:border-b-0"
+      className={`group/option flex min-h-[48px] w-full cursor-pointer items-center gap-4 text-left sm:min-h-[92px] sm:gap-8 ${
+        isLast ? "" : ""
       }`}
     >
       <div className="flex flex-1 flex-col gap-1 sm:gap-2">
         <p
-          className={`text-[17px] font-bold leading-[24px] sm:text-[20px] sm:leading-[28px] ${
+          className={`text-[16px] font-bold leading-[24px] sm:text-[20px] sm:leading-[28px] ${
             selected ? "text-brand" : "text-black"
           }`}
         >

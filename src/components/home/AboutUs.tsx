@@ -50,7 +50,130 @@ export function AboutUs() {
     // Figma frame About Us (1384:12694) is 1692 tall and sits flush with
     // its neighbours - no extra outer padding. The internal pt/pb on the
     // grey panel handles all vertical rhythm.
-    <section className="py-12 sm:py-20 lg:py-0">
+    //
+    // Mobile (<lg) and desktop (lg+) use two completely separate layouts.
+    // The phone master (Figma 3094:5037) stacks heading → mission/values
+    // card → stats (image-left) → numbered features list, all inside one
+    // flush bg-subtle panel with rounded top corners. The desktop L-shape
+    // composition below is gated `hidden lg:block` so it is untouched.
+    <section className="lg:py-0">
+      {/* ===== MOBILE LAYOUT (<lg) — Figma 3094:5037 ===== */}
+      <div className="lg:hidden">
+        {/* Section_03 (3094:4837): flush bg-subtle panel, rounded top
+            corners, pt-60 / pb-48 / px-24, content centered. Holds the
+            heading + the 340-wide mission/values card. */}
+        <div className="flex flex-col items-center overflow-hidden rounded-t-[32px] bg-bg-subtle px-6 pb-12 pt-[60px]">
+          <h2 className="w-full text-h2-light text-neutral-900">
+            <span className="text-h2-light">Binar 2000 - постачання для готелів </span>
+            <span className="text-h2">по всій Україні з 2000 року</span>
+          </h2>
+
+          {/* Card (3094:4840): 340 wide, pt-48, gap-24 between blocks. */}
+          <div className="flex w-[340px] max-w-full flex-col gap-6 pt-12">
+            {/* Block 3094:4880 — Mission. py-24, gap-16. */}
+            <div className="flex w-full flex-col gap-4 py-6">
+              <MissionIcon />
+              <div className="flex w-full flex-col gap-4">
+                <h3 className="text-title-lg text-neutral-900">Наша місія</h3>
+                <p className="text-body-sm text-neutral-500">
+                  Ми допомагаємо клієнтам ефективно вести бізнес: впроваджуємо
+                  комплексні рішення та відкриваємо доступ до кращих
+                  інноваційних продуктів і практик.
+                </p>
+              </div>
+            </div>
+            {/* Block 3094:4894 — Values. py-24, gap-16. */}
+            <div className="flex w-full flex-col gap-4 py-6">
+              <ValuesIcon />
+              <div className="flex w-full flex-col gap-4">
+                <h3 className="text-title-lg text-neutral-900">Наші цінності</h3>
+                <p className="text-body-sm text-neutral-500">
+                  Відповідальність у кожній поставці, швидкість у комунікації,
+                  прозорі умови співпраці та контроль якості - щоб закупівлі
+                  були передбачуваними, а результат відчувався в роботі персоналу
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats block (3094:4987): bg-subtle row, image bleeds to the
+            left edge (w-210, self-stretch, rounded on the right), right
+            column carries three metrics with hairline dividers. pb-48. */}
+        <div className="flex items-stretch justify-between bg-bg-subtle pb-12">
+          <div
+            className="relative w-[210px] shrink-0 self-stretch overflow-hidden rounded-r-[32px]"
+            style={{ background: "#474747" }}
+          >
+            <img
+              src="/figma-export/about-us/img-eco-products.png"
+              alt=""
+              aria-hidden
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 size-full max-w-none object-cover"
+            />
+          </div>
+          <ul className="flex flex-1 flex-col justify-center gap-4 pl-8">
+            {STATS.map((s, i) => (
+              <li key={s.label} className="flex flex-col gap-4">
+                <div className="flex w-[140px] max-w-full flex-col gap-2">
+                  <p className="text-[48px] font-semibold leading-[1.03] tracking-[-0.96px] text-neutral-900">
+                    <AnimatedNumber value={s.value} />
+                    <span className="text-brand">{s.suffix}</span>
+                  </p>
+                  <p className="text-body-sm text-neutral-500">{s.label}</p>
+                </div>
+                {i < STATS.length - 1 && (
+                  <div className="h-px w-full bg-stroke-default" />
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Features list (3094:5020): bordered card bleeding to the left
+            edge with only the top-right corner rounded; four numbered
+            rows (01-04) with hairline dividers and an orange polygon
+            marker pinned to the top border. pt-48 / pb-60 / px-24. */}
+        <div className="flex items-center bg-bg-subtle">
+          <div className="relative flex flex-1 flex-col gap-4 rounded-tr-[32px] border border-stroke-default bg-bg-subtle px-6 pb-[60px] pt-12">
+            {/* Polygon marker (3094:5038): 8px box, hexagon ~6.93 wide
+                (6.7% horizontal inset), pinned ~40px from the left on the
+                card's top border (top -5 so its centre sits on the line). */}
+            <svg
+              aria-hidden
+              viewBox="0 0 6.9282 8"
+              className="absolute left-10 top-[-5px] h-2 w-[6.9282px] fill-brand"
+            >
+              <path d="M3.4641 0L6.9282 2V6L3.4641 8L0 6V2L3.4641 0Z" />
+            </svg>
+            {FACTS.map((text, i) => {
+              const label = text.replace("\n", " ");
+              return (
+                <div key={i}>
+                  <div className="flex items-center gap-3">
+                    <span
+                      aria-hidden
+                      className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900"
+                    >
+                      {String(i + 1).padStart(2, "0")}.
+                    </span>
+                    <p className="flex-1 text-body-lg tracking-[0.18px] text-neutral-900">
+                      {label}
+                    </p>
+                  </div>
+                  {i < FACTS.length - 1 && (
+                    <div className="mt-4 h-px w-full bg-stroke-default" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== DESKTOP LAYOUT (lg+) — unchanged L-shape composition ===== */}
       {/* Upper rounded grey card — Figma "About Us txt" frame
           (1384:12695) is 1296 tall with rounded-[48px] corners and a
           bg-subtle fill. The card holds the heading + 2-col facts
@@ -60,7 +183,7 @@ export function AboutUs() {
           area Figma reserves between the facts card's bottom (y=1126)
           and the bg-subtle card's bottom (y=1296) — the bottom row
           uses lg:-mt-[167px] to overlap into this buffer. */}
-      <div className="overflow-hidden bg-bg-subtle lg:rounded-[48px] lg:pb-[167px]">
+      <div className="hidden overflow-hidden bg-bg-subtle lg:block lg:rounded-[48px] lg:pb-[167px]">
         <div className="px-6 pt-12 sm:px-12 sm:pt-16 lg-pad-x lg:pt-[160px]">
           <h2 className="max-w-[574px] text-h2-light text-neutral-900">
             <span className="text-h2-light">Binar 2000 - постачання для готелів </span>
@@ -196,7 +319,7 @@ export function AboutUs() {
               pinned top-left; orange L-shape fills the right + top;
               stats are absolutely positioned in the L's bottom-left
               cutout with right offset = 46%. */}
-      <div className="relative mt-10 px-6 pb-10 sm:mt-12 sm:px-12 sm:pb-12 lg:-mt-[167px] lg-pad-x lg:pb-[120px]">
+      <div className="relative mt-10 hidden px-6 pb-10 sm:mt-12 sm:px-12 sm:pb-12 lg:-mt-[167px] lg-pad-x lg:block lg:pb-[120px]">
           <div className="relative xl:aspect-[1180/445]">
             <div className="flex flex-col items-stretch gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-[1.356%] xl:h-full">
               <div

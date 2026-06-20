@@ -64,13 +64,17 @@ export function HotelsHero() {
             corner cutouts that read as a thick gap. Square bottom
             corners + open bottom edge let the next section's border
             "cap" the Hero cleanly. */}
-        <div className="flex flex-col gap-12 px-5 pb-8 pt-10 sm:gap-16 sm:px-10 sm:pb-10 sm:pt-14 lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
+        {/* Mobile (Figma 3117:14366): full-bleed text card with a border on
+            top/right/bottom + rounded RIGHT corners, sitting BELOW the photo
+            band (order-2). px-24 py-48. Desktop (lg) restores the original
+            837-wide hero card unchanged. */}
+        <div className="order-2 flex flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-12 sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
           {/* Top block — Figma 1384:11589: w 575, gap-[56] between
               the heading column and the CTA button. */}
-          <div className="flex w-full flex-col gap-10 sm:gap-12 lg:w-[575px] lg:gap-14">
+          <div className="flex w-full flex-col gap-8 sm:gap-12 lg:w-[575px] lg:gap-14">
             {/* Heading column — Figma 1384:11590: w 575, gap-[24]
                 between h1 and body copy. */}
-            <div className="flex flex-col gap-5 sm:gap-6">
+            <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
                 Усе для готелів
               </Reveal>
@@ -85,7 +89,21 @@ export function HotelsHero() {
               </Reveal>
             </div>
             <Reveal delay={240}>
-              <Button href="/#contact-form" arrow>
+              {/* Mobile: Figma Button/Small in a 240-px pill (label fills).
+                  Desktop keeps the large CTA. */}
+              <Button
+                href="/#contact-form"
+                size="small"
+                arrow
+                className="w-[240px] [&>span:last-child]:flex-1 lg:hidden"
+              >
+                Підібрати рішення
+              </Button>
+              <Button
+                href="/#contact-form"
+                arrow
+                className="max-lg:hidden"
+              >
                 Підібрати рішення
               </Button>
             </Reveal>
@@ -93,10 +111,10 @@ export function HotelsHero() {
 
           {/* Bottom block — Figma 1384:11594: w 575, gap-[40] between
               the "Ви отримуєте" header row and the 2x2 features grid. */}
-          <div className="flex w-full flex-col gap-8 sm:gap-10 lg:w-[575px]">
+          <div className="flex w-full flex-col gap-10 lg:w-[575px]">
             {/* Header row — Figma 1384:11595: w 575, gap-[16] between
                 title and hairline divider. */}
-            <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="flex flex-col gap-4">
               <p className="text-title-sm text-neutral-900">Ви отримуєте</p>
               {/* Figma 1384:11597 — divider Vector 59 is 711 px wide
                   while the parent column is 575. The extra 136 px
@@ -110,22 +128,23 @@ export function HotelsHero() {
             </div>
             {/* Features grid — Figma 1384:11598: w 575, gap-y-[8],
                 two rows of two cells with gap-x-[40] inside each row. */}
-            <ul className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-2">
+            <ul className="grid grid-cols-1 gap-y-2 lg:grid-cols-2 lg:gap-x-10">
               {FEATURES.map((f, idx) => (
                 <Reveal
                   as="li"
                   key={f.label}
                   delay={idx * 90}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-4 py-1 lg:gap-2"
                 >
                   {/* Figma 1384:11601 — outer "Icon placeholder" is
                       64x64 rounded-[8.267px] with no border; the
                       visible 52x52 bordered tile lives 6 px inside it.
-                      This nested structure preserves the 64-px cell
-                      height the design lays out against, while the
-                      bordered tile renders at the right visual size. */}
-                  <span className="relative flex size-12 shrink-0 items-center justify-center overflow-clip rounded-[8.267px] sm:size-16">
-                    <span className="flex size-[42px] items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[52px]">
+                      On mobile the Figma master shows just the 52-px
+                      bordered tile, so the outer placeholder collapses
+                      to 52 too (no extra cell padding) and grows to 64
+                      only at sm+/desktop. */}
+                  <span className="relative flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-[8.267px] sm:size-16">
+                    <span className="flex size-[52px] items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[52px]">
                       <img
                         src={f.icon}
                         alt=""
@@ -136,7 +155,7 @@ export function HotelsHero() {
                       />
                     </span>
                   </span>
-                  <span className="text-body-sm text-neutral-900">
+                  <span className="text-[16px] leading-[24px] text-neutral-900">
                     {f.label}
                   </span>
                 </Reveal>
@@ -153,7 +172,7 @@ export function HotelsHero() {
             so the image positioned right-[33px] inside stays anchored
             to the design frame, exactly as Figma renders the master. */}
         <div
-          className="relative h-[320px] overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:h-[420px] sm:rounded-bl-[40px] sm:rounded-br-[40px] md:h-[520px] lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
+          className="relative order-first h-[320px] overflow-clip rounded-tl-[32px] rounded-bl-[32px] sm:rounded-tl-[40px] sm:rounded-bl-[40px] lg:order-none lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
           style={{ background: "#726053" }}
         >
           {/* Figma 1384:11618 — `hotel03 1` is a 718 x 721 wrapper at

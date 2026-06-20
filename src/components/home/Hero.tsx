@@ -142,7 +142,7 @@ function DotMarker({ left, top, popup, popupAnchor }: DotConfig) {
     <div
       role="img"
       aria-label={popup.label}
-      className="hero-dot group absolute size-8"
+      className="hero-dot group absolute size-5 sm:size-8"
       style={{ left, top, transform: "translate(-50%, -50%)" }}
     >
       <svg
@@ -205,9 +205,14 @@ export function Hero() {
           bottom-aligned, while letting the photo grow if the left column
           ever exceeds 746 px (e.g. text wraps on narrower lg widths). */}
       <div className="flex flex-col items-stretch lg:flex-row">
-        <div className="hero-left flex flex-1 flex-col gap-12 px-5 pb-8 pt-10 sm:gap-16 sm:px-10 sm:pb-10 sm:pt-14 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
-          <div className="flex w-full flex-col gap-10 sm:gap-12 lg:max-w-[575px] lg:gap-14">
-            <div className="flex flex-col gap-5 sm:gap-6">
+        {/* Mobile (Figma 3082:3246): the text card is a full-bleed panel
+            with a border on top/right/bottom and rounded RIGHT corners,
+            sitting BELOW the photo band (order-2). px-24 py-48, gap-48
+            between the two inner groups. Desktop (lg) restores the
+            original bordered hero-left column unchanged. */}
+        <div className="hero-left order-2 flex flex-1 flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-12 sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+          <div className="flex w-full flex-col gap-8 sm:gap-12 lg:max-w-[575px] lg:gap-14">
+            <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
                 Співпраця заради ефективності
               </Reveal>
@@ -217,18 +222,33 @@ export function Hero() {
                 className="text-body-md text-neutral-800 max-w-[575px]"
               >
                 Комплексне постачання одноразової
-                <br className="hidden lg:inline" />
-                {" "}продукції та ЗІЗ для готелів і бізнесу
+                <br />
+                продукції та ЗІЗ для готелів і бізнесу
               </Reveal>
             </div>
             <Reveal delay={240}>
-              <Button href="/#contact-form" arrow>
+              {/* Mobile: Figma Button/Small in a 240-px-wide pill whose
+                  label fills the row (the last span is the label pill).
+                  Desktop keeps the original large CTA. */}
+              <Button
+                href="/#contact-form"
+                size="small"
+                arrow
+                className="w-[240px] [&>span:last-child]:flex-1 lg:hidden"
+              >
+                Підібрати рішення
+              </Button>
+              <Button
+                href="/#contact-form"
+                arrow
+                className="max-lg:hidden"
+              >
                 Підібрати рішення
               </Button>
             </Reveal>
           </div>
 
-          <div className="flex w-full flex-col gap-8 sm:gap-10 lg:max-w-[711px]">
+          <div className="flex w-full flex-col gap-10 lg:max-w-[711px]">
             <div className="flex flex-col gap-4">
               <p className="text-title-sm text-neutral-900 lg:max-w-[575px]">
                 Працюємо без перебоїв з 2000 року для
@@ -241,15 +261,15 @@ export function Hero() {
                 style={{ background: "var(--color-stroke-subtle)" }}
               />
             </div>
-            <ul className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 sm:gap-x-10 lg:max-w-[575px]">
+            <ul className="grid grid-cols-1 gap-x-6 gap-y-2 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-4 lg:max-w-[575px]">
               {INDUSTRIES.map((i, idx) => (
                 <Reveal
                   as="li"
                   key={i.label}
                   delay={idx * 90}
-                  className="flex items-center gap-3 py-1 sm:gap-2"
+                  className="flex items-center gap-4 py-1 lg:gap-2"
                 >
-                  <span className="flex size-[48px] shrink-0 items-center justify-center overflow-clip rounded-xl border border-stroke-default sm:size-[52px]">
+                  <span className="flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-xl border border-stroke-default">
                     <img
                       src={i.icon}
                       alt=""
@@ -257,7 +277,7 @@ export function Hero() {
                       className={i.iconClass}
                     />
                   </span>
-                  <span className="text-body-sm text-neutral-900">{i.label}</span>
+                  <span className="text-[16px] leading-[24px] text-neutral-900">{i.label}</span>
                 </Reveal>
               ))}
             </ul>
@@ -279,7 +299,7 @@ export function Hero() {
             previous "looks fine on 390 but the bottle vanishes on 412"
             inconsistency. min/max clamps cap the photo so it never
             becomes too short on tiny phones nor too tall on tablets. */}
-        <div className="hero-photo relative aspect-[603/746] max-h-[640px] min-h-[420px] w-full lg:aspect-auto lg:h-auto lg:max-h-none lg:min-h-[746px] lg:w-auto lg:shrink-0">
+        <div className="hero-photo relative order-first h-[320px] w-full lg:order-none lg:aspect-auto lg:h-auto lg:min-h-[746px] lg:w-auto lg:shrink-0">
           {/* `ken-burns-stage` runs ONE 20s animation that writes the
               shared --kb-scale / --kb-tx / --kb-ty custom properties.
               A SINGLE `.ken-burns-follow` wrapper inside the canvas
@@ -319,7 +339,7 @@ export function Hero() {
                 wood-tree:   pos (-76.4, -65),  size 729x934
                 driftwood:   pos (-6.78, -35),  size 667.4x817.0 */}
           <div
-            className="ken-burns-stage absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
+            className="ken-burns-stage absolute inset-0 overflow-clip rounded-tl-[32px] rounded-bl-[32px] sm:rounded-tl-[40px] sm:rounded-bl-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
             style={{ background: "#c34924" }}
           >
             {/* Locked-aspect canvas (603/746) + single ken-burns-follow

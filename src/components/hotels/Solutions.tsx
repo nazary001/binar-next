@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { Button } from "@/components/ui/Button";
+import { MobileCapCross } from "@/components/ui/MobileCapCross";
 
 // Decorative cluster on the dark CTA — cross pattern + orange tag
 // (shared with home TeamCta) PLUS the 4 hotels-specific silhouette
@@ -188,31 +189,31 @@ export function Solutions() {
           rounded-t corners + negative bottom margin pulls the next
           sibling up so it covers the cap's bottom 72 px. */}
       <div
-        className="lg-pad-x relative -mb-12 overflow-hidden rounded-t-[40px] px-6 pb-20 pt-10 sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:rounded-t-[68px] lg:pb-[128px] lg:pt-[68px]"
-        style={{ background: "#2d2d2f" }}
+        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 py-[60px] sm:rounded-t-[56px] sm:px-10 sm:py-[60px] lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[128px] lg:pt-[68px]"
       >
-        <div className="relative z-10 flex max-w-[571px] flex-col gap-8 sm:gap-12 lg:gap-12">
+        <MobileCapCross className="lg:hidden" />
+        <div className="relative z-10 flex max-w-[571px] flex-col gap-6 lg:gap-12">
           <h2 className="text-white">
             <span className="text-h2-light">Основні рішення</span>
             <br aria-hidden />
             <span className="text-h2">для готелів</span>
           </h2>
-          <Button href="/#contact-form" variant="outlined" arrow>
+          <Button href="/#contact-form" variant="outlined" size="responsive" arrow>
             Підібрати рішення
           </Button>
         </div>
         <HotelsDecorCluster />
       </div>
 
-      <div className="relative rounded-[40px] bg-bg-subtle pb-16 pt-12 sm:rounded-[56px] sm:pb-24 sm:pt-16 lg:rounded-[68px] lg:pb-[225px] lg:pt-0">
-        <div className="lg-pad-x px-5 sm:px-10">
+      <div className="relative rounded-[32px] bg-bg-subtle pb-[60px] pt-[60px] sm:rounded-[56px] sm:pb-24 sm:pt-16 lg:rounded-[68px] lg:pb-[225px] lg:pt-0">
+        <div className="lg-pad-x px-6 sm:px-10">
           {/* Figma 1384:11993 header band - frame is exactly 384 px
               tall on the 1440 master: pt=160 + 96 content + pb=128
               (the 96-px h2 sets the content height; the description
               paragraph is 72 px / 3 lines and sits beside it). The
               inner Frame 1010106569 (1384:11994) is `flex items-start
               gap-32` between h2 and p. */}
-          <div className="flex flex-col gap-6 pt-8 sm:gap-8 sm:pt-12 lg:flex-row lg:items-start lg:gap-[32px] lg:pb-[128px] lg:pt-[160px]">
+          <div className="flex flex-col gap-6 pb-[60px] sm:gap-8 sm:pt-12 lg:flex-row lg:items-start lg:gap-[32px] lg:pb-[128px] lg:pt-[160px]">
             <h3 className="flex-1 text-neutral-900">
               <span className="text-h2">Кастомізація</span>
               <br aria-hidden />
@@ -243,9 +244,9 @@ export function Solutions() {
               return (
                 <li
                   key={c.title}
-                  className={`flex flex-col gap-4 py-6 sm:gap-6 sm:py-10 lg:flex-row lg:items-center lg:gap-[33px] lg:pt-10 ${
-                    i > 0 ? "border-t border-stroke-subtle" : ""
-                  } ${isLast ? "lg:pb-0" : "lg:pb-10"}`}
+                  className={`flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-[33px] lg:pt-10 ${
+                    i > 0 ? "border-t border-stroke-subtle pt-10" : "pt-0"
+                  } ${isLast ? "pb-0 lg:pb-0" : "pb-10 lg:pb-10"}`}
                 >
                   {/* Mobile / sm: title + icon stack in a single row
                       at the top, tags wrap onto a row below. lg
@@ -263,14 +264,14 @@ export function Solutions() {
                         `lg:ml-auto` pushes the icon to the row's
                         right edge so the gap between tags and icon
                         expands like Figma's justify-between layout. */}
-                    <span className="flex size-[56px] shrink-0 items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[14px] lg:order-3 lg:ml-auto lg:size-[96px] lg:rounded-[18px]">
+                    <span className="flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[14px] lg:order-3 lg:ml-auto lg:size-[96px] lg:rounded-[18px]">
                       <img
                         src={c.icon}
                         alt=""
                         aria-hidden
                         loading="lazy"
                         decoding="async"
-                        className="size-[81%] object-contain"
+                        className="size-[65%] object-contain sm:size-[75%] lg:size-[81%]"
                       />
                     </span>
                   </div>
@@ -284,13 +285,17 @@ export function Solutions() {
                     {c.tags.map((t) => (
                       <li
                         key={t}
-                        // Figma chip 1384:12004 — `border #343435 px-16
-                        // py-12 rounded-60` with text `Manrope Regular
-                        // 16 / leading-16 #343435`. The `leading-16`
-                        // is critical: text-body-sm's default 24-px
-                        // line height made the chip 48 tall instead
-                        // of 40.
-                        className="rounded-full border border-neutral-800 px-3 py-2 text-[16px] leading-[16px] text-neutral-800 whitespace-nowrap sm:px-4 sm:py-3"
+                        // Figma chip — mobile master 3137:16248 is
+                        // `border #8e8e8f px-16 py-8 rounded-60` with
+                        // text `Manrope Medium 14/20 #343435`. Desktop
+                        // (1384:12004) is `border #343435 px-16 py-12`
+                        // with text `Regular 16 / leading-16 #343435`,
+                        // re-pinned here via the lg: classes. The
+                        // explicit lg:leading-16 is critical: text-body-sm
+                        // resolves to 16/24 at lg, and the 24-px line
+                        // height would make the chip 48 tall instead of
+                        // 40.
+                        className="rounded-full border border-stroke-default px-4 py-2 text-body-sm font-medium text-neutral-800 whitespace-nowrap lg:border-neutral-800 lg:py-3 lg:text-[16px] lg:font-normal lg:leading-[16px]"
                       >
                         {t}
                       </li>
@@ -309,7 +314,7 @@ export function Solutions() {
             px from the cards to the card's rounded bottom edge). We put
             the 205 above as this block's `lg:pt` and fold the 225 below
             into the card's `lg:pb`. Mobile/tablet scale down to 64/96 px. */}
-        <div className="relative overflow-hidden pt-16 sm:pt-24 lg:pt-[205px]">
+        <div className="relative overflow-hidden pt-[72px] sm:pt-24 lg:pt-[205px]">
           <ul
             className="animate-marquee flex w-max items-center"
             style={
@@ -323,7 +328,7 @@ export function Solutions() {
               <li
                 key={i}
                 aria-hidden={i >= PRODUCTS.length || undefined}
-                className="group/product mr-4 h-[260px] w-[220px] shrink-0 cursor-pointer overflow-hidden rounded-[28px] bg-white sm:mr-6 sm:h-[320px] sm:w-[270px] sm:rounded-[36px] lg:mr-8 lg:h-[370px] lg:w-[309px] lg:rounded-[48px]"
+                className="group/product mr-[17px] h-[200px] w-[167px] shrink-0 cursor-pointer overflow-hidden rounded-[26px] bg-white sm:mr-6 sm:h-[320px] sm:w-[270px] sm:rounded-[36px] lg:mr-8 lg:h-[370px] lg:w-[309px] lg:rounded-[48px]"
               >
                 <img
                   src={src}

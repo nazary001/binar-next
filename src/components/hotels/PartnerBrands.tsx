@@ -42,6 +42,19 @@ type Corners = { tl: number; tr: number; br: number; bl: number };
 type Partner = {
   src: string;
   imgClass: string;
+  // Mobile (<lg) logo size. Figma master 3117:16390 sizes each logo in
+  // px inside a 195-px cell; kept as full literals for the scanner.
+  imgClassM: string;
+  // Mobile (<lg) cell chrome: border + the single rounded corner the
+  // Figma master draws on this cell (others are borderless). lg:* in the
+  // <li> strips all of it so desktop is unchanged.
+  mb: string;
+  // Mobile (<lg) DOM order (order-1..order-9 = the phone cell index) plus
+  // lg:order-none to restore desktop, where placement is driven by
+  // lg:col-start/lg:row-start and is independent of DOM order. Explicit on
+  // every entry so the two logos the phone layout swaps (p1 and p5) land in
+  // their Figma cells without shifting their neighbours.
+  orderM: string;
   col: number;
   row: number;
   corners: Corners;
@@ -61,6 +74,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p2.svg",
     imgClass: "lg:h-[83px] lg:w-[124px]",
+    // Phone (1,1): bordered, top-right corner rounded.
+    imgClassM: "h-[56px] w-[84px]",
+    mb: "border border-stroke-default rounded-tr-[32px]",
+    orderM: "order-1 lg:order-none",
     col: 4,
     row: 1,
     corners: { tl: RADIUS, tr: RADIUS, br: RADIUS, bl: RADIUS },
@@ -69,6 +86,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p4.svg",
     imgClass: "lg:h-[46px] lg:w-[188px]",
+    // Phone (2,1): borderless.
+    imgClassM: "h-[32px] w-[128px]",
+    mb: "",
+    orderM: "order-2 lg:order-none",
     col: 5,
     row: 1,
     corners: { tl: RADIUS, tr: RADIUS, br: 0, bl: RADIUS },
@@ -77,6 +98,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p6.svg",
     imgClass: "lg:h-[79px] lg:w-[202px]",
+    // Phone (1,2): borderless.
+    imgClassM: "h-[54px] w-[137px]",
+    mb: "",
+    orderM: "order-3 lg:order-none",
     col: 1,
     row: 2,
     corners: { tl: 0, tr: RADIUS, br: RADIUS, bl: 0 },
@@ -85,6 +110,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p9.svg",
     imgClass: "lg:h-[65px] lg:w-[202px]",
+    // Phone (2,2): bordered, bottom-left corner rounded.
+    imgClassM: "h-[44px] w-[137px]",
+    mb: "border border-stroke-default rounded-bl-[32px]",
+    orderM: "order-4 lg:order-none",
     col: 3,
     row: 2,
     corners: { tl: RADIUS, tr: RADIUS, br: RADIUS, bl: 0 },
@@ -93,6 +122,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p8.svg",
     imgClass: "lg:h-[44px] lg:w-[176px]",
+    // Phone (1,3): bordered, top-right corner rounded.
+    imgClassM: "h-[30px] w-[120px]",
+    mb: "border border-stroke-default rounded-tr-[32px]",
+    orderM: "order-5 lg:order-none",
     col: 4,
     row: 2,
     corners: { tl: RADIUS, tr: RADIUS, br: 0, bl: RADIUS },
@@ -101,6 +134,13 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p5.svg",
     imgClass: "lg:h-[82px] lg:w-[124px]",
+    // Phone (1,4): borderless. The phone layout places this logo one cell
+    // later than the desktop source order, so it takes mobile cell 7 while
+    // p1 (next entry) takes cell 6. lg:order-none restores desktop, where
+    // placement is by lg:col-start/lg:row-start regardless of DOM order.
+    imgClassM: "h-[56px] w-[84px]",
+    mb: "",
+    orderM: "order-7 lg:order-none",
     col: 6,
     row: 2,
     corners: { tl: 0, tr: 0, br: 0, bl: 0 },
@@ -109,6 +149,11 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p1.svg",
     imgClass: "lg:h-[57px] lg:w-[166px]",
+    // Phone (2,3): borderless. Takes mobile cell 6 (one cell earlier than
+    // desktop order); lg:order-none restores the desktop sequence.
+    imgClassM: "h-[39px] w-[112px]",
+    mb: "",
+    orderM: "order-6 lg:order-none",
     col: 1,
     row: 3,
     corners: { tl: 0, tr: RADIUS, br: RADIUS, bl: 0 },
@@ -117,6 +162,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p7.svg",
     imgClass: "lg:h-[71px] lg:w-[202px]",
+    // Phone (2,4): bordered, bottom-left corner rounded.
+    imgClassM: "h-[48px] w-[137px]",
+    mb: "border border-stroke-default rounded-bl-[32px]",
+    orderM: "order-8 lg:order-none",
     col: 2,
     row: 3,
     corners: { tl: RADIUS, tr: 0, br: RADIUS, bl: RADIUS },
@@ -125,6 +174,10 @@ const DEFAULT_PARTNERS: Partner[] = [
   {
     src: "/figma-export/hotels/partners/p3.svg",
     imgClass: "lg:h-[62px] lg:w-[202px]",
+    // Phone (1,5): bordered, top-right and bottom-right corners rounded.
+    imgClassM: "h-[42px] w-[137px]",
+    mb: "border border-stroke-default rounded-tr-[32px] rounded-br-[32px]",
+    orderM: "order-9 lg:order-none",
     col: 5,
     row: 3,
     corners: { tl: 0, tr: 0, br: RADIUS, bl: RADIUS },
@@ -158,21 +211,22 @@ type PartnerBrandsProps = {
 
 export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: PartnerBrandsProps = {}) {
   return (
-    <section className="bg-white py-16 sm:py-20 lg:py-[160px]">
+    <section className="bg-white pt-[60px] pb-[60px] sm:pt-[60px] sm:pb-[60px] lg:py-[160px]">
       {/* Heading row uses the same adaptive padding as other lg sections
           so the text aligns with the design's x=130 column. */}
-      <div className="lg-pad-x px-5 sm:px-10">
+      <div className="lg-pad-x px-6 sm:px-10">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 lg:max-w-[574px] text-neutral-900">
             {heading ?? (
               <>
-                {/* Figma 1384:11956 — single <br> after the bold/light
-                    flip-point's first chunk; rest wraps naturally inside
-                    the 574-px heading frame, so the rendered break lands
-                    as `Партнери-виробники / та бренди, з якими ми /
-                    працюємо` (3 lines on lg). */}
+                {/* Single <br> after the light flip-point's first chunk;
+                    rest wraps naturally inside the heading frame, so the
+                    rendered break lands as `Партнери-виробники / та бренди,
+                    з якими ми / працюємо` (3 lines on lg). Figma phone
+                    master 3117:16388 keeps the same <br> on mobile, so the
+                    break renders at every breakpoint (was lg-only before). */}
                 <span className="text-h2-light">Партнери-виробники </span>
-                <br aria-hidden className="hidden lg:inline" />
+                <br aria-hidden />
                 <span className="text-h2-light">та бренди, </span>
                 <span className="text-h2">з якими ми працюємо</span>
               </>
@@ -190,11 +244,14 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
         </div>
       </div>
 
-      {/* Mosaic — padded on mobile/sm, edge-to-edge on lg. The lg
-          wrapper is `relative` so the SVG overlay can fill the grid
-          area precisely; the SVG is the FIRST child and renders behind
-          the cells so logos paint on top of the puzzle outline. */}
-      <div className="relative mt-10 px-5 sm:mt-12 sm:px-10 lg:mt-[80px] lg:px-0">
+      {/* Mosaic — edge-to-edge at every breakpoint. Figma phone master
+          3117:16390 runs the 2-col puzzle full-bleed (two 195-px cells =
+          390-px frame, no side gutter), and the lg master is likewise
+          edge-to-edge. The lg wrapper is `relative` so the SVG overlay can
+          fill the grid area precisely; the SVG is the FIRST child and
+          renders behind the cells so logos paint on top of the puzzle
+          outline. */}
+      <div className="relative mt-12 px-0 sm:mt-12 lg:mt-[80px] lg:px-0">
         {/* lg-only SVG puzzle outline — one <path> per cell, drawn with
             non-scaling 1-px stroke + white fill. Adjacent paths' strokes
             coincide pixel-perfect on shared edges → uniform 1-px lines
@@ -230,19 +287,19 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
           ))}
         </svg>
 
-        <ul className="relative grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6 lg:grid-rows-3 lg:gap-0">
+        <ul className="relative grid grid-cols-2 gap-0 lg:grid-cols-6 lg:grid-rows-3 lg:gap-0">
           {partners.map((p, i) => (
-            // The last cell spans 2 columns ONLY in the 2-col mobile grid
-            // (`max-sm:`). It must NOT carry any `last:col-span-*` at sm/lg:
-            // the `:last-child` pseudo raises specificity above
-            // `lg:col-start-*`, so a `col-span` shorthand there overrides the
-            // explicit grid-column-start and the last logo auto-places into
-            // the wrong column (it "escapes" its puzzle frame, which is drawn
-            // separately from p.col/p.row). At sm+ the default span-1 +
-            // base `aspect-square` already give the right shape.
+            // Mobile (<lg): square cells touch edge-to-edge (gap-0) and only
+            // the cells the Figma phone master frames carry a 1-px border +
+            // one rounded corner (p.mb); the rest are borderless, matching
+            // the staggered puzzle. p.orderM swaps the two logos the phone
+            // layout reorders relative to the desktop source array, with
+            // lg:order-none restoring desktop order. lg:* strips every
+            // mobile-only chrome class so the desktop SVG-overlay puzzle and
+            // its explicit lg:col-start/lg:row-start placement are unchanged.
             <li
               key={i}
-              className={`group flex aspect-square items-center justify-center rounded-[24px] border border-stroke-default bg-white p-3 max-sm:last:col-span-2 max-sm:last:aspect-[2/1] sm:p-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 ${p.pos}`}
+              className={`group flex aspect-square items-center justify-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 ${p.mb} ${p.orderM} ${p.pos}`}
             >
               <img
                 src={p.src}
@@ -250,7 +307,7 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
                 aria-hidden
                 loading="lazy"
                 decoding="async"
-                className={`object-contain ${p.imgClass}`}
+                className={`object-contain ${p.imgClassM} ${p.imgClass}`}
               />
             </li>
           ))}

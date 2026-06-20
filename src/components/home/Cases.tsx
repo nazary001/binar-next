@@ -13,6 +13,13 @@ export type CaseEntry = {
   tags: CaseTag[];
   image: string;
   imageStyle: { left: string; top: string; width: string; height: string };
+  // Mobile (<lg) framing crop for the 340x206 rounded image inside the
+  // Figma mobile card (node 3094:5130 / 3094:5176). The desktop column
+  // uses a different aspect ratio so it has its own `imageStyle`; this
+  // one reproduces the phone master's photo crop exactly. Optional —
+  // callers that don't supply it (e.g. SupplyExamples) fall back to the
+  // desktop `imageStyle` framing on mobile.
+  mobileImageStyle?: { left: string; top: string; width: string; height: string };
   stats: { value: string; suffix?: string; label: string }[];
 };
 
@@ -26,6 +33,9 @@ const CASES: CaseEntry[] = [
     tags: ["готельна косметика", "косметичні набори", "тапочки"],
     image: "/figma-export/cases/img-rixos.png",
     imageStyle: { left: "-12.06%", top: "-0.82%", width: "158.25%", height: "205.07%" },
+    // Figma 3094:5131 inside the 340x206 box: w 402.805 / h 603.943 at
+    // left -25.99 / top -50.69 -> percentages of the container.
+    mobileImageStyle: { left: "-7.64%", top: "-24.61%", width: "118.47%", height: "293.18%" },
     stats: [
       { value: "4", label: "роки співпраці" },
       { value: "200", label: "оснащених номерів" },
@@ -40,6 +50,10 @@ const CASES: CaseEntry[] = [
     tags: ["готельна косметика", "косметичні набори", "тапочки"],
     image: "/figma-export/cases/img-mirotel.png",
     imageStyle: { left: "-12.06%", top: "-34.65%", width: "113.17%", height: "146.64%" },
+    // Figma 3094:5177: outer frame w402.805/h603.943 at left-25.99/top-50.69
+    // with an inner img shifted up 33.14% (~200px), so the net crop is the
+    // same width/left but a deeper top offset. Percentages of the 340x206 box.
+    mobileImageStyle: { left: "-7.64%", top: "-121.77%", width: "118.47%", height: "293.29%" },
     stats: [
       { value: "3", label: "роки співпраці" },
       { value: "1200", label: "оснащених номерів" },
@@ -85,13 +99,13 @@ export function CaseCard({
     <article
       data-case-card
       data-case-index={index}
-      className="case-card flex w-full flex-col overflow-hidden rounded-[28px] border border-neutral-700 bg-white sm:rounded-[36px] lg:sticky lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:flex-row"
+      className="case-card flex w-full max-w-[342px] flex-col items-center overflow-hidden rounded-[32px] border border-neutral-700 bg-white lg:max-w-none lg:items-stretch lg:sticky lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:flex-row"
       style={{
         top: `calc(var(--site-header-h, 84px) + ${index * LG_LOGO_HEIGHT}px)`,
       }}
     >
       <div
-        className="case-card-body relative order-2 flex-1 overflow-hidden border-neutral-700 bg-white lg:order-1 lg:h-[729px] lg:rounded-r-[48px] lg:border-b lg:border-r lg:border-t"
+        className="case-card-body relative order-2 w-full flex-1 overflow-hidden border-neutral-700 bg-white lg:order-1 lg:w-auto lg:h-[729px] lg:rounded-r-[48px] lg:border-b lg:border-r lg:border-t"
       >
         <div className="case-card-logo absolute right-0 top-0 hidden h-[197px] w-[227px] items-center justify-center overflow-clip border-b border-l border-stroke-default lg:flex">
           <img src={data.logo} alt={`${data.name} logo`} loading="lazy" decoding="async" className={data.logoClass} />
@@ -152,42 +166,44 @@ export function CaseCard({
               • stats start at y=595. Gap from description (end y=442) = 153.
             Below lg the original gap-5/sm:gap-6 + sm:mt-2 / mt-4 sm:mt-6
             spacing is unchanged. */}
-        <div className="lg-pad-x flex flex-col gap-5 px-5 py-10 sm:gap-6 sm:px-10 sm:py-12 lg:gap-0 lg:pt-[91px]">
-          <div className="flex items-center gap-4 lg:hidden">
-            <img src={data.logo} alt={`${data.name} logo`} loading="lazy" decoding="async" className={data.logoClass} />
-          </div>
-
-          <h3 className="text-[44px] font-semibold leading-[1.03] tracking-[-1px] text-neutral-900 sm:text-[52px] sm:tracking-[-1.1px] lg:whitespace-nowrap lg:text-[62px] lg:tracking-[-1.24px]">
+        <div className="lg-pad-x flex flex-col gap-4 px-6 py-10 sm:gap-4 sm:px-6 sm:py-10 lg:gap-0 lg:pt-[91px]">
+          {/* Figma mobile (3094:5129) title — Manrope Bold 40/42, -0.8px,
+              text/default. The `text-h1` token resolves to exactly that
+              below lg; desktop keeps the 62px display size via lg: below. */}
+          <h3 className="text-h1 font-bold text-neutral-900 lg:font-semibold lg:whitespace-nowrap lg:text-[62px] lg:leading-[1.03] lg:tracking-[-1.24px]">
             {data.name}
           </h3>
 
-          <ul className="flex max-w-[413px] flex-wrap items-center gap-2 sm:gap-[15px] lg:mt-[42px]">
+          <ul className="flex w-full max-w-[413px] flex-wrap content-center items-center gap-2 lg:w-auto lg:gap-[15px] lg:mt-[42px]">
             {data.tags.map((tag) => (
               <li
                 key={tag}
-                // Figma master chip uses `px-16 py-12 rounded-60` with
-                // 16/16 text — that's 40 px tall on every viewport. The
-                // previous breakpoint split (`px-3 py-2` mobile, `h-10
-                // px-4 py-0` sm+) made mobile chips 32 px tall and
-                // sm+ chips 40 px tall, so the chip border widths
-                // visibly changed across breakpoints. Standardised to
-                // the uniform `px-4 py-3` Figma value everywhere -
-                // chips now read identical at any viewport, same as
-                // the ZonesGrid (hotels) chips.
-                className="flex cursor-default items-center rounded-[60px] border border-neutral-800 px-4 py-3"
+                // Mobile (<lg) follows the Figma phone-master Cases chip
+                // (3094:5134): stroke/default border, `px-4 py-2` (16/8),
+                // `rounded-60`, 14/20 medium text in text/medium. Desktop
+                // keeps its original `px-4 py-3` + neutral-800 border +
+                // 16/16 text (matching the ZonesGrid hotels chips) via the
+                // lg: overrides, so the desktop sticky-stack is unchanged.
+                className="flex cursor-default items-center rounded-[60px] border border-stroke-default px-4 py-2 lg:border-neutral-800 lg:py-3"
               >
-                <span className="text-[16px] leading-[16px] whitespace-nowrap text-neutral-800">
+                <span className="whitespace-nowrap text-body-sm font-medium text-neutral-800 lg:font-normal lg:text-[16px] lg:leading-[16px]">
                   {tag}
                 </span>
               </li>
             ))}
           </ul>
 
-          <p className="max-w-[393px] text-body-sm text-black sm:mt-2 lg:mt-[54px]">
+          {/* Figma mobile (3094:5142) description — Manrope Regular 14/20,
+              text/medium (#343435). Desktop keeps its original text-black /
+              body-sm@16 via the lg: overrides. */}
+          <p className="max-w-[271px] lg:max-w-[393px] text-body-sm text-neutral-800 lg:text-black lg:mt-[54px]">
             {data.description}
           </p>
 
-          <ul className="mt-4 flex flex-wrap gap-6 sm:mt-6 sm:gap-10 lg:mt-[153px]">
+          {/* Desktop stats block — unchanged from the original sticky-stack
+              layout; hidden below lg where the Figma mobile card renders the
+              logo + stats in the dedicated bottom band (see below). */}
+          <ul className="mt-4 hidden flex-wrap gap-6 sm:mt-6 sm:gap-10 lg:mt-[153px] lg:flex">
             {data.stats.map((s) => {
               const numericMatch = /^(\d+)$/.exec(s.value);
               const isPureNumber = numericMatch !== null;
@@ -214,10 +230,54 @@ export function CaseCard({
             })}
           </ul>
         </div>
+
+        {/* Figma mobile (<lg) bottom band — node 3094:5149 (hairline) +
+            3094:5151 (logo cell | vertical divider | stats). Hidden at lg
+            where the desktop sticky-stack layout renders the logo strip
+            and stats via the absolutely-positioned elements above. */}
+        <div className="lg:hidden">
+          <span aria-hidden className="block h-px w-full bg-stroke-default" />
+          <div className="flex items-stretch">
+            <div className="flex w-[140px] shrink-0 items-center justify-center pl-6 pr-4 py-[60px]">
+              {/* Figma mobile logos are ~24px tall (3094:5161 / 3137:16191);
+                  size by height with auto width so both brand marks keep
+                  their aspect ratio inside the 140px cell. */}
+              <img
+                src={data.logo}
+                alt={`${data.name} logo`}
+                loading="lazy"
+                decoding="async"
+                className="h-6 w-auto max-w-full object-contain"
+              />
+            </div>
+            <span aria-hidden className="w-px shrink-0 self-stretch bg-stroke-default" />
+            <ul className="flex min-w-0 flex-1 flex-col justify-center gap-3 py-4 pl-4 pr-6">
+              {data.stats.map((s) => {
+                const numericMatch = /^(\d+)$/.exec(s.value);
+                const isPureNumber = numericMatch !== null;
+                return (
+                  <li key={s.label} className="flex flex-col">
+                    <p className="whitespace-nowrap font-semibold leading-[1.03] tracking-[-0.6px] text-black">
+                      <span className="text-[30px]">
+                        {isPureNumber ? (
+                          <AnimatedNumber value={Number(numericMatch[1])} />
+                        ) : (
+                          s.value
+                        )}
+                      </span>
+                      <span className="text-[30px] text-brand">{s.suffix ?? "+"}</span>
+                    </p>
+                    <p className="text-[13px] leading-[20px] text-neutral-500">{s.label}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div
-        className="case-card-photo group relative order-1 h-[240px] shrink-0 overflow-clip sm:h-[300px] lg:order-2 lg:h-[729px] lg:w-[630px] lg:rounded-l-[48px]"
+        className="case-card-photo group relative order-1 h-[206px] w-[340px] shrink-0 overflow-clip rounded-[32px] lg:order-2 lg:h-[729px] lg:w-[630px] lg:rounded-l-[48px] lg:rounded-r-none"
         style={{ background: "#56595b" }}
       >
         {/* Photo wrapper — `.cases-photo-parallax` is a lg-only class that
@@ -229,12 +289,23 @@ export function CaseCard({
             <img> below is the designer's framing crop and composes on
             top of the wrapper transform. */}
         <div className="cases-photo-parallax absolute inset-0">
+          {/* Mobile (<lg) crop — Figma phone-master framing inside the
+              340x206 rounded image. Hidden at lg where the desktop
+              column uses its own wider crop below (unchanged). */}
           <img
             src={data.image}
             alt={`${data.name} hotel`}
             loading="lazy"
             decoding="async"
-            className="absolute max-w-none object-cover"
+            className="absolute max-w-none object-cover lg:hidden"
+            style={data.mobileImageStyle ?? data.imageStyle}
+          />
+          <img
+            src={data.image}
+            alt={`${data.name} hotel`}
+            loading="lazy"
+            decoding="async"
+            className="absolute hidden max-w-none object-cover lg:block"
             style={data.imageStyle}
           />
         </div>
@@ -410,7 +481,7 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
     <section
       id="cases"
       ref={sectionRef}
-      className="flex flex-col gap-6 px-5 py-6 sm:gap-8 sm:px-10 sm:py-8 lg:block lg:gap-0 lg:px-0 lg:py-0"
+      className="flex flex-col items-center gap-6 px-6 py-12 sm:gap-8 sm:py-14 lg:block lg:items-stretch lg:gap-0 lg:px-0 lg:py-0"
     >
       {entries.map((c, i) => (
         <CaseCard

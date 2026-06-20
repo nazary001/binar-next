@@ -34,25 +34,29 @@ function DirectionCard({ href, title, body, image }: Card) {
   return (
     <Link
       href={href}
-      className="group flex w-full cursor-pointer flex-col gap-6 py-2 sm:gap-8 sm:py-6"
+      // Mobile (Figma 3117:12426): a bordered card - stroke/deep #343435,
+      // rounded-32, with the image + title/body wrapped as ONE column and
+      // no gap between them (the text block carries its own px-6 py-[50px]).
+      // Desktop is the master 3-column divided row: borderless, no internal
+      // padding, gap-8 between the image and the title/body block.
+      className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-[32px] border border-neutral-800 lg:gap-8 lg:overflow-visible lg:rounded-none lg:border-0 lg:py-6"
     >
-      {/* Mobile keeps the Figma 336-px height but rounds the corners
-          a hair tighter (28 vs 40) so the card feels phone-native;
-          the arrow icon scales down to 44 px and pins to the bottom-
-          right via inset offsets so it scales with the card no matter
-          the device width. Desktop returns to the Figma master. */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] sm:aspect-auto sm:h-[336px] sm:rounded-[40px]">
+      {/* Image: Figma mobile h-206, rounded-32. Desktop returns to the
+          336-px master. The arrow icon overlaps the image bottom-right
+          (Figma left-272 top-138 within the 340-wide card = 16-px insets);
+          on desktop it pins to top-[268px] to sit 16 px above the 336 image. */}
+      <div className="relative h-[206px] w-full overflow-hidden rounded-[32px] lg:h-[336px] lg:rounded-[40px]">
         <img
           src={image}
           alt=""
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 size-full rounded-[28px] object-cover transition duration-300 ease-out group-hover:grayscale sm:rounded-[40px]"
+          className="absolute inset-0 size-full rounded-[32px] object-cover transition duration-300 ease-out group-hover:grayscale lg:rounded-[40px]"
         />
         <span
           aria-hidden
-          className="absolute bottom-4 right-4 flex size-[44px] items-center justify-center rounded-[22px] border border-neutral-900 text-neutral-900 transition-colors duration-300 ease-out group-hover:border-brand group-hover:bg-brand group-hover:text-white sm:bottom-auto sm:top-[268px] sm:size-[52px] sm:rounded-[26px]"
+          className="absolute bottom-4 right-4 flex size-[52px] items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 ease-out group-hover:border-brand group-hover:bg-brand group-hover:text-white lg:bottom-auto lg:top-[268px]"
         >
           <svg
             width="16.5"
@@ -70,7 +74,9 @@ function DirectionCard({ href, title, body, image }: Card) {
           </svg>
         </span>
       </div>
-      <div className="flex flex-col gap-3 sm:gap-4">
+      {/* Mobile carries the Figma px-6 py-[50px] gap-3 inside the bordered
+          card; desktop strips the padding and uses the master gap-4. */}
+      <div className="flex flex-col gap-3 px-6 py-[50px] lg:gap-4 lg:p-0">
         <h3 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">{title}</h3>
         <p className="text-body-sm text-neutral-500">{body}</p>
       </div>
@@ -85,7 +91,7 @@ export function Directions() {
           (border L+R+T, rounded-tl/tr 48). `lg:-mt-px` overlaps Hero's
           bottom border so the two 1-px hairlines share the SAME pixel
           row and the seam reads as ONE thin line, not a 2-px band. */}
-      <div className="lg-pad-x flex flex-col gap-10 px-5 py-12 sm:gap-16 sm:px-10 sm:py-20 lg:-mt-px lg:gap-[120px] lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pt-[160px] lg:pb-0">
+      <div className="lg-pad-x flex flex-col gap-12 px-6 py-[60px] sm:gap-16 sm:px-10 sm:py-20 lg:-mt-px lg:gap-[120px] lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pt-[160px] lg:pb-0">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900 lg:max-w-[574px]">
             <span className="text-h2">Оберіть напрямок, </span>
@@ -98,7 +104,7 @@ export function Directions() {
           </p>
         </div>
 
-        <ul className="flex flex-col items-stretch gap-8 sm:gap-10 lg:flex-row lg:items-stretch lg:gap-0 lg:divide-x lg:divide-stroke-subtle">
+        <ul className="flex flex-col items-stretch gap-12 sm:gap-10 lg:flex-row lg:items-stretch lg:gap-0 lg:divide-x lg:divide-stroke-subtle">
           {CARDS.map((c, i) => (
             <Reveal
               as="li"
