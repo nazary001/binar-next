@@ -65,25 +65,29 @@ const PATH_CIRCUMFERENCE = 2 * Math.PI * PATH_RADIUS;
 // it is nested inside another fixed/transformed (and therefore blend-isolating)
 // wrapper. So the blend lives on ScrollUpDock's ring layer, not here; this stays
 // plain white and the layer above decides whether to blend it.
-export function RingText() {
+// One ring SVG at a given square viewBox. The text baseline sits on a
+// radius-39 circle centred in the viewBox, starting at ~11 o'clock
+// (-32deg from top, the original (44.33,31.93) offset of (-20.67,-33.07)
+// from the centre) and running clockwise.
+function RingTextSvg({ vb, className }: { vb: number; className?: string }) {
   const pathId = useId();
+  const c = vb / 2;
+  const sx = (c - 20.67).toFixed(2);
+  const sy = (c - 33.07).toFixed(2);
+  const ox = (c + 20.67).toFixed(2);
+  const oy = (c + 33.07).toFixed(2);
   return (
     <svg
-      viewBox="0 0 130 130"
-      className="up-ring-spin pointer-events-none absolute inset-0 size-full text-white"
+      viewBox={`0 0 ${vb} ${vb}`}
+      className={`up-ring-spin pointer-events-none absolute inset-0 size-full text-white ${
+        className ?? ""
+      }`}
       aria-hidden
     >
       <defs>
-        {/* Radius 39 baseline puts the text just outside the 28-radius
-            orange circle. Path starts at ~11 o'clock (-32° from top)
-            and goes clockwise so the first "ВГОРУ" reads centred
-            across the top of the circle — matches the Figma master
-            where «В» sits at ~11 o'clock and «У» at ~1 o'clock. The
-            start point is (44.33, 31.93); diametrically opposite is
-            (85.67, 98.07). */}
         <path
           id={pathId}
-          d="M 44.33 31.93 A 39 39 0 1 1 85.67 98.07 A 39 39 0 1 1 44.33 31.93"
+          d={`M ${sx} ${sy} A 39 39 0 1 1 ${ox} ${oy} A 39 39 0 1 1 ${sx} ${sy}`}
           fill="none"
         />
       </defs>
@@ -105,6 +109,21 @@ export function RingText() {
         </textPath>
       </text>
     </svg>
+  );
+}
+
+export function RingText() {
+  // The orange circle is a fixed 56 px on both mobile and desktop, but a
+  // single 130-viewBox ring scales with the button, which pulled the text
+  // tight against the circle on the smaller 100-px mobile button (radius
+  // ~30 -> ~2 px gap). Render a 100-viewBox ring below lg so the ring
+  // radius stays 39 px (matching Figma's ~11 px gap to the circle), and
+  // the 130-viewBox ring at lg so desktop is unchanged.
+  return (
+    <>
+      <RingTextSvg vb={100} className="lg:hidden" />
+      <RingTextSvg vb={130} className="hidden lg:block" />
+    </>
   );
 }
 
