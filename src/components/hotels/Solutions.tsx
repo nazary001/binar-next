@@ -189,7 +189,7 @@ export function Solutions() {
           rounded-t corners + negative bottom margin pulls the next
           sibling up so it covers the cap's bottom 72 px. */}
       <div
-        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 py-[60px] sm:rounded-t-[56px] sm:px-10 sm:py-[60px] lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[128px] lg:pt-[68px]"
+        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 pt-[60px] pb-[120px] sm:rounded-t-[56px] sm:px-10 sm:pt-[60px] sm:pb-[120px] lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[128px] lg:pt-[68px]"
       >
         <MobileCapCross className="lg:hidden" />
         <div className="relative z-10 flex max-w-[571px] flex-col gap-6 lg:gap-12">

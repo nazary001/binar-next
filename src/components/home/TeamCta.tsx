@@ -263,7 +263,7 @@ export function TeamCta() {
           the gap between the heading (ends 164 px) and the button
           (starts 212 px) - same negative space as the design. */}
       <div
-        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 py-[60px] sm:rounded-t-[56px] sm:px-10 sm:py-[60px] lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[128px] lg:pt-[68px]"
+        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 pt-[60px] pb-[120px] sm:rounded-t-[56px] sm:px-10 sm:pt-[60px] sm:pb-[120px] lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[128px] lg:pt-[68px]"
       >
         <MobileCapCross className="lg:hidden" />
         <div className="relative z-10 flex flex-col items-start gap-6 sm:gap-7 lg:max-w-[571px] lg:gap-12">
