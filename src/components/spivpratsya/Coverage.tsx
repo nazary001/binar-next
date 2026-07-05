@@ -260,14 +260,162 @@ function Column({
   );
 }
 
+// === Mobile-only stack (Figma 3166:8824) ===
+// Below lg the bento collapses to a single column of uniform 190-px
+// cards (16-px gaps -> 206-px pitch) capped by the catalog CTA. Image
+// cards carry a photo + dark blur halo + white label/arrow; outline
+// cards are plain white with a dark label/arrow; the CTA is a
+// neutral-800 pill with the brand-orange arrow.
+type MobileItem =
+  | {
+      kind: "image";
+      label: string;
+      image: string;
+      // Exact Figma fill placement inside the 342x206 tile (the master
+      // does NOT centre-cover: each photo has its own crop window).
+      crop: { left: string; top: string; width: string; height: string };
+    }
+  | { kind: "outline"; label: string }
+  | { kind: "cta"; label: string };
+
+const MOBILE_ITEMS: MobileItem[] = [
+  {
+    kind: "image",
+    label: "Тапочки (стандарт / кастом)",
+    image: "/figma-export/spivpratsya/cover-tapochki.png",
+    // Figma 3166:8829
+    crop: { left: "0%", top: "-26.25%", width: "100%", height: "127.5%" },
+  },
+  { kind: "outline", label: "Галантерея та витратні матеріали" },
+  { kind: "outline", label: "Текстиль і комплектація номерів" },
+  { kind: "outline", label: "PROTECT (ЗІЗ, одноразовий одяг)" },
+  { kind: "outline", label: "HoReCa Hygiene (гігієна, прибирання)" },
+  // The master's label here is a broken copy-paste ("PROTECT Брендування
+  // та пакуванняЗІЗ, одноразовий одяг)") — we keep the intended clean
+  // category name.
+  { kind: "outline", label: "Брендування та пакування" },
+  {
+    kind: "image",
+    label: "Міні-косметика та аксесуари",
+    image: "/figma-export/spivpratsya/cover-cosmetics.png",
+    // Figma 3166:8833
+    crop: { left: "0%", top: "-10.04%", width: "100%", height: "170%" },
+  },
+  {
+    kind: "image",
+    label: "Оснащення ванної (включно з Valera)",
+    image: "/figma-export/spivpratsya/cover-bathroom.png",
+    // Figma 3166:8837
+    crop: { left: "-28.35%", top: "-17.68%", width: "156.76%", height: "282.21%" },
+  },
+  { kind: "cta", label: "Переглянути каталог" },
+];
+
+function MobileArrow({ tone }: { tone: "light" | "dark" }) {
+  return (
+    <span
+      className={`flex size-[52px] shrink-0 items-center justify-center rounded-[26px] border ${
+        tone === "light" ? "border-white" : "border-neutral-900"
+      }`}
+    >
+      <img
+        src={tone === "light" ? ARROW_WHITE : ARROW_DARK}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="size-[16.5px]"
+      />
+    </span>
+  );
+}
+
+function MobileItemCard({ item, first }: { item: MobileItem; first?: boolean }) {
+  if (item.kind === "cta") {
+    return (
+      <Link
+        href={CARD_HREF}
+        // Figma 3167:4969: the label+disc cluster is centred as a group,
+        // which lands the 140-wide 2-line label at x40 and the orange
+        // disc at x248..300 — px-[40px] + justify-between reproduces both
+        // anchors on the 342 card (probe: label x64, disc x272..323 abs).
+        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-neutral-800 px-[40px] py-[15px]"
+      >
+        <p className="max-w-[140px] text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-white">
+          {item.label}
+        </p>
+        <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
+          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[16.5px]" />
+        </span>
+      </Link>
+    );
+  }
+  const isImage = item.kind === "image";
+  return (
+    <Link
+      href={CARD_HREF}
+      className={`relative flex h-[206px] w-full flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default p-[40px] ${
+        first ? "" : "-mt-px"
+      } ${isImage ? "" : "bg-white"}`}
+    >
+      {item.kind === "image" && (
+        <>
+          <img
+            src={item.image}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="absolute max-w-none"
+            style={{
+              left: item.crop.left,
+              top: item.crop.top,
+              width: item.crop.width,
+              height: item.crop.height,
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
+          />
+        </>
+      )}
+      <div className="relative flex w-full items-center gap-8">
+        <p
+          className={`flex-1 text-[16px] font-semibold leading-[22px] tracking-[0.16px] ${
+            isImage ? "text-white" : "text-neutral-900"
+          }`}
+        >
+          {item.label}
+        </p>
+        <MobileArrow tone={isImage ? "light" : "dark"} />
+      </div>
+    </Link>
+  );
+}
+
 export function Coverage() {
   return (
-    <section className="lg-pad-x flex w-full flex-col gap-10 bg-white px-5 py-16 sm:gap-14 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]">
+    // Mobile (3166:8820): pt-60 / title-36 / gap-48 / stack / pb-60.
+    // pb-[67px] = 60 + 7: the 8-tile stack collapses 7 seams by 1px each
+    // (-mt-px de-doubling below), so the section compensates to keep the
+    // master's 1983-px total.
+    <section className="lg-pad-x flex w-full flex-col gap-12 bg-white px-6 pb-[67px] pt-[60px] sm:gap-14 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]">
       <h2 className="text-h2-light text-neutral-900 max-w-[640px]">
         Що ми <span className="text-h2">закриваємо?</span>
       </h2>
 
-      <div className="flex w-full flex-col gap-4 sm:gap-5 lg:flex-row lg:items-stretch lg:gap-0">
+      {/* MOBILE (<lg) — Figma 3166:8824: a single column of uniform 206-px
+          cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
+          the 131-px catalog CTA. */}
+      <div className="flex flex-col gap-0 lg:hidden">
+        {MOBILE_ITEMS.map((item, i) => (
+          <MobileItemCard key={item.label} item={item} first={i === 0} />
+        ))}
+      </div>
+
+      {/* DESKTOP (lg+) — the Figma 1440 bento grid, hidden below lg. */}
+      <div className="hidden w-full flex-col gap-4 sm:gap-5 lg:flex lg:flex-row lg:items-stretch lg:gap-0">
         <Column cards={COL_1} ratios={[393, 131, 131, 131]} index={0} />
         <Column cards={COL_2} ratios={[196.5, 196.5, 393]} index={1} />
         <Column cards={COL_3} ratios={[655, 131]} index={2} />

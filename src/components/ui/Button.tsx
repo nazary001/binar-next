@@ -48,15 +48,18 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 // appears, bg disappears, text flips dark). Keeping a 1-px transparent
 // border on the default state means the hover border addition does not
 // shift layout by 1 px when the user mouses over.
+// The 1-px hover-stability border is part of the box, so the small pill
+// uses py-[9px] (9 + 22 line + 9 + 2 border = 42) to hit Figma's exact
+// 42-px Button/Small height — py-[10px] rendered 44 px.
 const labelSize = {
   large:
     "rounded-[25px] border border-transparent px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[15px] sm:text-button-lg",
   small:
-    "rounded-[24px] border border-transparent px-6 py-[10px] text-button-md whitespace-nowrap",
+    "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap",
   // Small below lg, large at lg (the lg overrides equal the `large`
   // value resolved at >=1024, so desktop is identical to size="large").
   responsive:
-    "rounded-[24px] border border-transparent px-6 py-[10px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[15px] lg:text-button-lg",
+    "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[15px] lg:text-button-lg",
 };
 
 const arrowWrap = {
@@ -74,9 +77,11 @@ const arrowWrap = {
 // (Tailwind arbitrary px values) so the rendered arrow matches Figma.
 const arrowIcon = {
   large: "size-[14px] sm:size-[16.5px]",
-  // Figma mobile compact button arrow glyph sits ~18px in the 42px square.
-  small: "size-[18px]",
-  responsive: "size-[18px] lg:size-[16.5px]",
+  // Figma Button/Small (e.g. 3082:3250) puts the arrow in a 16-px icon
+  // box whose asset has ~31% built-in padding — the visible glyph is
+  // ~11 px. Our SVG is edge-to-edge, so size the img to the visible ink.
+  small: "size-[11px]",
+  responsive: "size-[11px] lg:size-[16.5px]",
 };
 
 // The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px

@@ -1,25 +1,22 @@
 /* eslint-disable @next/next/no-img-element */
 import { Reveal } from "@/components/ui/Reveal";
 
-// Glyph sizes are % of the 96px tile, taken 1:1 from Figma's "Info icon"
-// component (node 1384:12746): each tile has a 9px inner clip zone and the
-// vector sits centred inside it. The hero SVGs are the SAME glyphs (their
-// viewBox aspect ratios match the Figma boxes exactly), so a meet-fit at
-// these percentages reproduces the design pixel-for-pixel.
-//   hotel   33.61×71.62 (rotated 90; long edge 71.62/96 = 74.6%)
-//   beauty  60.06×60.06 (square → 62.6%)
-//   medical 71.35×59.58 (w 74.3% / h 62.1%)
-//   factory 66.73×63.11 (w 69.5% / h 65.7%)
+// Each icon SVG is the Figma "Info icon" 34px-zone export (glyph padding
+// and orientation baked in), rendered at a uniform 17.31% inset (= 9/52)
+// of the tile so it scales exactly like the master at 52 and 96 px.
 const ICONS = [
-  { src: "/figma-export/hero/icon-hotel.svg", className: "size-[74.6%] rotate-90", label: "Готелі" },
-  { src: "/figma-export/hero/icon-beauty.svg", className: "size-[62.6%]", label: "Салони краси" },
-  { src: "/figma-export/hero/icon-medical.svg", className: "h-[62.1%] w-[74.3%]", label: "Медичні заклади" },
-  { src: "/figma-export/hero/icon-factory.svg", className: "h-[65.7%] w-[69.5%]", label: "Виробничі підприємства" },
+  { src: "/figma-export/info-icons/tb-hotel.svg", label: "Готелі" },
+  { src: "/figma-export/info-icons/tb-beauty.svg", label: "Салони краси" },
+  { src: "/figma-export/info-icons/tb-medical.svg", label: "Медичні заклади" },
+  { src: "/figma-export/info-icons/tb-factory.svg", label: "Виробничі підприємства" },
 ];
 
 export function TrustBand() {
   return (
-    <section className="lg-pad-x px-6 py-12 sm:px-10 sm:py-16 lg:py-[160px]">
+    // Mobile (Figma 3094:5041): the heading block carries pt-60 and NO
+    // bottom padding — the 48-px gap to the first case card comes from
+    // the Cases section's own pt-12.
+    <section className="lg-pad-x px-6 pt-[60px] sm:px-10 lg:py-[160px]">
       <div className="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
         {/* Figma 1384:12745: 42/48/-0.84 (NOT the global text-h2 token
             which is 44/48). Single-occurrence size override on this
@@ -50,7 +47,7 @@ export function TrustBand() {
                 aria-hidden
                 loading="lazy"
                 decoding="async"
-                className={i.className}
+                className="absolute inset-[17.31%] size-[65.38%] max-w-none"
               />
             </Reveal>
           ))}

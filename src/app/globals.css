@@ -540,6 +540,15 @@
   transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* Each dot's transform makes it its own stacking context, so a popup's
+   z-index can never beat a SIBLING dot that comes later in the DOM —
+   on mobile the below/side cards overlap neighbouring dots, which then
+   painted their pulsing circles ON TOP of the open card. Raising the
+   hovered dot lifts its whole context (card included) above the rest. */
+.hero-dot:hover {
+  z-index: 30;
+}
+
 /* The dot's visual size is 32 px - extend the hover hit area a bit
    so the cursor doesn't have to land pixel-perfectly to trigger the
    popup. Purely a usability buffer, not a tap target (the dot is not
@@ -604,6 +613,26 @@
   transform: translate(0, 8px) scale(calc(0.92 * var(--popup-scale)));
 }
 
+/* Mobile-band placements (the 320px band has no headroom above the top
+   dots): center-below drops the card UNDER the dot, side-left slides it
+   out to the dot's left, vertically centred. Both override the base
+   `bottom` anchor. */
+.hero-dot-popup-center-below {
+  left: 50%;
+  top: calc(100% + 12px);
+  bottom: auto;
+  transform-origin: 50% 0%;
+  transform: translate(-50%, -8px) scale(calc(0.92 * var(--popup-scale)));
+}
+
+.hero-dot-popup-side-left {
+  right: calc(100% + 12px);
+  top: 50%;
+  bottom: auto;
+  transform-origin: 100% 50%;
+  transform: translate(8px, -50%) scale(calc(0.92 * var(--popup-scale)));
+}
+
 .hero-dot:hover .hero-dot-popup {
   /* Promote to a compositor layer only while the popup is visible. */
   will-change: transform, opacity;
@@ -627,7 +656,22 @@
   pointer-events: auto;
 }
 
-@media (max-width: 640px) {
+.hero-dot:hover .hero-dot-popup-center-below {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(var(--popup-scale));
+  pointer-events: auto;
+}
+
+.hero-dot:hover .hero-dot-popup-side-left {
+  opacity: 1;
+  transform: translate(0, -50%) scale(var(--popup-scale));
+  pointer-events: auto;
+}
+
+/* The whole below-lg range renders the 320px mobile band, so the popup
+   compression applies to the full range — a full-size 214px card cannot
+   fit a 320px band at ANY sub-lg width, not just phones. */
+@media (max-width: 1023px) {
   .hero-dot-popup {
     --popup-scale: 0.72;
     /* Drop the backdrop-filter on phones — at 0.72× scale the visual
@@ -663,16 +707,35 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Kill the scale/slide animation but KEEP the positional part of each
+     anchor's transform — center/center-below need translateX(-50%) and
+     side-left needs translateY(-50%) to sit where they belong. */
   .hero-dot-popup,
   .hero-dot-popup-center,
   .hero-dot-popup-left,
-  .hero-dot-popup-right {
+  .hero-dot-popup-right,
+  .hero-dot-popup-center-below,
+  .hero-dot-popup-side-left {
     transition: opacity 150ms ease-out;
+  }
+  .hero-dot-popup-left,
+  .hero-dot-popup-right,
+  .hero-dot:hover .hero-dot-popup-left,
+  .hero-dot:hover .hero-dot-popup-right {
     transform: none;
+  }
+  .hero-dot-popup-center,
+  .hero-dot-popup-center-below,
+  .hero-dot:hover .hero-dot-popup-center,
+  .hero-dot:hover .hero-dot-popup-center-below {
+    transform: translate(-50%, 0);
+  }
+  .hero-dot-popup-side-left,
+  .hero-dot:hover .hero-dot-popup-side-left {
+    transform: translate(0, -50%);
   }
   .hero-dot:hover .hero-dot-popup {
     opacity: 1;
-    transform: none;
     pointer-events: auto;
   }
 }
@@ -1335,11 +1398,14 @@ label {
    14/20 etc. Desktop (>= 1024, the `zoom` layer) keeps the @theme tokens
    untouched, since these are `max-width` queries. The 640-1023 tablet
    tier mirrors the same mobile scale (Figma only ships one mobile
-   master) with a hair more line-height headroom on H1. */
+   master). NOTE: the typescale DOC says H1 40/46, but every actual
+   mobile-master H1 node (all six hero titles) is set at 40/42 — the
+   masters win; the 40/46 pairing appears only on the spivpratsya
+   timeline's active step label, which carries it explicitly. */
 @media (max-width: 1023px) {
   .text-h1 {
     font-size: 40px;
-    line-height: 44px;
+    line-height: 42px;
     letter-spacing: -0.8px;
   }
   .text-h2 {

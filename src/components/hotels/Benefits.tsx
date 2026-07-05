@@ -91,8 +91,9 @@ export function HotelBenefits() {
             gap-[40px] items-start p-[24px] rounded-[32px]` with the
             120-px icon ON TOP, then the Title+body group (gap-[12px],
             title 22/28 SemiBold, body 14/20 subtle). No numbered badge
-            and no 2-col grid in the master. */}
-        <ul className="mx-auto flex w-[340px] max-w-full flex-col items-center gap-6 lg:hidden">
+            and no 2-col grid in the master. The column is the Figma 342-px
+            content width (390 - 2*24 gutter). */}
+        <ul className="mx-auto flex w-[342px] max-w-full flex-col items-center gap-6 lg:hidden">
           {FEATURES.map((f) => (
             <li key={f.title} className="w-full">
               <article className="flex w-full flex-col items-start gap-10 rounded-[32px] bg-bg-subtle p-6">

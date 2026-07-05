@@ -415,7 +415,9 @@ export function QuizForm({
             </>
           )}
         </h2>
-        <div className="flex flex-1 flex-col gap-2 text-body-sm text-neutral-500">
+        {/* Mobile (Figma 3110:14346): the two sentences run as one
+            continuous 14/20 block — no paragraph gap below lg. */}
+        <div className="flex flex-1 flex-col gap-0 text-body-sm text-neutral-500 lg:gap-2">
           {headingBody ?? (
             <>
               <p>
@@ -561,7 +563,7 @@ function CardInner({
                               broken-word wraps.
             items-start at lg+ keeps each column at its content height
             so step 4's right-aligned phone field can `justify-end`. */}
-        <div className="flex flex-col gap-10 px-6 pb-12 pt-8 sm:gap-10 sm:px-12 sm:pb-4 sm:pt-8 lg:flex-1 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[60px]">
+        <div className="flex flex-col gap-10 px-6 pb-12 pt-[31px] sm:gap-10 sm:px-12 sm:pb-4 sm:pt-8 lg:flex-1 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[60px]">
           {isContactStep ? (
             <ContactFields
               answers={answers}
@@ -614,7 +616,7 @@ function CardInner({
             lg breakpoint. Previously sm used px-12 pb-6 and lg used
             px-10 pb-10, which jumped the button 8 px left and 16 px
             up the moment the deck animation came online. */}
-        <div className="flex items-center gap-2 px-6 pb-8 pt-0 sm:gap-4 sm:px-10 sm:pb-10 sm:pt-0">
+        <div className="flex items-center gap-2 px-6 pb-[31px] pt-0 sm:gap-4 sm:px-10 sm:pb-10 sm:pt-0">
           {/* Back collapses to a bare "←" on phones so the compact Figma
               next/submit button (size="responsive" = Button/Small below lg)
               always fits inside the 340-wide card without overflowing. */}
@@ -686,39 +688,69 @@ function OptionGrid({
   // returns the lg / tablet layout where options have explicit
   // vertical breathing room. No staggered entrance — Figma master is
   // static.
+  // Mobile / tablet (<lg) reading order. The desktop body is a 2-column
+  // grid the eye reads ROW-MAJOR (top-left, top-right, then the next row),
+  // and the column arrays above are arranged so that row-major reading
+  // matches Figma. A single phone column must therefore INTERLEAVE the two
+  // columns - left[0], right[0], left[1], right[1], ... - to reproduce the
+  // Figma mobile masters. Flattening the columns sequentially (all of the
+  // left column, then all of the right) printed options in the wrong order
+  // on phones (e.g. step 1 "Оберіть напрям" showed "...прибирання" before
+  // "...захисту"). Desktop keeps the original two-column split untouched.
+  const mobileOptions: typeof options = [];
+  const colMax = Math.max(left.length, right.length);
+  for (let i = 0; i < colMax; i++) {
+    if (left[i]) mobileOptions.push(left[i]);
+    if (right[i]) mobileOptions.push(right[i]);
+  }
+
   return (
     <>
-      <div className={`flex flex-1 flex-col gap-10 sm:gap-10 ${lgGapClass}`}>
-        {left.map((opt, i) => (
+      {/* Mobile / tablet (<lg): one column, options in Figma reading order. */}
+      <div className="flex w-full flex-col gap-10 sm:gap-10 lg:hidden">
+        {mobileOptions.map((opt) => (
+          <Option
+            key={`m-${fieldKey}-${opt.value}`}
+            opt={opt}
+            selected={selectedValues.includes(opt.value)}
+            onSelect={onSelect}
+            animate={animate}
+            isLast={false}
+          />
+        ))}
+        {showCustomInput && (
+          <CustomInputField
+            placeholder={customInputPlaceholder as string}
+            value={customInputValue ?? ""}
+            onChange={onCustomInputChange as (v: string) => void}
+            disabled={!animate}
+          />
+        )}
+      </div>
+
+      {/* Desktop (lg+): original column-major two-column split, unchanged. */}
+      <div className={`hidden flex-1 flex-col gap-10 sm:gap-10 ${lgGapClass} lg:flex`}>
+        {left.map((opt) => (
           <Option
             key={`${fieldKey}-${opt.value}`}
             opt={opt}
             selected={selectedValues.includes(opt.value)}
             onSelect={onSelect}
             animate={animate}
-            // On mobile the columns flow into a single visual list, so
-            // the LAST option overall (= last in RIGHT column when it
-            // exists, otherwise last in LEFT) is the one without a
-            // bottom divider. Left-column items are never last when the
-            // right column has anything.
-            isLast={right.length === 0 && i === left.length - 1}
+            isLast={false}
           />
         ))}
       </div>
       {(right.length > 0 || showCustomInput) && (
-        <div className={`flex flex-1 flex-col justify-center gap-10 sm:gap-10 ${lgGapClass}`}>
-          {right.map((opt, i) => (
+        <div className={`hidden flex-1 flex-col justify-center gap-10 sm:gap-10 ${lgGapClass} lg:flex`}>
+          {right.map((opt) => (
             <Option
               key={`${fieldKey}-${opt.value}`}
               opt={opt}
               selected={selectedValues.includes(opt.value)}
               onSelect={onSelect}
               animate={animate}
-              // When a free-text input follows, none of the right-column
-              // options is the visual last row on mobile; the input owns
-              // that role and we keep the per-option dividers between
-              // them.
-              isLast={!showCustomInput && i === right.length - 1}
+              isLast={false}
             />
           ))}
           {showCustomInput && (
@@ -794,7 +826,10 @@ function Option({
       type="button"
       onClick={() => onSelect(opt.value)}
       tabIndex={animate ? undefined : -1}
-      className={`group/option flex min-h-[48px] w-full cursor-pointer items-center gap-4 text-left sm:min-h-[92px] sm:gap-8 ${
+      // min-h-10 (= the 40px radio): Figma rows hug their content, so a
+      // 1-line label row is 39.6px (radio-governed) while 2-line labels
+      // and label+hint rows stay 48px (text-governed).
+      className={`group/option flex min-h-10 w-full cursor-pointer items-center gap-4 text-left sm:min-h-[92px] sm:gap-8 ${
         isLast ? "" : ""
       }`}
     >

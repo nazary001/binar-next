@@ -68,8 +68,13 @@ export function Footer() {
                 The shared text-h1 token sits at weight 700 — override to
                 600 here with `font-semibold` to stay on-spec. */}
             <div className="flex flex-1 flex-wrap items-end gap-x-6 gap-y-2">
-              <h2 className="text-h1 font-semibold text-white">Контакти</h2>
-              <p className="text-body-sm font-medium text-neutral-500 lg:text-button-md">
+              {/* Mobile Figma (3111:14906/14907): both texts are
+                  cap-trimmed, so the row is 29px tall and the small label
+                  bottom-aligns on the title's baseline. */}
+              <h2 className="text-h1 font-semibold text-white max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both]">
+                Контакти
+              </h2>
+              <p className="text-body-sm font-medium text-neutral-500 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:text-button-md">
                 Відділ продажу
               </p>
             </div>
@@ -108,7 +113,10 @@ export function Footer() {
               {CONTACTS.map((c, i) => (
                 <li
                   key={c.n}
-                  className={`flex flex-col gap-4 py-4 lg:flex-row lg:items-start lg:gap-6 ${i === 0 ? "border-y" : "border-b"}`}
+                  // max-lg:py-[15px]: the Figma mobile rows are exactly
+                  // 130/129/157 px INCLUDING the hairlines, so the border
+                  // pixels come out of the padding, not on top of it.
+                  className={`flex flex-col gap-4 py-4 max-lg:py-[15px] lg:flex-row lg:items-start lg:gap-6 ${i === 0 ? "border-y" : "border-b"}`}
                   style={{ borderColor: "#616162" }}
                 >
                   <span className="text-body-md text-neutral-400 whitespace-nowrap">
@@ -141,12 +149,15 @@ export function Footer() {
               {SECTION_LINKS.map((link) => (
                 <li
                   key={link.href}
-                  className="border-b"
+                  // Mobile: the row is 92px INCLUDING its bottom hairline
+                  // (Figma 3111:15000), so the divider is absorbed into
+                  // the row box instead of stacking under it.
+                  className="border-b max-lg:-mt-px max-lg:h-[92px]"
                   style={{ borderColor: "#616162" }}
                 >
                   <Link
                     href={link.href}
-                    className="group flex h-[92px] cursor-pointer items-end justify-between py-4 transition-colors duration-300 lg:px-4"
+                    className="group flex h-[92px] cursor-pointer items-end justify-between py-4 transition-colors duration-300 max-lg:h-full max-lg:pb-[15px] lg:px-4"
                   >
                     <span className="text-title-lg font-semibold text-white transition-colors duration-300 group-hover:text-brand">
                       {link.label}

@@ -4,41 +4,20 @@ import { useState } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 
-// Decorative icon row in the FAQ header (Figma 1384:12939). The four 96-px
+// Decorative icon row in the FAQ header (Figma 1384:12939). The four
 // squared tiles each contain a small dark glyph. They are NOT filter
 // controls — Figma renders them as static "Info icons" alongside the
 // heading, so we keep them purely visual with title-attribute tooltips
 // for screen-reader users.
 //
-// Each glyph has its OWN natural aspect ratio (the SVGs ship with
-// preserveAspectRatio="none", so they fill whatever box we put them in
-// exactly). The Figma design wraps every glyph in an absolute-positioned
-// box whose top/right/bottom/left percentages match the glyph's natural
-// shape, so the "stretched" SVG actually renders at the correct ratio.
-// The `inset` values below are pre-flattened from Figma's nested wrapper
-// (outer 9-px pad → inner glyph-specific %), expressed as percentages
-// of the OUTER tile so they scale uniformly across 56 / 72 / 96 sizes.
+// Each SVG is the Figma "Info icon" 34px-zone export (the glyph's own
+// padding is baked into the asset), so a uniform 17.31% inset (= 9/52)
+// reproduces the master exactly at every tile size (52 / 72 / 96).
 const HEADER_ICONS = [
-  {
-    src: "/figma-export/faq/icon-product.svg",
-    label: "Товари",
-    inset: { top: "20.82%", right: "22.62%", bottom: "20.82%", left: "22.62%" },
-  },
-  {
-    src: "/figma-export/faq/icon-time.svg",
-    label: "Терміни",
-    inset: { top: "23.73%", right: "28.02%", bottom: "23.73%", left: "28.02%" },
-  },
-  {
-    src: "/figma-export/faq/icon-work.svg",
-    label: "Робота",
-    inset: { top: "23.63%", right: "20.83%", bottom: "23.63%", left: "20.81%" },
-  },
-  {
-    src: "/figma-export/faq/icon-question.svg",
-    label: "Питання",
-    inset: { top: "18.82%", right: "31.83%", bottom: "18.82%", left: "31.81%" },
-  },
+  { src: "/figma-export/info-icons/faq-product.svg", label: "Товари" },
+  { src: "/figma-export/info-icons/faq-time.svg", label: "Терміни" },
+  { src: "/figma-export/info-icons/faq-work.svg", label: "Робота" },
+  { src: "/figma-export/info-icons/faq-question.svg", label: "Питання" },
 ];
 
 // An answer is one or more paragraphs. Single-paragraph answers stay a
@@ -145,14 +124,14 @@ function FaqRow({
       <div className="flex flex-1 flex-col gap-6 lg:gap-8">
         {/* Top hairline divider. On lg `lg:contents` flattens this wrapper
             so the divider becomes a direct flex child beside the numeral. */}
-        <div className="flex items-center lg:contents">
+        <div className="flex items-center max-lg:-mb-px lg:contents">
           <span
             aria-hidden
             className="block h-px flex-1 bg-stroke-default lg:w-full lg:flex-none"
           />
         </div>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <h3 className="text-[16px] font-bold leading-[24px] text-neutral-900 lg:w-[372px] lg:shrink-0 lg:text-title-lg lg:font-semibold">
+          <h3 className="text-[16px] font-bold leading-[24px] text-black lg:w-[372px] lg:shrink-0 lg:text-title-lg lg:font-semibold lg:text-neutral-900">
             {item.q}
           </h3>
           <div className="flex flex-1 flex-col gap-4">
@@ -243,10 +222,9 @@ export function Faq({
                 title={i.label}
                 className="relative size-[52px] cursor-default overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
               >
-                {/* Glyph wrapper — absolute box whose top/right/bottom/left
-                    percentages match this icon's natural aspect ratio (see
-                    HEADER_ICONS comment). */}
-                <span className="absolute block" style={i.inset}>
+                {/* Glyph — the 34px-zone asset at the Info icon's 9/52
+                    inset (see HEADER_ICONS comment). */}
+                <span className="absolute block inset-[17.31%]">
                   <img
                     src={i.src}
                     alt=""
@@ -321,7 +299,13 @@ export function Faq({
           // so hide the icon below lg; desktop keeps it. moreButtonMobileOnly
           // also hides the whole button on desktop for the hotels page.
           iconDesktopOnly
-          className={moreButtonMobileOnly ? "lg:hidden" : undefined}
+          // Figma mobile: 60px between the last question and the button;
+          // the section's gap-12 provides 48, mt-3 adds the missing 12.
+          // Full string literals (not a template) so Tailwind's scanner
+          // reliably emits both classes.
+          className={
+            moreButtonMobileOnly ? "max-lg:mt-3 lg:hidden" : "max-lg:mt-3"
+          }
           plus={!showMinus}
           minus={showMinus}
           onClick={canExpand ? () => setExpanded((v) => !v) : undefined}

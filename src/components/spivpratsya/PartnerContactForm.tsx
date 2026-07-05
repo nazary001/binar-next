@@ -36,8 +36,12 @@ const EMPTY: Fields = {
 // <textarea> renders pixel-identical to the <input> fields and can never
 // drift from them. text-body-sm = 16/24, so a rows=1 textarea using this
 // class is exactly the same height as a single-line input.
+// Figma fields are 40-px rows WITH the 1px underline inside (stroke
+// inside): pt-8 + 24px line + pb-7 + 1px border = 40. The label stays
+// 16/24 on the mobile master too, so the size is written out rather than
+// text-body-sm, which drops to 14/20 below lg.
 const FIELD_CLASS =
-  "block w-full border-b border-neutral-800 bg-transparent py-3 text-body-sm text-neutral-900 outline-none transition-colors placeholder:text-neutral-900 focus:border-brand focus:placeholder:text-neutral-400 sm:py-2";
+  "block w-full border-b border-neutral-800 bg-transparent pb-[7px] pt-2 text-[16px] leading-[24px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-900 focus:border-brand focus:placeholder:text-neutral-400";
 
 // Comment styling, derived from FIELD_CLASS so the two never drift. We
 // swap the colour-only `transition-colors` for a transition that ALSO
@@ -117,7 +121,14 @@ function CommentField({
     setScrollable(capped);
   }, [value]);
   return (
-    <label className="group/field block w-full cursor-text">
+    // Mobile: the Figma comment slot is an 80px-tall row, but a textarea
+    // always types from its top — an 80px textarea left the typed text
+    // (and the placeholder) floating 40px above the underline. Instead
+    // the LABEL holds the 80px (min-h) and bottom-anchors a normal-height
+    // textarea, so the placeholder and the typed text sit right on the
+    // line like every other field; past two lines the auto-grow expands
+    // the row downward exactly as before. lg keeps the plain block flow.
+    <label className="group/field block w-full cursor-text max-lg:flex max-lg:min-h-[80px] max-lg:flex-col max-lg:justify-end">
       <textarea
         ref={ref}
         rows={1}
@@ -171,9 +182,11 @@ export function PartnerContactForm() {
     // positioned against that 696 px. Neighbour sections (HowItWorks
     // above, FAQ below) already carry their own `py-[160px]`, so the
     // stack still gets breathing room without an extra `lg:py-[120px]`.
+    // Mobile (Figma 3166:7859): the quiz slab sits 96px below the
+    // timeline's last row and 60px above the FAQ's own pt-60.
     <section
       id="contact-form"
-      className="relative w-full overflow-hidden bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-0"
+      className="relative w-full overflow-hidden bg-white px-6 pb-[60px] pt-[96px] sm:px-10 sm:py-20 lg:py-0"
     >
       {/* === Side ghost-product decorations — lg only ===
           Anchored to the section's left/right edges with Figma's offsets
@@ -261,11 +274,12 @@ export function PartnerContactForm() {
             submit button row is pinned to the bottom (`lg:mt-auto`). That
             leaves the gap above the button as headroom for the comment
             field to grow downward into without moving anything else. */}
-        <div className="relative flex w-full flex-col rounded-[28px] bg-[#2d2d2f] sm:rounded-[32px] lg:h-[600px] lg:w-[948px] lg:rounded-[40px]">
-          {/* Title row — white text on dark. Matches Figma's
-              `px-[60px] py-[32px]` at lg; scales down on mobile. */}
-          <div className="flex items-center gap-4 px-5 py-5 sm:gap-6 sm:px-8 sm:py-7 lg:gap-8 lg:px-[60px] lg:py-8">
-            <h2 className="text-white text-[22px] font-semibold leading-[26px] tracking-[-0.44px] sm:text-[26px] sm:leading-[30px] sm:tracking-[-0.52px] lg:text-[32px] lg:leading-[28px] lg:tracking-[-0.64px]">
+        <div className="relative flex w-full flex-col rounded-[32px] bg-[#2d2d2f] lg:h-[600px] lg:w-[948px] lg:rounded-[40px]">
+          {/* Title row — white text on dark. Mobile master (3166:7864):
+              p-24 + 24/28 SemiBold -0.48; lg matches Figma's
+              `px-[60px] py-[32px]`. */}
+          <div className="flex items-center gap-4 p-6 sm:gap-6 sm:px-8 sm:py-7 lg:gap-8 lg:px-[60px] lg:py-8">
+            <h2 className="text-white text-[24px] font-semibold leading-[28px] tracking-[-0.48px] sm:text-[26px] sm:leading-[30px] sm:tracking-[-0.52px] lg:text-[32px] lg:leading-[28px] lg:tracking-[-0.64px]">
               {submitted ? "Дякуємо!" : "Цікавить співпраця?"}
             </h2>
           </div>
@@ -277,7 +291,10 @@ export function PartnerContactForm() {
               reads as a double stroke against the rounded inner radius,
               so we drop it below lg and only keep it once the design's
               full proportions kick in. */}
-          <div className="flex flex-1 flex-col rounded-[24px] bg-white sm:rounded-[28px] lg:rounded-[40px] lg:border lg:border-black">
+          {/* Figma applies the 1-px black hairline on BOTH masters (the
+              mobile instance 3166:7864 carries `border border-black` too),
+              so it stays at every breakpoint. */}
+          <div className="flex flex-1 flex-col rounded-[32px] border border-black bg-white lg:rounded-[40px]">
             {submitted ? (
               <div className="flex flex-col items-center gap-4 px-6 py-12 text-center sm:gap-6 sm:px-12 sm:py-16 lg:py-[80px]">
                 <p className="text-title-lg text-neutral-900">Запит надіслано</p>
@@ -287,56 +304,71 @@ export function PartnerContactForm() {
               </div>
             ) : (
               <>
-                <div className="flex flex-col gap-6 px-5 pb-2 pt-6 sm:gap-10 sm:px-10 sm:pt-10 lg:flex-row lg:items-start lg:gap-[100px] lg:px-[60px] lg:pb-4 lg:pt-[86px]">
-                  <div className="flex w-full flex-col gap-6 sm:gap-8 lg:flex-1">
+                {/* Field grid. DOM order = the Figma MOBILE order (3166:7864:
+                    Ім'я, Компанія, Роль, Телефон, Email, Коментар); at lg the
+                    2-column auto-placement re-pairs them row-wise into
+                    exactly the desktop master's columns (col1: name / role /
+                    email, col2: company / phone / comment).
+                    pt-[31px]/pb: Figma's white card is 658px with the stroke
+                    INSIDE (pt-32 + fields-504 + gap-48 + button-74); CSS
+                    border-box adds 2px of border, so 31+31 compensates. */}
+                <div className="grid grid-cols-1 gap-y-8 px-6 pb-0 pt-[31px] sm:px-10 sm:pt-10 lg:grid-cols-2 lg:items-start lg:gap-x-[100px] lg:px-[60px] lg:pb-4 lg:pt-[86px]">
+                  {/* Figma gives the FIRST field an extra 24px above
+                      (wrapper 3167:4782 pt-24) — mobile only. */}
+                  <div className="max-lg:pt-6">
                     <UnderlineInput
                       label="Ваше Ім’я"
                       value={f.name}
                       onChange={(v) => setField("name", v)}
                     />
-                    <UnderlineInput
-                      label="Роль"
-                      value={f.role}
-                      onChange={(v) => setField("role", v)}
-                    />
-                    <div className="flex flex-col gap-2">
-                      <UnderlineInput
-                        label="Email"
-                        type="email"
-                        value={f.email}
-                        onChange={(v) => setField("email", v)}
-                      />
-                      <p className="text-[12px] leading-[16px] text-neutral-500">
-                        * Контакти використовуються виключно для підготовки підбору та комерційної пропозиції.
-                      </p>
-                    </div>
                   </div>
-
-                  <div className="flex w-full flex-col gap-6 sm:gap-8 lg:flex-1">
+                  <UnderlineInput
+                    label="Компанія"
+                    value={f.company}
+                    onChange={(v) => setField("company", v)}
+                  />
+                  <UnderlineInput
+                    label="Роль"
+                    value={f.role}
+                    onChange={(v) => setField("role", v)}
+                  />
+                  <UnderlineInput
+                    label="Номер телефону"
+                    type="tel"
+                    value={f.phone}
+                    onChange={(v) => setField("phone", v)}
+                  />
+                  <div className="flex flex-col gap-2">
                     <UnderlineInput
-                      label="Компанія"
-                      value={f.company}
-                      onChange={(v) => setField("company", v)}
+                      label="Email"
+                      type="email"
+                      value={f.email}
+                      onChange={(v) => setField("email", v)}
                     />
-                    <UnderlineInput
-                      label="Номер телефону"
-                      type="tel"
-                      value={f.phone}
-                      onChange={(v) => setField("phone", v)}
-                    />
-                    <CommentField
-                      label="Коментар"
-                      value={f.comment}
-                      onChange={(v) => setField("comment", v)}
-                    />
+                    <p className="text-[12px] leading-[16px] text-neutral-500">
+                      * Контакти використовуються виключно для підготовки підбору та комерційної пропозиції.
+                    </p>
                   </div>
+                  <CommentField
+                    label="Коментар"
+                    value={f.comment}
+                    onChange={(v) => setField("comment", v)}
+                  />
                 </div>
 
-                <div className="flex items-center justify-end px-5 pb-6 pt-6 sm:px-10 sm:pb-10 lg:mt-auto lg:px-[60px] lg:pb-[40px] lg:pt-4">
+                <div className="flex items-center justify-end px-6 pb-[31px] pt-12 sm:px-10 sm:pb-10 lg:mt-auto lg:px-[60px] lg:pb-[40px] lg:pt-4">
+                  {/* Figma master (Quizz Card 3166:7864) renders the submit
+                      button in its DEFAULT black state, not a grayed disabled
+                      one. Drop the disabled prop so the CTA always reads as
+                      active (matching the sibling StarRequestStrip); onClick
+                      still gates submission on canSubmit, so an empty form
+                      simply does nothing. */}
+                  {/* size="responsive": the mobile master renders the
+                      submit as Button/Small (42px pill + 42px disc). */}
                   <Button
                     type="button"
+                    size="responsive"
                     onClick={() => canSubmit && setSubmitted(true)}
-                    disabled={!canSubmit}
                     arrow
                   >
                     Домовитись про зустріч

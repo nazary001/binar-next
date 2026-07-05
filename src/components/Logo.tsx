@@ -32,7 +32,7 @@ export function Logo({ className }: LogoProps) {
       href="/"
       aria-label="Binar — головна"
       onClick={handleClick}
-      className={`group relative block h-[40px] w-[120px] shrink-0 cursor-pointer ${className ?? ""}`}
+      className={`group relative block h-[33.448px] w-[100px] shrink-0 cursor-pointer lg:h-[40px] lg:w-[120px] ${className ?? ""}`}
     >
       <div
         className="absolute"

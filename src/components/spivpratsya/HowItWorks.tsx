@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 
 // Figma 1870:6180 - "Як відбувається співпраця?" (1440x729). The Figma
@@ -62,6 +62,75 @@ function ActiveHex() {
     >
       <path d="M10.3923 0L20.7846 6V18L10.3923 24L0 18V6L10.3923 0Z" />
     </svg>
+  );
+}
+
+// Mobile step label that always stays on ONE line. The big active state
+// (40px) does not fit every step name at narrow widths ("05. Виробництво"
+// needs ~309px against the ~286px column on a 390 screen — the Figma
+// master only ever shows the short "Запит" active), and OS-level enlarged
+// text makes even short names overflow, wrapping a stray letter or the
+// dot to a new line. Instead of letting it wrap, the label measures
+// itself and shrinks its font-size just enough to fit; line-height stays
+// FIXED (46/28) so the row rhythm, the dot rail and the 48px gaps never
+// move. Re-fits on resize (rotation), on font load, and on every
+// active-step change; steps that already fit render at the exact Figma
+// sizes untouched.
+function FitStepLabel({
+  num,
+  name,
+  active,
+}: {
+  num: string;
+  name: string;
+  active: boolean;
+}) {
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const text = textRef.current;
+    if (!wrap || !text) return;
+    const fit = () => {
+      text.style.fontSize = ""; // measure at the class-defined size first
+      const avail = wrap.clientWidth;
+      const need = text.scrollWidth;
+      if (avail > 0 && need > avail) {
+        const base = parseFloat(getComputedStyle(text).fontSize);
+        text.style.fontSize = `${Math.floor(base * (avail / need) * 100) / 100}px`;
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(wrap);
+    document.fonts?.ready.then(fit).catch(() => {});
+    return () => ro.disconnect();
+  }, [num, name, active]);
+
+  return (
+    // flex-1 + min-w-0 pins the wrapper to the space the row actually
+    // has (dot + 32px gap already taken), independent of its content —
+    // that width is what the label is fitted against.
+    <span ref={wrapRef} className="min-w-0 flex-1">
+      {active ? (
+        <span
+          ref={textRef}
+          className="flex items-baseline gap-2 whitespace-nowrap text-[40px] leading-[46px] tracking-[-0.8px] text-neutral-900 animate-[reveal-up_400ms_cubic-bezier(0.22,1,0.36,1)_both]"
+        >
+          <span className="font-semibold tabular-nums">{num}</span>
+          <span className="font-light">{name}</span>
+        </span>
+      ) : (
+        <span
+          ref={textRef}
+          className="flex items-baseline gap-1 whitespace-nowrap text-[22px] leading-[28px] tracking-[0.22px] text-neutral-500"
+        >
+          <span className="tabular-nums">{num}</span>
+          <span>{name}</span>
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -132,13 +201,21 @@ export function HowItWorks() {
           "Як відбувається співпраця?" + "01. Запит" run into a
           single visual block on phones because the title carried
           no bottom padding). */}
-      <Reveal
-        as="h2"
-        className="px-5 pb-8 pt-12 text-neutral-900 sm:px-10 sm:pb-10 sm:pt-16 lg:[padding-left:var(--lg-pad-x)] lg:[padding-right:var(--lg-pad-x)] lg:pb-[160px] lg:pt-[160px]"
-      >
-        <span className="text-h2-light">Як відбувається </span>
-        <span className="text-h2">співпраця?</span>
-      </Reveal>
+      <div className="px-6 pb-12 pt-[60px] sm:px-10 sm:pb-10 sm:pt-16 lg:[padding-left:var(--lg-pad-x)] lg:[padding-right:var(--lg-pad-x)] lg:pb-[160px] lg:pt-[160px]">
+        <Reveal as="h2" className="text-neutral-900">
+          <span className="text-h2-light">Як відбувається </span>
+          <span className="text-h2">співпраця?</span>
+        </Reveal>
+        {/* Body — Figma MOBILE master (3166:7858): 14/20 subtle text with
+            an explicit paragraph break after "пропозицію." (5 lines
+            total). The desktop master has no body under this heading, so
+            it's gated lg:hidden. */}
+        <p className="mt-6 max-w-[574px] text-body-sm text-neutral-500 lg:hidden">
+          {`Заповніть коротку форму — і ми підготуємо для вас індивідуальний підбір позицій та комерційну пропозицію.`}
+          <br aria-hidden="true" />
+          {`Без зайвих дзвінків і уточнень — тільки те, що вам реально потрібно.`}
+        </p>
+      </div>
 
       {/* === Desktop animation (lg+) ===
           200-px tall band with the active status label, the six
@@ -263,28 +340,22 @@ export function HowItWorks() {
           works better than horizontal scroll because all 6 steps stay
           visible without needing the user to swipe right; the hex
           column on the left also forms a clear visual rail. */}
-      <div className="flex flex-col gap-8 px-5 pb-12 sm:gap-10 sm:px-10 sm:pb-20 lg:hidden">
-        {/* Status card — softer mobile presence than the desktop's
-            62-px hero numeral. Renders the active step as a
-            "Зараз: 0N. Name" pill so the section reads like a tracker
-            without occupying half the screen height. */}
-        <div className="flex items-center gap-3 rounded-2xl border border-stroke-subtle bg-bg-subtle px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
-          <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-brand px-2.5 py-1 text-[12px] font-semibold leading-none tracking-[0.04em] text-white tabular-nums">
-            0{active + 1}/0{STEPS.length}
-          </span>
-          <span
-            key={`mob-name-${active}`}
-            className="animate-[reveal-up_400ms_cubic-bezier(0.22,1,0.36,1)_both] truncate text-title-lg font-semibold text-neutral-900"
-          >
-            {STEPS[active]}
-          </span>
-        </div>
-        <ul className="relative flex flex-col">
-          {/* Vertical rail — 1-px line down the centre of the hex
-              column, visually connecting all six step markers. */}
+      {/* pb-0: the Figma timeline block ends flush at its last row — the
+          96-px gap to the quiz slab is the form section's own pt. */}
+      <div className="px-6 pb-0 sm:px-10 sm:pb-20 lg:hidden">
+        {/* Figma MOBILE master (3167:4829): a vertical dot-rail. The
+            active step is rendered large ("0N." SemiBold 40 + name Light
+            40) with a brand-orange dot; the rest are small 22-px grey
+            rows with a dark dot. The active step still auto-cycles (the
+            shared `active` state), so the big step walks down the list. */}
+        <ul className="relative flex flex-col gap-12">
+          {/* Vertical rail down the centre of the 24-px dot column. */}
+          {/* Rail spans dot-centre to dot-centre (Figma Line 1 at x12.61,
+              y23..412): active row is 46 tall (centre 23), the last small
+              row is 28 tall (centre 14). */}
           <span
             aria-hidden
-            className="pointer-events-none absolute bottom-2 left-[15px] top-2 block w-px bg-stroke-default sm:left-[19px]"
+            className="pointer-events-none absolute bottom-[14px] left-[12px] top-[23px] block w-px bg-stroke-default"
           />
           {STEPS.map((s, i) => {
             const isActive = i === active;
@@ -294,19 +365,16 @@ export function HowItWorks() {
                   type="button"
                   onClick={() => goTo(i)}
                   aria-pressed={isActive}
-                  className="flex w-full cursor-pointer items-center gap-4 py-3 text-left transition-colors active:scale-[0.99] sm:gap-5"
+                  className="flex w-full cursor-pointer items-center gap-8 text-left"
                 >
-                  <span className="relative z-10 flex size-[32px] shrink-0 items-center justify-center rounded-full bg-white sm:size-[40px]">
-                    {isActive ? <ActiveHex /> : <SmallHex />}
+                  <span className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-white">
+                    <span
+                      className={`block size-2 rounded-full transition-colors ${
+                        isActive ? "bg-brand" : "bg-neutral-900"
+                      }`}
+                    />
                   </span>
-                  <span
-                    className={`text-body-md transition-colors sm:text-body-lg ${
-                      isActive ? "font-semibold text-neutral-900" : "text-neutral-500"
-                    }`}
-                  >
-                    <span className="tabular-nums">0{i + 1}. </span>
-                    {s}
-                  </span>
+                  <FitStepLabel num={`0${i + 1}.`} name={s} active={isActive} />
                 </button>
               </li>
             );

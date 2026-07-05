@@ -100,22 +100,25 @@ function ArrowUpRight({ className }: { className?: string }) {
 // and slides the bottom bar up + rotates −45°, meeting at the centre
 // to form an X. The eased curve keeps the morph fluid on either
 // direction (open ↔ close) so it never feels like an abrupt swap.
+// Bar geometry mirrors the Figma "menu" icon (3084:3674): three 17.85-px
+// lines (x 3.07 → 20.93) of 1.5-px stroke with round caps, centred on
+// y = 7.79 / 12 / 16.21 inside the 24-px box.
 function Burger({ open }: { open: boolean }) {
   return (
     <span aria-hidden className="relative block size-6">
       <span
-        className={`absolute inset-x-0 top-[6px] block h-[1.75px] rounded-full bg-current transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          open ? "translate-y-[5px] rotate-45" : ""
+        className={`absolute inset-x-[2.3px] top-[7.04px] block h-[1.5px] rounded-full bg-current transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          open ? "translate-y-[4.21px] rotate-45" : ""
         }`}
       />
       <span
-        className={`absolute inset-x-0 top-[11px] block h-[1.75px] rounded-full bg-current transition-opacity duration-200 ${
+        className={`absolute inset-x-[2.3px] top-[11.25px] block h-[1.5px] rounded-full bg-current transition-opacity duration-200 ${
           open ? "opacity-0" : "opacity-100"
         }`}
       />
       <span
-        className={`absolute inset-x-0 top-[16px] block h-[1.75px] rounded-full bg-current transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          open ? "-translate-y-[5px] -rotate-45" : ""
+        className={`absolute inset-x-[2.3px] top-[15.46px] block h-[1.5px] rounded-full bg-current transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          open ? "-translate-y-[4.21px] -rotate-45" : ""
         }`}
       />
     </span>
@@ -165,13 +168,22 @@ export function Header() {
   // Publish the header's fixed height as a CSS variable on <html> so any
   // sticky element below (e.g. the Cases card stack) can pin EXACTLY at
   // the bottom edge of the header rather than slipping underneath it.
-  // The header is locked at a single height of 84 px (logo 40 + py-22 × 2)
-  // to match Figma exactly — the previous scroll-driven shrink/shadow
-  // wasn't in the design and caused layout jitter near the top of the
-  // page (sticky elements re-pinning every time the header height
-  // toggled). Set once on mount.
+  // The header is locked at a single height per breakpoint — 84 px on
+  // desktop (logo 40 + py-22 × 2) and 66 px on mobile (Figma 3082:3661)
+  // — the previous scroll-driven shrink/shadow wasn't in the design and
+  // caused layout jitter near the top of the page (sticky elements
+  // re-pinning every time the header height toggled). Updated when the
+  // viewport crosses the lg breakpoint.
   useEffect(() => {
-    document.documentElement.style.setProperty("--site-header-h", "84px");
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const apply = () =>
+      document.documentElement.style.setProperty(
+        "--site-header-h",
+        mq.matches ? "84px" : "66px",
+      );
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, []);
 
   // Close mobile nav on Escape; lock body scroll while open. We also
@@ -235,7 +247,10 @@ export function Header() {
     // `fixed inset-x-0 bottom-0` anchored to the actual viewport.
     <>
     <header className="sticky top-0 z-50 bg-white">
-      <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-[22px] sm:px-10 lg:px-[130px]">
+      {/* Mobile (Figma 3082:3661): the header bar is exactly 66 px tall
+          with the 100x33.45 logo and the 24-px burger vertically centred.
+          Desktop keeps the original 84-px bar (logo 40 + py-22 x 2). */}
+      <div className="mx-auto flex h-[66px] w-full max-w-[1440px] items-center justify-between px-6 sm:px-10 lg:h-auto lg:px-[130px] lg:py-[22px]">
         <Logo />
 
         <nav
@@ -347,7 +362,7 @@ export function Header() {
           aria-expanded={mobileOpen}
           aria-controls="mobile-nav"
           aria-label={mobileOpen ? "Закрити меню" : "Відкрити меню"}
-          className="-mr-2 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-90 lg:hidden"
+          className="-mr-3 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-90 lg:hidden"
         >
           <Burger open={mobileOpen} />
         </button>
@@ -375,19 +390,21 @@ export function Header() {
         style={{
           top: "var(--site-header-h, 84px)",
         }}
-        className={`fixed inset-x-0 bottom-0 z-40 overflow-y-auto overscroll-contain bg-white transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
+        className={`fixed inset-x-0 bottom-0 z-[45] overflow-y-auto overscroll-contain bg-white transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
           mobileOpen
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-3 opacity-0"
         }`}
       >
         {/* Figma 3117:13841 — px-24 py-60, gap-48 between the label
-            group / divider / link group / divider / full-width button,
-            vertically centred in the panel. Each row is a Manrope Medium
+            group / divider / link group / divider / full-width button.
+            The rendered master TOP-ALIGNS the stack right under the
+            header (label at 60px below the bar), leaving free space at
+            the bottom on tall screens. Each row is a Manrope Medium
             14/20 link (#4a4a4c) with a trailing arrow-up-right glyph. */}
         <nav
           aria-label="Мобільна навігація"
-          className="mx-auto flex min-h-full w-full max-w-[480px] flex-col justify-center gap-12 px-6 py-[60px] sm:px-10"
+          className="mx-auto flex min-h-full w-full max-w-[480px] flex-col gap-12 px-6 py-[60px] sm:px-10"
         >
           <div className="flex flex-col gap-8">
             <p
@@ -423,7 +440,7 @@ export function Header() {
 
           <div
             style={{ transitionDelay: mobileOpen ? "280ms" : "0ms" }}
-            className={`h-px w-full bg-stroke-subtle transition-opacity duration-300 ${
+            className={`h-px w-full -mb-px bg-stroke-subtle transition-opacity duration-300 ${
               mobileOpen ? "opacity-100" : "opacity-0"
             }`}
           />
@@ -454,7 +471,7 @@ export function Header() {
 
           <div
             style={{ transitionDelay: mobileOpen ? "520ms" : "0ms" }}
-            className={`h-px w-full bg-stroke-subtle transition-opacity duration-300 ${
+            className={`h-px w-full -mb-px bg-stroke-subtle transition-opacity duration-300 ${
               mobileOpen ? "opacity-100" : "opacity-0"
             }`}
           />

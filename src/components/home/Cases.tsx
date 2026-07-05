@@ -33,9 +33,9 @@ const CASES: CaseEntry[] = [
     tags: ["готельна косметика", "косметичні набори", "тапочки"],
     image: "/figma-export/cases/img-rixos.png",
     imageStyle: { left: "-12.06%", top: "-0.82%", width: "158.25%", height: "205.07%" },
-    // Figma 3094:5131 inside the 340x206 box: w 402.805 / h 603.943 at
+    // Figma 3094:5131 inside the 342x206 box: w 402.805 / h 603.943 at
     // left -25.99 / top -50.69 -> percentages of the container.
-    mobileImageStyle: { left: "-7.64%", top: "-24.61%", width: "118.47%", height: "293.18%" },
+    mobileImageStyle: { left: "-7.6%", top: "-24.61%", width: "117.78%", height: "293.18%" },
     stats: [
       { value: "4", label: "роки співпраці" },
       { value: "200", label: "оснащених номерів" },
@@ -52,8 +52,8 @@ const CASES: CaseEntry[] = [
     imageStyle: { left: "-12.06%", top: "-34.65%", width: "113.17%", height: "146.64%" },
     // Figma 3094:5177: outer frame w402.805/h603.943 at left-25.99/top-50.69
     // with an inner img shifted up 33.14% (~200px), so the net crop is the
-    // same width/left but a deeper top offset. Percentages of the 340x206 box.
-    mobileImageStyle: { left: "-7.64%", top: "-121.77%", width: "118.47%", height: "293.29%" },
+    // same width/left but a deeper top offset. Percentages of the 342x206 box.
+    mobileImageStyle: { left: "-7.6%", top: "-121.77%", width: "117.78%", height: "293.29%" },
     stats: [
       { value: "3", label: "роки співпраці" },
       { value: "1200", label: "оснащених номерів" },
@@ -166,7 +166,7 @@ export function CaseCard({
               • stats start at y=595. Gap from description (end y=442) = 153.
             Below lg the original gap-5/sm:gap-6 + sm:mt-2 / mt-4 sm:mt-6
             spacing is unchanged. */}
-        <div className="lg-pad-x flex flex-col gap-4 px-6 py-10 sm:gap-4 sm:px-6 sm:py-10 lg:gap-0 lg:pt-[91px]">
+        <div className="lg-pad-x flex flex-col gap-4 px-6 pt-10 pb-[38px] sm:gap-4 sm:px-6 sm:py-10 lg:gap-0 lg:pb-0 lg:pt-[91px]">
           {/* Figma mobile (3094:5129) title — Manrope Bold 40/42, -0.8px,
               text/default. The `text-h1` token resolves to exactly that
               below lg; desktop keeps the 62px display size via lg: below. */}
@@ -184,7 +184,7 @@ export function CaseCard({
                 // keeps its original `px-4 py-3` + neutral-800 border +
                 // 16/16 text (matching the ZonesGrid hotels chips) via the
                 // lg: overrides, so the desktop sticky-stack is unchanged.
-                className="flex cursor-default items-center rounded-[60px] border border-stroke-default px-4 py-2 lg:border-neutral-800 lg:py-3"
+                className="flex cursor-default items-center rounded-[60px] border border-stroke-default px-4 py-[7px] lg:border-neutral-800 lg:py-3"
               >
                 <span className="whitespace-nowrap text-body-sm font-medium text-neutral-800 lg:font-normal lg:text-[16px] lg:leading-[16px]">
                   {tag}
@@ -236,7 +236,7 @@ export function CaseCard({
             where the desktop sticky-stack layout renders the logo strip
             and stats via the absolutely-positioned elements above. */}
         <div className="lg:hidden">
-          <span aria-hidden className="block h-px w-full bg-stroke-default" />
+          <span aria-hidden className="block h-px w-full -mb-px bg-stroke-default" />
           <div className="flex items-stretch">
             <div className="flex w-[140px] shrink-0 items-center justify-center pl-6 pr-4 py-[60px]">
               {/* Figma mobile logos are ~24px tall (3094:5161 / 3137:16191);
@@ -277,7 +277,7 @@ export function CaseCard({
       </div>
 
       <div
-        className="case-card-photo group relative order-1 h-[206px] w-[340px] shrink-0 overflow-clip rounded-[32px] lg:order-2 lg:h-[729px] lg:w-[630px] lg:rounded-l-[48px] lg:rounded-r-none"
+        className="case-card-photo group relative order-1 h-[206px] w-full shrink-0 overflow-clip rounded-[32px] lg:order-2 lg:h-[729px] lg:w-[630px] lg:rounded-l-[48px] lg:rounded-r-none"
         style={{ background: "#56595b" }}
       >
         {/* Photo wrapper — `.cases-photo-parallax` is a lg-only class that
@@ -481,7 +481,7 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
     <section
       id="cases"
       ref={sectionRef}
-      className="flex flex-col items-center gap-6 px-6 py-12 sm:gap-8 sm:py-14 lg:block lg:items-stretch lg:gap-0 lg:px-0 lg:py-0"
+      className="flex flex-col items-center gap-6 px-6 pt-12 pb-[60px] sm:gap-8 sm:py-14 lg:block lg:items-stretch lg:gap-0 lg:px-0 lg:py-0"
     >
       {entries.map((c, i) => (
         <CaseCard

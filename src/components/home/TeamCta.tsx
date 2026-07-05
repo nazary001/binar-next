@@ -276,6 +276,8 @@ export function TeamCta() {
               overrides only weight (300) while keeping 44/48 metrics. */}
           <h2 className="text-h2 text-white">
             Підберемо рішення
+            {/* Figma mobile (3109:14093) breaks after «рішення» */}
+            <br aria-hidden className="lg:hidden" />
             <span className="text-h2-light"> для вашого бізнесу</span>
           </h2>
           <Button href="/#contact-form" variant="outlined" size="responsive" arrow>
@@ -297,7 +299,9 @@ export function TeamCta() {
           Figma 1384:12839: pt-160 pb-120 px-130, two columns gap-32 each
           1fr. Below lg the paragraph drops under the heading.
           Mobile (Figma 3109:14096): px-24 py-60 gap-24, single column. */}
-      <div className="lg-pad-x flex flex-col items-start gap-6 px-6 py-[60px] sm:gap-8 sm:px-10 sm:py-[60px] lg:flex-row lg:gap-8 lg:pb-[120px] lg:pt-[160px]">
+      {/* Mobile (Figma 3109:14096): the heading sits 120px below the white
+          card's top edge (60px frame offset + 60px inner padding), pb-60. */}
+      <div className="lg-pad-x flex flex-col items-start gap-6 px-6 pb-[60px] pt-[120px] sm:gap-8 sm:px-10 lg:flex-row lg:gap-8 lg:pb-[120px] lg:pt-[160px]">
         <h3 className="flex-1 text-h2 text-neutral-900">
           Команда,{" "}
           <span className="text-h2-light">яка супроводжує ваше замовлення</span>
@@ -346,13 +350,21 @@ export function TeamCta() {
         {/* Director block */}
         <div className="flex flex-col items-start gap-8 px-6 py-12 sm:px-10">
           <div className="relative aspect-[342/393.534] w-full overflow-clip rounded-[20px]">
+            {/* Exact Figma crop (3109:14102): the photo box is 103.27% x
+                120.61% of the frame, centred horizontally and shifted
+                28.75px down (-11.8px top at 390). */}
             <img
               src="/figma-export/team/director.png"
               alt="Михайло Цигелик - директор Binar 2000"
               loading="lazy"
               decoding="async"
-              className="absolute inset-0 size-full object-cover"
-              style={{ objectPosition: "50% 35%" }}
+              className="absolute max-w-none object-cover"
+              style={{
+                width: "103.268%",
+                height: "120.611%",
+                left: "-1.634%",
+                top: "-2.999%",
+              }}
             />
           </div>
           <div className="flex flex-col gap-2">

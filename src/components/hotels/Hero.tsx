@@ -3,38 +3,26 @@ import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
 // Figma node 1384:11587 (Hotels Hero, 1440 x 678).
-// Each icon tile in Figma is a 64-px placeholder containing a 52-px
-// bordered "Info icon", which in turn nests a 34-px frame (9-px inset)
-// holding the SVG at a per-icon inset percentage. The `iconClass`
-// below encodes the effective SVG size as a percentage of the 52-px
-// inner tile — derived from Figma's nested-inset math so the rendered
-// glyph hits the same visual size as the master.
+// Each 52-px bordered "Info icon" tile nests a 34-px zone (9-px inset =
+// 17.31%) whose SVG export carries the glyph's own padding baked in, so
+// every icon renders at exactly the master's size with one uniform
+// inset — no per-icon percentage math.
 const FEATURES = [
   {
     label: "Набір позицій",
-    icon: "/figma-export/hotels/hero-icon-set.svg",
-    // Figma 1256:6127: inset 6.25% inside the 34-px frame → 29.75 / 52 = 57%.
-    iconClass: "size-[57%]",
+    icon: "/figma-export/info-icons/hh-positions.svg",
   },
   {
     label: "Зрозумілий прорахунок",
-    icon: "/figma-export/hotels/hero-icon-calc.svg",
-    // Figma 1104:6088: inset 2.16% top/bottom, 16.59% left/right of 34-px
-    // → h 32.53 / 52 = 63%, w 22.72 / 52 = 44%.
-    iconClass: "h-[63%] w-[44%]",
+    icon: "/figma-export/info-icons/hh-calculator.svg",
   },
   {
     label: "Стабільні поставки",
-    icon: "/figma-export/hotels/hero-icon-product.svg",
-    // Figma 604:5322: inset 14.09% top/bottom, 16.29% left/right of 34-px
-    // → h 24.42 / 52 = 47%, w 22.92 / 52 = 44%.
-    iconClass: "h-[47%] w-[44%]",
+    icon: "/figma-export/info-icons/hh-product.svg",
   },
   {
     label: "Кастомізацію рішень",
-    icon: "/figma-export/hotels/hero-icon-customize.svg",
-    // Figma 1105:6245: inset 7.72% inside the 34-px frame → 28.75 / 52 = 55%.
-    iconClass: "size-[55%]",
+    icon: "/figma-export/info-icons/hh-customize.svg",
   },
 ];
 
@@ -68,7 +56,7 @@ export function HotelsHero() {
             top/right/bottom + rounded RIGHT corners, sitting BELOW the photo
             band (order-2). px-24 py-48. Desktop (lg) restores the original
             837-wide hero card unchanged. */}
-        <div className="order-2 flex flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-12 sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
+        <div className="order-2 flex flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-[47px] sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
           {/* Top block — Figma 1384:11589: w 575, gap-[56] between
               the heading column and the CTA button. */}
           <div className="flex w-full flex-col gap-8 sm:gap-12 lg:w-[575px] lg:gap-14">
@@ -122,7 +110,7 @@ export function HotelsHero() {
                   ~4 px past the card's right border, kissing the
                   bg-#726053 photo column. */}
               <div
-                className="h-px w-full lg:w-[711px] lg:max-w-none"
+                className="h-px w-full max-lg:-mb-px lg:w-[711px] lg:max-w-none"
                 style={{ background: "var(--color-stroke-subtle)" }}
               />
             </div>
@@ -144,14 +132,14 @@ export function HotelsHero() {
                       to 52 too (no extra cell padding) and grows to 64
                       only at sm+/desktop. */}
                   <span className="relative flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-[8.267px] sm:size-16">
-                    <span className="flex size-[52px] items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[52px]">
+                    <span className="relative flex size-[52px] items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[52px]">
                       <img
                         src={f.icon}
                         alt=""
                         aria-hidden
                         loading="lazy"
                         decoding="async"
-                        className={f.iconClass}
+                        className="absolute inset-[17.31%] size-[65.38%] max-w-none"
                       />
                     </span>
                   </span>
@@ -172,9 +160,46 @@ export function HotelsHero() {
             so the image positioned right-[33px] inside stays anchored
             to the design frame, exactly as Figma renders the master. */}
         <div
-          className="relative order-first h-[320px] overflow-clip rounded-tl-[32px] rounded-bl-[32px] sm:rounded-tl-[40px] sm:rounded-bl-[40px] lg:order-none lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
-          style={{ background: "#726053" }}
+          className="relative order-first h-[320px] overflow-clip rounded-tl-[32px] rounded-bl-[32px] bg-[#c34924] sm:rounded-tl-[40px] sm:rounded-bl-[40px] lg:order-none lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px] lg:bg-[#726053]"
         >
+          {/* === Mobile band (Figma 3117:14361) === Same master pattern
+              as the home hero: #c34924 fill + 20% texture, then the
+              amenities photo in the exact Figma box (left -2.53 / right
+              -14.39 / centred at 50% - 22.48px, aspect 406.92/448.785)
+              with the inner crop at 96.82% x 88.28%, top 15.21%. */}
+          <div className="absolute inset-0 lg:hidden">
+            <img
+              src="/figma-export/hero/bg-texture.png"
+              alt=""
+              aria-hidden
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 size-full object-cover opacity-20"
+            />
+            <div
+              className="absolute overflow-hidden"
+              style={{
+                left: "-2.53px",
+                right: "-14.39px",
+                top: "calc(50% - 22.48px)",
+                transform: "translateY(-50%)",
+                aspectRatio: "406.92 / 448.785",
+              }}
+            >
+              <div
+                className="absolute"
+                style={{
+                  left: "-0.08%",
+                  top: "15.21%",
+                  width: "96.82%",
+                  height: "88.28%",
+                  backgroundImage:
+                    "url(/figma-export/hotels/hero-hotel.png)",
+                  backgroundSize: "100% 100%",
+                }}
+              />
+            </div>
+          </div>
           {/* Figma 1384:11618 — `hotel03 1` is a 718 x 721 wrapper at
               (-30, -21) relative to the 721 x 678 column. We recreate
               the wrapper with right-[33px] (= 721 - 30 - 718) and
@@ -182,9 +207,9 @@ export function HotelsHero() {
               The `<img>` inside scales to fill the wrapper via
               size-full + object-cover, so the 1620 x 1629 master
               renders at the same effective composition as Figma's
-              master file. Below lg the wrapper full-bleeds the
-              column with inset-0. */}
-          <div className="absolute inset-0 lg:inset-auto lg:right-[33px] lg:top-[-21px] lg:h-[721px] lg:w-[718px]">
+              master file. Desktop-only; mobile uses the master band
+              composition above. */}
+          <div className="absolute hidden lg:right-[33px] lg:top-[-21px] lg:block lg:h-[721px] lg:w-[718px]">
             <img
               src="/figma-export/hotels/hero-hotel.png"
               alt="Готельний номер з продукцією Binar"

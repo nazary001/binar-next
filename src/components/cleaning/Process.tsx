@@ -16,12 +16,10 @@ function SparkleIcon() {
   );
 }
 
-// In-flow connector between discs. `justify-between` drops each one at the
-// geometric midpoint of its disc-to-disc gap — exactly on the circles'
-// connecting axis, like Figma — and it scales with the discs (20/24/32 px).
-//
-// `hideOnMobile`: the middle connector falls at a row edge in the mobile
-// 2-up wrap (the 2 -> 3 step is the line break), so it is dropped there.
+// In-flow 32-px sparkle connector between discs. In the mobile vertical
+// column it sits in the gap between stacked discs; on lg it sits in the
+// gap of the horizontal row (justify-between), on the circles' connecting
+// axis like Figma.
 //
 // `spacerOnLg`: the LAST connector. On lg, disc 4 carries a 40-px outer
 // ring (a box-shadow) and the sparkle must sit ON that ring's stroke. A
@@ -31,20 +29,15 @@ function SparkleIcon() {
 // becomes an invisible spacer (it still reserves the 32-px gap) and the
 // VISIBLE last sparkle is rendered as an absolute child of disc 4 instead
 // (see RingSparkle) — same reference as the ring, so they round together
-// at every zoom. Below lg there is no ring, so it shows normally.
-function PlusConnector({
-  hideOnMobile = false,
-  spacerOnLg = false,
-}: {
-  hideOnMobile?: boolean;
-  spacerOnLg?: boolean;
-}) {
+// at every zoom. Below lg it shows normally (the mobile ring is centred
+// under the disc so the in-flow sparkle lands on its top arc).
+function PlusConnector({ spacerOnLg = false }: { spacerOnLg?: boolean }) {
   return (
     <span
       aria-hidden
-      className={`relative z-10 flex size-5 shrink-0 items-center justify-center text-brand md:size-6 lg:size-8 ${
-        hideOnMobile ? "max-md:hidden" : ""
-      } ${spacerOnLg ? "lg:invisible" : ""}`}
+      className={`relative z-10 flex size-8 shrink-0 items-center justify-center text-brand ${
+        spacerOnLg ? "lg:invisible" : ""
+      }`}
     >
       <SparkleIcon />
     </span>
@@ -74,80 +67,74 @@ export function CleaningProcess() {
   // bordered-card stack ends at Benefits, so this section sits flush
   // against the page background without the hairline outline.
   return (
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[160px]">
-      <div className="flex flex-col gap-10 sm:gap-12 lg:gap-[168px]">
+    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
+      <div className="flex flex-col gap-12 lg:gap-[168px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:gap-8">
           <h2 className="flex-1 max-w-[574px] text-neutral-900">
             <span className="text-h2">Гігієна як система,</span>
             <span className="text-h2-light"> а не хаотичні закупівлі</span>
           </h2>
+          {/* The Figma master (3165:8597) renders this as one 6-line
+              block; the browser's Manrope metrics wrap it into 7, so the
+              designer's exact line breaks are forced below lg. At lg the
+              brs vanish and the copy flows naturally in the 574 column. */}
           <p className="flex-1 max-w-[574px] text-body-sm text-neutral-500">
-            {`Ми допомагаємо вибудувати логіку забезпечення гігієни на об'єкті:
-            від підбору засобів і інвентарю до регулярних поставок та
-            повторюваного стандарту. `}
-            <br />
-            {`Це зменшує витрати, прибирає «людський фактор» і дає
-            стабільний результат — у номерах, кухні, санвузлах і зонах
-            загального користування.`}
+            {"Ми допомагаємо вибудувати логіку забезпечення "}
+            <br aria-hidden className="lg:hidden" />
+            {"гігієни на об'єкті: від підбору засобів і інвентарю до "}
+            <br aria-hidden className="lg:hidden" />
+            {/* Browser Manrope runs ~6px wider than Figma on this line;
+                an imperceptible -0.15px tracking keeps it to one line. */}
+            <span className="max-lg:tracking-[-0.15px]">
+              {"регулярних поставок та повторюваного стандарту. "}
+            </span>
+            <br aria-hidden className="lg:hidden" />
+            {"Це зменшує витрати, прибирає “людський фактор” "}
+            <br aria-hidden className="lg:hidden" />
+            {"і дає стабільний результат — у номерах, кухні, "}
+            <br aria-hidden className="lg:hidden" />
+            {"санвузлах і зонах загального користування."}
           </p>
         </div>
 
-        {/* Figma 1327:4614 (Frame 1010106805) — four 235 x 235 dark discs
-            (#343435 = Colour/Neutral/800) connected by 32-px orange
-            sparkles. The LAST disc has a 317 x 317 outer ring (Stroke/
-            Default #8e8e8f, ~40 px offset all around) hinting that
-            "Стабільний результат" is the endpoint of the flow. Discs are
-            perfect circles, white Title/Small label centred (Bold 16/22
-            +1% letter-spacing). Mobile collapses to a 2-col grid because
-            four full-size discs in a row exceed the viewport. */}
-        {/* The sparkles are in-flow on EVERY breakpoint so they always
-            land on the circles' connecting axis, like Figma:
-              • < md  : a [1fr auto 1fr] grid — two disc columns with the
-                        sparkle in the centre column, so it sits exactly
-                        between the column-centred discs. It wraps to 2x2;
-                        the middle (2 -> 3) connector is the line break, so
-                        it is dropped via hideOnMobile (see PlusConnector).
-                        The grid is width-capped + centred so the sparkle
-                        stays close to the discs on wide phones instead of
-                        floating. Four 113-px discs in one row can't hold
-                        "Стабільний результат", so the 2x2 runs up to md.
-              • md–lg : single nowrap flex row, discs flex-grow to share
-                        space, sparkles centred in each gap (justify-between).
-              • lg    : Figma row — fixed 235-px discs, 32-px sparkles,
-                        last disc carries the 317-px outer ring. */}
-        <ul className="mx-auto grid max-w-[480px] grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-x-2 gap-y-6 md:mx-0 md:max-w-none md:flex md:flex-nowrap md:justify-between md:gap-x-1.5 md:gap-y-0 lg:gap-0">
+        {/* Figma 1327:4614 — four 235 x 235 dark discs (#343435 =
+            Colour/Neutral/800) joined by 32-px orange sparkles. The LAST
+            disc has a 317 x 317 outer ring (Stroke/Default #8e8e8f, ~40 px
+            offset) marking "Стабільний результат" as the flow's endpoint.
+            Discs are perfect circles, white Title/Small label centred.
+
+            Layout differs by master:
+              • < lg : Figma MOBILE master (3166:4459) — a single centred
+                       VERTICAL column. Discs stay 235 px, sparkles sit in
+                       the 24-px gaps (the sparkle centre lands exactly on
+                       disc 4's ring top arc, 40 px above disc 4).
+              • lg   : Figma 1440 row — fixed 235-px discs, justify-between,
+                       last disc carries the 317-px outer ring (the in-flow
+                       last sparkle is swapped for the absolute RingSparkle
+                       so it stays glued to the ring at fractional zoom). */}
+        {/* gap-[25px]: the Figma mobile column stacks the discs at a
+            317.44px pitch = 235.44 disc + 25 + 32 sparkle + 25. */}
+        <ul className="flex flex-col items-center gap-[25px] lg:flex-row lg:flex-nowrap lg:justify-between lg:gap-0">
           {STEPS.map((label, i) => {
             const isLast = i === STEPS.length - 1;
             return (
               <li key={label} className="contents">
                 <div
-                  className={`relative flex aspect-square w-full max-w-[180px] items-center justify-center md:w-auto md:min-w-0 md:max-w-[200px] md:flex-1 lg:size-[235px] lg:max-w-none lg:flex-none lg:shrink-0 ${
+                  className={`relative flex size-[235px] shrink-0 items-center justify-center ${
                     isLast
-                      ? // Figma 1327:4615 — disc 4's 317-px outer ring (235 + 2x
-                        // (40px offset + 1px stroke)). The last sparkle sits ON
-                        // this ring's left stroke; it is rendered as an absolute
-                        // child of this disc (RingSparkle) so it shares the ring's
-                        // reference point and stays aligned at any page-zoom.
-                        "lg:rounded-full lg:ring-1 lg:ring-stroke-default lg:ring-offset-[40px] lg:ring-offset-white"
+                      ? "rounded-full ring-1 ring-stroke-default ring-offset-[40px] ring-offset-white"
                       : ""
                   }`}
                 >
                   {/* Disc body: --colour/neutral/800 = #343435.
-                      Label: Title/Small (Bold 16/22 +1%) white. p-5 keeps
-                      room for "Стабільний результат" down to the ~145-px
-                      md disc; lg bumps to 24 px for the 235-px disc. */}
-                  <div className="flex aspect-square size-full items-center justify-center rounded-full bg-neutral-800 p-5 text-center lg:p-6">
+                      Label: Title/Small (Bold 16/22 +1%) white. */}
+                  <div className="flex aspect-square size-full items-center justify-center rounded-full bg-neutral-800 p-6 text-center">
                     <p className="text-title-sm text-white">{label}</p>
                   </div>
                   {/* lg-only: the last sparkle, pinned to disc 4's ring. */}
                   {isLast && <RingSparkle />}
                 </div>
-                {!isLast && (
-                  <PlusConnector
-                    hideOnMobile={i === 1}
-                    spacerOnLg={i === STEPS.length - 2}
-                  />
-                )}
+                {!isLast && <PlusConnector spacerOnLg={i === STEPS.length - 2} />}
               </li>
             );
           })}

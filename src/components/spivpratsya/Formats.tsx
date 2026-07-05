@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 import type { CSSProperties } from "react";
 
@@ -95,6 +96,33 @@ function Polygon({
   );
 }
 
+// Mobile block order (Figma 3167:5279) differs from the FORMATS array
+// (ordered for the desktop decoration): the phone master lists them
+// Партнер -> Кастомізація -> Підбір -> Поставка.
+const MOBILE_ORDER = [FORMATS[0], FORMATS[2], FORMATS[1], FORMATS[3]];
+
+// Orange hexagon pin for the mobile bordered frame — same glyph as the
+// desktop Polygon, visible only below lg, positioned via `style`.
+function MobilePolygon({ style }: { style: CSSProperties }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 6.9282 8"
+      className="absolute z-10 h-2 w-[6.9282px] -translate-x-1/2 -translate-y-1/2 fill-brand lg:hidden"
+      style={style}
+    >
+      <path d="M3.4641 0L6.9282 2V6L3.4641 8L0 6V2L3.4641 0Z" />
+    </svg>
+  );
+}
+
+// x-position of the orange pin sitting on each between-block divider
+// (Figma 3167:5315/5314/5312), keyed by divider index 1..3. Each divider
+// span is the 342-px content width (inside the frame's px-6) and the pin
+// glyph self-centres via -translate-x-1/2, so these are the pin-BOX
+// CENTRES: (figmaLeftInFrame + 4 - 24) / 342.
+const DIVIDER_PIN_X = ["", "70.4%", "99.9%", "14.2%"];
+
 // CSS-variable-driven anchor — `--lg-pad-x` is defined globally in
 // globals.css at the `:root` level for `min-width: 1024px`. On smaller
 // viewports the variable doesn't exist, so we don't bother — the desktop
@@ -115,7 +143,9 @@ export function Formats() {
     // shoulders on viewports where the section can extend edge-to-edge
     // — on the centred 1440 master they bleed into the parent's white,
     // matching Figma.
-    <section className="relative w-full bg-bg-subtle px-5 py-16 sm:px-10 sm:py-20 lg:rounded-[68px] lg:px-0 lg:py-[160px]">
+    // Mobile (3167:5216): the grey slab IS the whole 888-px section,
+    // rounded 32 on all four corners (pixel-probed), pt/pb 60.
+    <section className="relative w-full bg-bg-subtle px-6 pb-[60px] pt-[60px] max-lg:rounded-[32px] sm:px-10 sm:py-20 lg:rounded-[68px] lg:px-0 lg:py-[160px]">
       {/* Title — left-anchored at lg-pad-x on desktop. No max-width so
           the two-tone "Формати співпраці" stays on one line at the
           44-px Figma size. */}
@@ -127,20 +157,36 @@ export function Formats() {
         <span className="text-h2">співпраці</span>
       </Reveal>
 
-      {/* === Mobile / tablet — clean stacked list, no decoration === */}
-      <ul className="mt-10 flex flex-col gap-10 sm:mt-14 lg:hidden">
-        {FORMATS.map((f, i) => (
-          <Reveal
-            as="li"
-            key={f.title}
-            delay={i * 70}
-            direction="up"
-            className="flex flex-col gap-4"
-          >
-            <BlockText {...f} />
-          </Reveal>
+      {/* === Mobile / tablet — Figma 3167:5279 bordered "L-frame" ===
+          A bg-subtle frame with a border on top/right/bottom (open on the
+          left, rounded right corners), the 4 blocks REORDERED, hairline
+          dividers between them, and 5 orange hexagon pins on the frame
+          edges + dividers. === */}
+      {/* pt-[47px] / pb-[59px]: Figma draws the frame stroke INSIDE the
+          672-px box (content at y48, last block ends at 612); CSS
+          border-box adds the 1-px borders on top, so 47+1 and 59+1
+          restore the master's 48/60. Dividers carry -mb-px because
+          Figma's are zero-height vectors that consume no flow space. */}
+      <div className="relative -mx-6 mt-[60px] flex flex-col gap-12 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default bg-bg-subtle px-6 pb-[59px] pt-[47px] sm:-mx-10 sm:mt-14 lg:hidden">
+        {MOBILE_ORDER.map((f, i) => (
+          <Fragment key={f.title}>
+            {i > 0 && (
+              <span
+                aria-hidden
+                className="relative -mb-px block h-px w-full bg-stroke-subtle"
+              >
+                <MobilePolygon style={{ left: DIVIDER_PIN_X[i], top: 0 }} />
+              </span>
+            )}
+            <Reveal direction="up" delay={i * 70} className="flex flex-col gap-4">
+              <BlockText {...f} />
+            </Reveal>
+          </Fragment>
         ))}
-      </ul>
+        {/* Pins on the frame's top + bottom borders (Figma 3167:5295 / 5310). */}
+        <MobilePolygon style={{ left: "11.6%", top: 0 }} />
+        <MobilePolygon style={{ left: "69.6%", top: "100%" }} />
+      </div>
 
       {/* === Desktop (lg+) — Figma-exact decoration ===
           Full-width band (edge-to-edge of the section) so the L-frames

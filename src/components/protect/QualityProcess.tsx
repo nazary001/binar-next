@@ -55,7 +55,7 @@ function BulletDot() {
 
 export function ProtectQualityProcess() {
   return (
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-stroke-default lg:py-[160px]">
+    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-stroke-default lg:py-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 lg:w-[574px] text-neutral-900">
@@ -79,11 +79,11 @@ export function ProtectQualityProcess() {
             block's natural height, so `h-full` on the divider spans
             the whole row — matching Figma where Vector67 is
             `self-stretch`. */}
-        <ul className="grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-12 lg:grid-cols-3 lg:gap-y-0 lg:gap-x-[80px]">
+        <ul className="grid grid-cols-1 gap-12 sm:grid-cols-2 sm:gap-x-8 sm:gap-y-12 lg:grid-cols-3 lg:gap-y-0 lg:gap-x-[80px]">
           {BLOCKS.map((b, i) => (
             <li
               key={b.number}
-              className="relative flex flex-col gap-4 py-4 sm:gap-6 sm:py-6"
+              className="relative flex flex-col gap-6 sm:py-6"
             >
               {i > 0 && (
                 <span
@@ -91,11 +91,25 @@ export function ProtectQualityProcess() {
                   className="pointer-events-none absolute -left-10 top-0 hidden h-full w-px bg-stroke-subtle lg:block"
                 />
               )}
-              <p aria-hidden className="w-[95px] text-h1 text-neutral-900">
+              {/* Number — Figma MOBILE master (3165:6315) renders it at
+                  48 px Bold, cap-trimmed (text-box-trim) so the 24-px gap
+                  to the title is measured from the cap, not the line box.
+                  A separate lg element keeps the desktop text-h1 numeral
+                  (62 px, no trim) untouched. */}
+              <p
+                aria-hidden
+                className="block w-[95px] text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 [text-box-edge:cap_alphabetic] [text-box-trim:trim-both] lg:hidden"
+              >
+                {b.number}
+              </p>
+              <p
+                aria-hidden
+                className="hidden w-[95px] text-h1 text-neutral-900 lg:block"
+              >
                 {b.number}
               </p>
               <h3 className="text-title-lg text-neutral-900">{b.title}</h3>
-              <ul className="flex flex-col gap-3 sm:gap-4">
+              <ul className="flex flex-col gap-4">
                 {b.bullets.map((bullet) => (
                   <li
                     key={bullet}

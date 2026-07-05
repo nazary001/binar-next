@@ -24,5 +24,8 @@ const PROTECT_FAQS: FaqEntry[] = [
 ];
 
 export function ProtectFaq() {
-  return <Faq faqs={PROTECT_FAQS} showMoreButton={false} />;
+  // Figma MOBILE master (3165:5568) ends the FAQ with a centred
+  // "Показати більше" pill; the desktop master has none. moreButtonMobileOnly
+  // shows the (inert — protect has no extra questions) button only below lg.
+  return <Faq faqs={PROTECT_FAQS} showMoreButton moreButtonMobileOnly />;
 }

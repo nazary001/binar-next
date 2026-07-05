@@ -21,11 +21,11 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export function CardGrid({ posts }: { posts: BlogPost[] }) {
   const rows = chunk(posts, 3);
   return (
-    <div className="flex flex-col gap-10 lg:gap-20">
+    <div className="flex flex-col gap-12 lg:gap-20">
       {rows.map((row, ri) => (
         <div
           key={ri}
-          className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:flex lg:gap-10"
+          className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:flex lg:gap-10"
         >
           {row.map((post, ci) => (
             <Fragment key={post.slug}>

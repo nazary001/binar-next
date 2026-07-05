@@ -33,5 +33,12 @@ const CLEANING_EXTRA_FAQS: FaqEntry[] = [
 ];
 
 export function CleaningFaq() {
-  return <Faq faqs={CLEANING_FAQS} extraFaqs={CLEANING_EXTRA_FAQS} />;
+  // The Figma mobile master (3165:6824) shows the STANDARD four questions
+  // (identical copy to the home FAQ) with the default "Показати більше"
+  // button, so the page renders the shared defaults for 1:1 parity.
+  // The cleaning-specific question sets above are kept for a future
+  // content pass — pass them back via faqs/extraFaqs to restore.
+  void CLEANING_FAQS;
+  void CLEANING_EXTRA_FAQS;
+  return <Faq />;
 }

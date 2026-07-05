@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { Reveal } from "@/components/ui/Reveal";
+import { Button } from "@/components/ui/Button";
 import type { ReactNode } from "react";
 
 // Figma 1870:6139 — "Чому партнери обирають нас?".
@@ -144,13 +145,13 @@ const FEATURES: Feature[] = [
 
 function Block({ title, icon }: Feature) {
   return (
-    <article className="flex h-full w-full min-w-0 flex-col-reverse items-start gap-5 rounded-[24px] bg-bg-subtle p-6 sm:gap-6 sm:rounded-[28px] sm:p-7 lg:flex-col lg:items-end lg:justify-between lg:gap-0 lg:min-h-[240px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6">
+    <article className="flex h-full w-full min-w-0 flex-col-reverse items-start gap-10 rounded-[32px] bg-bg-subtle p-6 lg:flex-col lg:items-end lg:justify-between lg:gap-0 lg:min-h-[240px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6">
       <h3 className="w-full text-title-lg text-neutral-900">
         {title}
       </h3>
       <span
         aria-hidden
-        className="relative block size-[96px] overflow-clip lg:size-[120px]"
+        className="relative block size-[120px] overflow-clip"
       >
         {typeof icon === "string" ? (
           <img
@@ -170,15 +171,19 @@ function Block({ title, icon }: Feature) {
 
 export function WhyPartners() {
   return (
-    <section className="lg-pad-x w-full bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[160px]">
-      <div className="flex flex-col gap-10 sm:gap-14 lg:gap-[120px]">
+    // Mobile (3167:4977): pt-60 / title-72 / gap-48 / cards / gap-24 /
+    // CTA-42 / pb-60 = 1870 px.
+    <section className="lg-pad-x w-full bg-white px-6 pb-[60px] pt-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
+      <div className="flex flex-col gap-12 sm:gap-14 lg:gap-[120px]">
         <Reveal
           as="h2"
           className="text-neutral-900 lg:max-w-[574px]"
         >
+          {/* Figma forces the break after "партнери" on BOTH masters
+              (mobile 3167:4979 and desktop 1870:6140). */}
           <span className="text-h2-light">
             Чому партнери
-            <br aria-hidden className="hidden lg:inline" />{" "}
+            <br aria-hidden />{" "}
           </span>
           <span className="text-h2">обирають нас?</span>
         </Reveal>
@@ -190,8 +195,12 @@ export function WhyPartners() {
             Rows are 240 tall with min-h-[240px] on cards; gap-y-20
             (80 px) matches Figma's 80-px row gap between the two
             240-tall rows. */}
+        {/* lg:contents flattens this wrapper at lg so the grid keeps the
+            outer lg:gap-[120px] rhythm; on mobile it's a gap-6 flex-col
+            holding the grid + the bottom CTA (24 px below the last card). */}
+        <div className="flex flex-col gap-6 lg:contents">
         <div className="relative">
-          <ul className="relative z-10 grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-20 lg:gap-y-20">
+          <ul className="relative z-10 grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-4 lg:grid-cols-3 lg:gap-x-20 lg:gap-y-20">
             {FEATURES.map((f, i) => (
               <Reveal
                 as="li"
@@ -225,6 +234,14 @@ export function WhyPartners() {
             <span className="absolute left-[calc(66.667%_+_13.333px)] top-0 bottom-[calc(50%+40px)] block w-px -translate-x-1/2 bg-stroke-subtle" />
             <span className="absolute left-[calc(33.333%_-_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
             <span className="absolute left-[calc(66.667%_+_13.333px)] top-[calc(50%+40px)] bottom-0 block w-px -translate-x-1/2 bg-stroke-subtle" />
+          </div>
+        </div>
+
+          {/* Figma MOBILE master (3176:5455) — bottom CTA, right-aligned. */}
+          <div className="flex justify-end lg:hidden">
+            <Button href="#contact-form" size="responsive" arrow>
+              Отримати пропозицію
+            </Button>
           </div>
         </div>
       </div>

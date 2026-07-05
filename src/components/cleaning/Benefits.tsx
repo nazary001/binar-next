@@ -82,58 +82,60 @@ export function CleaningBenefits() {
     // a 120-px gap between the heading row and the grid frame. Section
     // gets lg:border-l/r so it visually connects with the rounded-top
     // section above on the cleaning page.
-    <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-stroke-default lg:py-[160px]">
+    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:border-l lg:border-r lg:border-stroke-default lg:py-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-center">
           <h2 className="max-w-[574px] text-neutral-900">
             <span className="text-h2-light">Що ви </span>
             <span className="text-h2">отримуєте?</span>
           </h2>
-          <Button href="/#contact-form" arrow>
+          {/* Desktop master pairs the heading with this CTA; the Figma
+              MOBILE master (3165:6724) drops it here and adds the bottom
+              CTA below the cards instead. */}
+          <Button href="/#contact-form" arrow className="max-lg:hidden">
             Підібрати рішення
           </Button>
         </div>
 
-        {/* Mobile / tablet — Figma master defines no layout here, so
-            we adapt the home/WhyUs card pattern: bg-bg-subtle card with
-            rounded corners + padding + numbered badge in the top-right.
-            Gives every feature a proper card chrome instead of reading
-            as a flat icon+text list. Matches the same treatment used on
-            /hotels Benefits for cross-page mobile consistency. */}
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 lg:hidden">
-          {FEATURES.map((f, i) => (
-            <li key={f.title}>
-              <article className="relative flex h-full w-full flex-col-reverse items-start gap-5 rounded-[24px] bg-bg-subtle p-6 sm:gap-6 sm:rounded-[28px] sm:p-7">
-                <span
-                  aria-hidden
-                  className="absolute right-5 top-5 font-mono text-[12px] font-medium tracking-[0.18em] text-neutral-300 sm:right-6 sm:top-6 sm:text-[13px]"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                  <span className="text-neutral-200">
-                    {" "}
-                    / {String(FEATURES.length).padStart(2, "0")}
+        {/* Mobile (<lg) — Figma MOBILE master (3165:6724): each feature
+            is a bg-bg-subtle rounded-32 card (p-24) with the 120-px icon
+            on TOP (flex-col-reverse) and a 40-px gap to title + body. No
+            index badge — the phone master has none. The lg:hidden wrapper
+            also carries the bottom CTA 24 px below the last card
+            (3176:5448). */}
+        <div className="flex flex-col gap-6 lg:hidden">
+          <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {FEATURES.map((f) => (
+              <li key={f.title}>
+                <article className="relative flex h-full w-full flex-col-reverse items-start gap-10 rounded-[32px] bg-bg-subtle p-6">
+                  <div className="flex w-full flex-col gap-3 sm:gap-4">
+                    <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
+                    <p className="text-body-sm text-neutral-500">{f.body}</p>
+                  </div>
+                  <span
+                    aria-hidden
+                    className="relative block size-[120px] shrink-0 overflow-clip"
+                  >
+                    <img
+                      src={f.icon}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 size-full object-contain"
+                    />
                   </span>
-                </span>
-                <div className="flex w-full flex-col gap-3 sm:gap-4">
-                  <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
-                  <p className="text-body-sm text-neutral-500">{f.body}</p>
-                </div>
-                <span
-                  aria-hidden
-                  className="relative block size-[88px] shrink-0 overflow-clip sm:size-[96px]"
-                >
-                  <img
-                    src={f.icon}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 size-full object-contain"
-                  />
-                </span>
-              </article>
-            </li>
-          ))}
-        </ul>
+                </article>
+              </li>
+            ))}
+          </ul>
+
+          {/* Figma MOBILE master (3176:5448) — bottom CTA, right-aligned. */}
+          <div className="flex justify-end">
+            <Button href="/#contact-form" size="responsive" arrow>
+              Отримати пропозицію
+            </Button>
+          </div>
+        </div>
 
         {/* lg+ — exact Figma 1327:4494 structure. The outer frame is
             `flex-col gap-[40px]` and holds 3 children:

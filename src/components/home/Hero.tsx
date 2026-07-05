@@ -2,32 +2,25 @@
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
-// Icon sizes are % of the 52px container so the visible glyph matches
-// Figma's Frame 63..66 1:1: container has a 9px inner inset (icon zone
-// 34x34), then each glyph has its own inset inside that 34px square.
-// Hotel SVG is natively wide (viewBox 29.38 x 13.79), so we size the
-// img to keep that aspect and apply rotate-90 to render it as a
-// vertical key, matching the design.
+// Each icon SVG is the Figma "Info icon" 34px-zone export (glyph
+// padding and orientation baked in), rendered at a uniform 17.31%
+// inset (= 9/52) of the tile — exactly the master's nesting.
 const INDUSTRIES = [
   {
     label: "Готелів",
-    icon: "/figma-export/hero/icon-hotel.svg",
-    iconClass: "w-[60%] h-[28%] rotate-90",
+    icon: "/figma-export/info-icons/hero-hotel.svg",
   },
   {
     label: "Салонів краси",
-    icon: "/figma-export/hero/icon-beauty.svg",
-    iconClass: "size-[50%]",
+    icon: "/figma-export/info-icons/hero-beauty.svg",
   },
   {
     label: "Медичних закладів",
-    icon: "/figma-export/hero/icon-medical.svg",
-    iconClass: "w-[60%] h-[50%]",
+    icon: "/figma-export/info-icons/hero-medical.svg",
   },
   {
     label: "Виробничих підприємств",
-    icon: "/figma-export/hero/icon-factory.svg",
-    iconClass: "w-[56%] h-[53%]",
+    icon: "/figma-export/info-icons/hero-factory.svg",
   },
 ];
 
@@ -44,9 +37,12 @@ type DotConfig = {
     imgLeft: number;
     imgTop: number;
   };
-  // Horizontal anchor for the popup so it never overflows the photo:
-  // center for dots near the middle, left/right for dots near the edges.
-  popupAnchor: "center" | "left" | "right";
+  // Anchor for the popup so it never overflows the photo band:
+  // center/left/right open ABOVE the dot (desktop canvas is 746 tall);
+  // center-below opens under the dot and side-left opens to the dot's
+  // left, vertically centred — the mobile band is only 320 tall, so the
+  // top dots have no headroom above them.
+  popupAnchor: "center" | "left" | "right" | "center-below" | "side-left";
 };
 
 // Dot positions are the VISIBLE-CENTER coordinates of each Figma Dot
@@ -104,6 +100,24 @@ const DOTS: DotConfig[] = [
     },
     popupAnchor: "left",
   },
+];
+
+// Mobile master (Figma 3084:3698) composes the band differently from the
+// desktop 603x746 canvas: one flattened scene image in a box that bleeds
+// 2.53px left / 14.39px right / ~87px top, vertically centred at
+// calc(50% - 22.48px), over the #c34924 fill + a 20%-opacity texture.
+// Dot positions are the Figma px coords (113,111)/(342,155)/(67,181)
+// + 10.35 (half the 20.7 dot) converted to % of the SCENE BOX so they
+// stay glued to the photo features on any phone width.
+// Popup placements differ from desktop: the 320px band leaves no room
+// above the two upper dots (their cards clipped at the band top), so
+// the accessories card drops BELOW its dot and the textile card slides
+// out to the dot's LEFT; only the low cosmetics dot keeps the above
+// placement. Verified to fit fully inside the band at 360/390/800/1023.
+const MOBILE_DOTS: DotConfig[] = [
+  { ...DOTS[0], left: "30.935%", top: "46.397%", popupAnchor: "center-below" },
+  { ...DOTS[1], left: "87.211%", top: "56.202%", popupAnchor: "side-left" },
+  { ...DOTS[2], left: "19.63%", top: "61.996%", popupAnchor: "left" },
 ];
 
 function DotMarker({ left, top, popup, popupAnchor }: DotConfig) {
@@ -210,7 +224,10 @@ export function Hero() {
             sitting BELOW the photo band (order-2). px-24 py-48, gap-48
             between the two inner groups. Desktop (lg) restores the
             original bordered hero-left column unchanged. */}
-        <div className="hero-left order-2 flex flex-1 flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-12 sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+        {/* py-[47px]: Figma renders the card's 1px borders INSIDE its
+            750px box, so the CSS border-box needs 47+1 per edge to keep
+            both the total height and the 48px visual padding exact. */}
+        <div className="hero-left order-2 flex flex-1 flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-[47px] sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-8 sm:gap-12 lg:max-w-[575px] lg:gap-14">
             <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -256,8 +273,10 @@ export function Hero() {
               {/* Line extends past the column's lg:pr-8 (32px) so it reaches
                   the photo's left edge — matches Figma's Vector 59 width
                   (711px on 1440 master, ≈ left-col - 130 px-padding). */}
+              {/* max-lg:-mb-px: Figma's divider is a zero-height stroke, so
+                  the 1-px line must not consume layout space on mobile. */}
               <div
-                className="h-px w-full lg:w-[calc(100%+32px)]"
+                className="h-px w-full max-lg:-mb-px lg:w-[calc(100%+32px)]"
                 style={{ background: "var(--color-stroke-subtle)" }}
               />
             </div>
@@ -269,12 +288,12 @@ export function Hero() {
                   delay={idx * 90}
                   className="flex items-center gap-4 py-1 lg:gap-2"
                 >
-                  <span className="flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-xl border border-stroke-default">
+                  <span className="relative flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-xl border border-stroke-default">
                     <img
                       src={i.icon}
                       alt=""
                       aria-hidden
-                      className={i.iconClass}
+                      className="absolute inset-[17.31%] size-[65.38%] max-w-none"
                     />
                   </span>
                   <span className="text-[16px] leading-[24px] text-neutral-900">{i.label}</span>
@@ -348,7 +367,56 @@ export function Hero() {
                 synced through the 20s ken-burns loop and the layout
                 stays anchored on the photo features regardless of stage
                 aspect (see `.hero-photo-canvas` in globals.css). */}
-            <div className="hero-photo-canvas">
+            {/* === Mobile band (Figma 3084:3698) — flattened master scene ===
+                The desktop two-layer canvas crops differently from the
+                phone master, so below lg we render the master's own
+                composition: texture at 20% over the orange, then the
+                scene image in its exact Figma box (left -2.53 / right
+                -14.39 / centred at 50% - 22.48px, aspect 406.92/448.79),
+                with the three hotspot dots positioned as % of that box.
+                The scene rides the same ken-burns breath as desktop. */}
+            <div className="absolute inset-0 lg:hidden">
+              <img
+                src="/figma-export/hero/bg-texture.png"
+                alt=""
+                aria-hidden
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 size-full object-cover opacity-20"
+              />
+              <div className="ken-burns-follow absolute inset-0">
+                <div
+                  className="absolute overflow-hidden"
+                  style={{
+                    left: "-2.53px",
+                    right: "-14.39px",
+                    top: "calc(50% - 22.48px)",
+                    transform: "translateY(-50%)",
+                    aspectRatio: "406.92 / 448.785",
+                  }}
+                >
+                  {/* CSS background (not <img>) so desktop viewports,
+                      where this subtree is display:none, never download
+                      the 2-MB mobile scene. */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: "0.02%",
+                      top: "-0.7%",
+                      width: "99.98%",
+                      height: "101.39%",
+                      backgroundImage:
+                        "url(/figma-export/hero/bg-mobile-scene.png)",
+                      backgroundSize: "100% 100%",
+                    }}
+                  />
+                  {MOBILE_DOTS.map((d, i) => (
+                    <DotMarker key={i} {...d} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="hero-photo-canvas max-lg:hidden">
               <div className="ken-burns-follow absolute inset-0">
                 <img
                   src="/figma-export/hero/bg-wood-tree.png"

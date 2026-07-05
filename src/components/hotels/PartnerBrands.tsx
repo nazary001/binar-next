@@ -203,6 +203,23 @@ function roundedRectPath(x: number, y: number, w: number, h: number, c: Corners)
   return parts.join(" ");
 }
 
+// Mobile (<lg) puzzle outline, drawn as ONE svg exactly like the desktop
+// grid: every tile path shares a single coordinate system + rasteriser,
+// so segments of the same line painted by different tiles can never land
+// on different pixel rows/columns (the per-tile border/overlay approach
+// still stair-stepped on fractional-DPR screens). Cells are 195-square
+// on the 390 master (2 cols x 5 rows); the bordered cells + their single
+// rounded corners mirror the `mb` chrome of DEFAULT_PARTNERS.
+const MOBILE_CELL = 195;
+const MOBILE_R = 32;
+const MOBILE_TILES: { col: number; row: number; corners: Corners }[] = [
+  { col: 1, row: 1, corners: { tl: 0, tr: MOBILE_R, br: 0, bl: 0 } }, // p2
+  { col: 2, row: 2, corners: { tl: 0, tr: 0, br: 0, bl: MOBILE_R } }, // p9
+  { col: 1, row: 3, corners: { tl: 0, tr: MOBILE_R, br: 0, bl: 0 } }, // p8
+  { col: 2, row: 4, corners: { tl: 0, tr: 0, br: 0, bl: MOBILE_R } }, // p7
+  { col: 1, row: 5, corners: { tl: 0, tr: MOBILE_R, br: MOBILE_R, bl: 0 } }, // p3
+];
+
 type PartnerBrandsProps = {
   heading?: ReactNode;
   body?: ReactNode;
@@ -287,19 +304,48 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
           ))}
         </svg>
 
+        {/* Mobile (<lg) puzzle outline — same coinciding-stroke SVG
+            technique as the desktop grid above, so every shared line is
+            drawn once, in one coordinate system, and stays perfectly
+            straight on any DPR (per-tile CSS borders/overlays kept
+            producing a visible 1px step where a line passed from a col-1
+            tile to a col-2 tile on fractional device-pixel ratios). */}
+        <svg
+          viewBox={`0 0 ${2 * MOBILE_CELL} ${5 * MOBILE_CELL}`}
+          preserveAspectRatio="none"
+          overflow="visible"
+          aria-hidden
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible lg:hidden"
+        >
+          {MOBILE_TILES.map((t, i) => (
+            <path
+              key={i}
+              d={roundedRectPath(
+                (t.col - 1) * MOBILE_CELL,
+                (t.row - 1) * MOBILE_CELL,
+                MOBILE_CELL,
+                MOBILE_CELL,
+                t.corners
+              )}
+              fill="none"
+              stroke={STROKE}
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
+
         <ul className="relative grid grid-cols-2 gap-0 lg:grid-cols-6 lg:grid-rows-3 lg:gap-0">
           {partners.map((p, i) => (
-            // Mobile (<lg): square cells touch edge-to-edge (gap-0) and only
-            // the cells the Figma phone master frames carry a 1-px border +
-            // one rounded corner (p.mb); the rest are borderless, matching
-            // the staggered puzzle. p.orderM swaps the two logos the phone
-            // layout reorders relative to the desktop source array, with
-            // lg:order-none restoring desktop order. lg:* strips every
-            // mobile-only chrome class so the desktop SVG-overlay puzzle and
-            // its explicit lg:col-start/lg:row-start placement are unchanged.
+            // Mobile (<lg): square cells touch edge-to-edge (gap-0); the
+            // puzzle outline is painted by the mobile SVG above, so the
+            // cells themselves carry no chrome. p.orderM swaps the two
+            // logos the phone layout reorders relative to the desktop
+            // source array, with lg:order-none restoring desktop order;
+            // lg placement stays on lg:col-start/lg:row-start.
             <li
               key={i}
-              className={`group flex aspect-square items-center justify-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 ${p.mb} ${p.orderM} ${p.pos}`}
+              className={`group relative flex aspect-square items-center justify-center lg:bg-transparent lg:p-0 ${p.orderM} ${p.pos}`}
             >
               <img
                 src={p.src}

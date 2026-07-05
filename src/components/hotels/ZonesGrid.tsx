@@ -421,12 +421,12 @@ function ImageCard({
   return (
     <div
       {...cardActivationProps(onSelect)}
-      // Figma mobile master 3117:14389 collapses EVERY card (image cards
-      // included, and the СПА `tall` one) into the compact 131-px tile —
-      // the photo fills it as a background. Only at lg do the image cards
-      // grow to their distinct master heights (786 tall / 393 standard),
-      // so those heights are re-pinned at lg: and desktop stays identical.
-      className={`group relative flex min-h-[131px] cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] border border-stroke-default p-10 ${
+      // Figma mobile master 3117:14389 renders EVERY zone card (image cards
+      // included, and the СПА `tall` one) as a uniform 206-px tile — the
+      // photo fills it as a background. Only at lg do the image cards grow
+      // to their distinct master heights (786 tall / 393 standard), so those
+      // heights are re-pinned at lg: and desktop stays identical.
+      className={`group relative flex min-h-[206px] cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] border border-stroke-default p-10 ${
         tall ? "lg:h-[786px]" : "lg:h-[393px]"
       } w-full`}
     >
@@ -483,12 +483,12 @@ function CompactCard({ label, onSelect }: SelectHandlers & { label: string }) {
   return (
     <div
       {...cardActivationProps(onSelect)}
-      // Figma mobile master 3117:14389 sizes the compact tile at the SAME
-      // 131-px / rounded-40 / p-40 the desktop master uses, but as a
-      // min-height so a 2-line label (e.g. "Засоби індивідуального захисту")
-      // grows the tile on the 340-wide mobile column. Desktop kept its
-      // fixed 131-px height, re-pinned at lg so it stays byte-for-byte.
-      className="group relative flex min-h-[131px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[131px]"
+      // Figma mobile master 3117:14389 sizes the compact tile at the uniform
+      // 206-px / rounded-40 / p-40 grid height (min-height so a 2-line label
+      // e.g. "Засоби індивідуального захисту" can still grow it). Desktop
+      // keeps its fixed 131-px bento height (lg:min-h-0 lets lg:h-[131px]
+      // win over the taller mobile min-height) so it stays byte-for-byte.
+      className="group relative flex min-h-[206px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[131px] lg:min-h-0"
     >
       <HoverRing />
       <div className="relative flex items-center gap-8">
@@ -510,10 +510,10 @@ function IllustrationCard({
     <div
       {...cardActivationProps(onSelect)}
       // Figma mobile master 3117:14389 hides the illustration and renders
-      // these zones as the compact 131-px tile (label + icon only). The
+      // these zones as the uniform 206-px tile (label + icon only). The
       // illustration, the 393-px height and the gap to it are desktop-only
       // and re-pinned at lg so desktop stays byte-for-byte identical.
-      className="group relative flex min-h-[131px] w-full cursor-pointer flex-col items-center justify-end rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[393px] lg:gap-10"
+      className="group relative flex min-h-[206px] w-full cursor-pointer flex-col items-center justify-end rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[393px] lg:gap-10"
     >
       <img
         src={svg}
@@ -551,17 +551,19 @@ function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void
       // but that reads noticeably darker than the cards it sits beside. A
       // transparent 1px border is kept by default so the hover adds no 1px
       // layout shift.
-      // Figma mobile master 3117:14389 sizes the CTA tile at the SAME
-      // 131-px / rounded-40 the desktop master uses, so it no longer steps
-      // down below lg — base equals the prior lg value, desktop unchanged.
+      // Figma mobile master (3130:19000 "Button catalog") sizes the CTA
+      // tile at the compact 131px — same as the desktop bento tile.
       className="group flex h-[131px] w-full cursor-pointer items-center justify-center rounded-[40px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white"
     >
-      <span className="inline-flex items-center gap-2">
+      {/* Mobile (Figma 3130:19000 render): px-40 row with the 2-line
+          label LEFT and the orange circle RIGHT (justify-between).
+          Desktop keeps the centred pill+circle group. */}
+      <span className="inline-flex items-center gap-2 max-lg:w-full max-lg:justify-between max-lg:px-10">
         {/* Figma "Button catalog" (1217:2490): the label sits in a
             Button/Large container with px-[24px], so the visible
             text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
             gap-2. px scales 20/24 with the Button component. */}
-        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 max-lg:max-w-[140px] max-lg:px-0">
           {label}
         </span>
         {/* Orange circle button + arrow now sit at the 52-px master size on
@@ -987,7 +989,11 @@ export function ZonesGrid() {
     // removed (see hotels/Hero.tsx) the next section's flat border-t
     // provides ONE clean uniformly-thin line across the entire width.
     // Padding is 160px top + 130px sides at the design master.
-    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
+    // Mobile pb-[71px]: the 12-card stack collapses 11 seams by 1px each
+    // (-mt-px keeps the borders reading as single hairlines like Figma),
+    // so the extra 11px on the bottom padding restores the master's
+    // exact 2741px section height.
+    <section className="lg-pad-x bg-white px-6 pt-[60px] pb-[71px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900">

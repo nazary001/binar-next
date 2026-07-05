@@ -68,8 +68,9 @@ export function AboutUs() {
             <span className="text-h2">по всій Україні з 2000 року</span>
           </h2>
 
-          {/* Card (3094:4840): 340 wide, pt-48, gap-24 between blocks. */}
-          <div className="flex w-[340px] max-w-full flex-col gap-6 pt-12">
+          {/* Card (3094:4840): 342 wide (= full width inside px-6), pt-48,
+              gap-24 between blocks. */}
+          <div className="flex w-full flex-col gap-6 pt-12">
             {/* Block 3094:4880 — Mission. py-24, gap-16. */}
             <div className="flex w-full flex-col gap-4 py-6">
               <MissionIcon />
@@ -118,14 +119,17 @@ export function AboutUs() {
             {STATS.map((s, i) => (
               <li key={s.label} className="flex flex-col gap-4">
                 <div className="flex w-[140px] max-w-full flex-col gap-2">
-                  <p className="text-[48px] font-semibold leading-[1.03] tracking-[-0.96px] text-neutral-900">
+                  {/* 48-px SemiBold, cap-trimmed (Figma 3094:4991) so the
+                      row is 35px tall like the master, not the 49-px line
+                      box. */}
+                  <p className="text-[48px] font-semibold leading-[1.03] tracking-[-0.96px] text-neutral-900 [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]">
                     <AnimatedNumber value={s.value} />
                     <span className="text-brand">{s.suffix}</span>
                   </p>
                   <p className="text-body-sm text-neutral-500">{s.label}</p>
                 </div>
                 {i < STATS.length - 1 && (
-                  <div className="h-px w-full bg-stroke-default" />
+                  <div className="h-px w-full -mb-px bg-stroke-subtle" />
                 )}
               </li>
             ))}
@@ -164,7 +168,7 @@ export function AboutUs() {
                     </p>
                   </div>
                   {i < FACTS.length - 1 && (
-                    <div className="mt-4 h-px w-full bg-stroke-default" />
+                    <div className="mt-4 h-px w-full -mb-px bg-stroke-subtle" />
                   )}
                 </div>
               );

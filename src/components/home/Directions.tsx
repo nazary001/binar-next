@@ -7,6 +7,9 @@ type Card = {
   title: string;
   body: string;
   image: string;
+  // Figma mobile master crops card 1 with object-bottom (3117:12427);
+  // the other two use the default centre crop.
+  imageClass?: string;
 };
 
 const CARDS: Card[] = [
@@ -15,6 +18,7 @@ const CARDS: Card[] = [
     title: "Усе для готелів",
     body: "Товари для ефективної роботи закладів гостинності  та якісного обслуговування гостей",
     image: "/figma-export/directions/card-hotels.png",
+    imageClass: "max-lg:object-bottom",
   },
   {
     href: "/protect",
@@ -30,7 +34,7 @@ const CARDS: Card[] = [
   },
 ];
 
-function DirectionCard({ href, title, body, image }: Card) {
+function DirectionCard({ href, title, body, image, imageClass }: Card) {
   return (
     <Link
       href={href}
@@ -52,7 +56,7 @@ function DirectionCard({ href, title, body, image }: Card) {
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 size-full rounded-[32px] object-cover transition duration-300 ease-out group-hover:grayscale lg:rounded-[40px]"
+          className={`absolute inset-0 size-full rounded-[32px] object-cover transition duration-300 ease-out group-hover:grayscale lg:rounded-[40px] ${imageClass ?? ""}`}
         />
         <span
           aria-hidden
@@ -74,9 +78,10 @@ function DirectionCard({ href, title, body, image }: Card) {
           </svg>
         </span>
       </div>
-      {/* Mobile carries the Figma px-6 py-[50px] gap-3 inside the bordered
-          card; desktop strips the padding and uses the master gap-4. */}
-      <div className="flex flex-col gap-3 px-6 py-[50px] lg:gap-4 lg:p-0">
+      {/* Mobile carries the Figma px-6 py-48 gap-3 (3117:12428) inside the
+          bordered card; py-[47px] because the card's 1px borders live
+          INSIDE the Figma box. Desktop strips the padding entirely. */}
+      <div className="flex flex-col gap-3 px-6 py-[47px] lg:gap-4 lg:p-0">
         <h3 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">{title}</h3>
         <p className="text-body-sm text-neutral-500">{body}</p>
       </div>

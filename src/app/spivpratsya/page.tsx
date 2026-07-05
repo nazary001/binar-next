@@ -25,7 +25,10 @@ export default function SpivpratsyaPage() {
       <StarRequestStrip />
       <HowItWorks />
       <PartnerContactForm />
-      <Faq showMoreButton={false} />
+      {/* Figma MOBILE master (3166:7865) ends the FAQ with a centred
+          "Показати більше" pill; desktop has none. moreButtonMobileOnly
+          shows it only below lg. */}
+      <Faq showMoreButton moreButtonMobileOnly />
     </main>
   );
 }

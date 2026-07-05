@@ -8,12 +8,21 @@ export function ProtectHero() {
     <section className="w-full">
       {/* Figma 1327:3867 — two columns at 837 + 721 (overflows the 1440
           master by 118 px so the photo bleeds past the viewport's right
-          edge; html { overflow-x: clip } absorbs the overflow). On <lg
-          the columns stack and the photo becomes a full-bleed card. */}
-      <div className="flex flex-col items-stretch lg:flex-row">
-        <div className="hero-left flex flex-col gap-10 px-5 pb-8 pt-10 sm:gap-12 sm:px-10 sm:pb-10 sm:pt-14 lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
-          <div className="flex w-full flex-col gap-10 sm:gap-12 lg:max-w-[575px] lg:gap-14">
-            <div className="flex flex-col gap-5 sm:gap-6">
+          edge; html { overflow-x: clip } absorbs the overflow).
+
+          Below lg the Figma MOBILE master (3165:5014/5016) stacks the
+          two as an alternating-corner pair: the photo band sits ON TOP
+          (rounded on the LEFT — tl+bl) and the text drops into a
+          bordered card BELOW it (border t/r/b, rounded on the RIGHT —
+          tr+br). `flex-col-reverse` puts the photo (2nd child) above the
+          text (1st child) on mobile while `lg:flex-row` restores the
+          desktop text-left / photo-right row. */}
+      <div className="flex flex-col-reverse items-stretch lg:flex-row">
+        {/* py-[47px]: Figma draws the card's 1px borders INSIDE its 426px
+            box, so 47+1 per edge keeps the 48px visual padding exact. */}
+        <div className="hero-left flex flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-12 sm:px-10 sm:py-14 lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+          <div className="flex w-full flex-col gap-8 sm:gap-12 lg:max-w-[575px] lg:gap-14">
+            <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
                 Засоби індивідуального захисту та одяг одноразовий
               </Reveal>
@@ -27,7 +36,7 @@ export function ProtectHero() {
               </Reveal>
             </div>
             <Reveal delay={240}>
-              <Button href="/#contact-form" arrow>
+              <Button href="/#contact-form" size="responsive" arrow>
                 Підібрати рішення
               </Button>
             </Reveal>
@@ -46,14 +55,43 @@ export function ProtectHero() {
           style={{ "--hero-photo-w": "721px" } as CSSProperties}
         >
           <div
-            className="absolute inset-0 overflow-clip rounded-bl-[32px] rounded-br-[32px] sm:rounded-bl-[40px] sm:rounded-br-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
-            style={{ background: "#726053" }}
+            className="absolute inset-0 overflow-clip rounded-bl-[32px] rounded-tl-[32px] sm:rounded-bl-[40px] sm:rounded-tl-[40px] lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:rounded-br-none"
+            style={{ background: "#c34924" }}
           >
-            {/* Below lg the image fills the column edge-to-edge (no
-                Figma mobile spec exists). At lg+ it switches to the
-                Figma master's 660×652 card pinned to left-0 and
-                vertically centred via top-1/2 + -translate-y-1/2. */}
-            <div className="absolute inset-0 lg:inset-auto lg:left-0 lg:top-1/2 lg:h-[652px] lg:w-[660px] lg:-translate-y-1/2 lg:rounded-[40px] lg:overflow-clip">
+            {/* === Mobile band (Figma 3165:5014) === #c34924 + 20% texture,
+                the gloves/mask photo in a full-width box 385.27 tall
+                centred at calc(50% - 15.48px) — shows the photo at its
+                natural aspect with a slight top/bottom bleed. */}
+            <div className="absolute inset-0 lg:hidden">
+              <img
+                src="/figma-export/hero/bg-texture.png"
+                alt=""
+                aria-hidden
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 size-full object-cover opacity-20"
+              />
+              <div
+                className="absolute inset-x-0"
+                style={{
+                  top: "calc(50% - 15.48px)",
+                  transform: "translateY(-50%)",
+                  height: "385.273px",
+                }}
+              >
+                <img
+                  src="/figma-export/directions/card-protect.png"
+                  alt="Засоби індивідуального захисту"
+                  fetchPriority="high"
+                  loading="eager"
+                  decoding="async"
+                  className="absolute inset-0 size-full max-w-none object-cover"
+                />
+              </div>
+            </div>
+            {/* Desktop: the Figma master's 660×652 card pinned to left-0
+                and vertically centred. */}
+            <div className="absolute hidden lg:left-0 lg:top-1/2 lg:block lg:h-[652px] lg:w-[660px] lg:-translate-y-1/2 lg:overflow-clip lg:rounded-[40px]">
               <img
                 src="/figma-export/directions/card-protect.png"
                 alt="Засоби індивідуального захисту"

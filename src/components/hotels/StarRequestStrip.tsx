@@ -55,7 +55,7 @@ export function StarRequestStrip() {
 
   if (submitted) {
     return (
-      <section className="lg-pad-x bg-white px-5 py-16 sm:px-10 sm:py-20 lg:py-[160px]">
+      <section className="lg-pad-x bg-white px-6 py-16 sm:px-10 sm:py-20 lg:py-[160px]">
         <div className="rounded-[28px] bg-bg-subtle p-8 text-center sm:rounded-[40px] sm:p-12">
           <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-brand/15 text-brand">
             <svg
@@ -84,14 +84,16 @@ export function StarRequestStrip() {
     // stretch edge-to-edge. Content INSIDE each card is anchored at
     // x=130 / x=1310 via `lg-pad-l` / `lg-pad-r`; the inner edges
     // (where the cards meet) keep a fixed 80-px padding.
-    <section className="bg-white">
-      {/* Figma mobile master 3117:16304 — the whole strip is one bordered
-          rounded-[32px] column (border #8e8e8f) holding two cards that
-          overlap: the dark band on top, the white form card lapping over
-          its bottom by 72 px (`-mb-[72px]` on the dark card). The outer
-          border is mobile-only; desktop keeps the borderless two-up
-          flex-row layout (border lives on the right card there). */}
-      <div className="flex w-full flex-col max-lg:rounded-[32px] max-lg:border max-lg:border-stroke-default lg:flex-row lg:gap-0 lg:px-0 lg:py-0">
+    // max-lg:overflow-x-clip hides the white card's off-screen side
+    // borders (see below) without creating a horizontal scrollbar.
+    <section className="bg-white max-lg:overflow-x-clip">
+      {/* Figma mobile master 3117:16304 — the dark band on top, the white
+          form card lapping over its bottom by 72 px (`-mb-[72px]` on the
+          dark card). The white card carries the border: in the master its
+          straight side segments sit OFF-CANVAS (the card is wider than
+          the 390 frame), so only the bottom edge + full corner arcs are
+          visible — reproduced with -mx-px + the section's overflow clip. */}
+      <div className="flex w-full flex-col lg:flex-row lg:gap-0 lg:px-0 lg:py-0">
         {/* === LEFT — dark title slab (Figma 1384:11658) ===
             bg #343435, rounded-tr/br 48 px, pl-130 pr-80 py-130 at the
             design master. Title is text-h2-light (Manrope Light 44/48
@@ -120,7 +122,10 @@ export function StarRequestStrip() {
         {/* === RIGHT — white form card (Figma 1384:11660) ===
             bg white, border #8e8e8f, rounded-tl/bl 48 px, pl-80
             pr-130 py-80. Three numbered rows separated by 40-px gap. */}
-        <div className="lg-pad-r relative flex flex-1 flex-col gap-[60px] rounded-[32px] border-stroke-default bg-white px-6 pb-[108px] pt-[96px] sm:px-10 lg:gap-10 lg:rounded-br-none lg:rounded-tr-none lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:border lg:pb-[80px] lg:pl-20 lg:pt-[80px]">
+        {/* pt-[95px]/pb-[107px]: Figma's 96/108 paddings count the card's
+            stroke INSIDE, so border-box trades 1px from the top pad to the
+            bottom to keep rows on the master's exact pixel rows. */}
+        <div className="lg-pad-r relative flex flex-1 flex-col gap-[60px] rounded-[32px] border-stroke-default bg-white px-6 pb-[107px] pt-[95px] max-lg:-mx-px max-lg:border max-lg:px-[25px] sm:px-10 lg:gap-10 lg:rounded-br-none lg:rounded-tr-none lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:border lg:pb-[80px] lg:pl-20 lg:pt-[80px]">
           {/* Row 01 — stars
               Figma 1384:11661: `flex gap-[24px] items-center w-full`.
               Number "01." text-h1 (62/68) w=95, inner content has
@@ -133,7 +138,7 @@ export function StarRequestStrip() {
           <div className="flex items-center gap-3 lg:gap-6">
             <span
               aria-hidden
-              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 lg:w-[95px] lg:text-h1 lg:leading-none"
+              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1 lg:leading-none"
             >
               01.
             </span>
@@ -169,7 +174,7 @@ export function StarRequestStrip() {
           <div className="flex items-center gap-3 lg:gap-6">
             <span
               aria-hidden
-              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 lg:w-[95px] lg:text-h1 lg:leading-none"
+              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1 lg:leading-none"
             >
               02.
             </span>
@@ -182,12 +187,15 @@ export function StarRequestStrip() {
                     placeholder "Email" body-sm Regular 16/24 #1d1d1f.
                     Placeholder color matches the design token Text/Default,
                     not the usual lighter neutral-400. */}
+                {/* pb-[7px]: Figma's 40-px field row counts the 1-px
+                    underline INSIDE (stroke inside); border-box adds it,
+                    so 8 + 24 + 7 + 1 = 40. */}
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
-                  className="w-full border-b border-neutral-800 bg-transparent py-2 text-[16px] leading-[24px] text-neutral-900 outline-none placeholder:text-neutral-900 focus:border-brand lg:text-body-sm"
+                  className="w-full border-b border-neutral-800 bg-transparent pb-[7px] pt-2 text-[16px] leading-[24px] text-neutral-900 outline-none placeholder:text-neutral-900 focus:border-brand lg:text-body-sm"
                 />
                 {/* Figma 1384:11678 — caption text Manrope Regular 12/16
                     color Text/Subtle #777779 (= text-neutral-500). */}
@@ -208,7 +216,7 @@ export function StarRequestStrip() {
           <div className="flex items-center gap-3 lg:gap-6">
             <span
               aria-hidden
-              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 lg:w-[95px] lg:text-h1 lg:leading-none"
+              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1 lg:leading-none"
             >
               03.
             </span>

@@ -131,22 +131,24 @@ const CUSTOMIZATIONS = [
   {
     title: "Дизайн",
     tags: ["логотип", "кольори"],
-    icon: "/figma-export/hotels/solutions/icon-design.svg",
+    icon: "/figma-export/info-icons/sol-design.svg",
   },
   {
     title: "Матеріали",
     tags: ["економ", "стандарт", "преміум"],
-    icon: "/figma-export/hotels/solutions/icon-materials.svg",
+    icon: "/figma-export/info-icons/sol-materials.svg",
   },
   {
-    title: "Формати і розміри",
+    // \n = explicit Figma mobile break (3127:17474 "Формати / і розміри");
+    // renders via max-lg:whitespace-pre-line, collapses to a space at lg.
+    title: "Формати\nі розміри",
     tags: ["під ваші стандарти"],
-    icon: "/figma-export/hotels/solutions/icon-size.svg",
+    icon: "/figma-export/info-icons/sol-size.svg",
   },
   {
     title: "Аромати",
     tags: ["стандарт", "преміум"],
-    icon: "/figma-export/hotels/solutions/icon-aroma.svg",
+    icon: "/figma-export/info-icons/sol-aroma.svg",
   },
 ];
 
@@ -245,7 +247,9 @@ export function Solutions() {
                 <li
                   key={c.title}
                   className={`flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-[33px] lg:pt-10 ${
-                    i > 0 ? "border-t border-stroke-subtle pt-10" : "pt-0"
+                    // pt-[39px]: the 1px border-t + 39 = Figma's 40px gap
+                    // above the row (its dividers are zero-height strokes).
+                    i > 0 ? "border-t border-stroke-subtle pt-[39px]" : "pt-0"
                   } ${isLast ? "pb-0 lg:pb-0" : "pb-10 lg:pb-10"}`}
                 >
                   {/* Mobile / sm: title + icon stack in a single row
@@ -255,7 +259,7 @@ export function Solutions() {
                       `lg:order-1/2/3` so the title and icon become
                       direct flex children of the li. */}
                   <div className="flex items-center justify-between gap-4 lg:contents">
-                    <p className="flex-1 text-h2 text-neutral-900 lg:order-1 lg:w-[574px] lg:flex-none">
+                    <p className="flex-1 text-h2 text-neutral-900 max-lg:whitespace-pre-line lg:order-1 lg:w-[574px] lg:flex-none">
                       {c.title}
                     </p>
                     {/* Figma 1384:12008 Info icon — 96×96 outer
@@ -264,14 +268,18 @@ export function Solutions() {
                         `lg:ml-auto` pushes the icon to the row's
                         right edge so the gap between tags and icon
                         expands like Figma's justify-between layout. */}
-                    <span className="flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[14px] lg:order-3 lg:ml-auto lg:size-[96px] lg:rounded-[18px]">
+                    {/* Info icon: the SVG is the Figma 34px-zone export
+                        (glyph padding baked in), so a uniform 17.31%
+                        inset (= 9/52) reproduces the master at any tile
+                        size. */}
+                    <span className="relative flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[14px] lg:order-3 lg:ml-auto lg:size-[96px] lg:rounded-[18px]">
                       <img
                         src={c.icon}
                         alt=""
                         aria-hidden
                         loading="lazy"
                         decoding="async"
-                        className="size-[65%] object-contain sm:size-[75%] lg:size-[81%]"
+                        className="absolute inset-[17.31%] size-[65.38%] max-w-none"
                       />
                     </span>
                   </div>
@@ -295,7 +303,7 @@ export function Solutions() {
                         // resolves to 16/24 at lg, and the 24-px line
                         // height would make the chip 48 tall instead of
                         // 40.
-                        className="rounded-full border border-stroke-default px-4 py-2 text-body-sm font-medium text-neutral-800 whitespace-nowrap lg:border-neutral-800 lg:py-3 lg:text-[16px] lg:font-normal lg:leading-[16px]"
+                        className="rounded-full border border-stroke-default px-4 py-[7px] text-body-sm font-medium text-neutral-800 whitespace-nowrap lg:border-neutral-800 lg:py-3 lg:text-[16px] lg:font-normal lg:leading-[16px]"
                       >
                         {t}
                       </li>

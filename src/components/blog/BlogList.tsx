@@ -44,7 +44,7 @@ function RevealBatch({ posts }: { posts: BlogPost[] }) {
             on `translate` (not `transform`) because Tailwind v4 compiles
             translate-y-* to the individual translate property. */}
         <div
-          className={`pt-10 transition-[opacity,translate] duration-500 ease-out lg:pt-20 ${
+          className={`pt-12 transition-[opacity,translate] duration-500 ease-out lg:pt-20 ${
             open ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
           }`}
         >
@@ -84,9 +84,9 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
   const hasMore = visible < filtered.length;
 
   return (
-    <section className="lg-pad-x flex flex-col px-5 pb-12 sm:px-10 sm:pb-16 lg:pb-20">
+    <section className="lg-pad-x flex flex-col px-6 pb-[60px] sm:px-10 sm:pb-16 lg:pb-20">
       {/* Filter chips */}
-      <div className="flex flex-wrap gap-3 pt-12 sm:gap-4 sm:pt-16 lg:gap-6 lg:pt-[160px]">
+      <div className="flex flex-wrap gap-2 pt-[60px] sm:gap-3 sm:pt-16 lg:gap-6 lg:pt-[160px]">
         {BLOG_CATEGORIES.map((cat) => {
           const isActive = cat === active;
           return (
@@ -98,10 +98,14 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
                 setVisible(INITIAL_VISIBLE);
               }}
               aria-pressed={isActive}
-              className={`cursor-pointer rounded-[60px] px-4 py-3 text-[16px] font-medium leading-[22px] transition-colors duration-300 ${
+              // py-[7px]: the Figma chips are 36px tall with the stroke
+              // INSIDE (7 + 20 + 7 + 2 borders = 36); the active chip
+              // carries a transparent border below lg so both variants
+              // share the exact box (lg keeps its original py-3 sizing).
+              className={`cursor-pointer rounded-[60px] px-4 py-[7px] text-[14px] font-medium leading-[20px] transition-colors duration-300 lg:py-3 lg:text-[16px] lg:leading-[22px] ${
                 isActive
-                  ? "bg-brand text-white"
-                  : "border border-neutral-800 text-neutral-800 hover:border-brand hover:text-brand"
+                  ? "border border-transparent bg-brand text-white lg:border-0"
+                  : "border border-stroke-default text-neutral-800 hover:border-brand hover:text-brand"
               }`}
             >
               {cat}
@@ -111,17 +115,18 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
       </div>
 
       {/* Divider — Figma Vector60 stroke is #8e8e8f (stroke-default),
-          darker than the card dividers (#d2d2d2). */}
+          darker than the card dividers (#d2d2d2). -mb-px: the master's
+          divider is a zero-height stroke that consumes no flow space. */}
       <div
         aria-hidden
-        className="mt-8 h-px w-full bg-stroke-default sm:mt-10 lg:mt-12"
+        className="-mb-px mt-12 h-px w-full bg-stroke-default sm:mt-12 lg:mt-12"
       />
 
       {/* Card grid — base cards plus the smoothly-revealed batches. They share
           one block-flow wrapper (NOT a gapped flex parent) so a closed batch
           contributes zero height; each batch carries its own top gap inside
           its clip. */}
-      <div className="mt-10 sm:mt-12 lg:mt-[160px]">
+      <div className="mt-[60px] sm:mt-[60px] lg:mt-[160px]">
         {base.length > 0 ? (
           <div>
             <CardGrid posts={base} />
@@ -139,7 +144,7 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
       {/* Show more */}
       {hasMore && (
         <div className="mt-12 flex justify-center sm:mt-16 lg:mt-20">
-          <Button plus onClick={() => setVisible((v) => v + STEP)}>
+          <Button plus size="responsive" onClick={() => setVisible((v) => v + STEP)}>
             Показати більше
           </Button>
         </div>

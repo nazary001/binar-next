@@ -221,7 +221,7 @@ function CtaCard({ label }: { label: string }) {
             Button/Large container with px-[24px], so the visible
             text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
             gap-2. px scales 20/24 with the Button component. */}
-        <span className="px-5 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
+        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
           {label}
         </span>
         <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
@@ -420,6 +420,183 @@ function ProtectDecorCluster() {
   );
 }
 
+// === Mobile-only solutions stack (Figma 3165:5415 / 3165:6549) ===
+// Below lg the desktop bento grid collapses to a single column of
+// uniform 190-px cards (16-px gaps -> 206-px pitch, matching the Figma
+// frames) capped by the dark catalog CTA. Image cards carry a photo +
+// dark blur halo + white label/arrow; the two outline cards are plain
+// white with a dark label/arrow (no illustration on the phone master);
+// the CTA is a #343435 pill with the brand-orange arrow.
+type MobileSolution =
+  | { kind: "image"; label: string; image: string; imgClass?: string }
+  | { kind: "outline"; label: string }
+  | { kind: "cta"; label: string };
+
+// imgClass = the exact Figma photo placement inside the 206px card
+// (percent boxes from 3165:6558 / 3165:6639); masks keep a plain cover.
+const MOBILE_SOLUTIONS: MobileSolution[] = [
+  { kind: "image", label: "Маски та респіратори", image: "/figma-export/protect/cat-masks.png" },
+  { kind: "outline", label: "Одноразова білизна" },
+  { kind: "outline", label: "Бахіли, шапочки, нарукавники" },
+  {
+    kind: "image",
+    label: "Одноразові халати та комбінезони",
+    image: "/figma-export/protect/cat-gowns-2.png",
+    imgClass: "left-0 top-[-0.49%] h-[166.02%] w-full",
+  },
+  {
+    kind: "image",
+    label: "Рукавички",
+    image: "/figma-export/protect/cat-gloves.png",
+    imgClass: "left-0 top-[-66.77%] h-[276.25%] w-full",
+  },
+  { kind: "cta", label: "Переглянути каталог" },
+];
+
+// 52-px arrow circle for the mobile cards. tone="light" over photos
+// (white border + white arrow), tone="dark" on the white outline cards
+// (dark border + dark arrow). Static — no hover crossfade on touch.
+function MobileSolutionArrow({ tone }: { tone: "light" | "dark" }) {
+  return (
+    <span
+      className={`flex size-[52px] shrink-0 items-center justify-center rounded-[26px] border ${
+        tone === "light" ? "border-white" : "border-neutral-900"
+      }`}
+    >
+      <img
+        src={tone === "light" ? ARROW_WHITE : ARROW_DARK}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        decoding="async"
+        className="size-[16.5px]"
+      />
+    </span>
+  );
+}
+
+function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boolean }) {
+  if (card.kind === "cta") {
+    // Figma 3165:6565 — #343435 pill, label left, brand-orange 52-px
+    // arrow right, label/arrow vertically centred in the 131-px card.
+    return (
+      <Link
+        href="/#contact-form"
+        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-[#343435] px-[40px] py-[15px]"
+      >
+        {/* max-w forces the master's 2-line "Переглянути / каталог" */}
+        <p className="max-w-[140px] text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-white">
+          {card.label}
+        </p>
+        <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
+          <img
+            src={ARROW_WHITE}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="size-[16.5px]"
+          />
+        </span>
+      </Link>
+    );
+  }
+  const isImage = card.kind === "image";
+  // Figma 3165:6554 (image) / 3165:6557 (outline) — rounded-40 card,
+  // border, p-40, label+arrow row pinned to the bottom (justify-end).
+  return (
+    <Link
+      href="/#contact-form"
+      className={`relative flex h-[206px] w-full flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default p-[40px] ${
+        first ? "" : "-mt-px"
+      } ${isImage ? "" : "bg-white"}`}
+    >
+      {isImage && (
+        <>
+          <img
+            src={card.image}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className={`absolute max-w-none ${card.imgClass ?? "inset-0 size-full object-cover"}`}
+          />
+          {/* Dark blur halo bottom-left for label legibility (same
+              #151511 / blur-22 halo the desktop image cards use). */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
+          />
+        </>
+      )}
+      <div className="relative flex w-full items-center gap-8">
+        <p
+          className={`flex-1 text-[16px] font-semibold leading-[22px] tracking-[0.16px] ${
+            isImage ? "text-white" : "text-neutral-900"
+          }`}
+        >
+          {card.label}
+        </p>
+        <MobileSolutionArrow tone={isImage ? "light" : "dark"} />
+      </div>
+    </Link>
+  );
+}
+
+// Mobile cap decoration (Figma 3165:5407) — four white-bordered rounded
+// rectangles bleeding off the cap's RIGHT edge that form a subtle
+// concave-corner "spark". The 0.624-px borders read as faint hairlines
+// on the #343435 cap; the cap's overflow-hidden clips the off-screen
+// portions. Anchored to the right edge so it stays glued there on any
+// phone width.
+function ProtectSolutionsMobileDecor() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden lg:hidden"
+    >
+      <div
+        className="absolute flex h-[142.164px] w-[475.164px] items-center justify-center"
+        style={{ right: "-441.96px", top: "208.84px" }}
+      >
+        <div className="rotate-180">
+          <div className="h-[142.164px] w-[475.164px] rounded-br-[29.946px] border-b border-l border-r border-solid border-white" />
+        </div>
+      </div>
+      <div
+        className="absolute flex h-[215.971px] w-[475.164px] items-center justify-center"
+        style={{ right: "-441.99px", top: "-6.57px" }}
+      >
+        <div className="rotate-180 -scale-y-100">
+          <div className="h-[215.971px] w-[475.164px] rounded-br-[29.946px] border border-solid border-white" />
+        </div>
+      </div>
+      <div
+        className="absolute h-[216.199px] w-[45.003px] rounded-br-[29.946px] border-b border-r border-t border-solid border-white"
+        style={{ right: "32.76px", top: "-6.57px" }}
+      />
+      {/* Lower-left arm — its horizontal line dissolves toward the
+          heading exactly like the master render (full opacity from
+          ~77% of the arm, ease-out ramp sampled from Figma). */}
+      <div
+        className="absolute flex h-[142px] w-[143px] items-center justify-center"
+        style={{
+          right: "33px",
+          top: "209px",
+          maskImage:
+            "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.56) 36%, rgba(0,0,0,0.87) 56%, #000 78%)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.56) 36%, rgba(0,0,0,0.87) 56%, #000 78%)",
+        }}
+      >
+        <div className="-scale-y-100">
+          <div className="h-[142px] w-[143px] rounded-br-[29.946px] border-b border-r border-solid border-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProtectSolutions() {
   return (
     <section className="flex flex-col">
@@ -451,11 +628,13 @@ export function ProtectSolutions() {
           because `cqw` measured the post-zoom container size while
           siblings measured pre-zoom). The cluster stays hidden below
           lg where the cap collapses onto the heading anyway. */}
+      {/* Mobile (Figma 3165:5406): the cap is 390 tall — pt-60 + 4-line
+          heading (144) + 24 + button + pb-120 — and the light card below
+          overlaps its bottom 72px. */}
       <div
-        className="lg-pad-x relative -mb-12 overflow-hidden rounded-t-[40px] px-6 pb-20 pt-10 sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:rounded-t-[68px] lg:pb-[105px] lg:pt-[43px]"
-        style={{ background: "#2d2d2f" }}
+        className="lg-pad-x relative -mb-[72px] overflow-hidden rounded-t-[32px] bg-[#343435] px-6 pb-[120px] pt-[60px] sm:-mb-14 sm:rounded-t-[56px] sm:px-10 sm:pb-24 sm:pt-14 lg:-mb-[72px] lg:rounded-t-[68px] lg:bg-[#2d2d2f] lg:pb-[105px] lg:pt-[43px]"
       >
-        <div className="relative z-10 flex max-w-[571px] flex-col gap-8 sm:gap-12">
+        <div className="relative z-10 flex max-w-[571px] flex-col gap-6 sm:gap-12">
           {/* Figma 1327:3995 - heading reads "Основні рішення для /
               Засобів індивідуального / захисту" on 3 lines (text
               node is 571x144 = 3 lines at 48 line-height). The
@@ -475,25 +654,47 @@ export function ProtectSolutions() {
           <h2 className="text-h2-light text-white">
             Основні рішення для
             <br aria-hidden />
-            <span className="text-h2">Засобів індивідуального захисту</span>
+            <span className="text-h2">
+              {/* Mobile master (3165:5413) breaks the bold clause into
+                  three lines; lg wraps naturally in the 571px column. */}
+              Засобів
+              <br aria-hidden className="lg:hidden" />
+              {" індивідуального "}
+              <br aria-hidden className="lg:hidden" />
+              захисту
+            </span>
           </h2>
-          <Button href="/#contact-form" variant="outlined" arrow>
+          <Button href="/#contact-form" variant="outlined" size="responsive" arrow>
             Підібрати рішення
           </Button>
         </div>
+        {/* Desktop cross cluster (lg+) and the mobile concave-spark
+            decoration (lg:hidden) — different Figma decorations per master. */}
         <ProtectDecorCluster />
+        <ProtectSolutionsMobileDecor />
       </div>
 
-      <div className="relative rounded-[40px] bg-bg-subtle pb-12 pt-12 sm:rounded-[56px] sm:pb-16 sm:pt-16 lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
-        <div className="lg-pad-x px-5 sm:px-10">
-          {/* lg grid is edge-to-edge (gap-0). To stop adjacent 1px card
-              borders from doubling to 2px where cards touch, columns 2+
-              overlap the previous column's right border via `lg:-ml-px`,
-              and each non-first card overlaps the card above via
-              `lg:-mt-px`. The `contents` wrapper is transparent below lg
-              (so the column's mobile `gap-3 sm:gap-4` still applies),
-              becoming a real block only at lg. Same de-doubling trick as
-              the hotels ZonesGrid. */}
+      {/* max-lg:pb-[65px]: the 6-card stack collapses 5 seams by 1px each
+          (-mt-px keeps hairlines single like Figma), the extra 5px on the
+          bottom padding restores the master's exact 1281px light card. */}
+      <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[65px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
+        {/* MOBILE (<lg) — Figma 3165:6549: a single column of uniform 206-px
+            cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
+            the 131-px catalog CTA. */}
+        <div className="flex flex-col gap-0 px-6 lg:hidden">
+          {MOBILE_SOLUTIONS.map((card, i) => (
+            <MobileSolutionCard key={card.label} card={card} first={i === 0} />
+          ))}
+        </div>
+
+        {/* DESKTOP (lg+) — the Figma 1440 bento grid, hidden below lg
+            where the mobile stack above takes over.
+            lg grid is edge-to-edge (gap-0). To stop adjacent 1px card
+            borders from doubling to 2px where cards touch, columns 2+
+            overlap the previous column's right border via `lg:-ml-px`,
+            and each non-first card overlaps the card above via
+            `lg:-mt-px`. Same de-doubling trick as the hotels ZonesGrid. */}
+        <div className="hidden lg-pad-x px-6 sm:px-10 lg:block">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0">
             {COLUMNS.map((col, i) => (
               <div
