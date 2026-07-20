@@ -113,7 +113,10 @@ export function CleaningAudience() {
                     aria-hidden
                     loading="lazy"
                     decoding="async"
-                    className="absolute inset-[17.31%] size-[65.38%] max-w-none"
+                    // Figma keeps the Info icon's 9px zone inset ABSOLUTE
+                    // when the tile resizes (52->34, 96->78 zone); the old
+                    // 17.31% inset shrank the glyph ~20% at the lg tile.
+                    className="absolute left-[9px] top-[9px] size-[calc(100%-18px)] max-w-none"
                   />
                 </span>
               </div>

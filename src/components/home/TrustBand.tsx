@@ -47,7 +47,11 @@ export function TrustBand() {
                 aria-hidden
                 loading="lazy"
                 decoding="async"
-                className="absolute inset-[17.31%] size-[65.38%] max-w-none"
+                // The Figma "Info icon" keeps a FIXED 9px zone inset when
+                // resized (52 tile -> 34 zone, 96 tile -> 78 zone), so the
+                // inset must be absolute px - the old 17.31% shrank the
+                // glyph ~20% at the lg 96px tile.
+                className="absolute left-[9px] top-[9px] size-[calc(100%-18px)] max-w-none"
               />
             </Reveal>
           ))}

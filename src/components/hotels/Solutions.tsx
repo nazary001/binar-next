@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
+import { crossClips } from "@/components/ui/crossClips";
 
 // Decorative cluster on the dark CTA — cross pattern + orange tag
 // (shared with home TeamCta) PLUS the 4 hotels-specific silhouette
@@ -29,36 +30,55 @@ function HotelsDecorCluster() {
           Figma cap (the cross dissolves under the 2-line heading
           instead of cutting through the text). Same `mask-image`
           treatment as /protect and /cleaning. */}
+      {/* De-duplicated hairlines (see crossClips): UL owns the top
+          V-line + left H-line (its right/bottom edges are pushed 1px
+          past the shared axes so its borders sit exactly on them), UR
+          owns the right H-line, LL the bottom V-line; the duplicate
+          straight borders of UR/LL/LR are clipped away, keeping only
+          their 48px corner arcs. */}
       <div className="absolute inset-0">
         <div
           className="absolute rounded-br-[48px] border-b border-r border-white"
           style={{
             left: "35.93%",
-            right: "22.59%",
+            right: "calc(22.59% - 1px)",
             top: 0,
-            bottom: "57.14%",
+            bottom: "calc(57.14% - 1px)",
             maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
             WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
           }}
         />
         <div
           className="absolute rounded-bl-[48px] border-b border-l border-white"
-          style={{ left: "77.41%", right: 0, top: 0, bottom: "57.14%" }}
+          style={{
+            left: "77.41%",
+            right: 0,
+            top: 0,
+            bottom: "calc(57.14% - 1px)",
+            clipPath: crossClips(48).ur,
+          }}
         />
         <div
           className="absolute rounded-tr-[48px] border-t border-r border-white"
           style={{
             left: "35.93%",
-            right: "22.59%",
+            right: "calc(22.59% - 1px)",
             top: "42.86%",
             bottom: 0,
             maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
             WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
+            clipPath: crossClips(48).ll,
           }}
         />
         <div
           className="absolute rounded-tl-[48px] border-t border-l border-white"
-          style={{ left: "77.41%", right: 0, top: "42.86%", bottom: 0 }}
+          style={{
+            left: "77.41%",
+            right: 0,
+            top: "42.86%",
+            bottom: 0,
+            clipPath: crossClips(48).lr,
+          }}
         />
       </div>
 
@@ -269,9 +289,11 @@ export function Solutions() {
                         right edge so the gap between tags and icon
                         expands like Figma's justify-between layout. */}
                     {/* Info icon: the SVG is the Figma 34px-zone export
-                        (glyph padding baked in), so a uniform 17.31%
-                        inset (= 9/52) reproduces the master at any tile
-                        size. */}
+                        (glyph padding baked in). The Figma component
+                        keeps a FIXED 9px zone inset when resized
+                        (52->34, 96->78 zone), so the inset is absolute
+                        px - a percentage inset shrank the glyph ~20%
+                        at the lg 96px tile. */}
                     <span className="relative flex size-[52px] shrink-0 items-center justify-center overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[14px] lg:order-3 lg:ml-auto lg:size-[96px] lg:rounded-[18px]">
                       <img
                         src={c.icon}
@@ -279,7 +301,7 @@ export function Solutions() {
                         aria-hidden
                         loading="lazy"
                         decoding="async"
-                        className="absolute inset-[17.31%] size-[65.38%] max-w-none"
+                        className="absolute left-[9px] top-[9px] size-[calc(100%-18px)] max-w-none"
                       />
                     </span>
                   </div>

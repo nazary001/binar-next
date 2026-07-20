@@ -222,9 +222,11 @@ export function Faq({
                 title={i.label}
                 className="relative size-[52px] cursor-default overflow-clip rounded-[12px] border border-stroke-default sm:size-[72px] sm:rounded-[16px] lg:size-[96px] lg:rounded-[18px]"
               >
-                {/* Glyph — the 34px-zone asset at the Info icon's 9/52
-                    inset (see HEADER_ICONS comment). */}
-                <span className="absolute block inset-[17.31%]">
+                {/* Glyph — the 34px-zone asset at the Info icon's FIXED
+                    9px inset. The Figma component keeps the inset
+                    absolute when resized (52->34, 72->54, 96->78 zone),
+                    so a percentage inset shrank the glyph ~20% at lg. */}
+                <span className="absolute block inset-[9px]">
                   <img
                     src={i.src}
                     alt=""

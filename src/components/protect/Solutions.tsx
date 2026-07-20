@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { MobileCapCross } from "@/components/ui/MobileCapCross";
+import { crossClips } from "@/components/ui/crossClips";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
@@ -284,6 +286,11 @@ const CROSS_RADIUS = 48;
 // Fade ends at x=900 in the 1440 master. The left arm spans x=516 to
 // x=1114, so x=900 is (900-516)/598 = 64.2% of the arm's width.
 const LEFT_ARM_FADE = "linear-gradient(to right, transparent 0%, #000 64%, #000 100%)";
+// De-duplicated hairlines (see crossClips): UL owns the top V-line +
+// left H-line (box nudged 1px right/down onto the shared axis pixels),
+// UR owns the right H-line, LL the bottom V-line; the duplicate straight
+// borders of UR/LL/LR are clipped away, keeping only their corner arcs.
+const CLIPS = crossClips(CROSS_RADIUS);
 
 function ProtectDecorCluster() {
   return (
@@ -364,48 +371,52 @@ function ProtectDecorCluster() {
           visible across the entire cap, including over the gloves /
           shirt frames where it would otherwise be hidden by the
           icons' opaque export backgrounds. */}
-      {/* Upper-left quadrant - bottom + right borders, rounded br
-          inner corner. Masked with the fade so the bottom border
-          dissolves into the dark cap under the heading. */}
+      {/* Upper-left quadrant - OWNS the top V-line + left H-line.
+          Masked with the fade so the H-line dissolves into the dark
+          cap under the heading. */}
       <div
         className="absolute border-b border-r border-white"
         style={{
           top: 0,
-          right: `${CROSS_RIGHT}px`,
+          right: `${CROSS_RIGHT - 1}px`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
-          height: `${CROSS_TOP}px`,
+          height: `${CROSS_TOP + 1}px`,
           borderBottomRightRadius: `${CROSS_RADIUS}px`,
           maskImage: LEFT_ARM_FADE,
           WebkitMaskImage: LEFT_ARM_FADE,
         }}
       />
-      {/* Upper-right quadrant - bottom + left borders, rounded bl
-          inner corner. No fade (sits over empty dark band). */}
+      {/* Upper-right quadrant - OWNS the right H-line; left border
+          clipped to its arc. No fade (sits over empty dark band). */}
       <div
         className="absolute border-b border-l border-white"
         style={{
           top: 0,
           right: 0,
           width: `${CROSS_RIGHT_ARM_WIDTH}px`,
-          height: `${CROSS_TOP}px`,
+          height: `${CROSS_TOP + 1}px`,
           borderBottomLeftRadius: `${CROSS_RADIUS}px`,
+          clipPath: CLIPS.ur,
         }}
       />
-      {/* Lower-left quadrant - top + right borders, rounded tr. Also
-          faded on the left (same gradient stop as the UL arm). */}
+      {/* Lower-left quadrant - OWNS the bottom V-line; top border
+          clipped to its arc. Also faded on the left (same gradient
+          stop as the UL arm). */}
       <div
         className="absolute border-t border-r border-white"
         style={{
           top: `${CROSS_TOP}px`,
-          right: `${CROSS_RIGHT}px`,
+          right: `${CROSS_RIGHT - 1}px`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopRightRadius: `${CROSS_RADIUS}px`,
           maskImage: LEFT_ARM_FADE,
           WebkitMaskImage: LEFT_ARM_FADE,
+          clipPath: CLIPS.ll,
         }}
       />
-      {/* Lower-right quadrant - top + left borders, rounded tl. */}
+      {/* Lower-right quadrant - arcs only; both straight borders
+          clipped. */}
       <div
         className="absolute border-t border-l border-white"
         style={{
@@ -414,6 +425,7 @@ function ProtectDecorCluster() {
           width: `${CROSS_RIGHT_ARM_WIDTH}px`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopLeftRadius: `${CROSS_RADIUS}px`,
+          clipPath: CLIPS.lr,
         }}
       />
     </div>
@@ -543,57 +555,17 @@ function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boo
   );
 }
 
-// Mobile cap decoration (Figma 3165:5407) — four white-bordered rounded
-// rectangles bleeding off the cap's RIGHT edge that form a subtle
-// concave-corner "spark". The 0.624-px borders read as faint hairlines
-// on the #343435 cap; the cap's overflow-hidden clips the off-screen
-// portions. Anchored to the right edge so it stays glued there on any
-// phone width.
+// Mobile cap decoration (Figma 3165:5407) — the same 4-point sparkle as
+// the other dark caps, positioned for protect's taller (390px) cap: the
+// horizontal axis sits at y=210 and the vertical arm ends 39px above the
+// cap bottom (master pieces: 475px rects bleeding off the right edge at
+// top -6.57/208.84 + 45/143px rects at right ~33). Rendered via the
+// shared MobileCapCross (single-hairline construction, 0.624-alpha
+// stroke) — the master's fractional offsets differ by <1px and its
+// overlapping strokes merge into the same single hairlines anyway.
 function ProtectSolutionsMobileDecor() {
   return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden lg:hidden"
-    >
-      <div
-        className="absolute flex h-[142.164px] w-[475.164px] items-center justify-center"
-        style={{ right: "-441.96px", top: "208.84px" }}
-      >
-        <div className="rotate-180">
-          <div className="h-[142.164px] w-[475.164px] rounded-br-[29.946px] border-b border-l border-r border-solid border-white" />
-        </div>
-      </div>
-      <div
-        className="absolute flex h-[215.971px] w-[475.164px] items-center justify-center"
-        style={{ right: "-441.99px", top: "-6.57px" }}
-      >
-        <div className="rotate-180 -scale-y-100">
-          <div className="h-[215.971px] w-[475.164px] rounded-br-[29.946px] border border-solid border-white" />
-        </div>
-      </div>
-      <div
-        className="absolute h-[216.199px] w-[45.003px] rounded-br-[29.946px] border-b border-r border-t border-solid border-white"
-        style={{ right: "32.76px", top: "-6.57px" }}
-      />
-      {/* Lower-left arm — its horizontal line dissolves toward the
-          heading exactly like the master render (full opacity from
-          ~77% of the arm, ease-out ramp sampled from Figma). */}
-      <div
-        className="absolute flex h-[142px] w-[143px] items-center justify-center"
-        style={{
-          right: "33px",
-          top: "209px",
-          maskImage:
-            "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.56) 36%, rgba(0,0,0,0.87) 56%, #000 78%)",
-          WebkitMaskImage:
-            "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.56) 36%, rgba(0,0,0,0.87) 56%, #000 78%)",
-        }}
-      >
-        <div className="-scale-y-100">
-          <div className="h-[142px] w-[143px] rounded-br-[29.946px] border-b border-r border-solid border-white" />
-        </div>
-      </div>
-    </div>
+    <MobileCapCross className="lg:hidden" lineY="210px" bottomInset="39px" />
   );
 }
 

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
+import { crossClips } from "@/components/ui/crossClips";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
@@ -261,36 +262,52 @@ function CleaningDecorCluster() {
     >
       {/* Cross — solid white with a linear-gradient fade on the LEFT
           half of the horizontal arm only (same treatment as /protect
-          since this is the same cap composition reused). */}
+          since this is the same cap composition reused). Hairlines are
+          de-duplicated (see crossClips): UL owns the top V-line + left
+          H-line (edges pushed 1px past the shared axes), UR the right
+          H-line, LL the bottom V-line; UR/LL/LR keep only their arcs. */}
       <div
         className="absolute rounded-br-[48px] border-b border-r border-white"
         style={{
           left: "35.93%",
-          right: "22.59%",
+          right: "calc(22.59% - 1px)",
           top: 0,
-          bottom: "57.14%",
+          bottom: "calc(57.14% - 1px)",
           maskImage: "linear-gradient(to right, transparent 0%, black 64%)",
           WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 64%)",
         }}
       />
       <div
         className="absolute rounded-bl-[48px] border-b border-l border-white"
-        style={{ left: "77.41%", right: 0, top: 0, bottom: "57.14%" }}
+        style={{
+          left: "77.41%",
+          right: 0,
+          top: 0,
+          bottom: "calc(57.14% - 1px)",
+          clipPath: crossClips(48).ur,
+        }}
       />
       <div
         className="absolute rounded-tr-[48px] border-t border-r border-white"
         style={{
           left: "35.93%",
-          right: "22.59%",
+          right: "calc(22.59% - 1px)",
           top: "42.86%",
           bottom: 0,
           maskImage: "linear-gradient(to right, transparent 0%, black 64%)",
           WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 64%)",
+          clipPath: crossClips(48).ll,
         }}
       />
       <div
         className="absolute rounded-tl-[48px] border-t border-l border-white"
-        style={{ left: "77.41%", right: 0, top: "42.86%", bottom: 0 }}
+        style={{
+          left: "77.41%",
+          right: 0,
+          top: "42.86%",
+          bottom: 0,
+          clipPath: crossClips(48).lr,
+        }}
       />
 
       {/* Decorations. Figma master positions / 1440 (cap width):

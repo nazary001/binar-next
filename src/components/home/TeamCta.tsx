@@ -1,21 +1,35 @@
 /* eslint-disable @next/next/no-img-element */
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
+import { crossClips } from "@/components/ui/crossClips";
 import { TeamTagsCloud } from "@/components/home/TeamTagsCloud";
 
+// Each icon's `box` is the glyph's EXACT geometry inside the Figma
+// 120x120 "Block icons" frame (master components 724:3964 / 724:3909 /
+// 724:4037; the mobile card 3109:14115 and the desktop row use the same
+// instances). The SVG exports are edge-to-edge (viewBox == glyph bbox
+// incl. the 0.5px stroke bleed), so `object-contain` into the full 120
+// box rendered them 11-25% oversized - the glyphs must be placed at
+// their master size/offset instead.
 const PROCESS = [
   {
     icon: "/figma-export/team-process/icon-personal.svg",
+    // Figma glyph 98 x 84.555 at (11, 15.72) + 0.5px stroke outset.
+    box: { width: "99px", height: "85.5546px", left: "10.5px", top: "15.22px" },
     title: "Персональний супровід",
     body: "Ви отримуєте персонального відповідального менеджера, чіткий план поставки та швидкий зворотний зв'язок.",
   },
   {
     icon: "/figma-export/team-process/icon-team.svg",
+    // Figma glyph 108 x 93.217 centred, y -3px + 0.5px stroke outset.
+    box: { width: "109px", height: "93.7173px", left: "5.5px", top: "10.39px" },
     title: "Команда під задачу",
     body: "За потреби ми підключаємо дизайнерів для кастомізації, виробництво для виготовлення брендованих рішень і логістику для контролю термінів.",
   },
   {
     icon: "/figma-export/team-process/icon-result.svg",
+    // Figma glyph 95.733 x 90 centred at (50% + 1.85px, 50%), no outset.
+    box: { width: "95.7335px", height: "90px", left: "13.98px", top: "15px" },
     title: "Результат для вас",
     body: "Так ми забезпечуємо стабільність, передбачуваність і якість у кожному замовленні.",
   },
@@ -72,6 +86,13 @@ const CROSS_BOTTOM_HEIGHT = 224;
 const CROSS_LEFT_ARM_WIDTH = 598;
 const CROSS_RIGHT_ARM_WIDTH = 326;
 const CROSS_RADIUS = 48;
+// De-duplicated hairlines: UL owns the top V-line + left H-line (its
+// box is nudged 1px right/down so its borders sit exactly on the shared
+// axis pixels), UR owns the right H-line, LL the bottom V-line; the
+// clips cut the duplicate straight borders of UR/LL/LR but keep their
+// 48px corner arcs. Without this each axis painted as TWO adjacent 1px
+// lines (the Figma master's overlapping rects merge into one).
+const CLIPS = crossClips(CROSS_RADIUS);
 
 function DecorCluster() {
   return (
@@ -177,44 +198,48 @@ function DecorCluster() {
           as the protect / cleaning / hotels caps so the cross
           dissolves under the heading instead of cutting through the
           text. */}
-      {/* Upper-left quadrant - bottom + right borders, rounded bottom-right */}
+      {/* Upper-left quadrant - OWNS the top V-line + left H-line */}
       <div
         className="absolute border-b border-r border-white"
         style={{
           top: 0,
-          right: `${CROSS_RIGHT}px`,
+          right: `${CROSS_RIGHT - 1}px`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
-          height: `${CROSS_TOP}px`,
+          height: `${CROSS_TOP + 1}px`,
           borderBottomRightRadius: `${CROSS_RADIUS}px`,
           maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
           WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
         }}
       />
-      {/* Upper-right quadrant - bottom + left borders, rounded bottom-left */}
+      {/* Upper-right quadrant - OWNS the right H-line; left border
+          clipped to its arc */}
       <div
         className="absolute border-b border-l border-white"
         style={{
           top: 0,
           right: 0,
           width: `${CROSS_RIGHT_ARM_WIDTH}px`,
-          height: `${CROSS_TOP}px`,
+          height: `${CROSS_TOP + 1}px`,
           borderBottomLeftRadius: `${CROSS_RADIUS}px`,
+          clipPath: CLIPS.ur,
         }}
       />
-      {/* Lower-left quadrant - top + right borders, rounded top-right */}
+      {/* Lower-left quadrant - OWNS the bottom V-line; top border
+          clipped to its arc */}
       <div
         className="absolute border-t border-r border-white"
         style={{
           top: `${CROSS_TOP}px`,
-          right: `${CROSS_RIGHT}px`,
+          right: `${CROSS_RIGHT - 1}px`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopRightRadius: `${CROSS_RADIUS}px`,
           maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
           WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
+          clipPath: CLIPS.ll,
         }}
       />
-      {/* Lower-right quadrant - top + left borders, rounded top-left */}
+      {/* Lower-right quadrant - arcs only; both straight borders clipped */}
       <div
         className="absolute border-t border-l border-white"
         style={{
@@ -223,6 +248,7 @@ function DecorCluster() {
           width: `${CROSS_RIGHT_ARM_WIDTH}px`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopLeftRadius: `${CROSS_RADIUS}px`,
+          clipPath: CLIPS.lr,
         }}
       />
     </div>
@@ -499,14 +525,15 @@ export function TeamCta() {
               key={p.title}
               className="relative flex flex-col gap-10 lg:gap-4"
             >
-              <span className="relative flex size-[120px] shrink-0 items-center justify-center">
+              <span className="relative block size-[120px] shrink-0 overflow-clip">
                 <img
                   src={p.icon}
                   alt=""
                   aria-hidden
                   loading="lazy"
                   decoding="async"
-                  className="block size-full object-contain"
+                  className="absolute block max-w-none"
+                  style={p.box}
                 />
               </span>
 

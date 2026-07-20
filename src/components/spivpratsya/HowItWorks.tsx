@@ -367,12 +367,31 @@ export function HowItWorks() {
                   aria-pressed={isActive}
                   className="flex w-full cursor-pointer items-center gap-8 text-left"
                 >
+                  {/* Figma mobile "Dot" (24x24, node 3167:4895/4932): a
+                      pointy-side HEXAGON, not a circle — the active step
+                      carries Polygon 24 (16 x 13.86, brand) and inactive
+                      rows Polygon 18 (10 x 8.66, dark) = the same shape
+                      at exactly 1.6x. One path scaled + recolored per
+                      state, so the marker grows/shrinks smoothly as the
+                      active step walks the rail. Tailwind v4 compiles
+                      scale-* to the standalone `scale` property, so the
+                      transition targets [scale], not transform. The
+                      white 24px disc masks the rail behind the marker. */}
                   <span className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full bg-white">
-                    <span
-                      className={`block size-2 rounded-full transition-colors ${
-                        isActive ? "bg-brand" : "bg-neutral-900"
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 24 24"
+                      className={`block size-6 transition-[scale] duration-300 ease-out ${
+                        isActive ? "scale-[1.6]" : "scale-100"
                       }`}
-                    />
+                    >
+                      <path
+                        d="M17 12L14.5 16.3301L9.5 16.3301L7 12L9.5 7.66987L14.5 7.66987L17 12Z"
+                        className={`transition-colors duration-300 ${
+                          isActive ? "fill-brand" : "fill-neutral-900"
+                        }`}
+                      />
+                    </svg>
                   </span>
                   <FitStepLabel num={`0${i + 1}.`} name={s} active={isActive} />
                 </button>

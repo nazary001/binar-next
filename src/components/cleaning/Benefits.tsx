@@ -12,36 +12,57 @@ import { Button } from "@/components/ui/Button";
 // document stack) that don't exist elsewhere in the project. Blocks
 // 2 / 3 / 4 reuse the cross-page library (puzzle / scale / calendar+box)
 // because those renders already match the cleaning section's design.
+//
+// Each icon's `box` is the glyph's EXACT geometry inside the Figma
+// 120x120 "Block icons" frame (variants per master 3165:6724; desktop
+// 1327:4490 uses the same component instances). Five of the six SVG
+// exports are edge-to-edge (viewBox == glyph bbox incl. 0.5px stroke
+// bleed), so the old `object-contain` into the full 120 box rendered
+// them 19-26% oversized. icon-custom.svg is the exception - it bakes
+// the full 120x120 frame with the inset inside, so its box IS the
+// whole container.
 const FEATURES = [
   {
     title: "Системне забезпечення гігієни",
     body: "Підбираємо гігієнічне забезпечення відповідно до ваших стандартів, процесів і типу об'єкта.",
     icon: "/figma-export/cleaning/icon-system.svg",
+    // Figma glyph 75.117 x 96 at (20.44, 10) + right/bottom stroke bleed.
+    box: { width: "75.617px", height: "96.5px", left: "20.44px", top: "10px" },
   },
   {
     title: "Підбір під реальні задачі",
     body: "Пропонуємо лише те, що справді потрібно у роботі, без зайвих позицій і переплат.",
     icon: "/figma-export/why-us/icon-custom.svg",
+    // Baked 120x120 frame (viewBox "-12.5 -12.5 120 120") - fills the box.
+    box: { width: "120px", height: "120px", left: "0px", top: "0px" },
   },
   {
     title: "Оптимізацію витрат",
     body: "Допомагаємо зменшити витрати завдяки правильним дозуванням, концентраціям і налагодженим процесам.",
     icon: "/figma-export/hotels/icon-budget.svg",
+    // Figma glyph 93.036 x 96 centred (+0.91, -1) + left/bottom bleed.
+    box: { width: "93.536px", height: "96.5px", left: "13.89px", top: "11px" },
   },
   {
     title: "Стабільні поставки без перебоїв",
     body: "Забезпечуємо регулярне постачання складських позицій і допомагаємо прогнозувати потреби.",
     icon: "/figma-export/hotels/icon-storage.svg",
+    // Figma glyph 95.251 x 100 at (12.61, 11.55) + all-side bleed.
+    box: { width: "96.251px", height: "101px", left: "12.11px", top: "11.05px" },
   },
   {
     title: "Перевірені професійні рішення",
     body: "Працюємо з надійними брендами та продуктами, які підходять для стабільного сервісу без ризику експериментів.",
     icon: "/figma-export/cleaning/icon-trusted.svg",
+    // Figma glyph 95.733 x 90 centred at (50% + 1.85px, 50%), no bleed.
+    box: { width: "95.7335px", height: "90px", left: "13.98px", top: "15px" },
   },
   {
     title: "Відповідність вимогам і документації",
     body: "Надаємо супровідні документи та рішення, що допомагають дотримуватись HACCP, внутрішніх аудитів і стандартів.",
     icon: "/figma-export/cleaning/icon-compliance.svg",
+    // Figma glyph 75.328 x 94 at (22.34, 13) + all-side bleed.
+    box: { width: "76.328px", height: "95px", left: "21.84px", top: "12.5px" },
   },
 ];
 
@@ -57,9 +78,9 @@ function Block({ f }: { f: Feature }) {
         <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
         <p className="text-body-sm text-neutral-500">{f.body}</p>
       </div>
-      {/* Figma I*:230:1665 — 120-px icon container, SVG fills via
-          object-contain so each glyph respects whatever inner inset
-          the asset bakes in. */}
+      {/* Figma I*:230:1665 — 120-px icon container; the glyph renders
+          at its exact master size/offset (f.box), not stretched to the
+          container. */}
       <span
         aria-hidden
         className="relative block size-[120px] shrink-0 overflow-clip"
@@ -69,7 +90,8 @@ function Block({ f }: { f: Feature }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 size-full object-contain"
+          className="absolute block max-w-none"
+          style={f.box}
         />
       </span>
     </article>
@@ -121,7 +143,8 @@ export function CleaningBenefits() {
                       alt=""
                       loading="lazy"
                       decoding="async"
-                      className="absolute inset-0 size-full object-contain"
+                      className="absolute block max-w-none"
+                      style={f.box}
                     />
                   </span>
                 </article>

@@ -5,38 +5,58 @@ import { Fragment } from "react";
 // is a STATIC grid — no hover transitions, no animated reveals, no
 // numbered badges, no mobile card chrome. Each Block is just a
 // title + body + icon column sitting between hairline dividers.
+//
+// Each icon's `box` is the glyph's EXACT geometry inside the Figma
+// 120x120 "Block icons" frame. The three hotels/* SVGs are edge-to-edge
+// exports (viewBox == glyph bbox incl. stroke bleed) - the old
+// `object-contain` into the full 120 box rendered them ~20% oversized.
+// The why-us/* files bake the whole 120 frame, so their box IS the
+// container.
 const FEATURES = [
   {
     title: "Стабільне постачання без зривів",
     body: "Щоб витратні матеріали завжди були в наявності, коли вони потрібні.",
     icon: "/figma-export/why-us/icon-purchases.svg",
+    box: { width: "120px", height: "120px", left: "0px", top: "0px" },
   },
   {
     title: "Прогнозовану якість у кожній поставці",
     body: "Постійні характеристики товарів і контроль якості, без сюрпризів між партіями.",
     icon: "/figma-export/hotels/icon-quality.svg",
+    // Figma glyph 91.716 x 97.62 at (11.32, 9.19) + top/right/bottom bleed.
+    box: { width: "92.219px", height: "98.627px", left: "11.32px", top: "8.69px" },
   },
   {
     title: "Альтернативи під ваш бюджет",
     body: "Підбираємо оптимальне співвідношення ціни та характеристик.",
     icon: "/figma-export/hotels/icon-budget.svg",
+    // Figma glyph 93.036 x 96 centred (+0.91, -1) + left/bottom bleed.
+    box: { width: "93.536px", height: "96.5px", left: "13.89px", top: "11px" },
   },
   {
     title: "Швидкі терміни для складських позицій",
     body: "Оперативно закриваємо стандартні закупівлі.",
     icon: "/figma-export/hotels/icon-fast.svg",
+    // Figma glyph 103.037 x 110.11 centred (y +0.05) + left bleed.
+    box: { width: "103.537px", height: "110.11px", left: "7.98px", top: "5px" },
   },
   {
     title: "Кастомізацію під бренд готелю",
     body: "Брендовані рішення, які підсилюють сервіс і враження гостей.",
     icon: "/figma-export/why-us/icon-custom.svg",
+    box: { width: "120px", height: "120px", left: "0px", top: "0px" },
   },
   {
     title: "Зберігання кастомізованої продукції та поставки партіями",
     // Figma block 3117:14439 uses the "Гарантія задоволеності" smiley
-    // speech-bubble + sparkles icon here (not a storage glyph).
+    // speech-bubble + sparkles icon here (not a storage glyph). The
+    // hotels master renders this instance ~5% smaller than the home
+    // WhyUs one (ink 97x101 at (13,11) vs the baked file's 103x104 at
+    // (5,11)), so the baked 120-frame is scaled to 114 and offset to
+    // land the ink on the master's box.
     body: "Можемо зберігати ваш кастомізований запас на наших складах і відвантажувати за графіком.",
     icon: "/figma-export/why-us/icon-guarantee.svg",
+    box: { width: "114px", height: "114px", left: "8.3px", top: "0.6px" },
   },
 ];
 
@@ -52,9 +72,8 @@ function Block({ f }: { f: Feature }) {
         <h3 className="text-title-lg text-neutral-900">{f.title}</h3>
         <p className="text-body-sm text-neutral-500">{f.body}</p>
       </div>
-      {/* Figma I*:230:1665 — 120-px icon container, SVG fills via
-          object-contain so each glyph respects whatever inner inset
-          the asset bakes in. */}
+      {/* Figma I*:230:1665 — 120-px icon container; the glyph renders
+          at its exact master size/offset (f.box). */}
       <span
         aria-hidden
         className="relative block size-[120px] shrink-0 overflow-clip"
@@ -64,7 +83,8 @@ function Block({ f }: { f: Feature }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 size-full object-contain"
+          className="absolute block max-w-none"
+          style={f.box}
         />
       </span>
     </article>
@@ -106,7 +126,8 @@ export function HotelBenefits() {
                     alt=""
                     loading="lazy"
                     decoding="async"
-                    className="absolute inset-0 size-full object-contain"
+                    className="absolute block max-w-none"
+                    style={f.box}
                   />
                 </span>
                 <div className="flex w-full flex-col gap-3">

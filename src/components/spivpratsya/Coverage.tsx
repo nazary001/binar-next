@@ -1,5 +1,14 @@
+"use client";
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ItemsPanel,
+  PANEL_H,
+  PANEL_W,
+  type PopupPosition,
+  computePos,
+} from "@/components/ui/ItemsPopup";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
@@ -8,6 +17,13 @@ const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 // 1870:6039 / grid 2532:7660 - the same card system used on the protect
 // and hotels pages: every card is a link with a 52-px arrow-circle
 // button bottom-right and a brand hover ring.
+//
+// Hovering a card (lg+) opens the shared dark items panel beside it
+// (same window as the hotels ZonesGrid details popup) listing what the
+// category covers; the panel follows the cursor between cards and
+// closes when the pointer leaves the grid+panel area (or Escape / X).
+// Per user direction the card TITLE stays black on hover - only the
+// ring/arrow carry the brand accent.
 //
 // 1440-master: section is full-width, 130-px gutters, h2 title row, then
 // a 1180 x 786 three-column grid:
@@ -23,29 +39,102 @@ const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 // All cards point at the same lead form the "Переглянути каталог" button uses.
 const CARD_HREF = "#contact-form";
 
-type TextCardData = { kind: "text"; title: string };
-type PhotoCardData = { kind: "photo"; title: string; src: string };
+type TextCardData = { kind: "text"; title: string; items: string[] };
+type PhotoCardData = {
+  kind: "photo";
+  title: string;
+  src: string;
+  items: string[];
+};
 type ButtonCardData = { kind: "button"; title: string; href: string };
 type Card = TextCardData | PhotoCardData | ButtonCardData;
 
+// Item chips per category for the hover details panel. The Figma tile
+// component has no hover variant, so these lists are curated from the
+// same product vocabulary the hotels/protect/cleaning pages use.
 const COL_1: Card[] = [
   {
     kind: "photo",
     title: "Тапочки (стандарт / кастом)",
     src: "/figma-export/spivpratsya/cover-tapochki.png",
+    items: [
+      "Закриті та відкриті моделі",
+      "Махра, велюр, вафельна тканина",
+      "Одноразові та багаторазові",
+      "Брендування вишивкою чи принтом",
+      "Індивідуальне пакування",
+    ],
   },
-  { kind: "text", title: "Галантерея та витратні матеріали" },
-  { kind: "text", title: "Текстиль і комплектація номерів" },
-  { kind: "text", title: "PROTECT (ЗІЗ, одноразовий одяг)" },
+  {
+    kind: "text",
+    title: "Галантерея та витратні матеріали",
+    items: [
+      "Зубні набори",
+      "Бритвені набори",
+      "Шапочки для душу",
+      "Гребінці та пилки",
+      "Ватні диски й палички",
+      "Швейні набори",
+    ],
+  },
+  {
+    kind: "text",
+    title: "Текстиль і комплектація номерів",
+    items: [
+      "Рушники та халати",
+      "Постільна білизна",
+      "Наматрацники",
+      "Подушки та ковдри",
+      "Текстиль на 200+ прань",
+      "Специфікації для тендерів",
+    ],
+  },
+  {
+    kind: "text",
+    title: "PROTECT (ЗІЗ, одноразовий одяг)",
+    items: [
+      "Одноразові халати",
+      "Рукавички",
+      "Маски та респіратори",
+      "Бахіли та шапочки",
+      "Одноразова білизна",
+    ],
+  },
 ];
 
 const COL_2: Card[] = [
-  { kind: "text", title: "HoReCa Hygiene (гігієна, прибирання)" },
-  { kind: "text", title: "Брендування та пакування" },
+  {
+    kind: "text",
+    title: "HoReCa Hygiene (гігієна, прибирання)",
+    items: [
+      "Професійна хімія",
+      "Дозатори та диспенсери",
+      "Протиральні матеріали",
+      "Інвентар для прибирання",
+      "Засоби дезінфекції",
+    ],
+  },
+  {
+    kind: "text",
+    title: "Брендування та пакування",
+    items: [
+      "Логотип на продукції",
+      "Індивідуальні коробки",
+      "Пакування під бренд об'єкта",
+      "Дизайн-макети та зразки",
+    ],
+  },
   {
     kind: "photo",
     title: "Міні-косметика та аксесуари",
     src: "/figma-export/spivpratsya/cover-cosmetics.png",
+    items: [
+      "Шампуні та гелі",
+      "Кондиціонери та лосьйони",
+      "Мило й мініфлакони",
+      "Косметика в дозаторах",
+      "Кастомні аромати",
+    ],
   },
 ];
 
@@ -54,6 +143,13 @@ const COL_3: Card[] = [
     kind: "photo",
     title: "Оснащення ванної (включно з Valera)",
     src: "/figma-export/spivpratsya/cover-bathroom.png",
+    items: [
+      "Фени Valera",
+      "Дзеркала",
+      "Дозатори та тримачі",
+      "Аксесуари для ванної кімнати",
+      "Полички та гачки",
+    ],
   },
   { kind: "button", title: "Переглянути каталог", href: CARD_HREF },
 ];
@@ -147,8 +243,10 @@ function PhotoCardEl({
 
 function TextCardEl({ title, className }: { title: string; className?: string }) {
   // White card: title + dark arrow circle in a bottom-pinned row
-  // (Figma 2532 row sits p-10 from the card bottom). Title eases to brand
-  // on hover, the arrow circle fills brand - same as the protect cards.
+  // (Figma 2532 row sits p-10 from the card bottom). The title stays
+  // neutral-900 on hover (user direction - no brand tint on text); the
+  // hover affordances are the ring, the brand arrow fill and the items
+  // panel that opens beside the card.
   return (
     <Link
       href={CARD_HREF}
@@ -156,9 +254,7 @@ function TextCardEl({ title, className }: { title: string; className?: string })
     >
       <HoverRing />
       <div className="relative flex w-full items-center gap-4 sm:gap-8">
-        <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
-          {title}
-        </p>
+        <p className="flex-1 text-button-lg text-neutral-900">{title}</p>
         <CardArrow tone="dark" />
       </div>
     </Link>
@@ -217,12 +313,16 @@ function Column({
   cards,
   ratios,
   index,
+  onHover,
 }: {
   cards: Card[];
   // Visual heights at lg in px, summing to the 786-px column height.
   // Below lg each card sizes to its own content (photos via aspect-square).
   ratios: number[];
   index: number;
+  // Fired on card mouseenter with the card's grid cell element so the
+  // parent can open/close the hover items panel next to it.
+  onHover: (card: Card, el: HTMLDivElement) => void;
 }) {
   return (
     <div
@@ -234,6 +334,7 @@ function Column({
       {cards.map((card, i) => (
         <div
           key={i}
+          onMouseEnter={(e) => onHover(card, e.currentTarget)}
           // `--lg-basis` resolves into flex-basis only inside the lg:
           // variant. `lg:min-h-0` is critical: without it a flex item
           // defaults to `min-height: auto` (its content size), so the
@@ -395,6 +496,84 @@ function MobileItemCard({ item, first }: { item: MobileItem; first?: boolean }) 
 }
 
 export function Coverage() {
+  const [active, setActive] = useState<Card | null>(null);
+  // Keep the LAST hovered card around even when active goes back to
+  // null, so the panel content stays correct during the fade-out.
+  const [last, setLast] = useState<Card | null>(null);
+  const [popupPos, setPopupPos] = useState<PopupPosition | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const activeCardElRef = useRef<HTMLDivElement | null>(null);
+
+  const handleHover = useCallback((card: Card, el: HTMLDivElement) => {
+    // The catalog button has no items - hovering it dismisses the panel.
+    if (card.kind === "button" || !card.items.length) {
+      setActive(null);
+      return;
+    }
+    setActive(card);
+    setLast(card);
+    activeCardElRef.current = el;
+    setPopupPos(computePos(el));
+  }, []);
+
+  // Hover mode: close when the pointer leaves the grid AND the panel
+  // (checked with a grace margin on document mousemove - onMouseLeave
+  // on the grid alone would close the panel the moment the cursor
+  // crosses toward it, since the fixed panel can float outside the
+  // grid's bounding box). Escape closes too.
+  useEffect(() => {
+    if (!active) return;
+    const MARGIN = 32; // visual px of grace around grid/panel
+    const inside = (r: DOMRect, x: number, y: number) =>
+      x >= r.left - MARGIN &&
+      x <= r.right + MARGIN &&
+      y >= r.top - MARGIN &&
+      y <= r.bottom + MARGIN;
+    const onMove = (e: MouseEvent) => {
+      const g = gridRef.current?.getBoundingClientRect();
+      const p = panelRef.current?.getBoundingClientRect();
+      if (
+        (g && inside(g, e.clientX, e.clientY)) ||
+        (p && inside(p, e.clientX, e.clientY))
+      )
+        return;
+      setActive(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActive(null);
+    };
+    document.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [active]);
+
+  // Follow the active card on scroll/resize so the panel stays glued
+  // to it (and inside the viewport via computePos clamping).
+  useEffect(() => {
+    if (!active) return;
+    let ticking = false;
+    const recalc = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const el = activeCardElRef.current;
+        if (!el) return;
+        setPopupPos(computePos(el));
+      });
+    };
+    window.addEventListener("scroll", recalc, { passive: true });
+    window.addEventListener("resize", recalc);
+    return () => {
+      window.removeEventListener("scroll", recalc);
+      window.removeEventListener("resize", recalc);
+    };
+  }, [active]);
+
   return (
     // Mobile (3166:8820): pt-60 / title-36 / gap-48 / stack / pb-60.
     // pb-[67px] = 60 + 7: the 8-tile stack collapses 7 seams by 1px each
@@ -407,7 +586,7 @@ export function Coverage() {
 
       {/* MOBILE (<lg) — Figma 3166:8824: a single column of uniform 206-px
           cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
-          the 131-px catalog CTA. */}
+          the 131-px catalog CTA. No hover panel on touch layouts. */}
       <div className="flex flex-col gap-0 lg:hidden">
         {MOBILE_ITEMS.map((item, i) => (
           <MobileItemCard key={item.label} item={item} first={i === 0} />
@@ -415,10 +594,58 @@ export function Coverage() {
       </div>
 
       {/* DESKTOP (lg+) — the Figma 1440 bento grid, hidden below lg. */}
-      <div className="hidden w-full flex-col gap-4 sm:gap-5 lg:flex lg:flex-row lg:items-stretch lg:gap-0">
-        <Column cards={COL_1} ratios={[393, 131, 131, 131]} index={0} />
-        <Column cards={COL_2} ratios={[196.5, 196.5, 393]} index={1} />
-        <Column cards={COL_3} ratios={[655, 131]} index={2} />
+      <div
+        ref={gridRef}
+        className="relative hidden w-full flex-col gap-4 sm:gap-5 lg:flex lg:flex-row lg:items-stretch lg:gap-0"
+      >
+        <Column
+          cards={COL_1}
+          ratios={[393, 131, 131, 131]}
+          index={0}
+          onHover={handleHover}
+        />
+        <Column
+          cards={COL_2}
+          ratios={[196.5, 196.5, 393]}
+          index={1}
+          onHover={handleHover}
+        />
+        <Column
+          cards={COL_3}
+          ratios={[655, 131]}
+          index={2}
+          onHover={handleHover}
+        />
+
+        {/* Hover items panel — same fixed-position window as the hotels
+            ZonesGrid details popup (shared ItemsPanel + computePos). It
+            fades/scales in beside the hovered card and animates between
+            cards via the left/top/width/height transition. */}
+        <div
+          ref={panelRef}
+          aria-hidden={!active}
+          className={`fixed z-50 hidden transition-[opacity,translate,scale,left,top,width,height] duration-300 ease-out lg:block ${
+            active
+              ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+              : "pointer-events-none translate-y-1 scale-[0.98] opacity-0"
+          }`}
+          style={{
+            left: popupPos?.left ?? 0,
+            top: popupPos?.top ?? 0,
+            width: popupPos?.width ?? PANEL_W,
+            // maxHeight (not height) so the panel sizes itself to its
+            // own chip rows; the cap keeps it inside the viewport.
+            maxHeight: popupPos?.height ?? PANEL_H,
+          }}
+        >
+          {last && last.kind !== "button" && (
+            <ItemsPanel
+              title={last.title}
+              items={last.items}
+              onClose={() => setActive(null)}
+            />
+          )}
+        </div>
       </div>
     </section>
   );

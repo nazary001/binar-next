@@ -40,13 +40,19 @@ const AUDIENCES: Audience[] = [
     ),
     body: "Підбираємо комплектацію під стиль і бюджет, готуємо варіанти та зразки для погодження.",
     icon: "/figma-export/info-icons/aud-designer.svg",
-    iconClass: "absolute inset-[17.31%] size-[65.38%] max-w-none",
+    // Figma keeps the Info icon's 9px zone inset ABSOLUTE when the tile
+    // resizes (52->34, 96->78 zone); a percentage inset shrank the glyph
+    // ~20% at the lg tile.
+    iconClass: "absolute left-[9px] top-[9px] size-[calc(100%-18px)] max-w-none",
   },
   {
     title: "Архітекторам",
     body: "Допомагаємо із специфікаціями і рішеннями, які впливають на експлуатацію об’єкта.",
     icon: "/figma-export/info-icons/aud-architect.svg",
-    iconClass: "absolute inset-[17.31%] size-[65.38%] max-w-none",
+    // Figma keeps the Info icon's 9px zone inset ABSOLUTE when the tile
+    // resizes (52->34, 96->78 zone); a percentage inset shrank the glyph
+    // ~20% at the lg tile.
+    iconClass: "absolute left-[9px] top-[9px] size-[calc(100%-18px)] max-w-none",
   },
   {
     title: "Девелоперам",
@@ -57,13 +63,19 @@ const AUDIENCES: Audience[] = [
     // keeps the desktop-era edge-to-edge helmet export sized to the
     // master's measured 26-px ink.
     icon: "/figma-export/spivpratsya/aud-developer.svg",
-    iconClass: "size-[50%] object-contain",
+    // Edge-to-edge glyph sized relative to the FIXED 9px zone (78% of
+    // the zone = the master's 26px ink at the 52 tile, ~61px at 96 -
+    // the old size-[50%] undershot the lg master's ~62px ink).
+    iconClass: "size-[calc((100%-18px)*0.78)] object-contain",
   },
   {
     title: "Консультантам",
     body: "Працюємо як постачальник у ваших проєктах: швидкі КП, варіанти, готовність до запуску.",
     icon: "/figma-export/info-icons/aud-consultant.svg",
-    iconClass: "absolute inset-[17.31%] size-[65.38%] max-w-none",
+    // Figma keeps the Info icon's 9px zone inset ABSOLUTE when the tile
+    // resizes (52->34, 96->78 zone); a percentage inset shrank the glyph
+    // ~20% at the lg tile.
+    iconClass: "absolute left-[9px] top-[9px] size-[calc(100%-18px)] max-w-none",
   },
 ];
 

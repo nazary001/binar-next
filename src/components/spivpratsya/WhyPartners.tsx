@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // Figma 1870:6139 — "Чому партнери обирають нас?".
 //
@@ -16,12 +16,16 @@ import type { ReactNode } from "react";
 // glyphs + a small sparkle. Rendering it as a single asset would lose
 // the inner symbols (Figma exports them as separate frames). So the
 // icon prop accepts either a string (single asset) or a ReactNode
-// (composed JSX). The container is always 96/120 px square with
-// `object-contain` semantics — the composition just lives inside that
-// box at the same scale as Figma's `Block icons` master.
+// (composed JSX). The container is always the Figma 120px "Block icons"
+// frame; each string icon carries `box` - the glyph's EXACT master
+// geometry inside that frame (masters 3167:4980 / 1870:6139 use the
+// same component instances). The SVG exports are edge-to-edge
+// (viewBox == glyph bbox incl. stroke bleed), so `object-contain` into
+// the full 120 box rendered them 9-23% oversized.
 type Feature = {
   title: string;
   icon: string | ReactNode;
+  box?: CSSProperties;
 };
 
 // Calculator icon — 120×120 frame matching Figma's `Block icons`
@@ -124,26 +128,37 @@ const FEATURES: Feature[] = [
   {
     title: "Чіткий процес роботи",
     icon: "/figma-export/spivpratsya/why-process.svg",
+    // Figma glyph 97.161 x 96 centred at (50%, 50%) + right/bottom bleed.
+    box: { width: "97.661px", height: "96.5px", left: "11.42px", top: "12px" },
   },
   {
     title: "Контроль якості (ISO 9001)",
     icon: "/figma-export/spivpratsya/why-iso.svg",
+    // Figma glyph 91.716 x 97.62 at (11.32, 9.19) + top/right/bottom bleed.
+    box: { width: "92.219px", height: "98.627px", left: "11.32px", top: "8.69px" },
   },
   {
     title: "Гнучкість по MOQ",
     icon: "/figma-export/spivpratsya/why-moq.svg",
+    // Figma glyph 105 x 106 at (7, 7), no bleed.
+    box: { width: "105px", height: "106px", left: "7px", top: "7px" },
   },
   {
     title: "Імпорт під проєкти",
     icon: "/figma-export/spivpratsya/why-import.svg",
+    // Figma glyph 103.037 x 110.11 centred (y +0.05) + left bleed.
+    box: { width: "103.537px", height: "110.11px", left: "7.98px", top: "5px" },
   },
   {
     title: "Підтримка після поставки",
     icon: "/figma-export/spivpratsya/why-support.svg",
+    // Figma glyph 98 x 84.555 at (11, 15.72) + all-side bleed (same
+    // component as the home TeamCta "Персональний супровід" icon).
+    box: { width: "99px", height: "85.5546px", left: "10.5px", top: "15.22px" },
   },
 ];
 
-function Block({ title, icon }: Feature) {
+function Block({ title, icon, box }: Feature) {
   return (
     <article className="flex h-full w-full min-w-0 flex-col-reverse items-start gap-10 rounded-[32px] bg-bg-subtle p-6 lg:flex-col lg:items-end lg:justify-between lg:gap-0 lg:min-h-[240px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6">
       <h3 className="w-full text-title-lg text-neutral-900">
@@ -159,7 +174,8 @@ function Block({ title, icon }: Feature) {
             alt=""
             loading="lazy"
             decoding="async"
-            className="absolute inset-0 size-full object-contain"
+            className="absolute block max-w-none"
+            style={box}
           />
         ) : (
           icon

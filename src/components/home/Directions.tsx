@@ -7,9 +7,14 @@ type Card = {
   title: string;
   body: string;
   image: string;
-  // Figma mobile master crops card 1 with object-bottom (3117:12427);
-  // the other two use the default centre crop.
-  imageClass?: string;
+  // Figma mobile master 3117:12427 fills card 1 with a DIFFERENT photo
+  // version than the desktop master and maps the whole 1024x1000 frame
+  // into the 342x206 box with a non-uniform stretch (not a cover crop).
+  // card-hotels-mobile.png is that stretch pre-baked at 2x (684x412), so
+  // plain object-cover renders the master 1:1 at 390 and degrades by
+  // cropping - not by stretching further - at wider sub-lg widths.
+  // Cards 2/3 share one asset per breakpoint (plain centre cover in Figma).
+  mobileImage?: string;
 };
 
 const CARDS: Card[] = [
@@ -18,7 +23,7 @@ const CARDS: Card[] = [
     title: "Усе для готелів",
     body: "Товари для ефективної роботи закладів гостинності  та якісного обслуговування гостей",
     image: "/figma-export/directions/card-hotels.png",
-    imageClass: "max-lg:object-bottom",
+    mobileImage: "/figma-export/directions/card-hotels-mobile.png",
   },
   {
     href: "/protect",
@@ -34,7 +39,7 @@ const CARDS: Card[] = [
   },
 ];
 
-function DirectionCard({ href, title, body, image, imageClass }: Card) {
+function DirectionCard({ href, title, body, image, mobileImage }: Card) {
   return (
     <Link
       href={href}
@@ -56,8 +61,18 @@ function DirectionCard({ href, title, body, image, imageClass }: Card) {
           aria-hidden
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 size-full rounded-[32px] object-cover transition duration-300 ease-out group-hover:grayscale lg:rounded-[40px] ${imageClass ?? ""}`}
+          className={`absolute inset-0 size-full rounded-[32px] object-cover transition duration-300 ease-out group-hover:grayscale lg:rounded-[40px] ${mobileImage ? "max-lg:hidden" : ""}`}
         />
+        {mobileImage && (
+          <img
+            src={mobileImage}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 size-full rounded-[32px] object-cover transition duration-300 ease-out group-hover:grayscale lg:hidden"
+          />
+        )}
         <span
           aria-hidden
           className="absolute bottom-4 right-4 flex size-[52px] items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 ease-out group-hover:border-brand group-hover:bg-brand group-hover:text-white lg:bottom-auto lg:top-[268px]"
