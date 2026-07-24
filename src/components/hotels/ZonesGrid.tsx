@@ -32,12 +32,10 @@ type ZoneCard =
   | {
       kind: "compact";
       label: string;
-      items?: string[];
-    }
-  | {
-      kind: "illustration";
-      label: string;
-      svg: string;
+      // Updated master grid 3677:35700 uses two white-card heights: the
+      // full 393-px tile ("Конференц-зали") and the 196.5-px half tile
+      // (the "Басейни" / "Зона рецепції" pair stacked into one 393 row).
+      half?: boolean;
       items?: string[];
     }
   | {
@@ -73,6 +71,15 @@ const BATHROOM_ITEMS = [
   "Стрічка «Продезінфіковано»",
 ];
 
+// Updated Figma master (grid 3677:35700 inside section 1384:11619): the
+// old 12-zone bento was redesigned into 7 cards across the same three
+// 393/393/394 columns (786-px column height):
+//   col 1: photo 393 ("Ванна кімната") + white 393 ("Конференц-зали")
+//   col 2: white 196.5 halves ("Басейни" + "Зона рецепції") stacked into
+//          one 393 row, then photo 393 ("Номер гостя")
+//   col 3: photo 655 ("СПА") + catalog CTA 131
+// Item lists for the redesigned zones are curated from the same product
+// vocabulary; zones that survived the redesign keep their lists.
 const COLUMNS: ZoneCard[][] = [
   [
     {
@@ -83,7 +90,35 @@ const COLUMNS: ZoneCard[][] = [
     },
     {
       kind: "compact",
-      label: "Рецепція",
+      label: "Конференц-зали",
+      items: [
+        "Вода та склянки",
+        "Блокноти та ручки",
+        "Серветки",
+        "Одноразовий посуд для кава-брейків",
+        "Антисептики для рук",
+        "Бейджі та інформаційні таблички",
+      ],
+    },
+  ],
+  [
+    {
+      kind: "compact",
+      half: true,
+      label: "Басейни",
+      items: [
+        "Рушники для басейну",
+        "Халати та тапочки",
+        "Шапочки для плавання",
+        "Кошики для рушників",
+        "Антиковзкі покриття",
+        "Засоби для догляду за водою",
+      ],
+    },
+    {
+      kind: "compact",
+      half: true,
+      label: "Зона рецепції",
       items: [
         "Папки для документів",
         "Ручки з логотипом",
@@ -94,59 +129,8 @@ const COLUMNS: ZoneCard[][] = [
       ],
     },
     {
-      kind: "compact",
-      label: "Засоби індивідуального захисту",
-      items: [
-        "Одноразові маски",
-        "Латексні рукавички",
-        "Антисептик для рук",
-        "Дезінфекційні серветки",
-        "Бахіли",
-      ],
-    },
-    {
-      kind: "compact",
-      label: "Обслуговування номерів та приміщень",
-      items: [
-        "Засоби для прибирання номерів",
-        "Візок покоївки",
-        "Таблички «Не турбувати»",
-        "Мішки для білизни",
-        "Засоби для прання",
-        "Набір для прасування",
-      ],
-    },
-    {
       kind: "image",
-      label: "Ресторан/Бар",
-      image: "/figma-export/hotels/zone-restaurant.png",
-      items: [
-        "Серветки",
-        "Зубочистки",
-        "Чашки одноразові",
-        "Соломинки",
-        "Підставки під чашки",
-        "Меню-холдери",
-      ],
-    },
-  ],
-  [
-    {
-      kind: "illustration",
-      label: "Мінібар",
-      svg: "/figma-export/hotels/zone-minibar.svg",
-      items: [
-        "Склянки",
-        "Бокали для вина",
-        "Штопор",
-        "Льодяні щипці",
-        "Серветки",
-        "Прайс-лист",
-      ],
-    },
-    {
-      kind: "image",
-      label: "Кімната/спальня",
+      label: "Номер гостя",
       image: "/figma-export/hotels/zone-room.png",
       items: [
         "Тапочки",
@@ -157,18 +141,6 @@ const COLUMNS: ZoneCard[][] = [
         "Накидка для ліжка",
         "Чохол на матрац",
         "Інформаційна папка гостя",
-      ],
-    },
-    {
-      kind: "illustration",
-      label: "Обслуговування територій",
-      svg: "/figma-export/hotels/zone-services.svg",
-      items: [
-        "Засоби для прибирання",
-        "Інвентар прибиральника",
-        "Засоби для вікон",
-        "Засоби для підлоги",
-        "Сміттєві пакети",
       ],
     },
   ],
@@ -188,27 +160,6 @@ const COLUMNS: ZoneCard[][] = [
         "Косметика для тіла",
       ],
     },
-    {
-      kind: "compact",
-      label: "Санвузли загального користування",
-      items: [
-        "Туалетний папір промислова намотка",
-        "Паперові рушники",
-        "Тримачі для рушників",
-        "Дозатори рідкого мила",
-        "Освіжувач повітря",
-      ],
-    },
-    {
-      kind: "compact",
-      label: "Інші зручності для гостей",
-      items: [
-        "Парасолі для гостей",
-        "Дитячі набори",
-        "Дорожні набори",
-        "Аптечка",
-      ],
-    },
     { kind: "cta", label: "Переглянути каталог" },
   ],
 ];
@@ -217,7 +168,7 @@ const COLUMNS: ZoneCard[][] = [
 // the parent card's hover state. Figma node 1333:7835 (hover state for
 // the white-variant icon button on image cards) shows the rotating
 // text in WHITE against the desaturated photo. For the dark variant
-// (compact / illustration cards) the text sits on top of a white
+// (compact cards) the text sits on top of a white
 // card surface, so we keep it in neutral-900 there.
 //
 // Path geometry: Figma "Circle text" master 572:4542 is an 86×86 frame
@@ -431,10 +382,11 @@ function ImageCard({
       // Figma mobile master 3117:14389 renders EVERY zone card (image cards
       // included, and the СПА `tall` one) as a uniform 206-px tile — the
       // photo fills it as a background. Only at lg do the image cards grow
-      // to their distinct master heights (786 tall / 393 standard), so those
-      // heights are re-pinned at lg: and desktop stays identical.
+      // to their distinct master heights (655 tall / 393 standard, per the
+      // updated grid 3677:35700), so those heights are re-pinned at lg: and
+      // mobile stays identical.
       className={`group relative flex min-h-[206px] cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] border border-stroke-default p-10 ${
-        tall ? "lg:h-[786px]" : "lg:h-[393px]"
+        tall ? "lg:h-[655px]" : "lg:h-[393px]"
       } w-full`}
     >
       {/* No own border-radius on the photo: the card is `overflow-clip`
@@ -486,54 +438,27 @@ function ImageCard({
   );
 }
 
-function CompactCard({ label, onSelect }: SelectHandlers & { label: string }) {
+function CompactCard({
+  label,
+  half,
+  onSelect,
+}: SelectHandlers & { label: string; half?: boolean }) {
   return (
     <div
       {...cardActivationProps(onSelect)}
       // Figma mobile master 3117:14389 sizes the compact tile at the uniform
       // 206-px / rounded-40 / p-40 grid height (min-height so a 2-line label
-      // e.g. "Засоби індивідуального захисту" can still grow it). Desktop
-      // keeps its fixed 131-px bento height (lg:min-h-0 lets lg:h-[131px]
-      // win over the taller mobile min-height) so it stays byte-for-byte.
-      className="group relative flex min-h-[206px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[131px] lg:min-h-0"
+      // can still grow it). Desktop pins the updated master's two bento
+      // heights at lg (lg:min-h-0 lets them win over the taller mobile
+      // min-height): 393 full tile, or 197 for the stacked half tiles
+      // (196.5 in Figma; 197 + the -mt-px seam overlap keeps the pair at
+      // the 393 row height).
+      className={`group relative flex min-h-[206px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default bg-white p-10 lg:min-h-0 ${
+        half ? "lg:h-[197px]" : "lg:h-[393px]"
+      }`}
     >
       <HoverRing />
       <div className="relative flex items-center gap-8">
-        <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
-          {label}
-        </p>
-        <IconButton variant="dark" />
-      </div>
-    </div>
-  );
-}
-
-function IllustrationCard({
-  label,
-  svg,
-  onSelect,
-}: SelectHandlers & { label: string; svg: string }) {
-  return (
-    <div
-      {...cardActivationProps(onSelect)}
-      // Figma mobile master 3117:14389 hides the illustration and renders
-      // these zones as the uniform 206-px tile (label + icon only). The
-      // illustration, the 393-px height and the gap to it are desktop-only
-      // and re-pinned at lg so desktop stays byte-for-byte identical.
-      className="group relative flex min-h-[206px] w-full cursor-pointer flex-col items-center justify-end rounded-[40px] border border-stroke-default bg-white p-10 lg:h-[393px] lg:gap-10"
-    >
-      <img
-        src={svg}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        // Illustration only exists on the desktop master; mobile is the
-        // compact label-only tile, so hide it below lg.
-        className="relative hidden lg:block lg:h-[200px] lg:w-[234px]"
-      />
-      <HoverRing />
-      <div className="relative flex w-full items-center gap-8">
         <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
           {label}
         </p>
@@ -560,32 +485,29 @@ function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void
       // layout shift.
       // Figma mobile master (3130:19000 "Button catalog") sizes the CTA
       // tile at the compact 131px — same as the desktop bento tile.
-      className="group flex h-[131px] w-full cursor-pointer items-center justify-center rounded-[40px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white"
+      // Updated desktop master uses the same shared "Button catalog"
+      // component (1217:2497): px-40 row with the label pinned LEFT and
+      // the orange circle pinned RIGHT (justify-between) — the old
+      // centred pill+circle group is gone, so mobile and desktop now
+      // share one layout.
+      className="group flex h-[131px] w-full cursor-pointer items-center justify-between rounded-[40px] border border-transparent bg-[#343435] px-10 transition-colors duration-300 hover:border-stroke-default hover:bg-white"
     >
-      {/* Mobile (Figma 3130:19000 render): px-40 row with the 2-line
-          label LEFT and the orange circle RIGHT (justify-between).
-          Desktop keeps the centred pill+circle group. */}
-      <span className="inline-flex items-center gap-2 max-lg:w-full max-lg:justify-between max-lg:px-10">
-        {/* Figma "Button catalog" (1217:2490): the label sits in a
-            Button/Large container with px-[24px], so the visible
-            text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
-            gap-2. px scales 20/24 with the Button component. */}
-        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 max-lg:max-w-[140px] max-lg:px-0">
-          {label}
-        </span>
-        {/* Orange circle button + arrow now sit at the 52-px master size on
-            every viewport (mobile cards are the compact tile too), matching
-            the IconButton — base equals the prior lg value, desktop kept. */}
-        <span className="inline-flex size-[52px] items-center justify-center rounded-[26px] bg-brand">
-          <img
-            src={ARROW_WHITE}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="size-[16.5px]"
-          />
-        </span>
+      {/* max-w keeps the mobile master's 2-line "Переглянути / каталог"
+          wrap; at lg the 394-px card fits the label on one line. */}
+      <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 max-lg:max-w-[140px]">
+        {label}
+      </span>
+      {/* Orange circle button + arrow sit at the 52-px master size on
+          every viewport, matching the IconButton. */}
+      <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
+        <img
+          src={ARROW_WHITE}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="size-[16.5px]"
+        />
       </span>
     </Link>
   );
@@ -618,14 +540,8 @@ function ZoneRenderer({
         />
       );
     case "compact":
-      return <CompactCard label={card.label} onSelect={handleSelect} />;
-    case "illustration":
       return (
-        <IllustrationCard
-          label={card.label}
-          svg={card.svg}
-          onSelect={handleSelect}
-        />
+        <CompactCard label={card.label} half={card.half} onSelect={handleSelect} />
       );
   }
 }
@@ -733,11 +649,11 @@ export function ZonesGrid() {
     // removed (see hotels/Hero.tsx) the next section's flat border-t
     // provides ONE clean uniformly-thin line across the entire width.
     // Padding is 160px top + 130px sides at the design master.
-    // Mobile pb-[71px]: the 12-card stack collapses 11 seams by 1px each
+    // Mobile pb-[66px]: the 7-card stack collapses 6 seams by 1px each
     // (-mt-px keeps the borders reading as single hairlines like Figma),
-    // so the extra 11px on the bottom padding restores the master's
-    // exact 2741px section height.
-    <section className="lg-pad-x bg-white px-6 pt-[60px] pb-[71px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
+    // so the extra 6px on the bottom padding compensates the collapsed
+    // seams and keeps the master's section height.
+    <section className="lg-pad-x bg-white px-6 pt-[60px] pb-[66px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900">
@@ -763,7 +679,7 @@ export function ZonesGrid() {
             moment the mouse crossed that bound. */}
         <div
           ref={gridRef}
-          // Figma mobile master 3117:14389 stacks all 12 cards as ONE
+          // Figma mobile master 3117:14389 stacks all cards as ONE
           // 340-wide column with 0 spacing (borders touch, seams collapse
           // to 1px like the desktop grid). Hence gap-0 on the mobile grid;
           // the sm 2-col tablet step and the lg 3-col desktop grid are

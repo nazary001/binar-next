@@ -44,6 +44,9 @@ type PhotoCardData = {
   kind: "photo";
   title: string;
   src: string;
+  // Exact Figma fill placement inside the card (percent box relative to
+  // the card); absent = plain centred cover.
+  crop?: { left: string; top: string; width: string; height: string };
   items: string[];
 };
 type ButtonCardData = { kind: "button"; title: string; href: string };
@@ -57,6 +60,10 @@ const COL_1: Card[] = [
     kind: "photo",
     title: "Тапочки (стандарт / кастом)",
     src: "/figma-export/spivpratsya/cover-tapochki.png",
+    // Figma 2532:7662 anchors the 4:3 slippers photo to the card's LEFT
+    // edge (a centred cover would pan it 65px right and crop the
+    // Marriott slipper).
+    crop: { left: "-0.13%", top: "0%", width: "133.33%", height: "100%" },
     items: [
       "Закриті та відкриті моделі",
       "Махра, велюр, вафельна тканина",
@@ -143,6 +150,9 @@ const COL_3: Card[] = [
     kind: "photo",
     title: "Оснащення ванної (включно з Valera)",
     src: "/figma-export/spivpratsya/cover-bathroom.png",
+    // Figma 2532:7672 zooms the Valera-dryer photo slightly past a
+    // centred cover and pans it left/up by a few px.
+    crop: { left: "-30.46%", top: "-1.33%", width: "161.17%", height: "102.66%" },
     items: [
       "Фени Valera",
       "Дзеркала",
@@ -201,10 +211,12 @@ function CardArrow({ tone }: { tone: "light" | "dark" }) {
 function PhotoCardEl({
   title,
   src,
+  crop,
   className,
 }: {
   title: string;
   src: string;
+  crop?: { left: string; top: string; width: string; height: string };
   className?: string;
 }) {
   return (
@@ -212,25 +224,46 @@ function PhotoCardEl({
       href={CARD_HREF}
       className={`group relative flex cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
     >
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        className="absolute inset-0 size-full max-w-none object-cover"
-      />
+      {crop ? (
+        // Exact Figma fill placement (percent box relative to the card)
+        // instead of a centred cover crop.
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="absolute max-w-none"
+          style={{
+            left: crop.left,
+            top: crop.top,
+            width: crop.width,
+            height: crop.height,
+          }}
+        />
+      ) : (
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 size-full max-w-none object-cover"
+        />
+      )}
       {/* Desaturate the photo on hover (saturation-blend square), same as
           the hotels / protect image cards. */}
       <span
         aria-hidden
         className="pointer-events-none absolute top-[-6px] bottom-[-6px] left-1/2 aspect-square -translate-x-1/2 bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100"
       />
-      {/* Dark bottom gradient for title legibility (approximates the
-          Figma blur-22 ellipse below the bottom edge). */}
+      {/* Figma I2532:7662;1127:5896 - soft blurred dark halo anchored
+          bottom-left for title legibility, the same #151511 / blur-22
+          strip the hotels / protect / cleaning image cards use (replaces
+          the earlier gradient approximation). */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 block h-[55%] bg-[linear-gradient(to_top,rgba(21,21,17,0.78)_0%,rgba(21,21,17,0.55)_45%,rgba(21,21,17,0)_100%)]"
+        className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] block h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
       />
       <HoverRing />
       <div className="relative flex w-full items-center gap-4 sm:gap-8">
@@ -270,34 +303,31 @@ function ButtonCardEl({
   href: string;
   className?: string;
 }) {
-  // Figma 2532:7673 ("Button catalog") - deep #343435 (= neutral-800) slab
-  // holding the STANDARD Button/Large label (18 px text-button-lg). This
-  // differs from the cleaning / protect / hotels catalog cards, which carry
-  // a 24-px Title/Large designer override; the spivpratsya frame uses the
-  // default button size, so the label is text-button-lg, centered as a
-  // compact pill (text + 8-px gap + 52-px arrow disc) like those cards.
-  // Hover matches them: the slab inverts to white with a stroke border, the
-  // label flips to neutral-900, the filled-brand arrow disc stays. Border
-  // starts transparent so the hover border does not shift layout.
+  // Updated master swaps in the shared "Button catalog" component
+  // (1217:2497): deep #343435 (= neutral-800) slab, Button/Large label
+  // (18 px text-button-lg) pinned LEFT with the 52-px brand arrow disc
+  // pinned RIGHT (justify-between, px-40) - the old centred pill+disc
+  // group is gone. Hover matches the other catalog cards: the slab
+  // inverts to white with a stroke border, the label flips to
+  // neutral-900, the filled-brand arrow disc stays. Border starts
+  // transparent so the hover border does not shift layout.
   return (
     <Link
       href={href}
-      className={`group flex cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-neutral-800 px-6 py-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:px-8 sm:py-8 lg:rounded-[40px] lg:px-10 lg:py-10 ${className ?? ""}`}
+      className={`group flex cursor-pointer items-center justify-between rounded-[28px] border border-transparent bg-neutral-800 px-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:px-8 lg:rounded-[40px] lg:px-10 ${className ?? ""}`}
     >
-      <span className="inline-flex items-center gap-2">
-        <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
-          {title}
-        </span>
-        <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
-          <img
-            src={ARROW_WHITE}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="size-[16.5px]"
-          />
-        </span>
+      <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {title}
+      </span>
+      <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
+        <img
+          src={ARROW_WHITE}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="size-[16.5px]"
+        />
       </span>
     </Link>
   );

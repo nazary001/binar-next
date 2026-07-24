@@ -8,56 +8,41 @@ const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 
 type Category =
-  | { kind: "image"; label: string; image: string; tall?: boolean; objectPosition?: string }
+  | { kind: "image"; label: string; image: string; short?: boolean; fill?: boolean }
   | { kind: "outline"; label: string; tall?: boolean }
   | { kind: "cta"; label: string };
 
-// Figma reference: 2532:7590 (CLEANING / "Основні рішення для прибирання",
-// updated master — supersedes the old static 1327:4509 frame).
-// The grid is 1180 px wide x 786 tall at lg, three columns of 393 px:
-//   col 0: image (h=393) + 3 outlines (h=131 each) = 786
-//   col 1: 2 outlines (h=196.5 each) + image (h=393) = 786
-//   col 2: image (h=655 tall) + CTA (h=131) = 786
-// `tall: true` on an outline switches it to the col-1 height variant.
-// In the updated master every card carries the hotels/protect label +
-// 52-px arrow-circle row (Button/Large 18px), so the cards are CLICKABLE
-// links to the contact form with the shared hover treatment.
+// Figma reference: 3677:36105 / grid 3677:36114 (updated CLEANING master
+// — supersedes the old two-row 2532:7590 bento). The grid is now a
+// SINGLE 1180 x 393 row of three columns:
+//   col 0: image (h=393, "Інвентар для прибирання")
+//   col 1: 2 outlines (h=196.5 each, "Професійна хімія" / "Інші товари")
+//   col 2: image (h=262, "Паперові вироби та диспенсери") + CTA (h=131)
+// Every card carries the hotels/protect label + 52-px arrow-circle row
+// (Button/Large 18px); cards are CLICKABLE links to the contact form
+// with the shared hover treatment.
 const COLUMNS: Category[][] = [
-  [
-    {
-      kind: "image",
-      label: "Хімія для прибирання",
-      image: "/figma-export/cleaning/card-chemistry.png",
-      // Bias the crop toward the lower portion of the 1264x790 source
-      // (3 LIVING GREEN bottles on a round wooden tray) so the tray
-      // base stays visible. The default 50%/50% cover crop fits the
-      // full height, but with the card's lg:p-10 padding (which the
-      // label hovers over), the visible bottle tops sit hard against
-      // the top edge and the tray reads as cut off below the label
-      // blur. Anchoring to 50%/65% keeps the bottles centered vertically
-      // in the visible area with the tray still visible above the
-      // bottom edge of the card.
-      objectPosition: "50% 65%",
-    },
-    { kind: "outline", label: "Хімія для кухні та харчових зон (HoReCa)" },
-    { kind: "outline", label: "Супутні витратні матеріали" },
-    { kind: "outline", label: "Диспенсери та дозатори" },
-  ],
-  [
-    { kind: "outline", label: "Дезінфекція та санітарія", tall: true },
-    { kind: "outline", label: "Мийні засоби та пральні рішення", tall: true },
-    {
-      kind: "image",
-      label: "Паперова гігієна",
-      image: "/figma-export/cleaning/card-paper.png",
-    },
-  ],
   [
     {
       kind: "image",
       label: "Інвентар для прибирання",
       image: "/figma-export/cleaning/card-equipment.png",
-      tall: true,
+      // Figma squeezes the whole 395x556 portrait photo into the 393px
+      // square card (stretch fill - verified against the node render);
+      // object-cover would crop the mop handles off the top.
+      fill: true,
+    },
+  ],
+  [
+    { kind: "outline", label: "Професійна хімія", tall: true },
+    { kind: "outline", label: "Інші товари", tall: true },
+  ],
+  [
+    {
+      kind: "image",
+      label: "Паперові вироби та диспенсери",
+      image: "/figma-export/cleaning/card-paper.png",
+      short: true,
     },
     { kind: "cta", label: "Переглянути каталог" },
   ],
@@ -110,24 +95,25 @@ function CardArrow({ tone }: { tone: "light" | "dark" }) {
 function ImageCard({
   label,
   image,
-  tall,
-  objectPosition,
+  short,
+  fill,
 }: {
   label: string;
   image: string;
-  tall?: boolean;
-  objectPosition?: string;
+  short?: boolean;
+  fill?: boolean;
 }) {
-  // `tall` = the col-3 hero image at 655 px high. Regular image cards
-  // are 393 px (= one row of the 786 px column grid). Mobile / tablet
-  // sizes scale down proportionally.
-  const heightClass = tall
-    ? "h-[400px] sm:h-[500px] lg:h-[655px]"
+  // Updated master 3677:36114: the grid is a single 393-px row, so the
+  // image heights are 393 (col-1 square) and 262 (col-3, sitting above
+  // the 131-px CTA). Mobile / tablet sizes scale down proportionally.
+  const heightClass = short
+    ? "h-[200px] sm:h-[240px] lg:h-[262px]"
     : "h-[280px] sm:h-[340px] lg:h-[393px]";
-  // Updated Figma master 2532:7593 / 7601 / 7603: the card is a link
-  // with the shared label + arrow-circle row (Button/Large 18px) and
-  // the hotels/protect hover treatment (brand ring + photo
-  // desaturation + arrow fill).
+  // The card is a link with the shared label + arrow-circle row
+  // (Button/Large 18px) and the hotels/protect hover treatment (brand
+  // ring + photo desaturation + arrow fill). `fill` reproduces the
+  // Figma stretch fill (whole photo squeezed into the box) - without
+  // it the photo covers the box with a centred crop.
   return (
     <Link
       href="/#contact-form"
@@ -139,8 +125,7 @@ function ImageCard({
         aria-hidden
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 size-full object-cover"
-        style={objectPosition ? { objectPosition } : undefined}
+        className={`absolute inset-0 size-full ${fill ? "" : "object-cover"}`}
       />
       {/* On hover the photo desaturates — a dark #151511 square painted
           with mix-blend-mode: saturation drains the colour, matching
@@ -203,29 +188,24 @@ function OutlineCard({ label, tall }: { label: string; tall?: boolean }) {
 }
 
 function CtaCard({ label }: { label: string }) {
-  // Updated Figma master 2532:7604 ("Button catalog") — bg
-  // `--backgroud/deep` (#343435 = neutral-800), label is Button/Large
-  // (18/22 SemiBold), same as the hotels / protect catalog buttons.
-  // Hover: the deep pill inverts to white with a stroke border and the
-  // label flips to neutral-900; the filled-brand arrow circle stays.
-  // Border starts transparent so the hover border does not shift
-  // layout. Arrow circle scales 40/48/52 with the cards' CardArrow.
+  // Updated Figma master uses the shared "Button catalog" component
+  // (1217:2497) — bg `--backgroud/deep` (#343435 = neutral-800), label
+  // is Button/Large (18/22 SemiBold) pinned LEFT with the orange circle
+  // pinned RIGHT (justify-between, px-40) instead of the old centred
+  // pill+circle group. Hover: the deep pill inverts to white with a
+  // stroke border and the label flips to neutral-900; the filled-brand
+  // arrow circle stays. Border starts transparent so the hover border
+  // does not shift layout. Arrow circle scales 40/48/52.
   return (
     <Link
       href="/#contact-form"
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-neutral-800 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      className="group flex h-[100px] w-full cursor-pointer items-center justify-between rounded-[28px] border border-transparent bg-neutral-800 px-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] sm:px-8 lg:h-[131px] lg:rounded-[40px] lg:px-10"
     >
-      <span className="inline-flex items-center gap-2">
-        {/* Figma "Button catalog" (1217:2490): the label sits in a
-            Button/Large container with px-[24px], so the visible
-            text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
-            gap-2. px scales 20/24 with the Button component. */}
-        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
-          {label}
-        </span>
-        <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[13px] sm:size-[15px] lg:size-[16.5px]" />
-        </span>
+      <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {label}
+      </span>
+      <span className="inline-flex size-[40px] shrink-0 items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
+        <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[13px] sm:size-[15px] lg:size-[16.5px]" />
       </span>
     </Link>
   );
@@ -234,7 +214,7 @@ function CtaCard({ label }: { label: string }) {
 function CategoryRenderer({ card }: { card: Category }) {
   switch (card.kind) {
     case "image":
-      return <ImageCard label={card.label} image={card.image} tall={card.tall} objectPosition={card.objectPosition} />;
+      return <ImageCard label={card.label} image={card.image} short={card.short} fill={card.fill} />;
     case "outline":
       return <OutlineCard label={card.label} tall={card.tall} />;
     case "cta":
@@ -365,26 +345,20 @@ type MobileSolution =
   | { kind: "outline"; label: string }
   | { kind: "cta"; label: string };
 
+// Card set mirrors the updated desktop master 3677:36114 in the desktop
+// column order.
 const MOBILE_SOLUTIONS: MobileSolution[] = [
-  {
-    kind: "image",
-    label: "Хімія для прибирання",
-    image: "/figma-export/cleaning/card-chemistry.png",
-    objectPosition: "50% 65%",
-  },
-  { kind: "outline", label: "Хімія для кухні та харчових зон (HoReCa)" },
-  { kind: "outline", label: "Супутні витратні матеріали" },
-  { kind: "outline", label: "Диспенсери та дозатори" },
-  { kind: "outline", label: "Дезінфекція та санітарія" },
-  { kind: "outline", label: "Мийні засоби та пральні рішення" },
-  { kind: "image", label: "Паперова гігієна", image: "/figma-export/cleaning/card-paper.png" },
   {
     kind: "image",
     label: "Інвентар для прибирання",
     image: "/figma-export/cleaning/card-equipment.png",
-    // Figma 3165:6812 crops the mop-bucket photo with object-bottom.
+    // The 206-px tile crops the portrait mop-bucket photo with
+    // object-bottom (a stretch would flatten it badly at 342x206).
     objectPosition: "50% 100%",
   },
+  { kind: "outline", label: "Професійна хімія" },
+  { kind: "outline", label: "Інші товари" },
+  { kind: "image", label: "Паперові вироби та диспенсери", image: "/figma-export/cleaning/card-paper.png" },
   { kind: "cta", label: "Переглянути каталог" },
 ];
 
@@ -530,13 +504,15 @@ export function CleaningSolutions() {
         <MobileCapCross className="lg:hidden" />
       </div>
 
-      {/* max-lg:pb-[68px]: the 9-card stack collapses 8 seams by 1px each
-          (-mt-px keeps hairlines single like Figma), the extra 8px on the
-          bottom padding restores the master's exact 1899px light card. */}
-      <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[68px] sm:rounded-t-[56px] lg:min-h-[1074px] lg:rounded-[68px] lg:pb-[80px] lg:pt-[120px]">
-        {/* MOBILE (<lg) — Figma 3165:6803: a single column of uniform 206-px
-            cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
-            the 131-px catalog CTA. */}
+      {/* max-lg:pb-[63px]: the 5-card stack collapses 3 seams by 1px each
+          (-mt-px between the 4 bordered tiles; the CTA does not overlap),
+          the extra 3px on the bottom padding compensates the collapsed
+          seams. At lg the updated master 3677:36105 centres the single
+          393-px grid row in a 681-px light card: 144 + 393 + 144. */}
+      <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[63px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
+        {/* MOBILE (<lg) — a single column of uniform 206-px cards that
+            TOUCH (0 gap, borders de-doubled via -mt-px) followed by the
+            131-px catalog CTA, mirroring the updated desktop card set. */}
         <div className="flex flex-col gap-0 px-6 lg:hidden">
           {MOBILE_SOLUTIONS.map((card, i) => (
             <MobileSolutionCard key={card.label} card={card} first={i === 0} />

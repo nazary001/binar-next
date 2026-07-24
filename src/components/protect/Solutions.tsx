@@ -8,57 +8,63 @@ const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 
 type Category =
-  | { kind: "image"; label: string; image: string; tall?: boolean }
+  | {
+      kind: "image";
+      label: string;
+      image: string;
+      tall?: boolean;
+      // Exact Figma fill placement inside the card, in % of the card
+      // box. The updated master crops some photos instead of a plain
+      // centred cover (e.g. the mask card zooms the photo ~1.2x).
+      crop?: { left: string; top: string; width: string; height: string };
+    }
   | {
       kind: "outline";
       label: string;
-      icon?: string;
-      // Vertical gap between the illustration and the label inside
-      // the card. Figma assigns distinct gaps per card to keep each
-      // illustration centred in its native frame:
-      //   - "tight" (=  11 px at lg, Figma 1327:4027 "Одноразова
-      //     білизна") → illustration container 313 × 274.
-      //   - "loose" (=  40 px at lg, Figma 1327:4045 "Бахіли,
-      //     шапочки, нарукавники") → illustration container 313 × 217
-      //     with a taller two-line label.
-      gap?: "tight" | "loose";
+      // Updated master 3677:35861 has two white-card heights: the full
+      // 393-px tile and the 196.5-px half tile (two halves stacked into
+      // one 393 row).
+      half?: boolean;
     }
   | { kind: "cta"; label: string };
 
+// Updated Figma master 3677:35861 (light solutions card): the ЗІЗ
+// categories were renamed and re-split, and the illustration cards were
+// dropped - every white card is now label + arrow only:
+//   col 1: photo 393 ("Захист органів дихання") + white 393
+//          ("Одноразова білизна")
+//   col 2: white 196.5 halves ("Захист голови, очей та слуху" + "Інші
+//          ЗІЗ товари") stacked into one 393 row, then photo 393
+//          ("Санітарний одяг")
+//   col 3: photo 655 ("Захист рук") + catalog CTA 131
 const COLUMNS: Category[][] = [
   [
-    { kind: "image", label: "Маски та респіратори", image: "/figma-export/protect/cat-masks.png" },
     {
-      kind: "outline",
-      label: "Одноразова білизна",
-      // 313x274 PNG = exact Figma Frame 1010106796 dimensions, so it
-      // fills the card's 313-wide content area 1:1 at lg.
-      icon: "/figma-export/protect/icon-bilizna.png",
-      gap: "tight",
+      kind: "image",
+      label: "Захист органів дихання",
+      image: "/figma-export/protect/cat-masks.png",
+      // Figma 3677:35864 zooms the mask photo ~1.2x and pans it
+      // up-left instead of a centred cover crop.
+      crop: { left: "-11.65%", top: "-19.01%", width: "121.38%", height: "119.01%" },
     },
+    { kind: "outline", label: "Одноразова білизна" },
   ],
   [
-    {
-      kind: "outline",
-      label: "Бахіли, шапочки, нарукавники",
-      // 313x217 PNG = exact Figma Frame 1010106793 dimensions.
-      icon: "/figma-export/protect/icon-bahily.png",
-      gap: "loose",
-    },
+    { kind: "outline", label: "Захист голови, очей та слуху", half: true },
+    { kind: "outline", label: "Інші ЗІЗ товари", half: true },
     // cat-gowns.png in this folder is actually the bedroom photo
     // intended for Hotels (mislabeled when the assets were
     // exported). The real medical-gown render lives in
     // cat-gowns-2.png - keeping that path until the asset folder is
     // re-organised so the card actually shows a gown.
-    { kind: "image", label: "Одноразові халати та комбінезони", image: "/figma-export/protect/cat-gowns-2.png" },
+    { kind: "image", label: "Санітарний одяг", image: "/figma-export/protect/cat-gowns-2.png" },
   ],
   [
-    // Figma column 3: Рукавички image is 655 px tall (Frame
-    // 1010106778) with the catalog CTA filling the remaining 131 px
-    // so the total height (786) matches the 393+393 stacks in col
-    // 0/1. `tall: true` switches ImageCard into the tall variant
-    // (lg:h-[655px]).
-    { kind: "image", label: "Рукавички", image: "/figma-export/protect/cat-gloves.png", tall: true },
+    // Figma column 3: the gloves image is 655 px tall (3677:35874)
+    // with the catalog CTA filling the remaining 131 px so the total
+    // height (786) matches the 393+393 stacks in col 0/1. `tall: true`
+    // switches ImageCard into the tall variant (lg:h-[655px]).
+    { kind: "image", label: "Захист рук", image: "/figma-export/protect/cat-gloves.png", tall: true },
     { kind: "cta", label: "Переглянути каталог" },
   ],
 ];
@@ -109,7 +115,17 @@ function CardArrow({ tone }: { tone: "light" | "dark" }) {
   );
 }
 
-function ImageCard({ label, image, tall }: { label: string; image: string; tall?: boolean }) {
+function ImageCard({
+  label,
+  image,
+  tall,
+  crop,
+}: {
+  label: string;
+  image: string;
+  tall?: boolean;
+  crop?: { left: string; top: string; width: string; height: string };
+}) {
   // `tall` mirrors Figma's bento layout - the third column's image
   // card is taller so the cluster reads as an asymmetric grid rather
   // than a uniform 3x2. Heights scale across breakpoints in the same
@@ -123,14 +139,33 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
       href="/#contact-form"
       className={`group relative flex w-full cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
-      <img
-        src={image}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        className="absolute inset-0 size-full object-cover"
-      />
+      {crop ? (
+        // Exact Figma fill placement (percent box relative to the card)
+        // instead of a centred cover crop.
+        <img
+          src={image}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="absolute max-w-none"
+          style={{
+            left: crop.left,
+            top: crop.top,
+            width: crop.width,
+            height: crop.height,
+          }}
+        />
+      ) : (
+        <img
+          src={image}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
       {/* On hover the photo desaturates - a dark #151511 square painted
           with mix-blend-mode: saturation drains the colour, matching the
           hotels ZonesGrid image-card hover. */}
@@ -154,48 +189,20 @@ function ImageCard({ label, image, tall }: { label: string; image: string; tall?
   );
 }
 
-function OutlineCard({
-  label,
-  icon,
-  gap = "tight",
-}: {
-  label: string;
-  icon?: string;
-  gap?: "tight" | "loose";
-}) {
-  // Figma 1327:4027 / 1327:4045 — outline card with the illustration
-  // pinned to the top region of the card and the title pinned at
-  // bottom-left. Figma uses card-specific gaps between illustration
-  // and label so each PNG fills its native frame size exactly:
-  //   - Bilizna  Frame 1010106796: 313 × 274 → gap-11
-  //   - Bahily   Frame 1010106793: 313 × 217 → gap-40 (label is 2 lines)
-  // The PNGs are sized to those exact dimensions (see file metadata),
-  // so the illustration container is `absolute inset-0 size-full`
-  // with `object-contain` — at lg+ the container aspect matches the
-  // PNG aspect exactly and the icon fills the container 1:1 (no
-  // scale-down via the old `max-w-[60%]` cap which was shrinking the
-  // visible icon to ~60 % of the Figma design).
-  const gapClass =
-    gap === "loose"
-      ? "gap-4 sm:gap-6 lg:gap-[40px]"
-      : "gap-3 sm:gap-4 lg:gap-[11px]";
+function OutlineCard({ label, half }: { label: string; half?: boolean }) {
+  // Updated master 3677:35867 / 35870 / 35871 — plain white card with
+  // the label + arrow row pinned to the bottom (justify-end, p-40); the
+  // old top-pinned illustrations were dropped from the design. Two
+  // heights: the full 393 tile and the 196.5 half tile (197px here so
+  // the pair + the -mt-px seam overlap fills the 393 row).
+  const heightClass = half
+    ? "h-[150px] sm:h-[180px] lg:h-[197px]"
+    : "h-[280px] sm:h-[340px] lg:h-[393px]";
   return (
     <Link
       href="/#contact-form"
-      className={`group relative flex h-[280px] w-full cursor-pointer flex-col ${gapClass} overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:h-[340px] sm:rounded-[36px] sm:p-8 lg:h-[393px] lg:rounded-[40px] lg:p-10`}
+      className={`group relative flex w-full cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
-      {icon && (
-        <div className="relative w-full flex-1">
-          <img
-            src={icon}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 size-full object-contain"
-          />
-        </div>
-      )}
       <HoverRing />
       <div className="relative flex w-full items-center gap-4 sm:gap-8">
         <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
@@ -211,24 +218,20 @@ function CtaCard({ label }: { label: string }) {
   // Matches the hotels ZonesGrid catalog button: deep #343435 pill that
   // inverts to white (with a stroke border) on hover, the label flips to
   // neutral-900 and the filled-brand arrow circle stays. Border starts
-  // transparent so the hover border does not shift layout. Label is
-  // Button/Large (18) like the cards; the arrow circle scales 40/48/52.
+  // transparent so the hover border does not shift layout. Updated
+  // master uses the shared "Button catalog" component (1217:2497): px-40
+  // row with the label pinned LEFT and the orange circle pinned RIGHT
+  // (justify-between) instead of the old centred pill+circle group.
   return (
     <Link
       href="/#contact-form"
-      className="group flex h-[100px] w-full cursor-pointer items-center justify-center rounded-[28px] border border-transparent bg-[#343435] transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] lg:h-[131px] lg:rounded-[40px]"
+      className="group flex h-[100px] w-full cursor-pointer items-center justify-between rounded-[28px] border border-transparent bg-[#343435] px-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] sm:px-8 lg:h-[131px] lg:rounded-[40px] lg:px-10"
     >
-      <span className="inline-flex items-center gap-2">
-        {/* Figma "Button catalog" (1217:2490): the label sits in a
-            Button/Large container with px-[24px], so the visible
-            text-to-circle distance is 24 + 8 (gap) = 32px — NOT a bare
-            gap-2. px scales 20/24 with the Button component. */}
-        <span className="px-6 text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 sm:px-6">
-          {label}
-        </span>
-        <span className="inline-flex size-[40px] items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[13px] sm:size-[15px] lg:size-[16.5px]" />
-        </span>
+      <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
+        {label}
+      </span>
+      <span className="inline-flex size-[40px] shrink-0 items-center justify-center rounded-[20px] bg-brand sm:size-[48px] sm:rounded-[24px] lg:size-[52px] lg:rounded-[26px]">
+        <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[13px] sm:size-[15px] lg:size-[16.5px]" />
       </span>
     </Link>
   );
@@ -237,9 +240,9 @@ function CtaCard({ label }: { label: string }) {
 function CategoryRenderer({ card }: { card: Category }) {
   switch (card.kind) {
     case "image":
-      return <ImageCard label={card.label} image={card.image} tall={card.tall} />;
+      return <ImageCard label={card.label} image={card.image} tall={card.tall} crop={card.crop} />;
     case "outline":
-      return <OutlineCard label={card.label} icon={card.icon} gap={card.gap} />;
+      return <OutlineCard label={card.label} half={card.half} />;
     case "cta":
       return <CtaCard label={card.label} />;
   }
@@ -446,19 +449,22 @@ type MobileSolution =
 
 // imgClass = the exact Figma photo placement inside the 206px card
 // (percent boxes from 3165:6558 / 3165:6639); masks keep a plain cover.
+// Card set mirrors the updated desktop master 3677:35861 (renamed and
+// re-split ЗІЗ categories) in the desktop column order.
 const MOBILE_SOLUTIONS: MobileSolution[] = [
-  { kind: "image", label: "Маски та респіратори", image: "/figma-export/protect/cat-masks.png" },
+  { kind: "image", label: "Захист органів дихання", image: "/figma-export/protect/cat-masks.png" },
   { kind: "outline", label: "Одноразова білизна" },
-  { kind: "outline", label: "Бахіли, шапочки, нарукавники" },
+  { kind: "outline", label: "Захист голови, очей та слуху" },
+  { kind: "outline", label: "Інші ЗІЗ товари" },
   {
     kind: "image",
-    label: "Одноразові халати та комбінезони",
+    label: "Санітарний одяг",
     image: "/figma-export/protect/cat-gowns-2.png",
     imgClass: "left-0 top-[-0.49%] h-[166.02%] w-full",
   },
   {
     kind: "image",
-    label: "Рукавички",
+    label: "Захист рук",
     image: "/figma-export/protect/cat-gloves.png",
     imgClass: "left-0 top-[-66.77%] h-[276.25%] w-full",
   },
@@ -646,9 +652,10 @@ export function ProtectSolutions() {
         <ProtectSolutionsMobileDecor />
       </div>
 
-      {/* max-lg:pb-[65px]: the 6-card stack collapses 5 seams by 1px each
-          (-mt-px keeps hairlines single like Figma), the extra 5px on the
-          bottom padding restores the master's exact 1281px light card. */}
+      {/* max-lg:pb-[65px]: the 7-card stack collapses 5 seams by 1px each
+          (-mt-px between the 6 bordered tiles; the CTA does not overlap),
+          the extra 5px on the bottom padding compensates the collapsed
+          seams so the light card keeps its master height. */}
       <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[65px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
         {/* MOBILE (<lg) — Figma 3165:6549: a single column of uniform 206-px
             cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
