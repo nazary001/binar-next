@@ -48,18 +48,20 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 // appears, bg disappears, text flips dark). Keeping a 1-px transparent
 // border on the default state means the hover border addition does not
 // shift layout by 1 px when the user mouses over.
-// The 1-px hover-stability border is part of the box, so the small pill
-// uses py-[9px] (9 + 22 line + 9 + 2 border = 42) to hit Figma's exact
-// 42-px Button/Small height — py-[10px] rendered 44 px.
+// The 1-px hover-stability border is part of the box, so the pills use
+// one-px-smaller paddings to hit Figma's exact heights: small py-[9px]
+// (9 + 22 + 9 + 2 border = 42 — py-[10px] rendered 44 px) and large
+// py-[14px] (14 + 22 + 14 + 2 border = 52 — py-[15px] rendered 54 px,
+// which pushed e.g. the 484-px blog hero to 486).
 const labelSize = {
   large:
-    "rounded-[25px] border border-transparent px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[15px] sm:text-button-lg",
+    "rounded-[25px] border border-transparent px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[14px] sm:text-button-lg",
   small:
     "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap",
   // Small below lg, large at lg (the lg overrides equal the `large`
   // value resolved at >=1024, so desktop is identical to size="large").
   responsive:
-    "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[15px] lg:text-button-lg",
+    "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[14px] lg:text-button-lg",
 };
 
 const arrowWrap = {

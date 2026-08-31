@@ -98,13 +98,14 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
                 setVisible(INITIAL_VISIBLE);
               }}
               aria-pressed={isActive}
-              // py-[7px]: the Figma chips are 36px tall with the stroke
-              // INSIDE (7 + 20 + 7 + 2 borders = 36); the active chip
-              // carries a transparent border below lg so both variants
-              // share the exact box (lg keeps its original py-3 sizing).
-              className={`cursor-pointer rounded-[60px] px-4 py-[7px] text-[14px] font-medium leading-[20px] transition-colors duration-300 lg:py-3 lg:text-[16px] lg:leading-[22px] ${
+              // py-[7px]: the MOBILE Figma chips are 36px tall with the
+              // stroke INSIDE (7 + 20 + 7 + 2 borders = 36). The desktop
+              // masters (2670:6369 / 3603:11450) draw inactive chips with
+              // NO border at all — plain #343435 text in a 46-px px-16
+              // py-12 pill — so the border drops at lg on both variants.
+              className={`cursor-pointer rounded-[60px] px-4 py-[7px] text-[14px] font-medium leading-[20px] transition-colors duration-300 lg:border-0 lg:py-3 lg:text-[16px] lg:leading-[22px] ${
                 isActive
-                  ? "border border-transparent bg-brand text-white lg:border-0"
+                  ? "border border-transparent bg-brand text-white"
                   : "border border-stroke-default text-neutral-800 hover:border-brand hover:text-brand"
               }`}
             >
@@ -116,10 +117,11 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
 
       {/* Divider — Figma Vector60 stroke is #8e8e8f (stroke-default),
           darker than the card dividers (#d2d2d2). -mb-px: the master's
-          divider is a zero-height stroke that consumes no flow space. */}
+          divider is a zero-height stroke that consumes no flow space.
+          lg:mt-20 — the 3603:11449 comp spaces chips -> divider at 80. */}
       <div
         aria-hidden
-        className="-mb-px mt-12 h-px w-full bg-stroke-default sm:mt-12 lg:mt-12"
+        className="-mb-px mt-12 h-px w-full bg-stroke-default sm:mt-12 lg:mt-20"
       />
 
       {/* Card grid — base cards plus the smoothly-revealed batches. They share

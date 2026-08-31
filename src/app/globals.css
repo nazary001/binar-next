@@ -54,9 +54,20 @@
   --color-neutral-800: #343435;
   --color-neutral-900: #1d1d1f;
 
+  /* Status colours (Figma: Text/positive, and the out-of-stock red the
+     B2C product card master 3225:11369 uses) */
+  --color-positive: #4a9200;
+  --color-negative: #d92d20;
+
   /* Special backgrounds / strokes (not on neutral scale) */
   --color-bg-subtle: #f8f8f8;
   --color-bg-primary: #303137;
+  /* Uniform backdrop under every product photo (catalog cards/rows).
+     Sampled from the studio-gray edges of the existing product PNGs
+     (#d5d5d5 at all four corners), so opaque photos blend seamlessly
+     and transparent cut-out PNGs land on the same gray as the rest of
+     the grid. */
+  --color-bg-product: #d5d5d5;
   --color-stroke-subtle: #d2d2d2;
   /* Figma's `Stroke/Default` token — same hue as neutral-400 but
      promoted to its own semantic name so `border-stroke-default` (used

@@ -3,15 +3,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight } from "./icons";
 
-// Figma «Blog::Hero» (2749:6544): a full-bleed split hero — a bordered card
-// on the left (heading + lede + CTA, rounded only on its inner/right edge)
-// butting against a full-height collage on the right (rounded only on its
-// inner/left edge), with a featured-article card floating over the photo.
-//
-// The left/right corner rounding meets at the seam exactly like the home
-// Hero. `.hero-left` (globals.css) pins the left padding to the 130-px
-// design gutter at lg; the page is zoom-scaled from the 1440 master so the
-// fixed photo width (603) and left border land edge-to-edge on any desktop.
+// Figma blog hero, redesigned in the 3603:11433 comp (frame 3603:11436):
+// a bordered card on the left (heading + lede + CTA, rounded only on its
+// inner/right edge) butting against the collage on the right (rounded only
+// on its inner/left edge), with the featured-article card floating over
+// the photo. The 1710 comp maps to the site's 1440 zoom space as: left
+// text on the 130-px content gutter (pl 129 + 1-px border), pr-32, py-80
+// (79 + border), photo fixed 603 (707 at 1710 = 603 + the 104 fill
+// stretch; the floating card master is exactly 539 = 603 - 2x32 insets).
+// Total hero height 484 — content-driven, no min-height.
 export function BlogHero() {
   return (
     <section className="w-full">
@@ -24,15 +24,18 @@ export function BlogHero() {
         {/* Left bordered card. py-[47px]: Figma mobile (3176:4376) pads the
             content 48px with the stroke INSIDE; border-box adds the 1px
             border, so 47+1 = 48. */}
-        <div className="hero-left flex flex-1 flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-14 sm:px-10 sm:py-14 lg:min-h-[648px] lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-20 lg:pr-8 lg:pt-20">
-          <div className="flex w-full flex-col gap-4 lg:max-w-[575px] lg:gap-6">
+        <div className="flex flex-1 flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-14 sm:px-10 sm:py-14 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-[79px] lg:pl-[129px] lg:pr-8 lg:pt-[79px]">
+          <div className="flex w-full flex-col gap-4 lg:gap-6">
             <h1 className="text-h1 text-neutral-900">
-              Простір для тих, хто будує відповідальний бізнес
+              Блог для тих, хто відповідає за якість
             </h1>
+            {/* Explicit second-line break per the Figma text node — desktop
+                only; below lg the copy wraps naturally in the narrow card. */}
             <p className="text-body-md text-neutral-800">
-              Практичні матеріали про стратегічні закупівлі, управління
-              готельним сервісом, безпеку праці та оптимізацію процесів без
-              води — тільки те, що підсилює ваш бренд.
+              Практичні матеріали про готельне оснащення, клінінг і
+              закупівлі.{" "}
+              <br aria-hidden className="max-lg:hidden" />
+              Без води — тільки по суті.
             </p>
           </div>
           <Button href="/#contact-form" size="responsive" arrow>

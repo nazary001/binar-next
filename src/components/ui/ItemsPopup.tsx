@@ -1,9 +1,14 @@
 // Shared "details window" for bento-grid cards: the dark items panel +
 // the viewport-aware position solver. Extracted from hotels/ZonesGrid
-// (click-to-open) so spivpratsya/Coverage (hover-to-open) renders the
-// exact same window; both import from here.
+// (click-to-open) so spivpratsya/Coverage (hover-to-open) and the
+// /catalog direction banners render the exact same window; all import
+// from here.
 
-// Items panel — Figma 1333:7785 "803" frame:
+import Link from "next/link";
+import { Button } from "./Button";
+
+// Items panel — Figma 1333:7785 "803" frame (catalog variant
+// 3677:42133):
 //   • bg: #343435 (the design token --stroke/deep — same dark slab
 //     the StarRequestStrip header uses)
 //   • rounded-[40px]
@@ -12,15 +17,25 @@
 //     panel
 //   • Chips: white border, white text, transparent fill — opposite
 //     of the light-grid chips used elsewhere on the site, suited to
-//     the dark surface.
+//     the dark surface. When `itemHref` is given (the catalog banners)
+//     the chips become links styled per the newer Chip component
+//     (36-px pill, Button/Medium 16/22, hover → brand border + text)
+//     and an optional white-outlined «Переглянути все» CTA renders
+//     48 px below the chip cloud (Figma 3682:46827).
 export function ItemsPanel({
   title,
   items,
   onClose,
+  itemHref,
+  onItemClick,
+  cta,
 }: {
   title: string;
   items: string[];
   onClose: () => void;
+  itemHref?: (item: string) => string;
+  onItemClick?: () => void;
+  cta?: { label: string; href: string; onClick?: () => void };
 }) {
   return (
     // Figma Frame 803 (1333:7785) — 587×624 dark slab with rounded
@@ -74,23 +89,58 @@ export function ItemsPanel({
           chip rows; on tight viewports the outer wrapper's maxHeight
           + overflow-hidden clips any rare excess silently. */}
       <div className="px-8 pb-8">
-        <ul className="flex flex-wrap gap-[15px]">
-          {items.map((item) => (
-            // Figma chip 1333:7791 — `border border-white px-[16px]
-            // py-[12px] rounded-[60px]` with body-sm text (16/24)
-            // forced onto a single line via whitespace-nowrap.
-            //
-            // Manrope Cyrillic renders ~3 % wider in Chrome than in
-            // Figma's text engine; `tracking-[-0.025em]` claws back
-            // the delta so chip rows pack like the Figma master.
-            <li
-              key={item}
-              className="inline-flex items-center whitespace-nowrap rounded-[60px] border border-white px-4 py-3 text-[16px] leading-[16px] tracking-[-0.025em] text-white"
+        {itemHref ? (
+          // Catalog-banner mode (Figma 3677:42137): 36-px Chip pills in
+          // a 16-px-gapped cloud, each deep-linking into the filtered
+          // catalog; hover = brand border + label (Chip State=Hover,
+          // Colour=Inverted).
+          <ul className="flex flex-wrap content-center items-center gap-4">
+            {items.map((item) => (
+              <li key={item}>
+                <Link
+                  href={itemHref(item)}
+                  onClick={onItemClick}
+                  className="flex h-9 cursor-pointer items-center justify-center whitespace-nowrap rounded-[60px] border border-white px-4 text-button-md text-white transition-colors duration-200 hover:border-brand hover:text-brand"
+                >
+                  {item}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="flex flex-wrap gap-[15px]">
+            {items.map((item) => (
+              // Figma chip 1333:7791 — `border border-white px-[16px]
+              // py-[12px] rounded-[60px]` with body-sm text (16/24)
+              // forced onto a single line via whitespace-nowrap.
+              //
+              // Manrope Cyrillic renders ~3 % wider in Chrome than in
+              // Figma's text engine; `tracking-[-0.025em]` claws back
+              // the delta so chip rows pack like the Figma master.
+              <li
+                key={item}
+                className="inline-flex items-center whitespace-nowrap rounded-[60px] border border-white px-4 py-3 text-[16px] leading-[16px] tracking-[-0.025em] text-white"
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        )}
+        {cta && (
+          // «Переглянути все» — the white-outlined Button/Small + the
+          // 42-px brand arrow disc, 48 px below the chip cloud.
+          <div className="mt-12">
+            <Button
+              href={cta.href}
+              size="small"
+              variant="outlined"
+              arrow
+              onClick={cta.onClick}
             >
-              {item}
-            </li>
-          ))}
-        </ul>
+              {cta.label}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -145,7 +195,14 @@ export type PopupPosition = {
 // reads "details for THIS card" the way Figma's master pins them.
 // Clamped to PANEL_GAP from the viewport top/bottom so the panel
 // follows tall cards and mid-scroll cards smoothly into view.
-export function computePos(cardEl: HTMLElement): PopupPosition {
+//
+// `panelH` (logical px) lets the caller pass the panel's MEASURED
+// content height so the bottom-edge clamp doesn't push a short panel
+// needlessly high; defaults to the Figma-master cap.
+export function computePos(
+  cardEl: HTMLElement,
+  panelH: number = PANEL_H,
+): PopupPosition {
   // `html { zoom: calc(100vw / 1440px) }` in globals.css scales the
   // whole page so every desktop viewport renders as 1440 effective.
   // getBoundingClientRect() returns POST-zoom (visual) pixels, but
@@ -195,11 +252,11 @@ export function computePos(cardEl: HTMLElement): PopupPosition {
   if (fitsRightFull) {
     side = "right";
     width = PANEL_W;
-    height = Math.min(PANEL_H, vh - 2 * PANEL_GAP);
+    height = Math.min(panelH, vh - 2 * PANEL_GAP);
   } else if (fitsLeftFull) {
     side = "left";
     width = PANEL_W;
-    height = Math.min(PANEL_H, vh - 2 * PANEL_GAP);
+    height = Math.min(panelH, vh - 2 * PANEL_GAP);
   } else if (fitsRightMin || fitsLeftMin) {
     // Pick the wider of the two horizontal sides, then shrink the
     // panel to fit it (minus the outer viewport gap). Bias right
@@ -208,7 +265,7 @@ export function computePos(cardEl: HTMLElement): PopupPosition {
     // cards.
     side = spaceRight >= spaceLeft ? "right" : "left";
     width = (side === "right" ? spaceRight : spaceLeft) - PANEL_GAP;
-    height = Math.min(PANEL_H, vh - 2 * PANEL_GAP);
+    height = Math.min(panelH, vh - 2 * PANEL_GAP);
   } else {
     // Vertical fallback. Pick the taller of above / below, cap the
     // height to the available room, and clamp the width to the
@@ -216,7 +273,7 @@ export function computePos(cardEl: HTMLElement): PopupPosition {
     side = spaceBelow >= spaceAbove ? "below" : "above";
     width = Math.min(PANEL_W, vw - 2 * PANEL_GAP);
     const vSpace = side === "below" ? spaceBelow : spaceAbove;
-    height = Math.min(PANEL_H, vSpace - PANEL_GAP);
+    height = Math.min(panelH, vSpace - PANEL_GAP);
   }
 
   let left: number;

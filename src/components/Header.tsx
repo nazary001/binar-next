@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CatalogMenu } from "./CatalogMenu";
 import { Logo } from "./Logo";
 import { Button } from "./ui/Button";
 
@@ -11,19 +12,17 @@ type NavLink = {
   label: string;
 };
 
-const SEGMENTS: NavLink[] = [
-  { href: "/hotels", label: "Готелі" },
-  { href: "/protect", label: "PROTECT" },
-  { href: "/cleaning", label: "CLEANING" },
-];
-
+// Desktop nav after the «Каталог» trigger (Figma header master 129:1279,
+// seen on 3603:11433): Співпраця, Блог, Ресурси, Контакти. The old
+// Кейси / FAQ anchors were dropped by the redesign. «Ресурси» has no
+// destination in the prototype (hover-only state) — rendered as a
+// non-navigating item below until the page exists.
 const TOP_LINKS: NavLink[] = [
-  { href: "/#cases", label: "Кейси" },
-  { href: "/#faq", label: "FAQ" },
-  { href: "/#contacts", label: "Контакти" },
   { href: "/spivpratsya", label: "Співпраця" },
   { href: "/blog", label: "Блог" },
 ];
+
+const CONTACTS_LINK: NavLink = { href: "/#contacts", label: "Контакти" };
 
 // Mobile menu (Figma 3117:13578) lists the directions by their full
 // product names under the "Напрями" label, then a second group of links.
@@ -34,7 +33,7 @@ const MOBILE_DIRECTIONS: NavLink[] = [
 ];
 
 const MOBILE_LINKS: NavLink[] = [
-  { href: "/#segments", label: "Каталог" },
+  { href: "/catalog", label: "Каталог" },
   { href: "/spivpratsya", label: "Співпраця" },
   { href: "/blog", label: "Блог" },
   { href: "/#contacts", label: "Контакти" },
@@ -48,7 +47,12 @@ function isActiveRoute(href: string, pathname: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-function ChevronDown({ className }: { className?: string }) {
+// heroicons-outline/chevron (Figma 616:3451, exported 1:1): an ~11×6
+// filled glyph inside a 16-px box. The export is the OPEN state's
+// point-up orientation; the closed trigger rotates it 180° to point
+// down. fill=currentColor so it tracks the trigger colour
+// (neutral-700 ↔ brand) for free.
+function CatalogChevron({ open }: { open: boolean }) {
   return (
     <svg
       width="16"
@@ -56,15 +60,39 @@ function ChevronDown({ className }: { className?: string }) {
       viewBox="0 0 16 16"
       fill="none"
       aria-hidden
-      className={className}
+      className={`shrink-0 transition-[rotate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        open ? "" : "rotate-180"
+      }`}
     >
       <path
-        d="M4 6l4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M7.72463 5.08224C7.91871 4.95407 8.18268 4.97583 8.35354 5.14669L13.3535 10.1467C13.5488 10.342 13.5488 10.6585 13.3535 10.8537C13.1583 11.049 12.8418 11.049 12.6465 10.8537L8.00002 6.20724L3.35354 10.8537C3.15828 11.049 2.84177 11.049 2.64651 10.8537C2.45125 10.6585 2.45125 10.342 2.64651 10.1467L7.64651 5.14669L7.72463 5.08224Z"
+        fill="currentColor"
       />
+    </svg>
+  );
+}
+
+// «cart bold» glyph (Figma 3917:40132, exported 1:1): a 17.23x20.03
+// vector inside a 24-px box, inset 1.55 left / 2.1 top per the master.
+// White fill + 1-px white stroke exactly as exported; currentColor so
+// it rides the orange circle's text-white.
+function CartIcon() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className="shrink-0"
+    >
+      <g transform="translate(1.545, 2.1)">
+        <path
+          d="M6.375 16.2334C7.42295 16.2337 8.2724 17.0829 8.27246 18.1309C8.27246 19.1789 7.42298 20.029 6.375 20.0293C5.32679 20.0293 4.47656 19.1791 4.47656 18.1309C4.47662 17.0827 5.32683 16.2334 6.375 16.2334ZM15.3291 16.2334C16.377 16.2337 17.2265 17.0829 17.2266 18.1309C17.2266 19.1789 16.3771 20.029 15.3291 20.0293C14.2809 20.0293 13.4307 19.1791 13.4307 18.1309C13.4307 17.0827 14.2809 16.2334 15.3291 16.2334ZM5.74512 0C5.88319 0 5.99512 0.111929 5.99512 0.25V2.90527C5.99512 3.04334 6.10705 3.15527 6.24512 3.15527H16.9766C17.1146 3.15527 17.2266 3.2672 17.2266 3.40527V12.0156C17.2266 12.1537 17.1146 12.2656 16.9766 12.2656H6.24512C6.10705 12.2656 5.99512 12.3776 5.99512 12.5156V13.3896C5.99512 13.5277 6.10705 13.6396 6.24512 13.6396H16.9766C17.1146 13.6396 17.2266 13.7516 17.2266 13.8896V14.9082C17.2266 15.0463 17.1146 15.1582 16.9766 15.1582H4.72656C4.58849 15.1582 4.47656 15.0463 4.47656 14.9082V1.76855C4.47656 1.63048 4.36463 1.51855 4.22656 1.51855H0.25C0.111929 1.51855 0 1.40663 0 1.26855V0.25C0 0.111929 0.111929 0 0.25 0H5.74512Z"
+          fill="currentColor"
+          stroke="currentColor"
+        />
+      </g>
     </svg>
   );
 }
@@ -126,10 +154,21 @@ function Burger({ open }: { open: boolean }) {
 }
 
 export function Header() {
-  const [segmentsOpen, setSegmentsOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const segmentsRef = useRef<HTMLLIElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  // Safety net: a client-side navigation (logo, keyboard nav link, any
+  // route change) always dismisses the mega-menu even when no close
+  // handler fired. Render-phase adjustment (the React-endorsed
+  // "derive state from a changed prop" pattern) instead of an effect,
+  // so the closed state paints in the same commit as the new page.
+  const [menuPathname, setMenuPathname] = useState(pathname);
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname);
+    setCatalogOpen(false);
+  }
   // True when the mobile menu is being closed BECAUSE the user clicked
   // a navigation link (vs. dismissing the menu with Escape / outside-
   // click / close button). When true, the body-lock cleanup below skips
@@ -139,23 +178,20 @@ export function Header() {
   // dropped halfway down the new page. Reset to false after each cycle.
   const navigatingRef = useRef(false);
 
-  // Close the «Напрями» dropdown on outside pointerdown OR Escape.
-  // Replaces a fragile `onBlur` + `setTimeout(120)` pattern that could
-  // race with a re-click — when the user clicked the trigger to close
-  // the menu, blur fired first (queuing a close), the click then fired
-  // (toggling open), and 120 ms later the close finally ran, snapping
-  // the menu shut. `pointerdown` outside also closes the menu before a
-  // page link is followed, so navigation feels instant.
+  // Close the «Каталог» mega-menu on outside pointerdown OR Escape.
+  // The outside test is against the whole <header> because the sheet
+  // renders INSIDE it (see CatalogMenu) — any press on the page below
+  // dismisses the menu before the pressed link navigates.
   useEffect(() => {
-    if (!segmentsOpen) return;
+    if (!catalogOpen) return;
     const onPointer = (e: PointerEvent) => {
-      const el = segmentsRef.current;
+      const el = headerRef.current;
       if (el && e.target instanceof Node && !el.contains(e.target)) {
-        setSegmentsOpen(false);
+        setCatalogOpen(false);
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSegmentsOpen(false);
+      if (e.key === "Escape") setCatalogOpen(false);
     };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -163,23 +199,25 @@ export function Header() {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [segmentsOpen]);
+  }, [catalogOpen]);
+
 
   // Publish the header's fixed height as a CSS variable on <html> so any
   // sticky element below (e.g. the Cases card stack) can pin EXACTLY at
   // the bottom edge of the header rather than slipping underneath it.
-  // The header is locked at a single height per breakpoint — 84 px on
-  // desktop (logo 40 + py-22 × 2) and 66 px on mobile (Figma 3082:3661)
-  // — the previous scroll-driven shrink/shadow wasn't in the design and
-  // caused layout jitter near the top of the page (sticky elements
-  // re-pinning every time the header height toggled). Updated when the
-  // viewport crosses the lg breakpoint.
+  // The header is locked at a single height per breakpoint — 92 px on
+  // desktop (cart button 48 + py-22 × 2, Figma master 129:1279) and
+  // 66 px on mobile (Figma 3082:3661) — the previous scroll-driven
+  // shrink/shadow wasn't in the design and caused layout jitter near
+  // the top of the page (sticky elements re-pinning every time the
+  // header height toggled). Updated when the viewport crosses the lg
+  // breakpoint.
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const apply = () =>
       document.documentElement.style.setProperty(
         "--site-header-h",
-        mq.matches ? "84px" : "66px",
+        mq.matches ? "92px" : "66px",
       );
     apply();
     mq.addEventListener("change", apply);
@@ -246,16 +284,25 @@ export function Header() {
     // as a sibling of <header> at the top level of the body keeps its
     // `fixed inset-x-0 bottom-0` anchored to the actual viewport.
     <>
-    <header className="sticky top-0 z-50 bg-white">
+    <header
+      ref={headerRef}
+      // Leaving the header block (bar OR the mega-menu sheet hanging
+      // from it) closes the catalog — the hover chain trigger → sheet
+      // stays inside this one element, so no bridge/timer is needed.
+      onMouseLeave={() => setCatalogOpen(false)}
+      className="sticky top-0 z-50 bg-white"
+    >
       {/* Mobile (Figma 3082:3661): the header bar is exactly 66 px tall
           with the 100x33.45 logo and the 24-px burger vertically centred.
-          Desktop keeps the original 84-px bar (logo 40 + py-22 x 2). */}
-      <div className="mx-auto flex h-[66px] w-full max-w-[1440px] items-center justify-between px-6 sm:px-10 lg:h-auto lg:px-[130px] lg:py-[22px]">
+          Desktop is the 92-px bar of the redesigned master 129:1279 —
+          80-px side padding (not the 130 content gutter), py-22, with
+          the 48-px cart box setting the row height. */}
+      <div className="mx-auto flex h-[66px] w-full max-w-[1440px] items-center justify-between px-6 sm:px-10 lg:h-auto lg:px-20 lg:py-[22px]">
         <Logo />
 
         <nav
           aria-label="Головна навігація"
-          className="hidden items-center gap-[49px] lg:flex"
+          className="hidden items-center gap-12 lg:flex"
         >
           {/* === Top nav ===
               Figma «Text button» has two variants — Default (#4a4a4c) and
@@ -265,75 +312,48 @@ export function Header() {
               same swap and additionally rotates its chevron when the
               dropdown is open. */}
           <ul className="flex items-center gap-[35px]">
-            <li
-              ref={segmentsRef}
-              className="relative"
-              // Open on hover (desktop nav is lg+ / hover-capable). The
-              // mouseenter/leave live on the <li>, which contains both the
-              // trigger AND the absolutely-positioned dropdown, so the menu
-              // stays open while the cursor is anywhere inside either.
-              onMouseEnter={() => setSegmentsOpen(true)}
-              onMouseLeave={() => setSegmentsOpen(false)}
-            >
-              <button
-                type="button"
-                // Click toggle kept as a fallback for touch screens and
-                // keyboard (Enter) - there is no hover there.
-                onClick={() => setSegmentsOpen((v) => !v)}
-                aria-expanded={segmentsOpen}
-                aria-haspopup="true"
-                className={`flex cursor-pointer items-center gap-[2px] text-button-md transition-colors duration-200 hover:text-brand ${
-                  segmentsOpen ? "text-brand" : "text-neutral-700"
-                }`}
+            {/* «Напрями» is a plain link in the new header (Figma
+                3603:11434) — the three direction pages moved into the
+                «Каталог» mega-menu, so this now points at the home
+                Directions section. Hovering any non-trigger item
+                dismisses an open catalog, menubar-style. */}
+            <li onMouseEnter={() => setCatalogOpen(false)}>
+              <Link
+                href="/#segments"
+                className="block cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
               >
                 Напрями
-                <ChevronDown
-                  className={`transition-[rotate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${segmentsOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {/* Dropdown wrapper sits flush under the trigger (top-full,
-                  no margin) and uses a transparent `pt-3` as a HOVER BRIDGE:
-                  it fills the 12-px visual gap so the cursor can travel from
-                  the trigger down to the menu without crossing a dead zone
-                  that would fire mouseleave and snap the menu shut. The white
-                  box keeps its 12-px offset via this padding. */}
-              <div
-                className={`absolute left-0 top-full pt-3 ${
-                  segmentsOpen ? "pointer-events-auto" : "pointer-events-none"
+              </Link>
+            </li>
+            <li>
+              {/* Hover opens the mega-menu; CLICK navigates to /catalog
+                  (the Figma prototype wires the menu's click to the
+                  catalog listing page). The trigger stays brand-orange
+                  while the menu is open OR while /catalog is the
+                  current route — the catalog-page master (3603:11640)
+                  shows it orange with the chevron down. */}
+              <Link
+                href="/catalog"
+                onMouseEnter={() => setCatalogOpen(true)}
+                onClick={() => setCatalogOpen(false)}
+                aria-expanded={catalogOpen}
+                aria-haspopup="true"
+                aria-controls="catalog-menu"
+                aria-current={
+                  isActiveRoute("/catalog", pathname) ? "page" : undefined
+                }
+                className={`flex cursor-pointer items-center gap-[2px] text-button-md transition-colors duration-200 hover:text-brand ${
+                  catalogOpen || isActiveRoute("/catalog", pathname)
+                    ? "text-brand"
+                    : "text-neutral-700"
                 }`}
               >
-                <ul
-                  role="menu"
-                  aria-hidden={!segmentsOpen}
-                  inert={!segmentsOpen}
-                  // Single cohesive reveal: fade + a gentle 8px slide-down
-                  // on one premium ease-out curve, GPU-composited. No scale
-                  // (scaling the border/text reads slightly fuzzy mid-motion)
-                  // and no per-item stagger (a second competing animation is
-                  // what made it feel jittery) - the panel moves as one unit.
-                  className={`min-w-[180px] rounded-2xl border border-stroke-subtle bg-white p-2 shadow-lg transition-[opacity,translate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] ${
-                    segmentsOpen
-                      ? "translate-y-0 opacity-100"
-                      : "-translate-y-2 opacity-0"
-                  }`}
-                >
-                  {SEGMENTS.map((s) => (
-                    <li key={s.href} role="none">
-                      <Link
-                        role="menuitem"
-                        href={s.href}
-                        onClick={() => setSegmentsOpen(false)}
-                        className="block cursor-pointer rounded-xl px-4 py-2 text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
-                      >
-                        {s.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                Каталог
+                <CatalogChevron open={catalogOpen} />
+              </Link>
             </li>
             {TOP_LINKS.map((link) => (
-              <li key={link.href}>
+              <li key={link.href} onMouseEnter={() => setCatalogOpen(false)}>
                 <Link
                   href={link.href}
                   aria-current={
@@ -349,11 +369,47 @@ export function Header() {
                 </Link>
               </li>
             ))}
+            {/* «Ресурси» (Figma 2749:6914) has only a hover state in the
+                prototype — no destination page exists yet, so it renders
+                as a non-navigating item with the same colour swap. */}
+            <li onMouseEnter={() => setCatalogOpen(false)}>
+              <span className="block text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand">
+                Ресурси
+              </span>
+            </li>
+            <li onMouseEnter={() => setCatalogOpen(false)}>
+              <Link
+                href={CONTACTS_LINK.href}
+                className="block cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
+              >
+                {CONTACTS_LINK.label}
+              </Link>
+            </li>
           </ul>
 
-          <Button href="/#contact-form" size="small">
-            Отримати пропозицію
-          </Button>
+          {/* CTA + cart group (Figma 3917:40504): gap-16 between the
+              dark pill and the 48-px cart box. */}
+          <div
+            className="flex items-center gap-4"
+            onMouseEnter={() => setCatalogOpen(false)}
+          >
+            <Button href="/#contact-form" size="small">
+              Отримати пропозицію
+            </Button>
+            {/* Cart icon-button (Figma 3917:40130): 48-px hit box, 42-px
+                brand circle (r 26) with the white cart glyph, 20-px
+                counter badge at the top-right — #1d1d1f fill, 1.5-px
+                white ring, 12-px bold count. Decorative until the cart
+                feature ships (no click target in the prototype). */}
+            <div className="relative size-12 shrink-0">
+              <span className="absolute left-1/2 top-1/2 flex size-[42px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[26px] bg-brand text-white">
+                <CartIcon />
+              </span>
+              <span className="absolute right-0 top-0 flex size-5 items-center justify-center rounded-full border-[1.5px] border-white bg-neutral-900 text-[12px] font-bold leading-none text-white">
+                2
+              </span>
+            </div>
+          </div>
         </nav>
 
         <button
@@ -367,6 +423,15 @@ export function Header() {
           <Burger open={mobileOpen} />
         </button>
       </div>
+
+      {/* Catalog mega-menu sheet — anchored to the sticky header so it
+          tracks it while the page scrolls, painted behind the white bar
+          (-z-10 inside the header's z-50 stacking context) so its top
+          6 px tuck under the bar exactly like the Figma master. */}
+      <CatalogMenu
+        open={catalogOpen}
+        onNavigate={() => setCatalogOpen(false)}
+      />
     </header>
 
       {/* === Mobile overlay menu ===
@@ -388,7 +453,7 @@ export function Header() {
         aria-hidden={!mobileOpen}
         inert={!mobileOpen}
         style={{
-          top: "var(--site-header-h, 84px)",
+          top: "var(--site-header-h, 92px)",
         }}
         className={`fixed inset-x-0 bottom-0 z-[45] overflow-y-auto overscroll-contain bg-white transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
           mobileOpen

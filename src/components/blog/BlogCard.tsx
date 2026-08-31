@@ -11,9 +11,9 @@ import { ArrowUpRight } from "./icons";
 export function BlogCard({ post }: { post: BlogPost }) {
   // Below lg the Figma MOBILE master (3176:5541) wraps each card in a
   // neutral-800-bordered rounded-32 shell with the image at the top and
-  // px-24 pt-24 pb-48 content padding; the excerpt is a single truncated
-  // line. At lg the card is borderless (the CardGrid draws the column
-  // dividers instead) and the excerpt wraps freely.
+  // px-24 pt-24 pb-48 content padding. At lg the card is borderless (the
+  // CardGrid draws the column dividers instead). The excerpt is a single
+  // truncated line on every breakpoint.
   return (
     <Link
       href={`/blog/${post.slug}`}
@@ -53,7 +53,10 @@ export function BlogCard({ post }: { post: BlogPost }) {
           <h3 className="text-title-lg text-neutral-900 transition-colors duration-300 group-hover:text-brand">
             {post.title}
           </h3>
-          <p className="truncate text-[16px] leading-[24px] text-neutral-500 lg:overflow-visible lg:whitespace-normal">
+          {/* Single truncated line on EVERY breakpoint — the desktop comp
+              (3603:11460) clips the excerpt to one ellipsised line just
+              like the mobile master. */}
+          <p className="truncate text-[16px] leading-[24px] text-neutral-500">
             {post.excerpt}
           </p>
         </div>

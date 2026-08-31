@@ -101,7 +101,7 @@ export function CaseCard({
       data-case-index={index}
       className="case-card flex w-full max-w-[342px] flex-col items-center overflow-hidden rounded-[32px] border border-neutral-700 bg-white lg:max-w-none lg:items-stretch lg:sticky lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:flex-row"
       style={{
-        top: `calc(var(--site-header-h, 84px) + ${index * LG_LOGO_HEIGHT}px)`,
+        top: `calc(var(--site-header-h, 92px) + ${index * LG_LOGO_HEIGHT}px)`,
       }}
     >
       <div
@@ -334,7 +334,7 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
     const headerHRaw = getComputedStyle(document.documentElement)
       .getPropertyValue("--site-header-h")
       .trim();
-    const headerH = parseFloat(headerHRaw) || 84;
+    const headerH = parseFloat(headerHRaw) || 92;
     const target =
       sectionDocTop + i * (LG_CARD_HEIGHT - LG_LOGO_HEIGHT) - headerH;
     window.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
@@ -389,7 +389,7 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
       const headerHRaw = getComputedStyle(document.documentElement)
         .getPropertyValue("--site-header-h")
         .trim();
-      const headerH = parseFloat(headerHRaw) || 84;
+      const headerH = parseFloat(headerHRaw) || 92;
 
       // First pass: dock progress + enter progress for every card.
       const dockProgress: number[] = new Array(cards.length);
