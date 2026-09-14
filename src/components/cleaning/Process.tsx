@@ -35,7 +35,7 @@ function PlusConnector({ spacerOnLg = false }: { spacerOnLg?: boolean }) {
   return (
     <span
       aria-hidden
-      className={`relative z-10 flex size-8 shrink-0 items-center justify-center text-brand ${
+      className={`relative z-10 flex size-8 shrink-0 items-center justify-center text-brand sm:hidden lg:flex ${
         spacerOnLg ? "lg:invisible" : ""
       }`}
     >
@@ -67,8 +67,10 @@ export function CleaningProcess() {
   // bordered-card stack ends at Benefits, so this section sits flush
   // against the page background without the hairline outline.
   return (
-    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
-      <div className="flex flex-col gap-12 lg:gap-[168px]">
+    <section className="lg-pad-x bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:pb-[178px] lg:pt-[160px]">
+      {/* Figma 1327:4609: heading row ends y280, disc row starts y471 (gap
+          191), bottom padding 178 - section 884. */}
+      <div className="flex flex-col gap-12 lg:gap-[191px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:gap-8">
           <h2 className="flex-1 max-w-[574px] text-neutral-900">
             <span className="text-h2">Гігієна як система,</span>
@@ -113,8 +115,15 @@ export function CleaningProcess() {
                        last sparkle is swapped for the absolute RingSparkle
                        so it stays glued to the ring at fractional zoom). */}
         {/* gap-[25px]: the Figma mobile column stacks the discs at a
-            317.44px pitch = 235.44 disc + 25 + 32 sparkle + 25. */}
-        <ul className="flex flex-col items-center gap-[25px] lg:flex-row lg:flex-nowrap lg:justify-between lg:gap-0">
+            317.44px pitch = 235.44 disc + 25 + 32 sparkle + 25.
+            No tablet master exists, so at sm..lg-1 the four steps lay out
+            as a centred 2x2 grid (w-fit + mx-auto keeps the cluster tight
+            and centred instead of a lone narrow phone column marooned in
+            a wide section); the in-flow sparkle connectors are hidden at
+            sm (see PlusConnector) since they only read as connectors in
+            the phone column and the lg row. lg restores the Figma 1440
+            justify-between row exactly. */}
+        <ul className="flex flex-col items-center gap-[25px] sm:mx-auto sm:grid sm:w-fit sm:grid-cols-2 sm:justify-items-center sm:gap-x-[72px] sm:gap-y-[56px] lg:mx-0 lg:flex lg:w-auto lg:flex-row lg:flex-nowrap lg:justify-between lg:gap-0">
           {STEPS.map((label, i) => {
             const isLast = i === STEPS.length - 1;
             return (

@@ -211,7 +211,9 @@ function DotMarker({ left, top, popup, popupAnchor }: DotConfig) {
 
 export function Hero() {
   return (
-    <section className="w-full">
+    // lg:mt-5: the Home master (1327:5678) starts its content frame at
+    // y=112, i.e. 20px under the 92px header (the hero h1 sits at y=192).
+    <section className="w-full lg:mt-5">
       {/* lg:items-stretch (default) makes both columns share the same
           height — equal to whichever is taller — so their bottom edges
           line up. Combined with lg:min-h-[746px] on the photo, this

@@ -317,7 +317,17 @@ export type Product = {
   subcategory: string;
   // Price in UAH; rendered as «31,65 ₴» via formatPrice below.
   price: number;
+  // Regular price when `price` is a promotional one (Figma PDP variant
+  // «Ціна з пропозицією», 4329:51621): rendered struck-through next to
+  // the orange sale price, with the discount chip on the photo.
+  oldPrice?: number;
+  // Discount label override (whole percent). Product feeds usually carry
+  // the label they print; when absent it is computed from the prices.
+  discount?: number;
   available: boolean;
+  // Chip labels on the cards; defaults to [volume, brand] when absent
+  // (the «Купують разом» textile cards show material + feature chips).
+  chips?: string[];
 };
 
 // Filterable placeholder attributes. The manufacturer list is verbatim
@@ -378,6 +388,15 @@ export const PRODUCTS: Product[] = Array.from({ length: 132 }, (_, i) => {
   };
 });
 
+// Mock storefront states for the product page (Figma «PDP B2C» section
+// 4329:51336): the second placeholder carries a promotional price
+// («Ціна з пропозицією», 4329:51621), the third is out of stock («Немає
+// в наявності», 4329:51763). The catalog card already renders both.
+// The master's literals are 24,50 / 31,65 / «-25%» (the designer's
+// rounding - the prices compute to 22.6 %), so the label is pinned.
+PRODUCTS[1] = { ...PRODUCTS[1], price: 24.5, oldPrice: 31.65, discount: 25 };
+PRODUCTS[2] = { ...PRODUCTS[2], available: false };
+
 export const SORT_OPTIONS = [
   "за популярністю",
   "за назвою",
@@ -388,9 +407,20 @@ export type SortOption = (typeof SORT_OPTIONS)[number];
 // «Кількість товарів на сторінці» — the Figma control shows 20.
 export const PAGE_SIZES = [20, 40, 60] as const;
 
-// 31.65 -> «31,65 ₴» (comma decimal, non-breaking space before ₴).
+// 31.65 -> «31,65 ₴», 4736.25 -> «4 736,25 ₴» (comma decimal, thin
+// thousands groups, non-breaking space before ₴).
 export function formatPrice(price: number): string {
-  return `${price.toFixed(2).replace(".", ",")} ₴`;
+  const [int, dec] = price.toFixed(2).split(".");
+  return `${groupThousands(int)},${dec}\u00a0₴`;
+}
+
+// 5000 -> «5 000 ₴» — the cart meter's threshold labels.
+export function formatPriceWhole(price: number): string {
+  return `${groupThousands(String(Math.round(price)))}\u00a0₴`;
+}
+
+function groupThousands(int: string): string {
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
 }
 
 // Ukrainian plural for «товар»: 1 товар / 2-4 товари / 5+ товарів
@@ -403,4 +433,29 @@ export function productsPlural(n: number): string {
     return "товари";
   }
   return "товарів";
+}
+
+// Product page («Сторінка товару», Figma 4329:51337):
+// /catalog/<direction>/<category>/<product-id>. The category is the
+// carousel card whose label equals the product's subcategory; products
+// filed under a menu-only subcategory fall back to their direction's
+// last («Інші …») card so every card in the catalog has a page.
+export function productHref(p: Product): string {
+  for (const d of CATALOG_DIRECTIONS) {
+    const card = d.carousel.find((c) => c.label === p.subcategory);
+    if (card) return `/catalog/${d.slug}/${card.slug}/${p.id}`;
+  }
+  const dir =
+    CATALOG_DIRECTIONS.find((d) => directionSubcategorySet(d).has(p.subcategory)) ??
+    CATALOG_DIRECTIONS[0];
+  const fallback = dir.carousel[dir.carousel.length - 1];
+  return `/catalog/${dir.slug}/${fallback.slug}/${p.id}`;
+}
+
+// The «-25%» chip label: the feed's own label when it carries one,
+// otherwise the whole percent computed from the two prices; null when
+// the product is not on sale.
+export function discountPercent(p: Product): number | null {
+  if (!p.oldPrice || p.oldPrice <= p.price) return null;
+  return p.discount ?? Math.round((1 - p.price / p.oldPrice) * 100);
 }

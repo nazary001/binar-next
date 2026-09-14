@@ -37,7 +37,7 @@ const clamp = (v: number, lo: number, hi: number) =>
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-// Desktop applies `html { zoom: calc(100vw / 1440px) }`, so getBoundingClientRect
+// Desktop applies `html { zoom: min(1, calc(100vw / 1440px)) }`, so getBoundingClientRect
 // returns zoom-scaled (visual) coordinates while a CSS `transform` translate is
 // in pre-zoom local px. Dividing the measured visual delta by the zoom keeps the
 // button landing pixel-exact on the slot at every viewport width.
@@ -300,23 +300,33 @@ function CornerFab() {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    // Fade the FAB out for the whole footer region and keep it out all the way
-    // to the page bottom. We observe the <footer> itself, NOT the small slot:
-    // the footer spans to the very bottom of the page, so once it is in view it
-    // stays intersecting until you scroll back up out of it. Observing the slot
-    // made the FAB REAPPEAR at the very bottom - the slot scrolls up and out the
-    // top of the viewport, isIntersecting flips back to false, and `show` turned
-    // true again (it only stayed hidden on tall viewports where a sliver of the
-    // slot lingered on screen). The rootMargin extends the viewport's bottom by
-    // half a screen so the FAB has faded before the footer ring scrolls in.
-    const footerEl = document.querySelector<HTMLElement>("footer");
+    // Hand off to the footer's static ring once it is genuinely near, and stay
+    // out through the page bottom. We observe the small [data-scrollup-slot],
+    // NOT the whole <footer>: the footer is a fixed size in Figma but its
+    // stacked mobile/tablet form is ~1248 px tall, which on a short page (e.g.
+    // /checkout at 900-1023 px tall) dwarfs the scroll range. Observing the
+    // footer with a bottom rootMargin then flipped footerNear true almost
+    // immediately (footer top entered the extended root long before the 60 %
+    // scroll threshold), so scrolledDown && !footerNear was NEVER both true and
+    // the FAB was dead across the whole 640-1023 band.
+    //
+    // The rootMargin does two things:
+    //   * bottom -25 %  - footerNear turns true only once the slot has risen
+    //     into the lower-middle of the viewport (its dock zone), so the FAB
+    //     stays visible through the scrolled-down band and fades as the static
+    //     ring arrives - the same hand-off the desktop flight performs.
+    //   * top +100000px - keeps the slot "intersecting" after it scrolls above
+    //     the fold, so footerNear LATCHES true to the page bottom instead of
+    //     flipping back to false (which previously made the FAB reappear at the
+    //     very bottom once the slot left the top of the viewport).
+    const slotEl = document.querySelector<HTMLElement>("[data-scrollup-slot]");
     let io: IntersectionObserver | null = null;
-    if (footerEl) {
+    if (slotEl) {
       io = new IntersectionObserver(
         ([entry]) => setFooterNear(entry.isIntersecting),
-        { rootMargin: "0px 0px 50% 0px" }
+        { rootMargin: "100000px 0px -25% 0px" }
       );
-      io.observe(footerEl);
+      io.observe(slotEl);
     }
 
     return () => {

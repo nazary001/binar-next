@@ -566,9 +566,17 @@ export function ZonesGrid() {
             // seam; sm:mt-0 cancels it from the 2-col tablet step onward (it
             // persists through lg) so the desktop side-by-side row, which
             // only needs the horizontal lg:-ml-px overlap, is untouched.
+            //
+            // Tablet (640..1023, no master): the three manual column stacks
+            // become `sm:contents` so their cards flatten into the outer
+            // sm:grid-cols-2 grid and auto-place row by row. Six zone cards
+            // fill three tidy 2-up rows and the CTA (sm:col-span-2 below)
+            // caps them full-width, so nothing is orphaned and no cell is
+            // left empty (the old 3-stacks-in-2-cols left a dead quadrant).
+            // lg:flex restores the exact desktop column stacks.
             <div
               key={i}
-              className={`flex flex-col gap-0 sm:gap-4 lg:gap-0${i > 0 ? " -mt-px sm:mt-0 lg:-ml-px" : ""}`}
+              className={`flex flex-col gap-0 sm:contents lg:flex lg:flex-col lg:gap-0${i > 0 ? " -mt-px sm:mt-0 lg:-ml-px" : ""}`}
             >
               {col.map((card, j) => (
                 // Same overlap vertically: every card after the first in its
@@ -577,10 +585,12 @@ export function ZonesGrid() {
                 // mobile the cards stack flush in one column, so the wrapper
                 // is a real block (not display:contents) and the -mt-px
                 // overlap applies there too; sm:mt-0 cancels it at the 2-col
-                // tablet step where cards are gap-spaced instead.
+                // tablet step where cards are gap-spaced instead. The CTA
+                // spans both tablet columns so the 7 items tessellate; at lg
+                // the wrapper is a flex child again so col-span is ignored.
                 <div
                   key={j}
-                  className={`block${j > 0 ? " -mt-px sm:mt-0 lg:-mt-px" : ""}`}
+                  className={`block${j > 0 ? " -mt-px sm:mt-0 lg:-mt-px" : ""}${card.kind === "cta" ? " sm:col-span-2" : ""}`}
                 >
                   <ZoneRenderer
                     card={card}

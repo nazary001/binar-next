@@ -203,7 +203,7 @@ export function computePos(
   cardEl: HTMLElement,
   panelH: number = PANEL_H,
 ): PopupPosition {
-  // `html { zoom: calc(100vw / 1440px) }` in globals.css scales the
+  // `html { zoom: min(1, calc(100vw / 1440px)) }` in globals.css scales the
   // whole page so every desktop viewport renders as 1440 effective.
   // getBoundingClientRect() returns POST-zoom (visual) pixels, but
   // an element's `style.left` is interpreted as a PRE-zoom CSS pixel

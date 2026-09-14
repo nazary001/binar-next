@@ -100,10 +100,17 @@ export function AboutUs() {
 
         {/* Stats block (3094:4987): bg-subtle row, image bleeds to the
             left edge (w-210, self-stretch, rounded on the right), right
-            column carries three metrics with hairline dividers. pb-48. */}
+            column carries three metrics with hairline dividers. pb-48.
+            Phone (<640) keeps the Figma master (photo 210 + narrow stats).
+            No Figma tablet master exists, so at sm+ the photo grows to
+            ~half the row and the metric stack centres in the remaining
+            space so the row fills the tablet width instead of leaving the
+            right ~60% empty. This whole block is inside `lg:hidden`, so at
+            >=1024 it is display:none and the sm: rules never reach the
+            pixel-verified desktop layout. */}
         <div className="flex items-stretch justify-between bg-bg-subtle pb-12">
           <div
-            className="relative w-[210px] shrink-0 self-stretch overflow-hidden rounded-r-[32px]"
+            className="relative w-[210px] shrink-0 self-stretch overflow-hidden rounded-r-[32px] sm:w-[52%]"
             style={{ background: "#474747" }}
           >
             <img
@@ -115,10 +122,10 @@ export function AboutUs() {
               className="absolute inset-0 size-full max-w-none object-cover"
             />
           </div>
-          <ul className="flex flex-1 flex-col justify-center gap-4 pl-8">
+          <ul className="flex flex-1 flex-col justify-center gap-4 pl-8 sm:items-center sm:pl-10">
             {STATS.map((s, i) => (
-              <li key={s.label} className="flex flex-col gap-4">
-                <div className="flex w-[140px] max-w-full flex-col gap-2">
+              <li key={s.label} className="flex flex-col gap-4 sm:w-[220px]">
+                <div className="flex w-[140px] max-w-full flex-col gap-2 sm:w-full">
                   {/* 48-px SemiBold, cap-trimmed (Figma 3094:4991) so the
                       row is 35px tall like the master, not the 49-px line
                       box. */}
@@ -183,12 +190,15 @@ export function AboutUs() {
           bg-subtle fill. The card holds the heading + 2-col facts
           area. The bottom Stats/Shape sit OUTSIDE this card on the
           page's white bg, with the eco image + orange L positioned to
-          straddle the boundary. lg:pb-[167px] adds the empty buffer
+          straddle the boundary. lg:pb-[170px] adds the empty buffer
           area Figma reserves between the facts card's bottom (y=1126)
           and the bg-subtle card's bottom (y=1296) — the bottom row
-          uses lg:-mt-[167px] to overlap into this buffer. */}
-      <div className="hidden overflow-hidden bg-bg-subtle lg:block lg:rounded-[48px] lg:pb-[167px]">
-        <div className="px-6 pt-12 sm:px-12 sm:pt-16 lg-pad-x lg:pt-[160px]">
+          uses lg:-mt-[170px] to overlap into this buffer. */}
+      {/* lg:pb-20 on the heading wrapper: Figma frame 1384:12696 is 384
+          tall (160 top pad + 144 heading + 80 empty) before the 742 two-col
+          band, so the card reaches the master's 1296. */}
+      <div className="hidden overflow-hidden bg-bg-subtle lg:block lg:rounded-[48px] lg:pb-[170px]">
+        <div className="px-6 pt-12 sm:px-12 sm:pt-16 lg-pad-x lg:pb-20 lg:pt-[160px]">
           <h2 className="max-w-[574px] text-h2-light text-neutral-900">
             <span className="text-h2-light">Binar 2000 - постачання для готелів </span>
             <span className="text-h2">по всій Україні з 2000 року</span>
@@ -289,11 +299,14 @@ export function AboutUs() {
                     </div>
                     {i < FACTS.length - 1 && (
                       // Divider extends past the li's right edge by the
-                      // card's right padding (= --lg-pad-x) so the line
-                      // reaches the card's right border (= viewport
-                      // right edge), matching Figma Vector 70/69/68
-                      // which run x=80..704 inside the 704-wide card.
-                      <div className="mt-6 h-px w-full bg-stroke-subtle sm:mt-8 lg:mt-10 lg:w-[calc(100%+var(--lg-pad-x))]" />
+                      // card's right padding so the line reaches the
+                      // card's right border (= viewport right edge),
+                      // matching Figma Vector 70/69/68 which run
+                      // x=80..704 inside the 704-wide card. The gutter is
+                      // spelled out with 100vw here because --lg-pad-x
+                      // would resolve its 100% against this narrow li and
+                      // collapse to 130 px on wide screens.
+                      <div className="mt-6 h-px w-full bg-stroke-subtle sm:mt-8 lg:mt-10 lg:w-[calc(100%+max(130px,(100vw-1440px)/2+130px))]" />
                     )}
                   </Reveal>
                 );
@@ -307,9 +320,9 @@ export function AboutUs() {
           white bg. In Figma the Shape frame (image + orange L) starts
           at y=1129 (within About Us), 3px below where the facts card's
           left border ends at y=1126. The bg-subtle card extends down
-          to y=1296, so the image's top ~167px and the orange L's top
-          ~167px overlap with the grey card's lower buffer area, then
-          both shapes extend below onto white. lg:-mt-[167px] pulls
+          to y=1296, so the image's top ~170px and the orange L's top
+          ~170px overlap with the grey card's lower buffer area, then
+          both shapes extend below onto white. lg:-mt-[170px] pulls
           this whole row up to recreate that overlap. Stats (numbers
           20+/800+/150+) sit below the orange L in the orange's notch
           area, entirely on the white bg in Figma.
@@ -323,9 +336,9 @@ export function AboutUs() {
               pinned top-left; orange L-shape fills the right + top;
               stats are absolutely positioned in the L's bottom-left
               cutout with right offset = 46%. */}
-      <div className="relative mt-10 hidden px-6 pb-10 sm:mt-12 sm:px-12 sm:pb-12 lg:-mt-[167px] lg-pad-x lg:block lg:pb-[120px]">
-          <div className="relative xl:aspect-[1180/445]">
-            <div className="flex flex-col items-stretch gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-[1.356%] xl:h-full">
+      <div className="relative mt-10 hidden px-6 pb-10 sm:mt-12 sm:px-12 sm:pb-12 lg:-mt-[170px] lg-pad-x lg:block lg:pb-[120px]">
+          <div className="relative lg:aspect-[1180/445]">
+            <div className="flex flex-col items-stretch gap-4 sm:gap-6 lg:flex-row lg:items-start lg:gap-[1.356%] lg:h-full">
               <div
                 className="relative h-[200px] w-full shrink-0 overflow-hidden rounded-[32px] sm:h-[237px] sm:rounded-[48px] lg:aspect-square lg:h-auto lg:w-[clamp(140px,20.085%,237px)] lg:rounded-[48px]"
                 style={{ background: "#474747" }}
@@ -348,7 +361,7 @@ export function AboutUs() {
                   area still has a recognisable orange accent on mobile.
                   The full L-shape returns at lg+ where the column layout
                   actually exists. */}
-              <div className="relative flex-1 xl:h-full">
+              <div className="relative flex-1 lg:h-full">
                 {/* Mobile/sm/md only renders the lg L-shape from `lg`
                     up - the orange brand-accent card that previously
                     sat here on mobile was removed per design feedback
@@ -358,7 +371,7 @@ export function AboutUs() {
                 <svg
                   viewBox="0 0 927 445"
                   preserveAspectRatio="xMidYMid meet"
-                  className="hidden h-auto w-full lg:block xl:h-full"
+                  className="hidden h-auto w-full lg:block lg:h-full"
                   aria-hidden
                 >
                   <defs>
@@ -391,7 +404,7 @@ export function AboutUs() {
                 Mobile stats render as a horizontal row inside a
                 top-bordered band so each metric reads as a peer in
                 the trio rather than three loose blocks. */}
-            <ul className="mt-8 flex flex-row items-start justify-between gap-3 border-t border-stroke-subtle pt-8 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-x-10 sm:gap-y-2 sm:border-t-0 sm:pt-0 lg:mt-12 lg:gap-x-12 lg:pr-[8%] xl:absolute xl:bottom-0 xl:left-0 xl:right-[46%] xl:mt-0 xl:gap-x-[clamp(20px,3vw,48px)] xl:pr-0">
+            <ul className="mt-8 flex flex-row items-start justify-between gap-3 border-t border-stroke-subtle pt-8 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-x-10 sm:gap-y-2 sm:border-t-0 sm:pt-0 lg:absolute lg:bottom-0 lg:left-0 lg:right-[46%] lg:mt-0 lg:gap-x-[clamp(20px,3vw,48px)] lg:pr-0">
               {STATS.map((s, i) => (
                 <Reveal
                   key={s.label}
@@ -403,7 +416,7 @@ export function AboutUs() {
                     <AnimatedNumber value={s.value} />
                     <span className="text-brand">{s.suffix}</span>
                   </p>
-                  <p className="text-[13px] leading-[18px] text-neutral-500 sm:max-w-[200px] sm:text-body-sm sm:leading-snug">
+                  <p className="text-[13px] leading-[18px] text-neutral-500 sm:max-w-[200px] sm:text-body-sm sm:leading-6">
                     {s.label}
                   </p>
                 </Reveal>

@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
 import { crossClips } from "@/components/ui/crossClips";
@@ -61,7 +62,7 @@ const PROCESS = [
 // Everything (cross AND icons) is positioned with FIXED PX OFFSETS from
 // the dark frame's RIGHT EDGE - never percentages. That's the key to
 // "no drift on different PC screens": the page already runs at the 1440
-// CSS-pixel master via the `html { zoom: 100vw/1440px }` rule, but if
+// CSS-pixel master via the `html { zoom: min(1, 100vw/1440px) }` rule, but if
 // that rule fails to apply (older Firefox, certain webviews), fixed-px
 // right anchors keep the cross intersection and the icons sitting at the
 // same relative position regardless of how wide the dark frame ends up.
@@ -99,6 +100,7 @@ function DecorCluster() {
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
+      style={{ "--col-r": "max(0px, calc((100% - 1440px) / 2))" } as CSSProperties}
     >
       {/* Z-ORDER: Figma master 1384:12828 paints the 4 decorative icons
           UNDER the cross hairlines, so the orange tag / leaf-sparkle /
@@ -118,7 +120,7 @@ function DecorCluster() {
           fit the horizontal bbox. Flex centers the rotated image. */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ right: "425px", top: "98px", width: "150px", height: "70px" }}
+        style={{ right: "calc(var(--col-r) + 425px)", top: "98px", width: "150px", height: "70px" }}
       >
         <img
           src={`${ICON_BASE}/ellipse50-stroke.svg`}
@@ -136,7 +138,7 @@ function DecorCluster() {
         src={`${ICON_BASE}/vector-a.svg`}
         alt=""
         className="absolute block"
-        style={{ right: "365px", top: "224.5px", width: "155.5px", height: "92px" }}
+        style={{ right: "calc(var(--col-r) + 365px)", top: "224.5px", width: "155.5px", height: "92px" }}
       />
 
       {/* === Dark gear (Vector B), -9° rotation (CSS +9° clockwise) ===
@@ -145,7 +147,7 @@ function DecorCluster() {
           ~143x135; rotated -9° around its center in the bbox. */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ right: "167px", top: "166px", width: "163px", height: "156px" }}
+        style={{ right: "calc(var(--col-r) + 167px)", top: "166px", width: "163px", height: "156px" }}
       >
         <img
           src={`${ICON_BASE}/vector-b.svg`}
@@ -164,7 +166,7 @@ function DecorCluster() {
           (fill-rule evenodd). */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ right: "57px", top: "212px", width: "138px", height: "128px" }}
+        style={{ right: "calc(var(--col-r) + 57px)", top: "212px", width: "138px", height: "128px" }}
       >
         <img
           src={`${ICON_BASE}/vector-83.svg`}
@@ -203,7 +205,7 @@ function DecorCluster() {
         className="absolute border-b border-r border-white"
         style={{
           top: 0,
-          right: `${CROSS_RIGHT - 1}px`,
+          right: `calc(var(--col-r) + ${CROSS_RIGHT - 1}px)`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
           height: `${CROSS_TOP + 1}px`,
           borderBottomRightRadius: `${CROSS_RADIUS}px`,
@@ -218,7 +220,7 @@ function DecorCluster() {
         style={{
           top: 0,
           right: 0,
-          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          width: `calc(var(--col-r) + ${CROSS_RIGHT_ARM_WIDTH}px)`,
           height: `${CROSS_TOP + 1}px`,
           borderBottomLeftRadius: `${CROSS_RADIUS}px`,
           clipPath: CLIPS.ur,
@@ -230,7 +232,7 @@ function DecorCluster() {
         className="absolute border-t border-r border-white"
         style={{
           top: `${CROSS_TOP}px`,
-          right: `${CROSS_RIGHT - 1}px`,
+          right: `calc(var(--col-r) + ${CROSS_RIGHT - 1}px)`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopRightRadius: `${CROSS_RADIUS}px`,
@@ -245,7 +247,7 @@ function DecorCluster() {
         style={{
           top: `${CROSS_TOP}px`,
           right: 0,
-          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          width: `calc(var(--col-r) + ${CROSS_RIGHT_ARM_WIDTH}px)`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopLeftRadius: `${CROSS_RADIUS}px`,
           clipPath: CLIPS.lr,

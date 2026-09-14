@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
@@ -23,7 +24,7 @@ export function CleaningHero() {
             that meets the photo column's curved-left edge. Padding
             pt 80 / pl 130 / pr 32 / pb 40 mirrors Figma's inner
             content frame at (130, 80) w=575. */}
-        <div className="flex flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-12 sm:px-10 sm:py-14 lg:h-[640px] lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
+        <div className="hero-left hero-left-837 flex flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-12 sm:px-10 sm:py-14 lg:h-[640px] lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-8 sm:gap-12 lg:w-[575px] lg:gap-14">
             <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -54,8 +55,8 @@ export function CleaningHero() {
             offsets stay anchored to Figma's master, exactly as the
             designer framed it. */}
         <div
-          className="relative h-[320px] overflow-clip rounded-bl-[32px] rounded-tl-[32px] sm:h-[420px] sm:rounded-bl-[40px] sm:rounded-tl-[40px] md:h-[480px] lg:h-[640px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
-          style={{ background: "#c34924" }}
+          className="hero-photo relative h-[320px] overflow-clip rounded-bl-[32px] rounded-tl-[32px] sm:h-[420px] sm:rounded-bl-[40px] sm:rounded-tl-[40px] md:h-[480px] lg:h-[640px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px]"
+          style={{ "--hero-photo-w": "721px", background: "#c34924" } as CSSProperties}
         >
           {/* Figma 1327:4445 - image rectangle is 856.45 x 750.65,
               positioned (-85.59, -6.06) inside the 721 x 640 photo
@@ -88,24 +89,29 @@ export function CleaningHero() {
                 height: "385.273px",
               }}
             >
+              {/* Below sm (the phone master) the image keeps the tuned
+                  crop (left -1.95 / top 7.06 / w 101.95 / h 114.95, no
+                  object-fit = fill) exactly as Figma framed it. From sm
+                  up the box grows much wider than tall, so a plain fill
+                  would squash the bottle/brush; there we reset the box to
+                  the full band and object-cover it (object-position keeps
+                  the upright composition) so the photo CROPS instead of
+                  stretching. */}
               <img
                 src="/figma-export/directions/card-cleaning.png"
                 alt="Засоби для прибирання"
                 fetchPriority="high"
                 loading="eager"
                 decoding="async"
-                className="absolute max-w-none"
-                style={{
-                  left: "-1.95%",
-                  top: "7.06%",
-                  width: "101.95%",
-                  height: "114.95%",
-                }}
+                className="absolute left-[-1.95%] top-[7.06%] h-[114.95%] w-[101.95%] max-w-none sm:inset-0 sm:left-0 sm:top-0 sm:size-full sm:object-cover sm:[object-position:50%_28%]"
               />
             </div>
           </div>
-          {/* Desktop: the Figma master's 856x750 wrapper at (-86, -6). */}
-          <div className="absolute hidden overflow-clip lg:left-[-86px] lg:top-[-6px] lg:block lg:h-[750px] lg:w-[856px] lg:rounded-[40px]">
+          {/* Desktop: the Figma master's 856x750 wrapper at (-86, -6).
+              856 = column 721 + 135, so the wrapper is sized relative to
+              the column and keeps covering it when `.hero-photo` grows
+              above 1440 (the photo object-covers the wider box). */}
+          <div className="absolute hidden overflow-clip lg:left-[-86px] lg:top-[-6px] lg:block lg:h-[750px] lg:w-[calc(100%+135px)] lg:rounded-[40px]">
             <img
               src="/figma-export/directions/card-cleaning.png"
               alt="Засоби для прибирання"

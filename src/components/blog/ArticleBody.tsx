@@ -45,7 +45,11 @@ export function ArticleBody({ slug }: { slug: string }) {
       {/* Prose column. Mobile master (3176:5634) stacks lede/sections/list at
           a uniform 48px (gap-12); the 1440 desktop master uses a tighter 40px
           rhythm (lg:gap-10), so the gap is breakpoint-scoped. */}
-      <div className="flex flex-col gap-12 text-neutral-900 lg:w-[707px] lg:shrink-0 lg:gap-10 lg:pr-10">
+      {/* max-w-[720px] caps the reading measure across the 640..1023 tablet
+          band (~73 Cyrillic chars/line) where there is no two-column layout to
+          constrain it; at lg the fixed lg:w-[707px] takes over, so the desktop
+          two-column layout is unchanged. */}
+      <div className="flex max-w-[720px] flex-col gap-12 text-neutral-900 lg:w-[707px] lg:max-w-none lg:shrink-0 lg:gap-10 lg:pr-10">
         {/* The Figma intro node carries two trailing empty lines before the
             first sub-section, so the gap after the lede is larger (~96px on
             the 1440 master) than the 40px rhythm between later sections. The
@@ -70,9 +74,11 @@ export function ArticleBody({ slug }: { slug: string }) {
           <h2 className="text-title-lg text-neutral-900">
             {ARTICLE_BODY.listSection.heading}
           </h2>
-          {/* max-lg:mt-5: the phone master's list text node opens with a
-              LEADING empty 20px line (heading->first bullet = 16 + 20). */}
-          <ul className="flex list-disc flex-col gap-5 ps-[21px] text-body-sm marker:text-neutral-900 max-lg:mt-5 lg:gap-6 lg:ps-6">
+          {/* max-lg:mt-5 / lg:mt-6: both masters' list text nodes open with
+              a LEADING empty line (phone 20px, desktop 24px), so heading ->
+              first bullet = 16 + 20 on phones and 16 + 24 = 40 at lg
+              (2670:6454). */}
+          <ul className="flex list-disc flex-col gap-5 ps-[21px] text-body-sm marker:text-neutral-900 max-lg:mt-5 lg:mt-6 lg:gap-6 lg:ps-6">
             {ARTICLE_BODY.listSection.items.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -131,10 +137,12 @@ export function ArticleBody({ slug }: { slug: string }) {
                 <li key={tag}>
                   {/* py-[7px]: the master's 36px chips count the stroke
                       INSIDE (7 + 20 + 7 + 2 = 36), same as the blog list
-                      filter chips. */}
+                      filter chips. Desktop chips (2670:6472) are 40 tall:
+                      py-12 with a 16/16 Regular label and a #343435 stroke,
+                      so 11 + 16 + 11 + 2 = 40. */}
                   <Link
                     href="/blog"
-                    className="inline-flex cursor-pointer items-center rounded-[60px] border border-stroke-default px-4 py-[7px] text-[14px] font-medium leading-5 text-neutral-800 transition-colors duration-300 hover:border-brand hover:text-brand lg:py-3 lg:text-[16px]"
+                    className="inline-flex cursor-pointer items-center rounded-[60px] border border-stroke-default px-4 py-[7px] text-[14px] font-medium leading-5 text-neutral-800 transition-colors duration-300 hover:border-brand hover:text-brand lg:border-neutral-800 lg:py-[11px] lg:text-[16px] lg:font-normal lg:leading-4 lg:hover:border-brand"
                   >
                     {tag}
                   </Link>

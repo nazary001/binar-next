@@ -263,12 +263,15 @@ export function Formats() {
             therefore convert Figma's top-left to the box CENTER:
             centre = top-left + (4, 4) — then divide by section width
             1440 and curve-area height 408. */}
-        <Polygon x="9.03%"  y="0%"      color="brand" /> {/* P13 c (130, 328) */}
-        <Polygon x="50%"    y="19.12%"  color="brand" /> {/* P15 c (720, 406) */}
-        <Polygon x="27.85%" y="50%"     color="brand" /> {/* P17 c (401, 532) */}
-        <Polygon x="76.94%" y="50%"     color="brand" /> {/* P12 c (1108, 532) */}
-        <Polygon x="59.31%" y="100%"    color="brand" /> {/* P14 c (854, 736) */}
-        <Polygon x="88.68%" y="100%"    color="brand" /> {/* P16 c (1277, 736) */}
+        {/* x = Figma centre x - 720, measured from the frame's centre: the
+            1440 column is centred in the viewport, so this stays put on
+            wide screens while the L-frames (50% wide) still bleed. */}
+        <Polygon x="calc(50% - 590px)" y="0%"      color="brand" /> {/* P13 c (130, 328) */}
+        <Polygon x="50%"              y="19.12%"  color="brand" /> {/* P15 c (720, 406) */}
+        <Polygon x="calc(50% - 319px)" y="50%"     color="brand" /> {/* P17 c (401, 532) */}
+        <Polygon x="calc(50% + 388px)" y="50%"     color="brand" /> {/* P12 c (1108, 532) */}
+        <Polygon x="calc(50% + 134px)" y="100%"    color="brand" /> {/* P14 c (854, 736) */}
+        <Polygon x="calc(50% + 557px)" y="100%"    color="brand" /> {/* P16 c (1277, 736) */}
       </div>
     </section>
   );

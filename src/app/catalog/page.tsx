@@ -15,14 +15,21 @@ export const metadata: Metadata = {
 };
 
 // Figma «Каталог :: картки товарів :: фільтри не застосовані»
-// (3603:11640): breadcrumb + H1, three category banners, the search /
-// view-controls block and the product grid with pagination. The
-// vertical rhythm follows the master: 72 header→breadcrumb, 48 to the
-// H1, 80 to the banners, 148 to the search block, grid rows on an
-// 80-px cadence.
+// (4329:39182, 1710-px shop frame): breadcrumb + H1, three category
+// banners, the search / view-controls block and the product grid with
+// pagination. The vertical rhythm follows the master: 72
+// header→breadcrumb, 48 to the H1, 80 to the banners, 148 to the search
+// block, grid rows on an 80-px cadence.
+//
+// Horizontal model: the shop frames are FLUID with fixed 80-px gutters
+// (content 1550 at 1710) - unlike the 1440 landing masters that sit in
+// a centred 130-px column - so this page uses `.lg-shop-pad-x` (80-px
+// gutters that only grow past 1710 to keep the 1550 column centred),
+// not `.lg-pad-x`, and every row (banners, search, 4-up product grid)
+// stretches between the gutters while type stays at Figma px.
 export default function CatalogPage() {
   return (
-    <div className="lg-pad-x px-6 sm:px-10">
+    <div className="px-6 sm:px-10 lg-shop-pad-x">
       <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
         {/* Breadcrumb — the same Back-button recipe as the blog article
             hero (shared Figma component 2670:6334). */}

@@ -221,7 +221,7 @@ export function HowItWorks() {
           200-px tall band with the active status label, the six
           step labels at fixed slots, the timeline rule, and the six
           hex markers. */}
-      <div className="relative mt-[1px] mb-[160px] hidden h-[200px] w-full lg:block">
+      <div className="relative mx-auto mt-[1px] mb-[160px] hidden h-[200px] w-full max-w-[1440px] lg:block">
         {/* BIG status label at top-left — Figma's `inset-[0_72.71%_66%_9.03%]`.
             Shows the active step's "0N. Name" with a soft reveal-up on
             each change. Independent of the slot row below — this is

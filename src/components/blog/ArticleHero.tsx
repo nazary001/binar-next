@@ -18,11 +18,19 @@ export function ArticleHero({ post }: { post: BlogPost }) {
             Назад до блогу
           </span>
         </Link>
-        <span className="text-[18px] font-semibold leading-[22px] text-stroke-subtle">
-          /
-        </span>
-        <span className="text-[14px] font-medium leading-5 text-brand lg:text-[16px] lg:leading-[22px]">
-          {post.category}
+        {/* Separator glued to the category so a wrapped breadcrumb never
+            strands the "/" alone at the end of line 1 on phones; the 16-px gap
+            matches the old spacing, so desktop is unchanged. */}
+        <span className="inline-flex items-center gap-4 whitespace-nowrap">
+          <span
+            aria-hidden
+            className="text-[18px] font-semibold leading-[22px] text-stroke-subtle"
+          >
+            /
+          </span>
+          <span className="text-[14px] font-medium leading-5 text-brand lg:text-[16px] lg:leading-[22px]">
+            {post.category}
+          </span>
         </span>
       </div>
 

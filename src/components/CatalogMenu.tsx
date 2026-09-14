@@ -2,7 +2,16 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { CATALOG_DIRECTIONS, directionCatalogHref } from "./catalog/data";
+import { useFitZoom } from "./cart/useFitZoom";
 import { Button } from "./ui/Button";
+
+// Sheet geometry in the master (3603:11515 on a 1117-px screen): 656 px
+// tall (39 + 576 + 39 + the 1-px strokes) starting 86 px from the top.
+// Shorter windows get the whole sheet zoomed to fit with 24 px to spare,
+// like the frame fitted to the screen (see cart/useFitZoom.ts).
+const SHEET_DESIGN_H = 656;
+const SHEET_TOP = 86;
+const SHEET_BOTTOM_GAP = 24;
 
 // Figma «Меню каталогу» (3603:11515): three catalog directions, each a
 // 52-px info-icon tile + Title/Large heading, a 16-px-gapped link list
@@ -38,6 +47,7 @@ export function CatalogMenu({
   open: boolean;
   onNavigate: () => void;
 }) {
+  const fit = useFitZoom(SHEET_DESIGN_H, SHEET_TOP + SHEET_BOTTOM_GAP);
   return (
     <div
       id="catalog-menu"
@@ -50,12 +60,26 @@ export function CatalogMenu({
       // INSIDE its 1582x656 box, so the CSS border must come out of the
       // padding to keep the sheet at exactly 656px tall with content
       // 80/40 from the sheet edge.
-      className={`absolute inset-x-16 top-[calc(100%-6px)] -z-10 hidden rounded-[48px] border border-neutral-500 bg-white px-[79px] py-[39px] transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] lg:block ${
+      // max-w caps the sheet at the 1710 master's 1582 px (the 1550 shop
+      // content cap + the designed 16-px bleed each side) and mx-auto centres
+      // it once the viewport passes 1710, so on ultra-wide screens the sheet
+      // tracks the centred content column below instead of growing unbounded.
+      // Below 1710 the inset-x-16 rule still governs (1312 at 1440, 1582 at
+      // 1710), unchanged.
+      className={`absolute inset-x-16 top-[calc(100%-6px)] -z-10 mx-auto hidden max-w-[1582px] transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] lg:block ${
         open
           ? "pointer-events-auto translate-y-0 opacity-100"
           : "pointer-events-none -translate-y-3 opacity-0"
       }`}
     >
+      {/* The sheet box itself carries the zoom: percentages resolve
+          against the positioned wrapper, so `w-full` keeps the fluid
+          1312..1582 footprint on screen while the columns stay 576 tall
+          in the master's px (the wrapper's insets are never zoomed). */}
+      <div
+        className="w-full rounded-[48px] border border-neutral-500 bg-white px-[79px] py-[39px]"
+        style={fit < 1 ? { zoom: fit } : undefined}
+      >
       <div className="flex items-start gap-10">
         {COLUMNS.map((col, i) => (
           <Fragment key={col.href}>
@@ -123,6 +147,7 @@ export function CatalogMenu({
             </nav>
           </Fragment>
         ))}
+      </div>
       </div>
     </div>
   );

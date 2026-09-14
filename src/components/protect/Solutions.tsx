@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
@@ -253,7 +254,7 @@ function CategoryRenderer({ card }: { card: Category }) {
 // absolutely-positioned wrapper holds four L-shaped <div>s that build
 // the cross and four <img> icons sitting in the cross quadrants. All
 // offsets are FIXED design pixels relative to the Figma 1440 x 392
-// master. `html { zoom: 100vw / 1440px }` (globals.css) keeps the cap
+// master. `html { zoom: min(1, 100vw / 1440px) }` (globals.css) keeps the cap
 // at 1440 CSS px on every lg+ viewport, so pixel offsets render as
 // designed on every laptop and desktop width.
 //
@@ -313,6 +314,7 @@ function ProtectDecorCluster() {
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
+      style={{ "--col-r": "max(0px, calc((100% - 1440px) / 2))" } as CSSProperties}
     >
       {/* Icons render FIRST so the cross arms can sit on top (later
           in DOM = higher in the stacking order). All four icons are
@@ -339,7 +341,7 @@ function ProtectDecorCluster() {
         src="/figma-export/protect/decor/mask.svg"
         alt=""
         className="absolute"
-        style={{ right: "375px", top: "66px", width: "175px", height: "72px" }}
+        style={{ right: "calc(var(--col-r) + 375px)", top: "66px", width: "175px", height: "72px" }}
       />
       {/* Gloves (Figma 1327:4009) - lower-LEFT quadrant of the cross.
           right = 1440-904.90-194.19 = 340.91. Crisp flattened vector
@@ -349,7 +351,7 @@ function ProtectDecorCluster() {
         src="/figma-export/protect/decor/gloves.svg"
         alt=""
         className="absolute"
-        style={{ right: "340.91px", top: "158.30px", width: "194.19px", height: "192.17px" }}
+        style={{ right: "calc(var(--col-r) + 340.91px)", top: "158.30px", width: "194.19px", height: "192.17px" }}
       />
       {/* Shirt (Figma 1327:4014) - lower-right quadrant. right =
           1440-1140.68-120.37 = 178.95. Crisp flattened vector (single
@@ -358,7 +360,7 @@ function ProtectDecorCluster() {
         src="/figma-export/protect/decor/shirt.svg"
         alt=""
         className="absolute"
-        style={{ right: "178.95px", top: "191.45px", width: "120.37px", height: "101.86px" }}
+        style={{ right: "calc(var(--col-r) + 178.95px)", top: "191.45px", width: "120.37px", height: "101.86px" }}
       />
       {/* Sparkles (Figma 1327:4015) - tucked against the right edge of
           the shirt. right = 1440-1257.68-44.76 = 137.56. Crisp flattened
@@ -367,7 +369,7 @@ function ProtectDecorCluster() {
         src="/figma-export/protect/decor/sparkles.svg"
         alt=""
         className="absolute"
-        style={{ right: "137.56px", top: "254.68px", width: "44.76px", height: "45.79px" }}
+        style={{ right: "calc(var(--col-r) + 137.56px)", top: "254.68px", width: "44.76px", height: "45.79px" }}
       />
 
       {/* Cross arms — drawn AFTER icons so the 1-px hairline stays
@@ -381,7 +383,7 @@ function ProtectDecorCluster() {
         className="absolute border-b border-r border-white"
         style={{
           top: 0,
-          right: `${CROSS_RIGHT - 1}px`,
+          right: `calc(var(--col-r) + ${CROSS_RIGHT - 1}px)`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
           height: `${CROSS_TOP + 1}px`,
           borderBottomRightRadius: `${CROSS_RADIUS}px`,
@@ -396,7 +398,7 @@ function ProtectDecorCluster() {
         style={{
           top: 0,
           right: 0,
-          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          width: `calc(var(--col-r) + ${CROSS_RIGHT_ARM_WIDTH}px)`,
           height: `${CROSS_TOP + 1}px`,
           borderBottomLeftRadius: `${CROSS_RADIUS}px`,
           clipPath: CLIPS.ur,
@@ -409,7 +411,7 @@ function ProtectDecorCluster() {
         className="absolute border-t border-r border-white"
         style={{
           top: `${CROSS_TOP}px`,
-          right: `${CROSS_RIGHT - 1}px`,
+          right: `calc(var(--col-r) + ${CROSS_RIGHT - 1}px)`,
           width: `${CROSS_LEFT_ARM_WIDTH}px`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopRightRadius: `${CROSS_RADIUS}px`,
@@ -425,7 +427,7 @@ function ProtectDecorCluster() {
         style={{
           top: `${CROSS_TOP}px`,
           right: 0,
-          width: `${CROSS_RIGHT_ARM_WIDTH}px`,
+          width: `calc(var(--col-r) + ${CROSS_RIGHT_ARM_WIDTH}px)`,
           height: `${CROSS_BOTTOM_HEIGHT}px`,
           borderTopLeftRadius: `${CROSS_RADIUS}px`,
           clipPath: CLIPS.lr,
@@ -500,7 +502,7 @@ function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boo
     return (
       <Link
         href="/#contact-form"
-        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-[#343435] px-[40px] py-[15px]"
+        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-[#343435] px-[40px] py-[15px] sm:col-span-2"
       >
         {/* max-w forces the master's 2-line "Переглянути / каталог" */}
         <p className="max-w-[140px] text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-white">
@@ -526,18 +528,24 @@ function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boo
     <Link
       href="/#contact-form"
       className={`relative flex h-[206px] w-full flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default p-[40px] ${
-        first ? "" : "-mt-px"
+        first ? "" : "max-sm:-mt-px"
       } ${isImage ? "" : "bg-white"}`}
     >
       {isImage && (
         <>
+          {/* Below sm the phone crop (`imgClass` percent box, fill) is
+              kept exactly. At sm the cards go half-width in the 2-up grid,
+              where a fixed-height fill box would squash the gown/gloves;
+              sm:size-full + sm:object-cover resets the box to the card and
+              crops instead, so the two `imgClass` photos are not distorted
+              at tablet. Cards without imgClass already use object-cover. */}
           <img
             src={card.image}
             alt=""
             aria-hidden
             loading="lazy"
             decoding="async"
-            className={`absolute max-w-none ${card.imgClass ?? "inset-0 size-full object-cover"}`}
+            className={`absolute max-w-none ${card.imgClass ?? "inset-0 size-full object-cover"} sm:inset-0 sm:size-full sm:object-cover`}
           />
           {/* Dark blur halo bottom-left for label legibility (same
               #151511 / blur-22 halo the desktop image cards use). */}
@@ -595,7 +603,7 @@ export function ProtectSolutions() {
           edge (matching Figma's master), so locking the cap height
           to 392 also keeps decorations in their designed positions. */}
       {/* Dark cap shell. At lg+ the page is rendered through
-          `html { zoom: calc(100vw / 1440px) }` (see globals.css), so
+          `html { zoom: min(1, calc(100vw / 1440px)) }` (see globals.css), so
           the cap's intrinsic CSS dimensions are always Figma master
           (1440 × 392 design px) regardless of physical laptop /
           desktop width. Inside `ProtectDecorCluster` we therefore use
@@ -657,10 +665,15 @@ export function ProtectSolutions() {
           the extra 5px on the bottom padding compensates the collapsed
           seams so the light card keeps its master height. */}
       <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[65px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
-        {/* MOBILE (<lg) — Figma 3165:6549: a single column of uniform 206-px
+        {/* MOBILE (<sm) — Figma 3165:6549: a single column of uniform 206-px
             cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
-            the 131-px catalog CTA. */}
-        <div className="flex flex-col gap-0 px-6 lg:hidden">
+            the 131-px catalog CTA.
+            TABLET (sm..lg-1, no Figma master) — the same seven cards go 2-up
+            in a 16-px grid (site sm convention) so the outline cards stop
+            reading as full-width empty banners; the -mt-px seam-collapse is
+            scoped to max-sm and the catalog CTA spans both columns, giving a
+            balanced 3x2 + full-width CTA with no orphan cell. */}
+        <div className="flex flex-col gap-0 px-6 sm:grid sm:grid-cols-2 sm:gap-4 lg:hidden">
           {MOBILE_SOLUTIONS.map((card, i) => (
             <MobileSolutionCard key={card.label} card={card} first={i === 0} />
           ))}

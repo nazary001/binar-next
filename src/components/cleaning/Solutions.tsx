@@ -240,6 +240,10 @@ function CleaningDecorCluster() {
       aria-hidden
       className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:block lg:rounded-t-[68px]"
     >
+      {/* Horizontal geometry is written as `50% +/- px`: the 1440 column
+          is centred in the viewport, so these offsets hold on any screen
+          width while `right: 0` arms still bleed to the screen edge
+          (the % values in the comments are of the 1440 master). */}
       {/* Cross — solid white with a linear-gradient fade on the LEFT
           half of the horizontal arm only (same treatment as /protect
           since this is the same cap composition reused). Hairlines are
@@ -249,8 +253,8 @@ function CleaningDecorCluster() {
       <div
         className="absolute rounded-br-[48px] border-b border-r border-white"
         style={{
-          left: "35.93%",
-          right: "calc(22.59% - 1px)",
+          left: "calc(50% - 202.6px)",
+          right: "calc(50% - 395.7px)",
           top: 0,
           bottom: "calc(57.14% - 1px)",
           maskImage: "linear-gradient(to right, transparent 0%, black 64%)",
@@ -260,7 +264,7 @@ function CleaningDecorCluster() {
       <div
         className="absolute rounded-bl-[48px] border-b border-l border-white"
         style={{
-          left: "77.41%",
+          left: "calc(50% + 394.7px)",
           right: 0,
           top: 0,
           bottom: "calc(57.14% - 1px)",
@@ -270,8 +274,8 @@ function CleaningDecorCluster() {
       <div
         className="absolute rounded-tr-[48px] border-t border-r border-white"
         style={{
-          left: "35.93%",
-          right: "calc(22.59% - 1px)",
+          left: "calc(50% - 202.6px)",
+          right: "calc(50% - 395.7px)",
           top: "42.86%",
           bottom: 0,
           maskImage: "linear-gradient(to right, transparent 0%, black 64%)",
@@ -282,7 +286,7 @@ function CleaningDecorCluster() {
       <div
         className="absolute rounded-tl-[48px] border-t border-l border-white"
         style={{
-          left: "77.41%",
+          left: "calc(50% + 394.7px)",
           right: 0,
           top: "42.86%",
           bottom: 0,
@@ -299,19 +303,19 @@ function CleaningDecorCluster() {
         src="/figma-export/cleaning/decor-badge.svg"
         alt=""
         className="absolute block"
-        style={{ left: "69.19%", top: "58px", width: "69px", height: "83px" }}
+        style={{ left: "calc(50% + 276.3px)", top: "58px", width: "69px", height: "83px" }}
       />
       <img
         src="/figma-export/cleaning/decor-spark.svg"
         alt=""
         className="absolute block"
-        style={{ left: "80.45%", top: "191px", width: "58px", height: "59px" }}
+        style={{ left: "calc(50% + 438.5px)", top: "191px", width: "58px", height: "59px" }}
       />
       <img
         src="/figma-export/cleaning/decor-spray.svg"
         alt=""
         className="absolute block"
-        style={{ left: "86.74%", top: "213px", width: "61px", height: "119px" }}
+        style={{ left: "calc(50% + 529.1px)", top: "213px", width: "61px", height: "119px" }}
       />
       {/* Rolls live in a 135x95 box (after the -90 rotation) - Figma
           wraps the underlying 95x135 vector in a flex container that
@@ -320,7 +324,7 @@ function CleaningDecorCluster() {
           rotated centre matches Figma's centre to the pixel. */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ left: "63.62%", top: "228px", width: "135px", height: "95px" }}
+        style={{ left: "calc(50% + 196.1px)", top: "228px", width: "135px", height: "95px" }}
       >
         <img
           src="/figma-export/cleaning/decor-rolls.svg"
@@ -390,7 +394,7 @@ function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boo
     return (
       <Link
         href="/#contact-form"
-        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-neutral-800 px-[40px] py-[15px]"
+        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-neutral-800 px-[40px] py-[15px] sm:col-span-2"
       >
         {/* max-w forces the master's 2-line "Переглянути / каталог" */}
         <p className="max-w-[140px] text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-white">
@@ -415,7 +419,7 @@ function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boo
     <Link
       href="/#contact-form"
       className={`relative flex h-[206px] w-full flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default p-[40px] ${
-        first ? "" : "-mt-px"
+        first ? "" : "max-sm:-mt-px"
       } ${isImage ? "" : "bg-white"}`}
     >
       {isImage && (
@@ -510,10 +514,16 @@ export function CleaningSolutions() {
           seams. At lg the updated master 3677:36105 centres the single
           393-px grid row in a 681-px light card: 144 + 393 + 144. */}
       <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[63px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
-        {/* MOBILE (<lg) — a single column of uniform 206-px cards that
+        {/* MOBILE (<sm) — a single column of uniform 206-px cards that
             TOUCH (0 gap, borders de-doubled via -mt-px) followed by the
-            131-px catalog CTA, mirroring the updated desktop card set. */}
-        <div className="flex flex-col gap-0 px-6 lg:hidden">
+            131-px catalog CTA, mirroring the updated desktop card set.
+            TABLET (sm..lg-1, no Figma master) — the same cards go 2-up in
+            a 16-px grid (site sm convention) so the outline cards stop
+            reading as full-width empty banners; the seam-collapse -mt-px
+            is scoped to max-sm and the catalog CTA spans both columns as
+            a full-width footer, keeping the 2x2 + CTA balanced with no
+            orphan cell. */}
+        <div className="flex flex-col gap-0 px-6 sm:grid sm:grid-cols-2 sm:gap-4 lg:hidden">
           {MOBILE_SOLUTIONS.map((card, i) => (
             <MobileSolutionCard key={card.label} card={card} first={i === 0} />
           ))}

@@ -124,8 +124,11 @@ export function StarRequestStrip() {
             pr-130 py-80. Three numbered rows separated by 40-px gap. */}
         {/* pt-[95px]/pb-[107px]: Figma's 96/108 paddings count the card's
             stroke INSIDE, so border-box trades 1px from the top pad to the
-            bottom to keep rows on the master's exact pixel rows. */}
-        <div className="lg-pad-r relative flex flex-1 flex-col gap-[60px] rounded-[32px] border-stroke-default bg-white px-6 pb-[107px] pt-[95px] max-lg:-mx-px max-lg:border max-lg:px-[25px] sm:px-10 lg:gap-10 lg:rounded-br-none lg:rounded-tr-none lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:border lg:pb-[80px] lg:pl-20 lg:pt-[80px]">
+            bottom to keep rows on the master's exact pixel rows. At lg the
+            master's 80/80 become 79/79 for the same reason (rows 68/106/68
+            + 40 gaps + 1px strokes = 482, node 1384:11660); the numerals
+            keep the 62/68 line box so rows 01/03 are 68 like the master. */}
+        <div className="lg-pad-r relative flex flex-1 flex-col gap-[60px] rounded-[32px] border-stroke-default bg-white px-6 pb-[107px] pt-[95px] max-lg:-mx-px max-lg:border max-lg:px-[25px] sm:px-10 lg:gap-10 lg:rounded-br-none lg:rounded-tr-none lg:rounded-bl-[48px] lg:rounded-tl-[48px] lg:border lg:pb-[79px] lg:pl-20 lg:pt-[79px]">
           {/* Row 01 — stars
               Figma 1384:11661: `flex gap-[24px] items-center w-full`.
               Number "01." text-h1 (62/68) w=95, inner content has
@@ -138,7 +141,7 @@ export function StarRequestStrip() {
           <div className="flex items-center gap-3 lg:gap-6">
             <span
               aria-hidden
-              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1 lg:leading-none"
+              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1"
             >
               01.
             </span>
@@ -174,7 +177,7 @@ export function StarRequestStrip() {
           <div className="flex items-center gap-3 lg:gap-6">
             <span
               aria-hidden
-              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1 lg:leading-none"
+              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1"
             >
               02.
             </span>
@@ -216,7 +219,7 @@ export function StarRequestStrip() {
           <div className="flex items-center gap-3 lg:gap-6">
             <span
               aria-hidden
-              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1 lg:leading-none"
+              className="w-[76px] shrink-0 text-[48px] font-bold leading-[68px] tracking-[-0.96px] text-neutral-900 max-lg:[text-box-edge:cap_alphabetic] max-lg:[text-box-trim:trim-both] lg:w-[95px] lg:text-h1"
             >
               03.
             </span>

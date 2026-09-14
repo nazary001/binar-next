@@ -280,7 +280,7 @@ export function CatalogClient({
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
   const paged = filtered.slice((current - 1) * pageSize, current * pageSize);
-  const rows = chunk(paged, 3);
+  const rows = chunk(paged, 4);
 
   // Windowed page numbers — the Figma master shows five slots.
   const windowStart = Math.max(1, Math.min(current - 2, pages - 4));
@@ -315,7 +315,7 @@ export function CatalogClient({
       {/* === Search row (Figma 3677:39763): the field spans exactly one
           banner column; the icon controls sit at the right edge. === */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative w-full lg:w-[372px]">
+        <div className="relative w-full lg:w-[calc((100%-64px)/3)]">
           <input
             type="search"
             value={query}
@@ -325,7 +325,7 @@ export function CatalogClient({
             }}
             placeholder="Пошук"
             aria-label="Пошук по каталогу"
-            className="h-[52px] w-full rounded-[50px] border border-stroke-default bg-white pl-4 pr-12 text-[16px] leading-6 text-neutral-900 outline-none transition-colors duration-200 placeholder:text-neutral-500 focus:border-neutral-800 [&::-webkit-search-cancel-button]:hidden"
+            className="h-[46px] w-full rounded-[50px] border border-stroke-default bg-white pl-4 pr-12 text-[16px] leading-6 text-neutral-900 outline-none transition-colors duration-200 placeholder:text-neutral-500 focus:border-neutral-800 [&::-webkit-search-cancel-button]:hidden"
           />
           <MagnifierIcon className="pointer-events-none absolute right-4 top-1/2 size-6 -translate-y-1/2 text-neutral-700" />
         </div>
@@ -465,7 +465,7 @@ export function CatalogClient({
           rows.map((row, ri) => (
             <div
               key={`${current}-${ri}`}
-              className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:flex lg:gap-10"
+              className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:flex lg:gap-[39.5px]"
             >
               {row.map((product: Product, ci) => (
                 <Fragment key={`${product.id}-${ci}`}>
@@ -480,10 +480,10 @@ export function CatalogClient({
                   </div>
                 </Fragment>
               ))}
-              {/* Invisible fillers keep a short last row on the 3-column
+              {/* Invisible fillers keep a short last row on the 4-column
                   rhythm instead of stretching its cards wide. */}
-              {row.length < 3 &&
-                Array.from({ length: 3 - row.length }, (_, i) => (
+              {row.length < 4 &&
+                Array.from({ length: 4 - row.length }, (_, i) => (
                   <Fragment key={`filler-${i}`}>
                     <div aria-hidden className="hidden w-px shrink-0 lg:block" />
                     <div aria-hidden className="hidden min-w-0 lg:block lg:flex-1" />
@@ -496,14 +496,14 @@ export function CatalogClient({
         {pages > 1 && (
           <nav
             aria-label="Сторінки каталогу"
-            className="flex flex-wrap items-center justify-center gap-[10px] self-center"
+            className="flex flex-wrap items-center justify-center gap-1 self-center sm:gap-[10px]"
           >
             <button
               type="button"
               aria-label="Попередня сторінка"
               disabled={current === 1}
               onClick={() => goTo(current - 1)}
-              className="flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400"
+              className="flex size-10 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400 sm:size-[52px]"
             >
               <ChevronSideIcon className="size-6" />
             </button>
@@ -514,7 +514,7 @@ export function CatalogClient({
                 aria-label={`Сторінка ${n}`}
                 aria-current={n === current ? "page" : undefined}
                 onClick={() => goTo(n)}
-                className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] text-[18px] font-semibold leading-[22px] tracking-[0.18px] transition-colors duration-200 ${
+                className={`flex size-10 cursor-pointer items-center justify-center rounded-[26px] text-[18px] font-semibold leading-[22px] tracking-[0.18px] transition-colors duration-200 sm:size-[52px] ${
                   n === current
                     ? "bg-brand text-white"
                     : "text-neutral-900 hover:text-brand"
@@ -528,7 +528,7 @@ export function CatalogClient({
               aria-label="Наступна сторінка"
               disabled={current === pages}
               onClick={() => goTo(current + 1)}
-              className="flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400"
+              className="flex size-10 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400 sm:size-[52px]"
             >
               <ChevronSideIcon mirrored className="size-6" />
             </button>

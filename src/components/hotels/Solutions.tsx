@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
 import { crossClips } from "@/components/ui/crossClips";
@@ -18,7 +19,15 @@ function HotelsDecorCluster() {
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-t-[40px] sm:rounded-t-[56px] lg:rounded-t-[68px] lg:block"
+      style={{ "--col-r": "max(0px, calc((100% - 1440px) / 2))" } as CSSProperties}
     >
+      {/* Horizontal geometry is written as `50% +/- px`: the 1440 column
+          is centred in the viewport, so these offsets hold on any screen
+          width while `right: 0` arms still bleed to the screen edge
+          (the % values in the comments are of the 1440 master). */}
+      {/* --col-r: distance from the screen edge to the centred 1440
+          column's right edge (0 at <= 1440, 240 at 1920); the px icon
+          offsets below are Figma offsets inside that column. */}
       {/* Cross pattern: 4 quadrant L-shapes meeting at (77.4 %, 42.86 %).
           Each quadrant draws only the two borders facing the cross
           centre, with a 48-px rounded inner corner where they meet.
@@ -40,8 +49,8 @@ function HotelsDecorCluster() {
         <div
           className="absolute rounded-br-[48px] border-b border-r border-white"
           style={{
-            left: "35.93%",
-            right: "calc(22.59% - 1px)",
+            left: "calc(50% - 202.6px)",
+            right: "calc(50% - 395.7px)",
             top: 0,
             bottom: "calc(57.14% - 1px)",
             maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
@@ -51,7 +60,7 @@ function HotelsDecorCluster() {
         <div
           className="absolute rounded-bl-[48px] border-b border-l border-white"
           style={{
-            left: "77.41%",
+            left: "calc(50% + 394.7px)",
             right: 0,
             top: 0,
             bottom: "calc(57.14% - 1px)",
@@ -61,8 +70,8 @@ function HotelsDecorCluster() {
         <div
           className="absolute rounded-tr-[48px] border-t border-r border-white"
           style={{
-            left: "35.93%",
-            right: "calc(22.59% - 1px)",
+            left: "calc(50% - 202.6px)",
+            right: "calc(50% - 395.7px)",
             top: "42.86%",
             bottom: 0,
             maskImage: "linear-gradient(to right, transparent 0%, #000 64%)",
@@ -73,7 +82,7 @@ function HotelsDecorCluster() {
         <div
           className="absolute rounded-tl-[48px] border-t border-l border-white"
           style={{
-            left: "77.41%",
+            left: "calc(50% + 394.7px)",
             right: 0,
             top: "42.86%",
             bottom: 0,
@@ -91,7 +100,7 @@ function HotelsDecorCluster() {
           TeamCta DecorCluster where the tag sits in a different spot.) */}
       <div
         className="absolute flex items-center justify-center"
-        style={{ right: "470.91px", top: "98px", width: "149.683px", height: "70.236px" }}
+        style={{ right: "calc(var(--col-r) + 470.91px)", top: "98px", width: "149.683px", height: "70.236px" }}
       >
         <img
           src="/figma-export/decor/ellipse50-stroke.svg"
@@ -112,7 +121,7 @@ function HotelsDecorCluster() {
         src="/figma-export/hotels/solutions/decor/slippers.svg"
         alt=""
         className="absolute"
-        style={{ right: "344.28px", top: "178.95px", width: "141.14px", height: "138.07px" }}
+        style={{ right: "calc(var(--col-r) + 344.28px)", top: "178.95px", width: "141.14px", height: "138.07px" }}
       />
       {/* Figma 1384:11977 Group 76 - bottle / hair-dryer silhouette in
           the lower-RIGHT quadrant. left=82.92%=1194, top=53.65%=210.30,
@@ -121,7 +130,7 @@ function HotelsDecorCluster() {
         src="/figma-export/hotels/solutions/decor/bottle.svg"
         alt=""
         className="absolute"
-        style={{ right: "146px", top: "210.30px", width: "100px", height: "126px" }}
+        style={{ right: "calc(var(--col-r) + 146px)", top: "210.30px", width: "100px", height: "126px" }}
       />
       {/* Figma 1384:11981 Group 69 - four-point sparkle cluster between
           the slippers and the bottle. left=78.89%=1136.02, top=50%=196
@@ -132,7 +141,7 @@ function HotelsDecorCluster() {
         src="/figma-export/hotels/solutions/decor/flower.svg"
         alt=""
         className="absolute"
-        style={{ right: "259.22px", top: "196px", width: "44.76px", height: "45.79px" }}
+        style={{ right: "calc(var(--col-r) + 259.22px)", top: "196px", width: "44.76px", height: "45.79px" }}
       />
       {/* Figma 1384:11985 Group 77 - service bell on the right edge.
           Design-context anchors it at left=1290px so right = 1440-1290-
@@ -141,7 +150,7 @@ function HotelsDecorCluster() {
         src="/figma-export/hotels/solutions/decor/group77.svg"
         alt=""
         className="absolute"
-        style={{ right: "61px", top: "257px", width: "89px", height: "63px" }}
+        style={{ right: "calc(var(--col-r) + 61px)", top: "257px", width: "89px", height: "63px" }}
       />
     </div>
   );

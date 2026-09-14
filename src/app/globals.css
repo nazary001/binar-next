@@ -8,45 +8,90 @@
    audit folder from the content scan. */
 @source not "../../audit/**";
 
-/* === Proportional desktop scaling ===
-   The design is built against Figma's 1440 master. On every
-   desktop viewport (>= 1024, the lg breakpoint), CSS `zoom`
-   scales the page proportionally so the layout fills the screen
-   at the same visual proportions as the 1440 master:
-     - 1024:  zoom 0.71 (shrunk to fit narrow laptops)
-     - 1280:  zoom 0.89
-     - 1440:  zoom 1.00 (native)
-     - 1600:  zoom 1.11
-     - 1920:  zoom 1.33
-     - 2560:  zoom 1.78
-   This makes the SAME visual experience render on every laptop
-   and desktop screen - no growing hero photo, no inflated lg-pad-x
-   gutter, no extra unintended photo content on big monitors. Below
-   1024 the existing mobile / tablet responsive code (Tailwind
-   sm: + < lg: overrides in globals.css) handles the scale-down.
+/* === Desktop scaling ===
+   Two page families, two Figma canvases, each fitted to the window WIDTH
+   with CSS `zoom` the way Figma fits a frame to the screen, never above 1:
+   - Landing (/, /hotels, /protect, /cleaning, /spivpratsya, /blog): the
+     1440 masters (Home 1384:12631 etc.). zoom = min(1, width / 1440):
+     1024 -> 0.71, 1280 -> 0.89, >= 1440 -> 1. Above 1440 the content
+     stays in the centred 1440 column via the growing `--lg-pad-x`
+     gutters below (owner's 1536 window: 48 px of extra gutter each side)
+     while backgrounds, the hero photo and dividers bleed edge-to-edge.
+   - Shop (/catalog..., product pages, /checkout; marked by the
+     `data-canvas="shop"` wrapper in those route layouts): the 1710
+     frames. zoom = min(1, max(0.7, width / 1710)): 1536 -> 0.898, 1440
+     -> 0.842, >= 1710 -> 1, floor 0.7 below 1197. Between 1197 and 1709
+     the layout viewport is exactly 1710, so each shop page IS its frame,
+     scaled; above 1710 the content is capped and centred
+     (`.lg-shop-pad-x`).
+   The header and footer are fluid on both canvases, so on the owner's
+   1536 window they render 10 % smaller on shop pages than on the
+   landing - the price of matching each family to its own frame at a
+   scale of at most 1 (the two frames share px sizes but not width).
+   Height is NOT part of either rule (a 100vh term was tried 2026-09-13
+   and rejected: it widened the layout viewport past the frame); panels
+   drawn for the designer's 1117-px screen (cart drawer, stock modal,
+   menus) fit the window height individually through
+   src/components/cart/useFitZoom.ts.
+   Below 1024 the mobile / tablet responsive code (Tailwind sm: +
+   < lg: overrides in globals.css) handles the scale-down.
 
    The browser handles event coordinates, scrollbars, and image
    sharpness automatically through zoom. `zoom` is non-standard but
    supported in Chrome, Edge, Safari, and Firefox 126+. Older
-   Firefox falls back to the 1440 native design which still works. */
-@media (min-width: 1024px) {
+   Firefox falls back to the native canvas which still works. */
+@media (min-width: 640px) {
   html {
     /* `1440px` (NOT `1440`) keeps both operands of the division as
        lengths so calc() resolves to a unitless number, which is the
        only thing CSS `zoom` accepts. Dividing 100vw by a bare number
        returns a length, which is invalid for `zoom` and silently
-       drops the rule - that was the source of the "layout doesn't
-       scale on >1440 viewports" bug. */
-    zoom: calc(100vw / 1440px);
+       drops the rule. `min(1, ...)` caps the factor: type must never
+       grow past the Figma px on wide monitors. The rule (and the whole
+       desktop layout: --breakpoint-md/lg are 640 in @theme) starts right
+       where the phone layout ends, so tablets and narrow windows show
+       the scaled desktop canvas (768 -> 0.53, 1024 -> 0.71) instead of
+       a separate tablet layout - the owner's explicit choice. */
+    zoom: min(1, calc(100vw / 1440px));
+  }
+}
+@media (min-width: 1024px) {
+  html:has([data-canvas="shop"]) {
+    /* The shop frames are 1710 wide; `max(0.7, ...)` is the legibility
+       floor for 1024..1196-px windows (the fluid shop gutters absorb the
+       1463..1710 layout width there). Below 1024 the shop shares the
+       1440 canvas above (fluid 80-px gutters). */
+    zoom: min(1, max(0.7, calc(100vw / 1710px)));
   }
 }
 
 @theme {
+  /* Desktop layout from 640 px: `sm:`, `md:` and `lg:` utilities (and
+     the max-*: phone-only ones) all switch at the same integer width, so
+     the only two layouts are the phone one (<= 639) and the scaled Figma
+     canvas (>= 640, see the desktop scaling block above). Tailwind
+     orders responsive variants by their value and, for EQUAL values,
+     emits `lg:` before `sm:` (so `sm:` would win the cascade); the
+     fractional steps keep the intended sm < md < lg order while every
+     integer window width still lands on the same side of all three.
+     These exact values matter: with 639.5 / 639.7 / 640, or with an
+     xl override added, Tailwind emitted `lg:` rules BEFORE `sm:` ones
+     (verified in the served CSS), so `sm:` won the cascade and the
+     footer/About sections lost their desktop spacing. xl stays at its
+     default and no component uses it (AboutUs was moved to lg:). */
+  --breakpoint-sm: 639.98px;
+  --breakpoint-md: 639.99px;
+  --breakpoint-lg: 640px;
   /* Brand */
   --color-brand: #f85a0b;
+  /* Colour/Accent/200 - the tinted tile behind the stock modal's info
+     glyph (4329:40382). */
+  --color-brand-soft: #ffe0cc;
 
   /* Neutral scale (from Figma: Colour/Neutral/*) */
   --color-neutral-40: #f1f1f2;
+  /* Colour/Neutral/300 - the cart meter's «0 ₴» / «5 000 ₴» labels. */
+  --color-neutral-300: #a5a5a5;
   --color-neutral-400: #8e8e8f;
   --color-neutral-500: #777779;
   --color-neutral-600: #616162;
@@ -108,6 +153,13 @@
   --text-title-lg--line-height: 28px;
   --text-title-lg--letter-spacing: -0.02em;
   --text-title-lg--font-weight: 600;
+
+  /* Title/Medium (Figma 22/28 SemiBold, -2 %): the product page's
+     «Артикул», «Переваги:» and delivery-table headings. */
+  --text-title-md: 22px;
+  --text-title-md--line-height: 28px;
+  --text-title-md--letter-spacing: -0.02em;
+  --text-title-md--font-weight: 600;
 
   --text-title-sm: 16px;
   --text-title-sm--line-height: 22px;
@@ -474,16 +526,17 @@
    container (e.g. AboutUs's 1180-px card) — those keep static 130 px
    padding because their parent already has design proportions. */
 
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   :root {
-    /* The site body is capped at max-width 1440 px (app/layout.tsx),
-       so the design always renders inside a 1440-wide container on
-       any viewport >= lg. Section padding is therefore the Figma
-       master's 130 px constant - the previous viewport-growing
-       formula was needed when the body was full-bleed; with the cap
-       in place every section gets exactly Figma's 130-px gutters
-       independent of screen size. */
-    --lg-pad-x: 130px;
+    /* Sections are full-bleed and `html { zoom }` is capped at 1 on
+       viewports >= 1440, so above 1440 the gutter must grow by
+       (100% - 1440) / 2 to keep content in the centred 1440 column
+       (Figma x=130 .. x=1310). `100%` resolves against the element
+       the padding is applied to (a full-width section = body width,
+       which excludes the scrollbar, unlike 100vw). Below 1440 the
+       zoom keeps the layout viewport at exactly 1440, so max() picks
+       the Figma master's constant 130 px. */
+    --lg-pad-x: max(130px, calc((100% - 1440px) / 2 + 130px));
   }
   .lg-pad-x {
     padding-left: var(--lg-pad-x);
@@ -494,6 +547,19 @@
   }
   .lg-pad-r {
     padding-right: var(--lg-pad-x);
+  }
+
+  /* Shop pages (catalog, product, checkout) come from the designer's
+     1710-px frames: 80-px gutters and a fluid 1550-px content width
+     with type fixed (those frames are the 1440 masters stretched).
+     Above 1710 nothing is designed, so instead of stretching cards,
+     tables and forms past their Figma size the gutter grows by
+     (100% - 1710) / 2 and the 1550-px column stays centred, the same
+     way `.lg-pad-x` centres the 1440 landing column. Below 1710 the
+     max() picks the plain 80 px and the layout stays fluid. */
+  .lg-shop-pad-x {
+    padding-left: max(80px, calc((100% - 1710px) / 2 + 80px));
+    padding-right: max(80px, calc((100% - 1710px) / 2 + 80px));
   }
 }
 
@@ -513,22 +579,39 @@
    `body { overflow-x: hidden }` keeps the page free of any horizontal
    scrollbar. */
 
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   .hero-left {
-    /* Body is capped at max-w-1440 so the hero left card sits at
-       the Figma master x=130 column on every viewport. The previous
-       viewport-growing formula belonged to the full-bleed body
-       layout. */
-    padding-left: 130px;
+    /* Same growing gutter as `.lg-pad-x`: the text column stays at
+       the Figma x=130 line of the centred 1440 column while the
+       card's left edge bleeds to the screen edge on wide screens. */
+    padding-left: var(--lg-pad-x);
   }
 
+  /* Fixed-width left hero card (Figma 837 px, starts at the screen's
+     left edge). Above 1440 it grows by the left gutter so its RIGHT
+     edge stays on the Figma x=837 line of the centred column while
+     the text inside keeps x=130 (via .hero-left's padding). */
+  .hero-left-837 {
+    flex: none;
+    width: max(837px, calc((100% - 1440px) / 2 + 837px));
+  }
+
+  /* `.hero-photo` is the generic right-bleed column: any fixed-width
+     Figma column that touches the screen's right edge (hero photos,
+     the blog collage, the Cases photo) gets this class plus its
+     design width in `--hero-photo-w`. */
   .hero-photo {
     /* `--hero-photo-w` is the photo column's design width at the 1440
        master (603 px on home, 721 px on hotels/protect/cleaning).
-       Body is capped at 1440 so the column always renders at its
-       design width - the photo's product composition stays identical
-       regardless of laptop / desktop screen size. */
-    width: var(--hero-photo-w, 603px);
+       Above 1440 the column absorbs the right-hand gutter,
+       (100% - 1440) / 2, so the photo runs to the screen's right edge
+       while its left edge stays on the Figma x line. The locked-aspect
+       `.hero-photo-canvas` below keeps the composition + hotspot dots
+       aligned regardless of the column's width (cover crop only). */
+    width: max(
+      var(--hero-photo-w, 603px),
+      calc((100% - 1440px) / 2 + var(--hero-photo-w, 603px))
+    );
   }
 }
 
@@ -682,7 +765,7 @@
 /* The whole below-lg range renders the 320px mobile band, so the popup
    compression applies to the full range — a full-size 214px card cannot
    fit a 320px band at ANY sub-lg width, not just phones. */
-@media (max-width: 1023px) {
+@media (max-width: 639px) {
   .hero-dot-popup {
     --popup-scale: 0.72;
     /* Drop the backdrop-filter on phones — at 0.72× scale the visual
@@ -897,7 +980,7 @@
   border-radius: 32px;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   .quiz-deck-card-content {
     flex: 1 1 0;
   }
@@ -935,7 +1018,7 @@
    Only transform + opacity transition — both fully GPU-composited.
    No filter, no background-color, no width/height animation — those
    are paint-heavy and were the source of the lag on earlier iterations. */
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   .quiz-deck {
     position: relative;
     height: 696px;
@@ -1271,7 +1354,7 @@ html {
    scrolls. The `[data-case-card]` selector matches every <article>
    inside the section regardless of nesting. */
 
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   [data-case-card] {
     /* Magnetic settle: the card "wants" to be 6 px below its sticky
        target until --dock-p hits 1, then snaps flush. As the user
@@ -1413,7 +1496,7 @@ label {
    mobile-master H1 node (all six hero titles) is set at 40/42 — the
    masters win; the 40/46 pairing appears only on the spivpratsya
    timeline's active step label, which carries it explicitly. */
-@media (max-width: 1023px) {
+@media (max-width: 639px) {
   .text-h1 {
     font-size: 40px;
     line-height: 42px;
@@ -1433,6 +1516,11 @@ label {
     font-size: 22px;
     line-height: 28px;
     letter-spacing: -0.44px;
+  }
+  .text-title-md {
+    font-size: 20px;
+    line-height: 26px;
+    letter-spacing: -0.4px;
   }
   .text-body-lg {
     font-size: 18px;
@@ -1471,6 +1559,11 @@ label {
     line-height: 28px;
     letter-spacing: -0.44px;
   }
+  .text-title-md {
+    font-size: 20px;
+    line-height: 26px;
+    letter-spacing: -0.4px;
+  }
   .text-body-lg {
     font-size: 18px;
     line-height: 26px;
@@ -1492,9 +1585,25 @@ label {
    not only inside the word, which fixes long Ukrainian headings that
    the layout engine refuses to break at natural word boundaries when
    the LAST word on a line would exactly straddle the container edge. */
-@media (max-width: 1023px) {
+@media (max-width: 639px) {
   h1, h2, h3, h4, p, li, span, label {
     overflow-wrap: anywhere;
     word-break: normal;
   }
 }
+
+/* === Scrollable panels without a visible scrollbar ===
+   Figma draws the cart list and the stock modal as clipped frames with
+   no scrollbar; Windows Chrome would paint a classic 17-px bar inside
+   the 436-px list and squeeze every row. Wheel / touch / keyboard
+   scrolling still works. */
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Cart drawer + stock modal on short desktop viewports: the masters fill
+   a 1117-px screen, so the panels are zoomed to fit the window height
+   (see src/components/cart/useFitZoom.ts) rather than re-spaced here. */

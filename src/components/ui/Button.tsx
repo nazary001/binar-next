@@ -11,7 +11,12 @@ type ButtonStyle = {
   // large button at lg+ in a single instance — used where Figma's mobile
   // master shows the small CTA but desktop keeps the large one.
   size?: "large" | "small" | "responsive";
-  variant?: "solid" | "outlined" | "light";
+  // "outlinedDark" is the Figma Button/Large «Outlined» on a white
+  // surface (3865:19962 - the PDP «Купити зараз»): 1-px #343435 stroke,
+  // dark label; hover inverts to the solid black pill.
+  // "accent" is the brand-orange Button/Large (228:942 accent fill) the
+  // cart drawer and stock modal use for «Оформити замовлення».
+  variant?: "solid" | "outlined" | "outlinedDark" | "accent" | "light";
   arrow?: boolean;
   // Swap the trailing up-right arrow for a plus glyph (Figma 1327:4985 -
   // the FAQ "Показати більше" button). Same orange square, plus icon.
@@ -22,6 +27,8 @@ type ButtonStyle = {
   // Hide the icon square below lg (bare pill on mobile, icon on desktop).
   // The Figma mobile FAQ "Показати більше" button has no icon square.
   iconDesktopOnly?: boolean;
+  // Stretch the pill to the wrapper's full width (cart / modal CTAs).
+  fullWidth?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -53,15 +60,19 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 // (9 + 22 + 9 + 2 border = 42 — py-[10px] rendered 44 px) and large
 // py-[14px] (14 + 22 + 14 + 2 border = 52 — py-[15px] rendered 54 px,
 // which pushed e.g. the 484-px blog hero to 486).
+// The border COLOUR lives on each variant (transparent for the filled
+// ones) — putting `border-transparent` here as well made two utilities
+// compete for the same property, and Tailwind's sort order let it beat
+// the outlined variants' stroke.
 const labelSize = {
   large:
-    "rounded-[25px] border border-transparent px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[14px] sm:text-button-lg",
+    "rounded-[25px] border px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[14px] sm:text-button-lg",
   small:
-    "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap",
+    "rounded-[24px] border px-6 py-[9px] text-button-md whitespace-nowrap",
   // Small below lg, large at lg (the lg overrides equal the `large`
   // value resolved at >=1024, so desktop is identical to size="large").
   responsive:
-    "rounded-[24px] border border-transparent px-6 py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[14px] lg:text-button-lg",
+    "rounded-[24px] border px-6 py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[14px] lg:text-button-lg",
 };
 
 const arrowWrap = {
@@ -116,11 +127,15 @@ const plusIcon = {
 // мимо стрелочки").
 const labelVariant = {
   solid:
-    "bg-neutral-900 text-white transition-colors duration-300 hover:bg-white hover:border-neutral-900 hover:text-neutral-900 peer-hover:bg-white peer-hover:border-neutral-900 peer-hover:text-neutral-900",
+    "border-transparent bg-neutral-900 text-white transition-colors duration-300 hover:bg-white hover:border-neutral-900 hover:text-neutral-900 peer-hover:bg-white peer-hover:border-neutral-900 peer-hover:text-neutral-900",
   outlined:
     "bg-transparent border-white text-white transition-colors duration-300 hover:bg-white hover:text-neutral-900 peer-hover:bg-white peer-hover:text-neutral-900",
+  outlinedDark:
+    "bg-transparent border-neutral-800 text-neutral-900 transition-colors duration-300 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white peer-hover:border-neutral-900 peer-hover:bg-neutral-900 peer-hover:text-white",
+  accent:
+    "border-transparent bg-brand text-white transition-colors duration-300 hover:border-brand hover:bg-white hover:text-brand peer-hover:border-brand peer-hover:bg-white peer-hover:text-brand",
   light:
-    "bg-bg-subtle text-neutral-900 transition-colors duration-300 hover:bg-white peer-hover:bg-white",
+    "border-transparent bg-bg-subtle text-neutral-900 transition-colors duration-300 hover:bg-white peer-hover:bg-white",
 };
 
 function ButtonInner({
@@ -130,11 +145,12 @@ function ButtonInner({
   plus,
   minus,
   iconDesktopOnly,
+  fullWidth,
   children,
 }: Required<
   Pick<
     ButtonStyle,
-    "size" | "variant" | "arrow" | "plus" | "minus" | "iconDesktopOnly"
+    "size" | "variant" | "arrow" | "plus" | "minus" | "iconDesktopOnly" | "fullWidth"
   >
 > & {
   children: ReactNode;
@@ -168,7 +184,7 @@ function ButtonInner({
         </span>
       )}
       <span
-        className={`order-1 inline-flex cursor-pointer items-center justify-center ${labelSize[size]} ${labelVariant[variant]}`}
+        className={`order-1 inline-flex cursor-pointer items-center justify-center ${fullWidth ? "flex-1 " : ""}${labelSize[size]} ${labelVariant[variant]}`}
       >
         {children}
       </span>
@@ -183,8 +199,10 @@ function ButtonInner({
 // shows up only when the cursor sits on the actual interactive
 // shapes. `gap-2` keeps the 8-px space; the link is still navigable
 // across the whole wrapper area, the cursor change is purely visual.
-const wrapperClass = (className?: string) =>
-  `inline-flex shrink-0 cursor-default items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 ${className ?? ""}`.trim();
+// A full-width button is a flex item that may shrink (two of them share
+// a row in the stock modal); the inline one keeps its intrinsic width.
+const wrapperClass = (className?: string, fullWidth?: boolean) =>
+  `${fullWidth ? "flex w-full min-w-0 flex-1" : "inline-flex shrink-0"} cursor-default items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 ${className ?? ""}`.trim();
 
 export function Button(props: ButtonProps) {
   const size = props.size ?? "large";
@@ -193,6 +211,7 @@ export function Button(props: ButtonProps) {
   const plus = props.plus ?? false;
   const minus = props.minus ?? false;
   const iconDesktopOnly = props.iconDesktopOnly ?? false;
+  const fullWidth = props.fullWidth ?? false;
 
   const inner = (
     <ButtonInner
@@ -202,6 +221,7 @@ export function Button(props: ButtonProps) {
       plus={plus}
       minus={minus}
       iconDesktopOnly={iconDesktopOnly}
+      fullWidth={fullWidth}
     >
       {props.children}
     </ButtonInner>
@@ -215,6 +235,7 @@ export function Button(props: ButtonProps) {
       plus: _plus,
       minus: _minus,
       iconDesktopOnly: _iconDesktopOnly,
+      fullWidth: _fullWidth,
       className,
       children: _children,
       href,
@@ -226,9 +247,10 @@ export function Button(props: ButtonProps) {
     void _plus;
     void _minus;
     void _iconDesktopOnly;
+    void _fullWidth;
     void _children;
     return (
-      <Link href={href} className={wrapperClass(className)} {...rest}>
+      <Link href={href} className={wrapperClass(className, fullWidth)} {...rest}>
         {inner}
       </Link>
     );
@@ -241,6 +263,7 @@ export function Button(props: ButtonProps) {
     plus: _plus,
     minus: _minus,
     iconDesktopOnly: _iconDesktopOnly,
+    fullWidth: _fullWidth,
     className,
     children: _children,
     type,
@@ -252,11 +275,12 @@ export function Button(props: ButtonProps) {
   void _plus;
   void _minus;
   void _iconDesktopOnly;
+  void _fullWidth;
   void _children;
   return (
     <button
       type={type ?? "button"}
-      className={wrapperClass(className)}
+      className={wrapperClass(className, fullWidth)}
       {...rest}
     >
       {inner}

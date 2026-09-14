@@ -406,7 +406,9 @@ export function QuizForm({
       className="lg-pad-x relative bg-white px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]"
     >
       {decorations && <DecorStack variant={decorations} />}
-      <div className="relative flex flex-col items-start gap-6 sm:gap-8 lg:flex-row lg:gap-8">
+      {/* lg:pb-4: the master's heading frame (1384:12914) is 112 tall while
+          the h2 is 96, so the deck lands at y=432 and the card at 528. */}
+      <div className="relative flex flex-col items-start gap-6 pb-0 sm:gap-8 lg:flex-row lg:gap-8 lg:pb-4">
         <h2 className="flex-1 text-neutral-900">
           {headingTitle ?? (
             <>

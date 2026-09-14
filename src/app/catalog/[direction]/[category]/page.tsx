@@ -51,7 +51,7 @@ export default async function CatalogCategoryPage({
   if (!dir || !card) notFound();
 
   return (
-    <div className="lg-pad-x px-6 sm:px-10">
+    <div className="px-6 sm:px-10 lg-shop-pad-x">
       <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
         {/* Breadcrumb (Figma 3936:42928): Каталог and the direction are
             neutral intermediate crumbs, the subcategory is the orange

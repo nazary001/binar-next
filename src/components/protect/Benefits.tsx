@@ -79,7 +79,7 @@ export function ProtectBenefits() {
                   className="
                     relative flex h-full w-full min-w-0 flex-col-reverse items-start gap-10
                     rounded-[32px] bg-bg-subtle p-6
-                    lg:flex-col lg:items-end lg:justify-between lg:gap-10
+                    lg:flex-col lg:items-end lg:justify-between lg:gap-8
                     lg:min-h-[344px] lg:rounded-none lg:bg-transparent lg:p-0 lg:py-6
                     lg:shadow-none
                   "

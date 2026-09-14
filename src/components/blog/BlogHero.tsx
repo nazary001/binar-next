@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight } from "./icons";
@@ -24,7 +25,7 @@ export function BlogHero() {
         {/* Left bordered card. py-[47px]: Figma mobile (3176:4376) pads the
             content 48px with the stroke INSIDE; border-box adds the 1px
             border, so 47+1 = 48. */}
-        <div className="flex flex-1 flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-14 sm:px-10 sm:py-14 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-[79px] lg:pl-[129px] lg:pr-8 lg:pt-[79px]">
+        <div className="flex flex-1 flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-14 sm:px-10 sm:py-14 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-[79px] lg:[padding-left:calc(var(--lg-pad-x)-1px)] lg:pr-8 lg:pt-[79px]">
           <div className="flex w-full flex-col gap-4 lg:gap-6">
             <h1 className="text-h1 text-neutral-900">
               Блог для тих, хто відповідає за якість
@@ -47,8 +48,8 @@ export function BlogHero() {
             band is the Figma 390-px mobile photo (rounded LEFT, #c34924
             backdrop) with the card centred at its bottom (w-342). */}
         <div
-          className="relative h-[390px] w-full overflow-hidden rounded-bl-[32px] rounded-tl-[32px] sm:h-[440px] sm:rounded-bl-[40px] sm:rounded-tl-[40px] lg:aspect-auto lg:h-auto lg:w-[603px] lg:shrink-0 lg:self-stretch lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px] lg:rounded-tr-none"
-          style={{ background: "#c34924" }}
+          className="hero-photo relative h-[390px] w-full overflow-hidden rounded-bl-[32px] rounded-tl-[32px] sm:h-[440px] sm:rounded-bl-[40px] sm:rounded-tl-[40px] lg:aspect-auto lg:h-auto lg:shrink-0 lg:self-stretch lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px] lg:rounded-tr-none"
+          style={{ "--hero-photo-w": "603px", background: "#c34924" } as CSSProperties}
         >
           {/* === Mobile band (Figma 3176:4374) === #c34924 stage + 20%
               texture; the flat-lay scene sits in a 481px box centred at

@@ -3,6 +3,7 @@ import { Manrope, Onest } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollUpDock } from "@/components/ScrollUpDock";
+import { CartProvider } from "@/components/cart/CartProvider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -81,24 +82,30 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${manrope.variable} ${onest.variable} h-full antialiased`}
     >
-      {/* Design is built against Figma's 1440 master. On viewports
-          wider than 1440, the `html { zoom: ... }` rule in
-          globals.css scales the page up proportionally so the
-          layout fills the screen with the same visual proportions
-          as the 1440 master - no white margins on big monitors,
-          no growing hero photo on big monitors. Below 1440 the
-          existing responsive code handles the scale-down.
+      {/* Design is built against Figma's 1440 master. Between 1024 and
+          1440 the `html { zoom: min(1, 100vw/1440px) }` rule in
+          globals.css shrinks the page proportionally; at 1440 and
+          wider zoom is 1, so type renders at the exact Figma px and
+          content is centred in a 1440 column by the growing
+          `--lg-pad-x` gutters, while section backgrounds and the hero
+          photo bleed edge-to-edge.
 
           The body itself stays full-width so the document scrolls
           and `position: fixed` elements (mobile menu overlay) anchor
           to the viewport correctly. */}
       <body className="flex min-h-full flex-col bg-white text-neutral-900">
-        <Header />
-        <div className="flex flex-1 flex-col">{children}</div>
-        <Footer />
-        {/* Single travelling scroll-to-top arrow: appears in the corner on
-            scroll, then glides into its footer slot ([data-scrollup-slot]). */}
-        <ScrollUpDock />
+        {/* The cart (Figma «Кошик», 4329:39830) is site-wide: the provider
+            keeps the lines in localStorage and mounts the drawer + the
+            stock modal after the page, so the header badge, the catalog
+            cards and the product page all talk to one cart. */}
+        <CartProvider>
+          <Header />
+          <div className="flex flex-1 flex-col">{children}</div>
+          <Footer />
+          {/* Single travelling scroll-to-top arrow: appears in the corner on
+              scroll, then glides into its footer slot ([data-scrollup-slot]). */}
+          <ScrollUpDock />
+        </CartProvider>
       </body>
     </html>
   );

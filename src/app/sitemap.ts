@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { CATALOG_DIRECTIONS } from "@/components/catalog/data";
+import { CATALOG_DIRECTIONS, productHref } from "@/components/catalog/data";
+import { ALL_PRODUCTS } from "@/components/product/data";
 
 const SITE_URL = "https://binar-2000.com";
 
@@ -14,6 +15,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: 0.7,
       })),
   );
+  // Product pages (/catalog/<direction>/<category>/<id>).
+  const productPages: MetadataRoute.Sitemap = ALL_PRODUCTS.map((p) => ({
+    url: `${SITE_URL}${productHref(p)}`,
+    lastModified,
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
+  }));
   return [
     {
       url: `${SITE_URL}/`,
@@ -46,6 +54,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     ...categoryPages,
+    ...productPages,
     {
       url: `${SITE_URL}/hotels`,
       lastModified,

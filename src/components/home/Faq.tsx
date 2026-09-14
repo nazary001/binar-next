@@ -127,11 +127,13 @@ function FaqRow({
         <div className="flex items-center max-lg:-mb-px lg:contents">
           <span
             aria-hidden
-            className="block h-px flex-1 bg-stroke-default lg:w-full lg:flex-none"
+            // lg:-mb-px: Figma's Question rows (1384:12945) are 128 = hairline
+            // on the top edge (no height) + 32 gap + 96 content.
+            className="block h-px flex-1 bg-stroke-default lg:-mb-px lg:w-full lg:flex-none"
           />
         </div>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <h3 className="text-[16px] font-bold leading-[24px] text-black lg:w-[372px] lg:shrink-0 lg:text-title-lg lg:font-semibold lg:text-neutral-900">
+          <h3 className="text-[16px] font-bold leading-[24px] text-black lg:w-[372px] lg:shrink-0 lg:text-title-lg lg:font-semibold lg:leading-7 lg:text-neutral-900">
             {item.q}
           </h3>
           <div className="flex flex-1 flex-col gap-4">

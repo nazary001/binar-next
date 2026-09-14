@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
 
@@ -56,7 +57,7 @@ export function HotelsHero() {
             top/right/bottom + rounded RIGHT corners, sitting BELOW the photo
             band (order-2). px-24 py-48. Desktop (lg) restores the original
             837-wide hero card unchanged. */}
-        <div className="order-2 flex flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-[47px] sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:h-[678px] lg:w-[837px] lg:shrink-0 lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pl-[130px] lg:pr-8 lg:pt-20">
+        <div className="hero-left hero-left-837 order-2 flex flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-[47px] sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:h-[678px] lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
           {/* Top block — Figma 1384:11589: w 575, gap-[56] between
               the heading column and the CTA button. */}
           <div className="flex w-full flex-col gap-8 sm:gap-12 lg:w-[575px] lg:gap-14">
@@ -115,8 +116,12 @@ export function HotelsHero() {
               />
             </div>
             {/* Features grid — Figma 1384:11598: w 575, gap-y-[8],
-                two rows of two cells with gap-x-[40] inside each row. */}
-            <ul className="grid grid-cols-1 gap-y-2 lg:grid-cols-2 lg:gap-x-10">
+                two rows of two cells with gap-x-[40] inside each row.
+                Tablet (640..1023, no master) mirrors the lg 2-up split so
+                the four short icon+label rows don't span the full card
+                width with an empty right half. lg keeps the same 2-col /
+                gap-x-40, so >=1024 is unchanged. */}
+            <ul className="grid grid-cols-1 gap-y-2 sm:grid-cols-2 sm:gap-x-10 lg:grid-cols-2 lg:gap-x-10">
               {FEATURES.map((f, idx) => (
                 <Reveal
                   as="li"
@@ -152,7 +157,10 @@ export function HotelsHero() {
           </div>
         </div>
 
-        {/* Photo column — Figma 1384:11617: w 721 h 678, bg-#726053,
+        {/* Photo column — Figma 1384:11617: w 721 h 678, bg-#726053
+            (overridden to the photo's own backdrop orange #cc4214 at lg so
+            the right-hand bleed above 1440 reads as a continuation of the
+            photo instead of a flat brown band),
             rounded-bl-[48px] rounded-tl-[48px], overflow-clip. At lg+
             the column is fixed-width and lives flush against the
             card's right edge. Its right 118 px bleeds past the 1440
@@ -160,7 +168,8 @@ export function HotelsHero() {
             so the image positioned right-[33px] inside stays anchored
             to the design frame, exactly as Figma renders the master. */}
         <div
-          className="relative order-first h-[320px] overflow-clip rounded-tl-[32px] rounded-bl-[32px] bg-[#c34924] sm:rounded-tl-[40px] sm:rounded-bl-[40px] lg:order-none lg:h-[678px] lg:w-[721px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px] lg:bg-[#726053]"
+          className="hero-photo relative order-first h-[320px] overflow-clip rounded-tl-[32px] rounded-bl-[32px] bg-[#c34924] sm:rounded-tl-[40px] sm:rounded-bl-[40px] lg:order-none lg:h-[678px] lg:shrink-0 lg:rounded-bl-[48px] lg:rounded-br-none lg:rounded-tl-[48px] lg:bg-[#cc4214]"
+          style={{ "--hero-photo-w": "721px" } as CSSProperties}
         >
           {/* === Mobile band (Figma 3117:14361) === Same master pattern
               as the home hero: #c34924 fill + 20% texture, then the
@@ -209,7 +218,7 @@ export function HotelsHero() {
               renders at the same effective composition as Figma's
               master file. Desktop-only; mobile uses the master band
               composition above. */}
-          <div className="absolute hidden lg:right-[33px] lg:top-[-21px] lg:block lg:h-[721px] lg:w-[718px]">
+          <div className="absolute hidden lg:left-[-30px] lg:top-[-21px] lg:block lg:h-[721px] lg:w-[718px]">
             <img
               src="/figma-export/hotels/hero-hotel.png"
               alt="Готельний номер з продукцією Binar"

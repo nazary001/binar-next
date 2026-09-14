@@ -43,7 +43,7 @@ export default async function CatalogDirectionPage({
   if (!dir) notFound();
 
   return (
-    <div className="lg-pad-x px-6 sm:px-10">
+    <div className="px-6 sm:px-10 lg-shop-pad-x">
       <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
         {/* Breadcrumb — Back-button recipe shared with /catalog and the
             blog article hero; «Каталог» is an intermediate crumb

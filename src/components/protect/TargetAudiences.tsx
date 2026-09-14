@@ -68,7 +68,7 @@ export function TargetAudiences() {
               // = the master's 40px gap above the content.
               className={`flex flex-col gap-8 pb-10 lg:flex-row lg:items-center lg:gap-0 ${
                 i > 0
-                  ? "border-t border-stroke-default pt-[39px] lg:pt-10"
+                  ? "border-t border-stroke-default pt-[39px]"
                   : "pt-0 lg:pt-10"
               } ${isLast ? "max-lg:pb-0 lg:pb-0" : ""}`}
             >

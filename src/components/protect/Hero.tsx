@@ -20,7 +20,7 @@ export function ProtectHero() {
       <div className="flex flex-col-reverse items-stretch lg:flex-row">
         {/* py-[47px]: Figma draws the card's 1px borders INSIDE its 426px
             box, so 47+1 per edge keeps the 48px visual padding exact. */}
-        <div className="hero-left flex flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-12 sm:px-10 sm:py-14 lg:w-[837px] lg:shrink-0 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+        <div className="hero-left hero-left-837 flex flex-col gap-8 rounded-br-[32px] rounded-tr-[32px] border-b border-r border-t border-stroke-default px-6 py-[47px] sm:gap-12 sm:px-10 sm:py-14 lg:gap-14 lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
           <div className="flex w-full flex-col gap-8 sm:gap-12 lg:max-w-[575px] lg:gap-14">
             <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -90,8 +90,13 @@ export function ProtectHero() {
               </div>
             </div>
             {/* Desktop: the Figma master's 660×652 card pinned to left-0
-                and vertically centred. */}
-            <div className="absolute hidden lg:left-0 lg:top-1/2 lg:block lg:h-[652px] lg:w-[660px] lg:-translate-y-1/2 lg:overflow-clip lg:rounded-[40px]">
+                and vertically centred. Width is COLUMN-RELATIVE
+                (`calc(100% - 61px)`) so it grows with `.hero-photo` above
+                1440 and keeps a constant 61-px accent strip to its right,
+                matching the cleaning hero (`lg:w-[calc(100%+135px)]`).
+                At <=1440 the column is a fixed 721 px, so the image is
+                721 - 61 = 660 px exactly as the old fixed value. */}
+            <div className="absolute hidden lg:left-0 lg:top-1/2 lg:block lg:h-[652px] lg:w-[calc(100%-61px)] lg:-translate-y-1/2 lg:overflow-clip lg:rounded-[40px]">
               <img
                 src="/figma-export/directions/card-protect.png"
                 alt="Засоби індивідуального захисту"

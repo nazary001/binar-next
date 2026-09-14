@@ -6,6 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { CatalogMenu } from "./CatalogMenu";
 import { Logo } from "./Logo";
 import { Button } from "./ui/Button";
+import { useCart } from "./cart/CartProvider";
+import { useFitZoom } from "./cart/useFitZoom";
+
+// Phone menu stack height in the master (3117:13841): py-60 x 2 + label
+// group + links + button = 706 px under the 66-px bar of an 844 screen.
+// Shorter phones get the stack zoomed to fit instead of a scrolling menu.
+const MOBILE_MENU_DESIGN_H = 706;
+const MOBILE_HEADER_H = 66;
 
 type NavLink = {
   href: string;
@@ -97,6 +105,28 @@ function CartIcon() {
   );
 }
 
+// The header cart button: the 42-px brand disc inside a 48-px hit box
+// with the count badge (hidden while the cart is empty).
+function CartTrigger({ count, onOpen }: { count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={count > 0 ? `Відкрити кошик, товарів: ${count}` : "Відкрити кошик"}
+      className="relative size-12 shrink-0 cursor-pointer"
+    >
+      <span className="absolute left-1/2 top-1/2 flex size-[42px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[26px] bg-brand text-white transition-transform duration-200 active:scale-95">
+        <CartIcon />
+      </span>
+      {count > 0 && (
+        <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-[1.5px] border-white bg-neutral-900 px-1 text-[12px] font-bold leading-none text-white">
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 // heroicons-outline/arrow-up-right — the trailing glyph on every mobile
 // menu row (Figma 3117:14194 etc.). Inherits the row's text colour via
 // currentColor so it tracks the hover -> brand transition.
@@ -156,6 +186,8 @@ function Burger({ open }: { open: boolean }) {
 export function Header() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const menuFit = useFitZoom(MOBILE_MENU_DESIGN_H, MOBILE_HEADER_H, "(max-width: 639px)");
+  const { count: cartCount, openCart } = useCart();
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -213,7 +245,7 @@ export function Header() {
   // header height toggled). Updated when the viewport crosses the lg
   // breakpoint.
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia("(min-width: 640px)");
     const apply = () =>
       document.documentElement.style.setProperty(
         "--site-header-h",
@@ -267,7 +299,7 @@ export function Header() {
   // hidden by `lg:hidden`, and a return to mobile width would reveal
   // it unexpectedly.
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia("(min-width: 640px)");
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setMobileOpen(false);
     };
@@ -297,7 +329,10 @@ export function Header() {
           Desktop is the 92-px bar of the redesigned master 129:1279 —
           80-px side padding (not the 130 content gutter), py-22, with
           the 48-px cart box setting the row height. */}
-      <div className="mx-auto flex h-[66px] w-full max-w-[1440px] items-center justify-between px-6 sm:px-10 lg:h-auto lg:px-20 lg:py-[22px]">
+      {/* Figma header: fixed 80-px gutters at 1440 AND in the 1710 shop
+          frames (logo x=80, nav right edge at vw-80), i.e. the bar is fluid
+          with no max-width cap. */}
+      <div className="flex h-[66px] w-full items-center justify-between px-6 sm:px-10 lg:h-auto lg:px-20 lg:py-[22px]">
         <Logo />
 
         <nav
@@ -399,29 +434,28 @@ export function Header() {
             {/* Cart icon-button (Figma 3917:40130): 48-px hit box, 42-px
                 brand circle (r 26) with the white cart glyph, 20-px
                 counter badge at the top-right — #1d1d1f fill, 1.5-px
-                white ring, 12-px bold count. Decorative until the cart
-                feature ships (no click target in the prototype). */}
-            <div className="relative size-12 shrink-0">
-              <span className="absolute left-1/2 top-1/2 flex size-[42px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[26px] bg-brand text-white">
-                <CartIcon />
-              </span>
-              <span className="absolute right-0 top-0 flex size-5 items-center justify-center rounded-full border-[1.5px] border-white bg-neutral-900 text-[12px] font-bold leading-none text-white">
-                2
-              </span>
-            </div>
+                white ring, 12-px bold count. Opens the «Кошик» drawer
+                (4329:39905); the badge is the live line count. */}
+            <CartTrigger count={cartCount} onOpen={openCart} />
           </div>
         </nav>
 
-        <button
-          type="button"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-expanded={mobileOpen}
-          aria-controls="mobile-nav"
-          aria-label={mobileOpen ? "Закрити меню" : "Відкрити меню"}
-          className="-mr-3 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-90 lg:hidden"
-        >
-          <Burger open={mobileOpen} />
-        </button>
+        {/* Below lg the cart lives beside the burger (the mobile header
+            master 3082:3661 predates the shop; the same 42-px orange disc
+            keeps the cart reachable on phones). */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <CartTrigger count={cartCount} onOpen={openCart} />
+          <button
+            type="button"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav"
+            aria-label={mobileOpen ? "Закрити меню" : "Відкрити меню"}
+            className="-mr-3 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-90"
+          >
+            <Burger open={mobileOpen} />
+          </button>
+        </div>
       </div>
 
       {/* Catalog mega-menu sheet — anchored to the sticky header so it
@@ -470,6 +504,7 @@ export function Header() {
         <nav
           aria-label="Мобільна навігація"
           className="mx-auto flex min-h-full w-full max-w-[480px] flex-col gap-12 px-6 py-[60px] sm:px-10"
+          style={menuFit < 1 ? { zoom: menuFit } : undefined}
         >
           <div className="flex flex-col gap-8">
             <p

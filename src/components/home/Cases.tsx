@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
@@ -166,7 +167,11 @@ export function CaseCard({
               • stats start at y=595. Gap from description (end y=442) = 153.
             Below lg the original gap-5/sm:gap-6 + sm:mt-2 / mt-4 sm:mt-6
             spacing is unchanged. */}
-        <div className="lg-pad-x flex flex-col gap-4 px-6 pt-10 pb-[38px] sm:gap-4 sm:px-6 sm:py-10 lg:gap-0 lg:pb-0 lg:pt-[91px]">
+        {/* The body is flex-1 next to the 630-px photo column, so it is 810
+            wide at 1440 and grows by the left gutter above it. Its own width
+            therefore encodes the gutter: padding-left = width - 680 keeps
+            the text on the Figma x=130 line (130 at 1440, 370 at 1920). */}
+        <div className="flex flex-col gap-4 px-6 pt-10 pb-[38px] sm:gap-4 sm:px-6 sm:py-10 lg:gap-0 lg:pb-0 lg:pt-[91px] lg:[padding-left:max(130px,calc(100%-680px))] lg:pr-[130px]">
           {/* Figma mobile (3094:5129) title — Manrope Bold 40/42, -0.8px,
               text/default. The `text-h1` token resolves to exactly that
               below lg; desktop keeps the 62px display size via lg: below. */}
@@ -277,8 +282,8 @@ export function CaseCard({
       </div>
 
       <div
-        className="case-card-photo group relative order-1 h-[206px] w-full shrink-0 overflow-clip rounded-[32px] lg:order-2 lg:h-[729px] lg:w-[630px] lg:rounded-l-[48px] lg:rounded-r-none"
-        style={{ background: "#56595b" }}
+        className="case-card-photo hero-photo group relative order-1 h-[206px] w-full shrink-0 overflow-clip rounded-[32px] lg:order-2 lg:h-[729px] lg:rounded-l-[48px] lg:rounded-r-none"
+        style={{ "--hero-photo-w": "630px", background: "#56595b" } as CSSProperties}
       >
         {/* Photo wrapper — `.cases-photo-parallax` is a lg-only class that
             reads `--enter-p` (published per-card by the scroll listener)
@@ -326,7 +331,7 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
   // above show only their logo strips). No-op on viewports below lg,
   // where the cards aren't sticky-stacked.
   const handleCardActivate = (i: number) => {
-    if (typeof window === "undefined" || window.innerWidth < 1024) return;
+    if (typeof window === "undefined" || window.innerWidth < 640) return;
     const section = sectionRef.current;
     if (!section) return;
     const rect = section.getBoundingClientRect();
@@ -384,7 +389,7 @@ export function Cases({ entries = CASES }: { entries?: CaseEntry[] } = {}) {
 
     const update = () => {
       raf = 0;
-      if (window.innerWidth < 1024) return;
+      if (window.innerWidth < 640) return;
       const vh = window.innerHeight;
       const headerHRaw = getComputedStyle(document.documentElement)
         .getPropertyValue("--site-header-h")

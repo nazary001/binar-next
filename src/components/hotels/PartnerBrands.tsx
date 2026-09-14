@@ -45,6 +45,16 @@ type Partner = {
   // Mobile (<lg) logo size. Figma master 3117:16390 sizes each logo in
   // px inside a 195-px cell; kept as full literals for the scanner.
   imgClassM: string;
+  // Tablet (640..1023, no Figma master) logo size. Width AND height are
+  // the phone px expressed as a % of the 195-px master cell, so the logo
+  // box scales fluidly with the (larger, square) tablet tile instead of
+  // staying pinned at the phone px in a big tile. Both dims are explicit
+  // because these SVGs export at width/height="100%" (viewBox only), so
+  // `height:auto` collapses to 0 in Chromium - object-contain then
+  // letterboxes the glyph inside the % box with no distortion, exactly
+  // like the phone (which also pins both dims). Full literals for the
+  // Tailwind scanner. lg:* wins back the exact desktop px above 1024.
+  imgClassT: string;
   // Mobile (<lg) cell chrome: border + the single rounded corner the
   // Figma master draws on this cell (others are borderless). lg:* in the
   // <li> strips all of it so desktop is unchanged.
@@ -76,6 +86,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[83px] lg:w-[124px]",
     // Phone (1,1): bordered, top-right corner rounded.
     imgClassM: "h-[56px] w-[84px]",
+    imgClassT: "sm:h-[29%] sm:w-[43%]",
     mb: "border border-stroke-default rounded-tr-[32px]",
     orderM: "order-1 lg:order-none",
     col: 4,
@@ -88,6 +99,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[46px] lg:w-[188px]",
     // Phone (2,1): borderless.
     imgClassM: "h-[32px] w-[128px]",
+    imgClassT: "sm:h-[16%] sm:w-[66%]",
     mb: "",
     orderM: "order-2 lg:order-none",
     col: 5,
@@ -100,6 +112,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[79px] lg:w-[202px]",
     // Phone (1,2): borderless.
     imgClassM: "h-[54px] w-[137px]",
+    imgClassT: "sm:h-[28%] sm:w-[70%]",
     mb: "",
     orderM: "order-3 lg:order-none",
     col: 1,
@@ -112,6 +125,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[65px] lg:w-[202px]",
     // Phone (2,2): bordered, bottom-left corner rounded.
     imgClassM: "h-[44px] w-[137px]",
+    imgClassT: "sm:h-[23%] sm:w-[70%]",
     mb: "border border-stroke-default rounded-bl-[32px]",
     orderM: "order-4 lg:order-none",
     col: 3,
@@ -124,6 +138,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[44px] lg:w-[176px]",
     // Phone (1,3): bordered, top-right corner rounded.
     imgClassM: "h-[30px] w-[120px]",
+    imgClassT: "sm:h-[15%] sm:w-[62%]",
     mb: "border border-stroke-default rounded-tr-[32px]",
     orderM: "order-5 lg:order-none",
     col: 4,
@@ -139,6 +154,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     // p1 (next entry) takes cell 6. lg:order-none restores desktop, where
     // placement is by lg:col-start/lg:row-start regardless of DOM order.
     imgClassM: "h-[56px] w-[84px]",
+    imgClassT: "sm:h-[29%] sm:w-[43%]",
     mb: "",
     orderM: "order-7 lg:order-none",
     col: 6,
@@ -152,6 +168,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     // Phone (2,3): borderless. Takes mobile cell 6 (one cell earlier than
     // desktop order); lg:order-none restores the desktop sequence.
     imgClassM: "h-[39px] w-[112px]",
+    imgClassT: "sm:h-[20%] sm:w-[57%]",
     mb: "",
     orderM: "order-6 lg:order-none",
     col: 1,
@@ -164,6 +181,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[71px] lg:w-[202px]",
     // Phone (2,4): bordered, bottom-left corner rounded.
     imgClassM: "h-[48px] w-[137px]",
+    imgClassT: "sm:h-[25%] sm:w-[70%]",
     mb: "border border-stroke-default rounded-bl-[32px]",
     orderM: "order-8 lg:order-none",
     col: 2,
@@ -176,6 +194,7 @@ const DEFAULT_PARTNERS: Partner[] = [
     imgClass: "lg:h-[62px] lg:w-[202px]",
     // Phone (1,5): bordered, top-right and bottom-right corners rounded.
     imgClassM: "h-[42px] w-[137px]",
+    imgClassT: "sm:h-[22%] sm:w-[70%]",
     mb: "border border-stroke-default rounded-tr-[32px] rounded-br-[32px]",
     orderM: "order-9 lg:order-none",
     col: 5,
@@ -261,14 +280,18 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
         </div>
       </div>
 
-      {/* Mosaic — edge-to-edge at every breakpoint. Figma phone master
+      {/* Mosaic — edge-to-edge on phone and desktop. Figma phone master
           3117:16390 runs the 2-col puzzle full-bleed (two 195-px cells =
           390-px frame, no side gutter), and the lg master is likewise
-          edge-to-edge. The lg wrapper is `relative` so the SVG overlay can
+          edge-to-edge. The wrapper is `relative` so each SVG overlay can
           fill the grid area precisely; the SVG is the FIRST child and
           renders behind the cells so logos paint on top of the puzzle
-          outline. */}
-      <div className="relative mt-12 px-0 sm:mt-12 lg:mt-[80px] lg:px-0">
+          outline. Tablet (640..1023, no master) breaks from the full-bleed
+          puzzle: it uses the site's 40-px gutters (sm:px-10) and a gapped
+          3-up card grid (below), so the 9 logos land in a tidy 3x3 of
+          bordered tiles instead of a stretched 2-col puzzle with the 9th
+          logo orphaned in an oversized cell. */}
+      <div className="relative mt-12 px-0 sm:mt-12 sm:px-10 lg:mt-[80px] lg:px-0">
         {/* lg-only SVG puzzle outline — one <path> per cell, drawn with
             non-scaling 1-px stroke + white fill. Adjacent paths' strokes
             coincide pixel-perfect on shared edges → uniform 1-px lines
@@ -304,18 +327,20 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
           ))}
         </svg>
 
-        {/* Mobile (<lg) puzzle outline — same coinciding-stroke SVG
+        {/* Phone (<sm) puzzle outline — same coinciding-stroke SVG
             technique as the desktop grid above, so every shared line is
             drawn once, in one coordinate system, and stays perfectly
             straight on any DPR (per-tile CSS borders/overlays kept
             producing a visible 1px step where a line passed from a col-1
-            tile to a col-2 tile on fractional device-pixel ratios). */}
+            tile to a col-2 tile on fractional device-pixel ratios).
+            sm:hidden because the tablet 3-up grid uses per-tile bordered
+            cards (below) rather than this 2-col puzzle geometry. */}
         <svg
           viewBox={`0 0 ${2 * MOBILE_CELL} ${5 * MOBILE_CELL}`}
           preserveAspectRatio="none"
           overflow="visible"
           aria-hidden
-          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible lg:hidden"
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible sm:hidden"
         >
           {MOBILE_TILES.map((t, i) => (
             <path
@@ -335,17 +360,21 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
           ))}
         </svg>
 
-        <ul className="relative grid grid-cols-2 gap-0 lg:grid-cols-6 lg:grid-rows-3 lg:gap-0">
+        <ul className="relative grid grid-cols-2 gap-0 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6 lg:grid-rows-3 lg:gap-0">
           {partners.map((p, i) => (
-            // Mobile (<lg): square cells touch edge-to-edge (gap-0); the
-            // puzzle outline is painted by the mobile SVG above, so the
-            // cells themselves carry no chrome. p.orderM swaps the two
-            // logos the phone layout reorders relative to the desktop
-            // source array, with lg:order-none restoring desktop order;
-            // lg placement stays on lg:col-start/lg:row-start.
+            // Phone (<sm): square cells touch edge-to-edge (gap-0); the
+            // puzzle outline is painted by the phone SVG above, so the
+            // cells themselves carry no chrome. Tablet (sm..<lg): a 3-up
+            // gapped grid of rounded, bordered white tiles (9 logos = a
+            // clean 3x3, no orphan) — the border/rounding/bg/padding are
+            // added at sm and stripped again at lg so the desktop mosaic
+            // is byte-for-byte unchanged. p.orderM swaps the two logos the
+            // phone layout reorders relative to the desktop source array,
+            // with lg:order-none restoring desktop order; lg placement
+            // stays on lg:col-start/lg:row-start.
             <li
               key={i}
-              className={`group relative flex aspect-square items-center justify-center lg:bg-transparent lg:p-0 ${p.orderM} ${p.pos}`}
+              className={`group relative flex aspect-square items-center justify-center sm:rounded-[24px] sm:border sm:border-stroke-default sm:bg-white sm:p-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 ${p.orderM} ${p.pos}`}
             >
               <img
                 src={p.src}
@@ -353,7 +382,7 @@ export function PartnerBrands({ heading, body, partners = DEFAULT_PARTNERS }: Pa
                 aria-hidden
                 loading="lazy"
                 decoding="async"
-                className={`object-contain ${p.imgClassM} ${p.imgClass}`}
+                className={`object-contain ${p.imgClassM} ${p.imgClassT} ${p.imgClass}`}
               />
             </li>
           ))}
