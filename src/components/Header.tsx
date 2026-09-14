@@ -422,14 +422,20 @@ export function Header() {
             </li>
           </ul>
 
-          {/* CTA + cart group (Figma 3917:40504): gap-16 between the
-              dark pill and the 48-px cart box. */}
+          {/* Login + cart group (Figma 3917:40504): gap-16 between the
+              dark «Увійти» pill and the 48-px cart box. Both header
+              masters (129:1279 on the 1440 pages, 4329:39832 on the shop
+              frames) replaced the old «Отримати пропозицію» CTA with the
+              Button/Small «Увійти» (89 x 42, #1d1d1f, 16/22 medium). The
+              sign-in flow itself (DESIGN SPACE «Sign up» 3396:23690, a
+              576-px drawer in five steps) is not built yet, so the pill
+              is a stub button until the account area lands. */}
           <div
             className="flex items-center gap-4"
             onMouseEnter={() => setCatalogOpen(false)}
           >
-            <Button href="/#contact-form" size="small">
-              Отримати пропозицію
+            <Button type="button" size="small" aria-label="Увійти до кабінету">
+              Увійти
             </Button>
             {/* Cart icon-button (Figma 3917:40130): 48-px hit box, 42-px
                 brand circle (r 26) with the white cart glyph, 20-px
