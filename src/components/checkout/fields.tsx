@@ -17,12 +17,14 @@ import { ChevronDown24 } from "./icons";
 // 16/22 Medium rows padded 16/12 with 0.5-px dividers, 250 px max.
 
 const RING =
-  "peer h-[46px] w-full rounded-3xl border border-stroke-subtle bg-transparent px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none transition-[border-color,box-shadow] duration-200 placeholder-transparent focus:border-brand focus:[box-shadow:inset_0_0_0_1px_var(--color-brand)]";
+  "peer h-[46px] w-full rounded-3xl border border-stroke-subtle bg-transparent px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none transition-[border-color,box-shadow] duration-200 placeholder-transparent focus:border-brand focus:[box-shadow:inset_0_0_0_1px_var(--color-brand)] disabled:cursor-default disabled:border-[#bbbbbc] disabled:text-neutral-300";
 const RING_ERROR =
   "border-negative [box-shadow:inset_0_0_0_1px_var(--color-negative)] focus:border-negative focus:[box-shadow:inset_0_0_0_1px_var(--color-negative)]";
 // Floating caption: rides the field's top edge once the control has a
 // value or focus (peer-[:not(:placeholder-shown)] / peer-focus), painted
-// on the #f8f8f8 panel so it cuts the ring exactly as the master draws.
+// on the panel surface so it cuts the ring exactly as the master draws:
+// the checkout's #f8f8f8 by default, or whatever a host sets in
+// `--field-surface` (the white account drawer).
 // Caption geometry comes in two exclusive branches so neither can leak
 // into the other: resting (inside the field, placeholder-like) and
 // floated (on the top edge). Text inputs switch through the peer's
@@ -30,44 +32,82 @@ const RING_ERROR =
 const LABEL_SHELL =
   "pointer-events-none absolute -translate-y-1/2 whitespace-nowrap font-medium tracking-[0.15px] transition-all duration-200";
 const LABEL_REST = "left-6 top-1/2 text-[16px] leading-6 text-neutral-500";
-const LABEL_FLOAT = "left-4 top-0 bg-bg-subtle px-1.5 text-[12px] leading-3";
+const LABEL_FLOAT = "left-4 top-0 bg-[var(--field-surface,var(--color-bg-subtle))] px-1.5 text-[12px] leading-3";
 // Filled colour applies only while NOT focused, so a focused field keeps
 // the brand caption of the Figma Focus state after the first keystroke.
 const LABEL =
-  `${LABEL_SHELL} ${LABEL_REST} peer-focus:left-4 peer-focus:top-0 peer-focus:bg-bg-subtle peer-focus:px-1.5 peer-focus:text-[12px] peer-focus:leading-3 peer-focus:text-brand peer-[:not(:placeholder-shown)]:left-4 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:bg-bg-subtle peer-[:not(:placeholder-shown)]:px-1.5 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:leading-3 peer-[:not(:placeholder-shown):not(:focus)]:text-black/60`;
+  `${LABEL_SHELL} ${LABEL_REST} peer-focus:left-4 peer-focus:top-0 peer-focus:bg-[var(--field-surface,var(--color-bg-subtle))] peer-focus:px-1.5 peer-focus:text-[12px] peer-focus:leading-3 peer-focus:text-brand peer-[:not(:placeholder-shown)]:left-4 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:bg-[var(--field-surface,var(--color-bg-subtle))] peer-[:not(:placeholder-shown)]:px-1.5 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:leading-3 peer-[:not(:placeholder-shown):not(:focus)]:text-black/60`;
 const LABEL_ERROR = "text-negative peer-focus:text-negative peer-[:not(:placeholder-shown)]:text-negative";
 
-function Hint({ id, error }: { id: string; error?: string }) {
-  if (!error) return null;
+// «<FormHelperText>» — the 12/16 Medium error line under a field. The
+// checkout shows it only when there is an error; the account drawer
+// (4573:35482 etc.) reserves the master's 19-px zone (3 px top padding +
+// one line) under every field so the stack keeps its rhythm whether or
+// not a message is showing.
+function Hint({
+  id,
+  error,
+  reserve,
+}: {
+  id: string;
+  error?: string;
+  reserve?: boolean;
+}) {
+  if (!error && !reserve) return null;
   return (
-    <p id={id} role="alert" className="mt-1 pl-6 text-[12px] font-medium leading-4 text-negative">
+    <p
+      id={id}
+      role={error ? "alert" : undefined}
+      className={`${
+        reserve ? "min-h-[19px] pt-[3px]" : "mt-1"
+      } pl-6 text-[12px] font-medium leading-4 tracking-[0.15px] text-negative`}
+    >
       {error}
     </p>
   );
 }
 
+// Disabled field («Логін» prefilled with the verified phone, 4573:35508):
+// #bbbbbc ring and #a5a5a5 value (the disabled: variants on RING) with
+// the caption in the same grey.
+const LABEL_DISABLED = "text-neutral-300";
+
 export function TextField({
   label,
   value,
   onChange,
+  onBlur,
   error,
   type = "text",
   name,
   autoComplete,
   inputMode,
+  maxLength,
+  autoFocus,
+  disabled,
+  helperZone,
   className = "",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   error?: string;
   type?: string;
   name?: string;
   autoComplete?: string;
   inputMode?: "text" | "email" | "tel" | "numeric";
+  maxLength?: number;
+  autoFocus?: boolean;
+  disabled?: boolean;
+  // Reserve the 19-px helper line under the field (see Hint).
+  helperZone?: boolean;
   className?: string;
 }) {
   const id = useId();
+  const labelClass = disabled
+    ? `${LABEL_SHELL} ${value ? LABEL_FLOAT : LABEL_REST} ${LABEL_DISABLED}`
+    : `${LABEL} ${error ? LABEL_ERROR : ""}`;
   return (
     <div className={className}>
       <label className="relative block">
@@ -77,16 +117,20 @@ export function TextField({
           type={type}
           inputMode={inputMode}
           autoComplete={autoComplete}
+          maxLength={maxLength}
+          autoFocus={autoFocus}
+          disabled={disabled}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
           placeholder=" "
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-hint` : undefined}
           className={`${RING} ${error ? RING_ERROR : ""}`}
         />
-        <span className={`${LABEL} ${error ? LABEL_ERROR : ""}`}>{label}</span>
+        <span className={labelClass}>{label}</span>
       </label>
-      <Hint id={`${id}-hint`} error={error} />
+      <Hint id={`${id}-hint`} error={error} reserve={helperZone} />
     </div>
   );
 }
@@ -182,6 +226,7 @@ export function SelectField({
   onChange,
   error,
   name,
+  helperZone,
 }: {
   label: string;
   value: string;
@@ -189,6 +234,7 @@ export function SelectField({
   onChange: (v: string) => void;
   error?: string;
   name?: string;
+  helperZone?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -292,7 +338,7 @@ export function SelectField({
           ))}
         </Menu>
       </div>
-      <Hint id={`${id}-hint`} error={error} />
+      <Hint id={`${id}-hint`} error={error} reserve={helperZone} />
     </div>
   );
 }
@@ -304,17 +350,21 @@ export function AutocompleteField({
   value,
   options,
   onChange,
+  onBlur,
   error,
   name,
   autoComplete,
+  helperZone,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (v: string) => void;
+  onBlur?: () => void;
   error?: string;
   name?: string;
   autoComplete?: string;
+  helperZone?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -349,7 +399,10 @@ export function AutocompleteField({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          onBlur={() => setOpen(false)}
+          onBlur={() => {
+            setOpen(false);
+            onBlur?.();
+          }}
           onKeyDown={(e) => {
             if (!showMenu) return;
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -389,7 +442,7 @@ export function AutocompleteField({
           ))}
         </Menu>
       </div>
-      <Hint id={`${id}-hint`} error={error} />
+      <Hint id={`${id}-hint`} error={error} reserve={helperZone} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ScrollUpDock } from "@/components/ScrollUpDock";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -99,12 +100,17 @@ export default function RootLayout({
             stock modal after the page, so the header badge, the catalog
             cards and the product page all talk to one cart. */}
         <CartProvider>
-          <Header />
-          <div className="flex flex-1 flex-col">{children}</div>
-          <Footer />
-          {/* Single travelling scroll-to-top arrow: appears in the corner on
-              scroll, then glides into its footer slot ([data-scrollup-slot]). */}
-          <ScrollUpDock />
+          {/* The account area (Figma «Реєстрація», 4573:36735) is site-wide
+              too: the header «Увійти» pill opens the sign-up / sign-in
+              drawer, the first login shows the welcome modal. */}
+          <AuthProvider>
+            <Header />
+            <div className="flex flex-1 flex-col">{children}</div>
+            <Footer />
+            {/* Single travelling scroll-to-top arrow: appears in the corner on
+                scroll, then glides into its footer slot ([data-scrollup-slot]). */}
+            <ScrollUpDock />
+          </AuthProvider>
         </CartProvider>
       </body>
     </html>

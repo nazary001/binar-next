@@ -7,6 +7,7 @@ import { CatalogMenu } from "./CatalogMenu";
 import { Logo } from "./Logo";
 import { Button } from "./ui/Button";
 import { useCart } from "./cart/CartProvider";
+import { useAuth } from "./auth/AuthProvider";
 import { useFitZoom } from "./cart/useFitZoom";
 
 // Phone menu stack height in the master (3117:13841): py-60 x 2 + label
@@ -188,6 +189,7 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuFit = useFitZoom(MOBILE_MENU_DESIGN_H, MOBILE_HEADER_H, "(max-width: 639px)");
   const { count: cartCount, openCart } = useCart();
+  const { user, openAuth } = useAuth();
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -426,16 +428,24 @@ export function Header() {
               dark «Увійти» pill and the 48-px cart box. Both header
               masters (129:1279 on the 1440 pages, 4329:39832 on the shop
               frames) replaced the old «Отримати пропозицію» CTA with the
-              Button/Small «Увійти» (89 x 42, #1d1d1f, 16/22 medium). The
-              sign-in flow itself (DESIGN SPACE «Sign up» 3396:23690, a
-              576-px drawer in five steps) is not built yet, so the pill
-              is a stub button until the account area lands. */}
+              Button/Small «Увійти» (98 x 42, #1d1d1f, 16/22 medium). The
+              pill opens the account drawer (Figma «Реєстрація»
+              4573:36735); once signed in it reads «Кабінет» and opens
+              the account summary (the masters keep the same header). */}
           <div
             className="flex items-center gap-4"
             onMouseEnter={() => setCatalogOpen(false)}
           >
-            <Button type="button" size="small" aria-label="Увійти до кабінету">
-              Увійти
+            <Button
+              type="button"
+              size="small"
+              onClick={() => {
+                setCatalogOpen(false);
+                openAuth();
+              }}
+              aria-label={user ? "Відкрити особистий кабінет" : "Увійти до кабінету"}
+            >
+              {user ? "Кабінет" : "Увійти"}
             </Button>
             {/* Cart icon-button (Figma 3917:40130): 48-px hit box, 42-px
                 brand circle (r 26) with the white cart glyph, 20-px
@@ -573,6 +583,27 @@ export function Header() {
                 <ArrowUpRight className="size-4 shrink-0" />
               </Link>
             ))}
+            {/* The account entry (the mobile menu master 3117:13841
+                predates the account area; the row keeps the link
+                styling). Closes the menu, then opens the drawer. */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                openAuth();
+              }}
+              style={{
+                transitionDelay: mobileOpen ? `${320 + MOBILE_LINKS.length * 50}ms` : "0ms",
+              }}
+              className={`group/link flex w-full cursor-pointer items-center justify-between gap-4 text-body-sm font-medium text-neutral-700 transition-[color,opacity,transform] duration-300 hover:text-brand active:opacity-70 ${
+                mobileOpen
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-3 opacity-0"
+              }`}
+            >
+              <span>{user ? "Особистий кабінет" : "Увійти"}</span>
+              <ArrowUpRight className="size-4 shrink-0" />
+            </button>
           </div>
 
           <div
