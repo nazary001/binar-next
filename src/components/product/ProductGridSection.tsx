@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { Button } from "@/components/ui/Button";
 import { ProductCard } from "@/components/catalog/ProductCard";
+import { B2BProductCard } from "@/components/catalog/B2BProductCard";
 import type { Product } from "@/components/catalog/data";
 
 // Titled product grid used twice on the product page:
@@ -11,19 +12,29 @@ import type { Product } from "@/components/catalog/data";
 //   plain white, «Переглянути всі» CTA, one row.
 // Rows follow the catalog grid: four cards separated by full-height
 // #d2d2d2 hairlines centred in 80-px gutters, 80 px between rows.
+// `mode="b2b"` is the platform product page (4329:56749 «З цієї серії»,
+// 4329:57767 «Схожі товари в наявності»): B2B cards on the 40 / 32
+// gutters with 64 above and below; the series grid starts 64 under its
+// title row and keeps 64 between rows, the similar-products row 80
+// under its title (`headGap`).
 export function ProductGridSection({
   id,
   title,
   cta,
   products,
   className = "",
+  mode = "b2c",
+  headGap = "md",
 }: {
   id?: string;
   title: string;
   cta: { label: string; href: string };
   products: Product[];
   className?: string;
+  mode?: "b2c" | "b2b";
+  headGap?: "md" | "lg";
 }) {
+  const b2b = mode === "b2b";
   const rows: Product[][] = [];
   for (let i = 0; i < products.length; i += 4) rows.push(products.slice(i, i + 4));
 
@@ -36,7 +47,9 @@ export function ProductGridSection({
       // rule would add a second 96 on top (and beats any layered
       // utility), so the «Схожі товари» jump zeroes the margin inline.
       style={{ scrollMarginTop: 0 }}
-      className={`px-6 py-[60px] sm:px-10 lg-shop-pad-x lg:py-20 ${className}`}
+      className={`px-6 py-[60px] sm:px-10 ${
+        b2b ? "lg:py-16 lg:pl-10 lg:pr-8" : "lg-shop-pad-x lg:py-20"
+      } ${className}`}
     >
       <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <h2 id={`${id ?? "grid"}-title`} className="text-h2 text-neutral-900">
@@ -47,7 +60,11 @@ export function ProductGridSection({
         </Button>
       </div>
 
-      <div className="mt-12 flex flex-col gap-12 lg:mt-20 lg:gap-20">
+      <div
+        className={`mt-12 flex flex-col gap-12 ${
+          b2b ? (headGap === "lg" ? "lg:mt-20" : "lg:mt-16") + " lg:gap-16" : "lg:mt-20 lg:gap-20"
+        }`}
+      >
         {rows.map((row, ri) => (
           <div
             key={ri}
@@ -62,7 +79,7 @@ export function ProductGridSection({
                   />
                 )}
                 <div className="min-w-0 lg:flex-1">
-                  <ProductCard product={product} />
+                  {b2b ? <B2BProductCard product={product} /> : <ProductCard product={product} />}
                 </div>
               </Fragment>
             ))}

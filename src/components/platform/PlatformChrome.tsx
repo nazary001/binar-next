@@ -9,13 +9,14 @@ import { SideMenu } from "./SideMenu";
 
 // Which routes belong to the B2B platform once a partner is signed in
 // (Figma «Каталог :: B2B» 4329:56124: the catalog family in the
-// platform shell - B2B header, side rail, legal bar). Exactly the three
-// listing depths that have a B2B skin (CatalogPageView): /catalog,
-// /catalog/<direction>, /catalog/<direction>/<category>. The product
-// page keeps the public chrome until the «PDP B2B» frames (4329:56628)
-// are built - the shell must never wrap a page that was not adapted.
+// platform shell - B2B header, side rail, legal bar). Exactly the four
+// depths that have a B2B skin: /catalog, /catalog/<direction>,
+// /catalog/<direction>/<category> (CatalogPageView) and the product
+// page /catalog/<direction>/<category>/<product> (ProductPageView, Figma
+// «PDP B2B» 4329:56628). The shell must never wrap a page that was not
+// adapted.
 export function isPlatformRoute(pathname: string): boolean {
-  return /^\/catalog(\/[^/]+){0,2}\/?$/.test(pathname);
+  return /^\/catalog(\/[^/]+){0,3}\/?$/.test(pathname);
 }
 
 // Swaps the marketing chrome (public header, full footer, scroll dock)

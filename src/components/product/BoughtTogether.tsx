@@ -9,6 +9,11 @@ import {
   StatusLine,
 } from "@/components/catalog/ProductCard";
 import { productHref, type Product } from "@/components/catalog/data";
+import {
+  B2BCartButton,
+  B2BPriceAndQty,
+  B2BStatusLine,
+} from "@/components/catalog/B2BProductCard";
 
 // «Купують разом» band (Frame 1010106720, 4329:51391): a #343435 section
 // with 68-px top corners, 80-px gutters, 80 above the H2, 80 between the
@@ -18,20 +23,33 @@ import { productHref, type Product } from "@/components/catalog/data";
 //
 // The two wide cards (735×328) sit either side of a 1-px #8e8e8f rule
 // centred in an 80-px gap.
+// `mode="b2b"` is the platform product page (4329:56682): the band spans
+// the content column beside the side rail on its 40 / 32 gutters with a
+// 64-px rhythm (64 above the H2, 64 to the cards, 136 below = 64 + the
+// 72 the next section overlaps) and B2B wide cards («ваша ціна»).
 export function BoughtTogether({
   items,
+  mode = "b2c",
 }: {
   items: { product: Product; benefits: string[] }[];
+  mode?: "b2c" | "b2b";
 }) {
+  const b2b = mode === "b2b";
   return (
     <section
       aria-labelledby="bought-together-title"
-      className="relative rounded-t-[32px] bg-neutral-800 px-6 pb-[112px] pt-[60px] sm:rounded-t-[48px] sm:px-10 sm:pb-[132px] lg:rounded-t-[68px] lg-shop-pad-x lg:pb-[152px] lg:pt-20"
+      className={`relative rounded-t-[32px] bg-neutral-800 px-6 pb-[112px] pt-[60px] sm:rounded-t-[48px] sm:px-10 sm:pb-[132px] lg:rounded-t-[68px] ${
+        b2b ? "lg:pb-[136px] lg:pl-10 lg:pr-8 lg:pt-16" : "lg-shop-pad-x lg:pb-[152px] lg:pt-20"
+      }`}
     >
       <h2 id="bought-together-title" className="text-h2 text-white">
         Купують разом
       </h2>
-      <div className="mt-12 flex flex-col gap-10 lg:mt-20 lg:flex-row lg:items-stretch lg:gap-[39.5px]">
+      <div
+        className={`mt-12 flex flex-col gap-10 lg:flex-row lg:items-stretch lg:gap-[39.5px] ${
+          b2b ? "lg:mt-16" : "lg:mt-20"
+        }`}
+      >
         {items.map((item, i) => (
           <Fragment key={item.product.id}>
             {i > 0 && (
@@ -40,7 +58,7 @@ export function BoughtTogether({
                 className="h-px w-full shrink-0 bg-neutral-400 lg:h-auto lg:w-px lg:self-stretch"
               />
             )}
-            <WideCard product={item.product} benefits={item.benefits} />
+            <WideCard product={item.product} benefits={item.benefits} b2b={b2b} />
           </Fragment>
         ))}
       </div>
@@ -53,9 +71,17 @@ export function BoughtTogether({
 // Large / white-outlined chips, a disc list of three benefits, and the
 // price row pinned to the bottom (price · hairline · stepper, white
 // cart ring). Everything neutral is white on the dark band.
-function WideCard({ product, benefits }: { product: Product; benefits: string[] }) {
+function WideCard({
+  product,
+  benefits,
+  b2b,
+}: {
+  product: Product;
+  benefits: string[];
+  b2b: boolean;
+}) {
   const [qty, setQty] = useState(1);
-  const out = !product.available;
+  const out = b2b ? Boolean(product.preorder) || !product.available : !product.available;
   const href = productHref(product);
 
   return (
@@ -80,7 +106,11 @@ function WideCard({ product, benefits }: { product: Product; benefits: string[] 
           still share one line. */}
       <div className="@container flex min-w-0 flex-1 flex-col gap-8 text-white">
         <div className="flex flex-col gap-4">
-          <StatusLine out={out} tone="light" />
+          {b2b ? (
+            <B2BStatusLine product={product} tone="light" />
+          ) : (
+            <StatusLine out={out} tone="light" />
+          )}
           <h3 className="text-title-lg text-white">
             <Link href={href}>{product.title}</Link>
           </h3>
@@ -96,15 +126,30 @@ function WideCard({ product, benefits }: { product: Product; benefits: string[] 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-y-3">
           {/* 300-px column at 1440: price 126 + 24·2 + hairline + stepper
               76 + cart 52 = 303, so the gaps drop to 12 below 340. */}
-          <PriceAndQty
-            product={product}
-            qty={qty}
-            onQty={setQty}
-            out={out}
-            tone="light"
-            className="@max-[340px]:gap-3"
-          />
-          <CartButton product={product} out={out} tone="light" qty={qty} />
+          {b2b ? (
+            <>
+              <B2BPriceAndQty
+                product={product}
+                qty={qty}
+                onQty={setQty}
+                tone="light"
+                className="@max-[340px]:gap-3"
+              />
+              <B2BCartButton product={product} qty={qty} tone="light" />
+            </>
+          ) : (
+            <>
+              <PriceAndQty
+                product={product}
+                qty={qty}
+                onQty={setQty}
+                out={out}
+                tone="light"
+                className="@max-[340px]:gap-3"
+              />
+              <CartButton product={product} out={out} tone="light" qty={qty} />
+            </>
+          )}
         </div>
       </div>
     </article>

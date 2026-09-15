@@ -27,8 +27,20 @@ import { b2bPrices, formatPrice, productHref, type Product } from "./data";
 // the negative colour with the photo desaturated and the orders glyph
 // in the cart button - the partner can still order it.
 
-export function B2BStatusLine({ product }: { product: Product }) {
+// `tone="light"` is the dark «Купують разом» band of the product page
+// (4329:56686): the neutral parts turn white, the availability colours
+// stay.
+export type B2BTone = "dark" | "light";
+
+export function B2BStatusLine({
+  product,
+  tone = "dark",
+}: {
+  product: Product;
+  tone?: B2BTone;
+}) {
   const preorder = product.preorder || !product.available;
+  const muted = tone === "light" ? "text-white" : "text-neutral-500";
   if (preorder) {
     return (
       <span className="flex items-center gap-1 whitespace-nowrap text-negative">
@@ -45,12 +57,12 @@ export function B2BStatusLine({ product }: { product: Product }) {
         </span>
         {product.fxPrice && (
           <span aria-hidden className="flex size-3 shrink-0 items-center justify-center">
-            <span className="size-1 rounded-full bg-neutral-500" />
+            <span className={`size-1 rounded-full ${tone === "light" ? "bg-white" : "bg-neutral-500"}`} />
           </span>
         )}
       </span>
       {product.fxPrice && (
-        <span className="flex items-center gap-1 whitespace-nowrap text-neutral-500">
+        <span className={`flex items-center gap-1 whitespace-nowrap ${muted}`}>
           <span className="text-[14px] font-medium uppercase leading-6">
             ціна залежить від курсу
           </span>
@@ -61,9 +73,13 @@ export function B2BStatusLine({ product }: { product: Product }) {
   );
 }
 
-function Caption({ children }: { children: string }) {
+function Caption({ children, tone = "dark" }: { children: string; tone?: B2BTone }) {
   return (
-    <span className="flex items-center gap-1 whitespace-nowrap text-neutral-500">
+    <span
+      className={`flex items-center gap-1 whitespace-nowrap ${
+        tone === "light" ? "text-white" : "text-neutral-500"
+      }`}
+    >
       <span className="text-[14px] font-medium uppercase leading-6">{children}</span>
       <InfoCircleIcon className="size-4 shrink-0" />
     </span>
@@ -114,21 +130,66 @@ export function B2BPriceTile({
 }
 
 // «ваша ціна» caption over the Caption/Large partner price.
-export function B2BYourPrice({ product }: { product: Product }) {
+export function B2BYourPrice({
+  product,
+  tone = "dark",
+}: {
+  product: Product;
+  tone?: B2BTone;
+}) {
   return (
     <span className="flex flex-col justify-center gap-1">
-      <Caption>ваша ціна</Caption>
-      <span className="whitespace-nowrap text-[32px] font-bold leading-7 tracking-[-0.64px] text-neutral-900">
+      <Caption tone={tone}>ваша ціна</Caption>
+      <span
+        className={`whitespace-nowrap text-[32px] font-bold leading-7 tracking-[-0.64px] ${
+          tone === "light" ? "text-white" : "text-neutral-900"
+        }`}
+      >
         {formatPrice(b2bPrices(product).partner)}
       </span>
     </span>
   );
 }
 
+// «ваша ціна» · hairline · stepper - the B2B price cluster shared by the
+// cards, the product page hero (4329:56656) and the dark band.
+export function B2BPriceAndQty({
+  product,
+  qty,
+  onQty,
+  tone = "dark",
+  className = "",
+}: {
+  product: Product;
+  qty: number;
+  onQty: (n: number) => void;
+  tone?: B2BTone;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-6 @max-[300px]:gap-3 ${className}`}>
+      <B2BYourPrice product={product} tone={tone} />
+      <span
+        aria-hidden
+        className={`h-6 w-px shrink-0 ${tone === "light" ? "bg-neutral-400" : "bg-stroke-subtle"}`}
+      />
+      <QtyStepper qty={qty} onQty={onQty} tone={tone} />
+    </div>
+  );
+}
+
 // Outlined 52-px cart button; the whole-card hover fills it brand. A
 // «Під замовлення» product shows the orders glyph instead of the cart
 // and still adds to the cart (the order goes out as a request).
-export function B2BCartButton({ product, qty }: { product: Product; qty: number }) {
+export function B2BCartButton({
+  product,
+  qty,
+  tone = "dark",
+}: {
+  product: Product;
+  qty: number;
+  tone?: B2BTone;
+}) {
   const { add } = useCart();
   const preorder = product.preorder || !product.available;
   return (
@@ -140,30 +201,12 @@ export function B2BCartButton({ product, qty }: { product: Product; qty: number 
           : `Додати «${product.title}» в кошик`
       }
       onClick={() => add(product.id, qty)}
-      className="flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white"
+      className={`flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white ${
+        tone === "light" ? "border-white text-white" : "border-neutral-900 text-neutral-900"
+      }`}
     >
       {preorder ? <PreorderIcon className="size-6" /> : <CartIcon className="size-6" />}
     </button>
-  );
-}
-
-function PriceCluster({
-  product,
-  qty,
-  onQty,
-  className = "",
-}: {
-  product: Product;
-  qty: number;
-  onQty: (n: number) => void;
-  className?: string;
-}) {
-  return (
-    <div className={`flex items-center gap-6 @max-[300px]:gap-3 ${className}`}>
-      <B2BYourPrice product={product} />
-      <span aria-hidden className="h-6 w-px shrink-0 bg-stroke-subtle" />
-      <QtyStepper qty={qty} onQty={onQty} />
-    </div>
   );
 }
 
@@ -199,7 +242,7 @@ export function B2BProductCard({ product }: { product: Product }) {
         </div>
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-y-3">
-          <PriceCluster product={product} qty={qty} onQty={setQty} />
+          <B2BPriceAndQty product={product} qty={qty} onQty={setQty} />
           <B2BCartButton product={product} qty={qty} />
         </div>
       </div>
@@ -241,14 +284,14 @@ export function B2BProductRow({ product }: { product: Product }) {
             </div>
 
             <div className="hidden items-center gap-8 sm:flex">
-              <PriceCluster product={product} qty={qty} onQty={setQty} />
+              <B2BPriceAndQty product={product} qty={qty} onQty={setQty} />
               <B2BCartButton product={product} qty={qty} />
             </div>
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 sm:hidden">
-          <PriceCluster product={product} qty={qty} onQty={setQty} />
+          <B2BPriceAndQty product={product} qty={qty} onQty={setQty} />
           <B2BCartButton product={product} qty={qty} />
         </div>
       </div>

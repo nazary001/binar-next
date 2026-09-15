@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCart } from "@/components/cart/CartProvider";
 import { PriceAndQty, SaleChip, StatusLine } from "@/components/catalog/ProductCard";
+import { B2BPriceAndQty, B2BStatusLine } from "@/components/catalog/B2BProductCard";
 import type { Product } from "@/components/catalog/data";
 import type { ProductDetails } from "./data";
 import { SpecTable } from "./SpecTable";
@@ -212,25 +213,37 @@ function DeliveryPanel({ details }: { details: ProductDetails }) {
   );
 }
 
+// `mode="b2b"` is the platform product page (Figma «PDP B2B» 4329:56628):
+// the info column is 827 wide beside the 627 photo (1534 content), the
+// status line carries the B2B states, the price row is «ваша ціна» ·
+// hairline · stepper (4329:56656) and a «Під замовлення» product offers
+// only «Схожі товари» (4329:57756); the block closes with 64 instead of 80.
 export function ProductView({
   product,
   details,
+  mode = "b2c",
 }: {
   product: Product;
   details: ProductDetails;
+  mode?: "b2c" | "b2b";
 }) {
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<TabId>("description");
-  const out = !product.available;
+  const b2b = mode === "b2b";
+  const out = b2b ? Boolean(product.preorder) || !product.available : !product.available;
   const { add } = useCart();
 
   return (
-    <div className="grid gap-10 pb-[60px] lg:grid-cols-[627fr_843fr] lg:gap-20 lg:pb-20">
+    <div
+      className={`grid gap-10 pb-[60px] lg:gap-20 ${
+        b2b ? "lg:grid-cols-[627fr_827fr] lg:pb-16" : "lg:grid-cols-[627fr_843fr] lg:pb-20"
+      }`}
+    >
       <Gallery product={product} images={details.images} out={out} />
 
       <div className="@container flex min-w-0 flex-col">
         <div className="flex flex-col gap-6">
-          <StatusLine out={out} />
+          {b2b ? <B2BStatusLine product={product} /> : <StatusLine out={out} />}
           {/* Price row (4329:51368): price · hairline · stepper on the
               left, the CTA pair on the right. Out of stock (4329:51795)
               swaps the pair for a single «Схожі товари» button that
@@ -242,13 +255,22 @@ export function ProductView({
               tightens every gap to 12 and, if it still has to wrap, the
               CTAs drop to a second line kept flush right. */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-4 @max-[720px]:gap-x-3">
-            <PriceAndQty
-              product={product}
-              qty={qty}
-              onQty={setQty}
-              out={out}
-              className="@max-[720px]:gap-3"
-            />
+            {b2b ? (
+              <B2BPriceAndQty
+                product={product}
+                qty={qty}
+                onQty={setQty}
+                className="@max-[720px]:gap-3"
+              />
+            ) : (
+              <PriceAndQty
+                product={product}
+                qty={qty}
+                onQty={setQty}
+                out={out}
+                className="@max-[720px]:gap-3"
+              />
+            )}
             {out ? (
               <Button href="#similar" size="responsive" className="ml-auto">
                 Схожі товари

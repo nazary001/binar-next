@@ -29,6 +29,10 @@ export const EXTRA_PRODUCTS: Product[] = [
     subcategory: "Готельні тапочки",
     price: 120.05,
     available: true,
+    // The B2B band (4329:56686) draws this card with «ціна залежить від
+    // курсу»; its partner price is the list price there.
+    fxPrice: true,
+    partnerPrice: 120.05,
   },
   {
     id: "robe-1",
