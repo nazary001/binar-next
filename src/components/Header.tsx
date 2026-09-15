@@ -108,7 +108,7 @@ function CartIcon() {
 
 // The header cart button: the 42-px brand disc inside a 48-px hit box
 // with the count badge (hidden while the cart is empty).
-function CartTrigger({ count, onOpen }: { count: number; onOpen: () => void }) {
+export function CartTrigger({ count, onOpen }: { count: number; onOpen: () => void }) {
   return (
     <button
       type="button"

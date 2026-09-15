@@ -10,6 +10,7 @@ import {
 } from "react";
 import { FiltersDrawer, type FilterSection } from "./FiltersDrawer";
 import { ProductCard, ProductRow } from "./ProductCard";
+import { B2BProductCard, B2BProductRow } from "./B2BProductCard";
 import {
   CardViewIcon,
   ChevronDown16,
@@ -22,6 +23,7 @@ import {
 import {
   BRANDS,
   CATALOG_DIRECTIONS,
+  MOCK_ASSORTMENT,
   PAGE_SIZES,
   PRODUCTS,
   SORT_OPTIONS,
@@ -150,13 +152,21 @@ function TextDropdown<T extends string | number>({
 // «Категорія» 3685:48403) pins the listing to ONE subcategory — the
 // page itself is the filter, so ?sub= params are ignored there and
 // only the brand filter remains interactive.
+// `mode="b2b"` is the signed-in platform listing (Figma «Каталог ::
+// B2B» 4329:56124): B2B cards with the wholesale / retail / partner
+// prices, the light #e8e8e9 view switcher, rows 112 px apart on a
+// 32-px block padding, and the «Мій асортимент» toggle (?mine=1)
+// narrowing the pool to the company's assortment.
 export function CatalogClient({
   direction,
   fixedSubcategory,
+  mode = "b2c",
 }: {
   direction?: CatalogDirection;
   fixedSubcategory?: string;
+  mode?: "b2c" | "b2b";
 }) {
+  const b2b = mode === "b2b";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -184,6 +194,7 @@ export function CatalogClient({
     [searchParams],
   );
   const hasFilters = activeSubs.length > 0 || activeBrands.length > 0;
+  const mine = b2b && searchParams.get("mine") === "1";
 
   // A filter change (menu deep-link, chip removal, brand toggle) resets
   // pagination — render-phase adjustment, same pattern as Header.
@@ -198,6 +209,7 @@ export function CatalogClient({
     const params = new URLSearchParams();
     subs.forEach((s) => params.append("sub", s));
     brands.forEach((b) => params.append("brand", b));
+    if (mine) params.set("mine", "1");
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
@@ -261,6 +273,7 @@ export function CatalogClient({
     if (fixedSubcategory) {
       base = base.filter((p) => p.subcategory === fixedSubcategory);
     }
+    if (mine) base = base.filter((p) => MOCK_ASSORTMENT.has(p.id));
     if (activeSubs.length > 0) {
       base = base.filter((p) => activeSubs.includes(p.subcategory));
     }
@@ -275,7 +288,7 @@ export function CatalogClient({
       return [...base].sort((a, b) => a.price - b.price);
     }
     return base;
-  }, [query, sort, activeSubs, activeBrands, directionSubs, fixedSubcategory]);
+  }, [query, sort, activeSubs, activeBrands, directionSubs, fixedSubcategory, mine]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
@@ -315,7 +328,7 @@ export function CatalogClient({
       {/* === Search row (Figma 3677:39763): the field spans exactly one
           banner column; the icon controls sit at the right edge. === */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative w-full lg:w-[calc((100%-64px)/3)]">
+        <div className={`relative w-full ${b2b ? "lg:w-[495px]" : "lg:w-[calc((100%-64px)/3)]"}`}>
           <input
             type="search"
             value={query}
@@ -333,14 +346,25 @@ export function CatalogClient({
         <div className="flex items-center gap-4">
           {/* Card/list view switch — a black 32-px-radius pill holding two
               52-px icon buttons; the active one fills brand-orange. */}
-          <div className="flex items-center rounded-[32px] bg-neutral-900">
+          {/* The B2B «Switcher» (3917:35178) is the light #e8e8e9 pill
+              with dark inactive glyphs; the B2C one is black with white
+              glyphs. The active button fills brand in both. */}
+          <div
+            className={`flex items-center rounded-[32px] ${
+              b2b ? "bg-[#e8e8e9]" : "bg-neutral-900"
+            }`}
+          >
             <button
               type="button"
               aria-label="Вид картками"
               aria-pressed={view === "cards"}
               onClick={() => setView("cards")}
-              className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] text-white transition-colors duration-200 ${
-                view === "cards" ? "bg-brand" : "hover:text-white/70"
+              className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] transition-colors duration-200 ${
+                view === "cards"
+                  ? "bg-brand text-white"
+                  : b2b
+                    ? "text-neutral-900 hover:text-brand"
+                    : "text-white hover:text-white/70"
               }`}
             >
               <CardViewIcon className="size-6" />
@@ -350,8 +374,12 @@ export function CatalogClient({
               aria-label="Вид списком"
               aria-pressed={view === "list"}
               onClick={() => setView("list")}
-              className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] text-white transition-colors duration-200 ${
-                view === "list" ? "bg-brand" : "hover:text-white/70"
+              className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] transition-colors duration-200 ${
+                view === "list"
+                  ? "bg-brand text-white"
+                  : b2b
+                    ? "text-neutral-900 hover:text-brand"
+                    : "text-white hover:text-white/70"
               }`}
             >
               <ListViewIcon className="size-6" />
@@ -446,23 +474,35 @@ export function CatalogClient({
           80-px gutters with 80 px between rows; the list view stacks
           full-width horizontal cards, each closed by a #d2d2d2
           hairline. Pagination sits centred 80 px below either. === */}
+      {/* B2B («Напрям» 4329:56219): the toolbar block ends 32 px under
+          the results row and the grid block opens with 32 px, rows sit
+          112 px apart and the pager 80 px under the last row, with no
+          extra bottom padding (the page block carries the 32). */}
       <div
         ref={gridTopRef}
-        className="flex scroll-mt-[96px] flex-col gap-12 pb-[60px] pt-12 lg:gap-20 lg:pb-20 lg:pt-20"
+        className={`flex scroll-mt-[96px] flex-col gap-12 pt-12 lg:gap-20 ${
+          b2b ? "pb-0 lg:pt-16" : "pb-[60px] lg:pb-20 lg:pt-20"
+        }`}
       >
         {paged.length === 0 ? (
           <p className="text-body-md text-neutral-500">
-            За запитом нічого не знайдено. Спробуйте змінити пошук або
-            фільтри.
+            {mine
+              ? "У вашому асортименті поки немає товарів із цього розділу."
+              : "За запитом нічого не знайдено. Спробуйте змінити пошук або фільтри."}
           </p>
         ) : view === "list" ? (
           <div className="flex flex-col">
-            {paged.map((product: Product, i) => (
-              <ProductRow key={`${product.id}-${i}`} product={product} />
-            ))}
+            {paged.map((product: Product, i) =>
+              b2b ? (
+                <B2BProductRow key={`${product.id}-${i}`} product={product} />
+              ) : (
+                <ProductRow key={`${product.id}-${i}`} product={product} />
+              ),
+            )}
           </div>
         ) : (
-          rows.map((row, ri) => (
+          <div className={`flex flex-col gap-12 ${b2b ? "lg:gap-[112px]" : "lg:gap-20"}`}>
+          {rows.map((row, ri) => (
             <div
               key={`${current}-${ri}`}
               className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:flex lg:gap-[39.5px]"
@@ -476,7 +516,11 @@ export function CatalogClient({
                     />
                   )}
                   <div className="min-w-0 lg:flex-1">
-                    <ProductCard product={product} />
+                    {b2b ? (
+                      <B2BProductCard product={product} />
+                    ) : (
+                      <ProductCard product={product} />
+                    )}
                   </div>
                 </Fragment>
               ))}
@@ -490,7 +534,8 @@ export function CatalogClient({
                   </Fragment>
                 ))}
             </div>
-          ))
+          ))}
+          </div>
         )}
 
         {pages > 1 && (

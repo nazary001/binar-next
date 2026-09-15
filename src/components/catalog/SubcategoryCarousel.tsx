@@ -11,10 +11,15 @@ import { categoryHref, type CatalogDirection } from "./data";
 // paged by two 40-px ghost chevron buttons that sit in the side
 // gutters, vertically centred on the row. Each card deep-links into
 // this direction's catalog with its subcategory pre-applied.
+// `pagers="inline"` is the B2B platform flavour (4329:56236): the two
+// 40-px chevrons sit in the flow, 8 px either side of the clipped
+// track, instead of hanging in the page gutters.
 export function SubcategoryCarousel({
   direction,
+  pagers = "gutter",
 }: {
   direction: CatalogDirection;
+  pagers?: "gutter" | "inline";
 }) {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [canPrev, setCanPrev] = useState(false);
@@ -47,13 +52,31 @@ export function SubcategoryCarousel({
     });
   };
 
+  const inline = pagers === "inline";
+  const pagerClass = inline
+    ? "hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400 lg:flex"
+    : "absolute top-1/2 hidden size-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400 lg:flex";
+
   return (
-    <div className="relative">
+    <div className={inline ? "flex items-center gap-2" : "relative"}>
+      {inline && (
+        <button
+          type="button"
+          aria-label="Попередні підкатегорії"
+          disabled={!canPrev}
+          onClick={() => scrollByCard(-1)}
+          className={pagerClass}
+        >
+          <ChevronSideIcon className="size-6" />
+        </button>
+      )}
       <div
         ref={trackRef}
         onScroll={updateArrows}
         aria-label={`Підкатегорії: ${direction.title}`}
-        className="flex snap-x snap-mandatory gap-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] lg:gap-8 [&::-webkit-scrollbar]:hidden"
+        className={`flex snap-x snap-mandatory gap-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] lg:gap-8 [&::-webkit-scrollbar]:hidden ${
+          inline ? "min-w-0 flex-1" : ""
+        }`}
       >
         {direction.carousel.map((card) => (
           <ZoneCard
@@ -72,21 +95,23 @@ export function SubcategoryCarousel({
           side gutters (16 px off the content edge, centred on the row),
           per the «Напрям» frame. Desktop-only: below lg the gutters are
           too narrow and the row swipes natively. */}
-      <button
-        type="button"
-        aria-label="Попередні підкатегорії"
-        disabled={!canPrev}
-        onClick={() => scrollByCard(-1)}
-        className="absolute left-[-56px] top-1/2 hidden size-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400 lg:flex"
-      >
-        <ChevronSideIcon className="size-6" />
-      </button>
+      {!inline && (
+        <button
+          type="button"
+          aria-label="Попередні підкатегорії"
+          disabled={!canPrev}
+          onClick={() => scrollByCard(-1)}
+          className={`${pagerClass} left-[-56px]`}
+        >
+          <ChevronSideIcon className="size-6" />
+        </button>
+      )}
       <button
         type="button"
         aria-label="Наступні підкатегорії"
         disabled={!canNext}
         onClick={() => scrollByCard(1)}
-        className="absolute right-[-56px] top-1/2 hidden size-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:text-neutral-400 lg:flex"
+        className={`${pagerClass} ${inline ? "" : "right-[-56px]"}`}
       >
         <ChevronSideIcon mirrored className="size-6" />
       </button>

@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { ScrollUpDock } from "@/components/ScrollUpDock";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { PlatformChrome } from "@/components/platform/PlatformChrome";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -104,12 +105,24 @@ export default function RootLayout({
               too: the header «Увійти» pill opens the sign-up / sign-in
               drawer, the first login shows the welcome modal. */}
           <AuthProvider>
-            <Header />
-            <div className="flex flex-1 flex-col">{children}</div>
-            <Footer />
-            {/* Single travelling scroll-to-top arrow: appears in the corner on
-                scroll, then glides into its footer slot ([data-scrollup-slot]). */}
-            <ScrollUpDock />
+            {/* Signed-in partners see the catalog inside the B2B platform
+                shell (Figma «Каталог :: B2B» 4329:56124): PlatformChrome
+                swaps the public header, footer and scroll dock for the
+                platform header, side rail and legal bar on those routes. */}
+            <PlatformChrome
+              header={<Header />}
+              footer={
+                <>
+                  <Footer />
+                  {/* Single travelling scroll-to-top arrow: appears in the
+                      corner on scroll, then glides into its footer slot
+                      ([data-scrollup-slot]). */}
+                  <ScrollUpDock />
+                </>
+              }
+            >
+              {children}
+            </PlatformChrome>
           </AuthProvider>
         </CartProvider>
       </body>

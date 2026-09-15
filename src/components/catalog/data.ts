@@ -28,6 +28,9 @@ export type CatalogDirection = {
   slug: string;
   icon: string;
   title: string;
+  // One-line subtitle under the direction title on the B2B platform
+  // page (Figma «Напрям» 4329:56219 shows «Lorem ipsum» there).
+  tagline: string;
   links: string[];
   // Product-type chips shown in the hover panel over the /catalog
   // banners («Каталог :: ховер на напрям», 3677:42133). The hotels
@@ -220,6 +223,7 @@ export const CATALOG_DIRECTIONS: CatalogDirection[] = [
     slug: "hotels",
     icon: "/figma-export/catalog/icon-hotels.svg",
     title: "Усе для готелів",
+    tagline: "Косметика, текстиль, аксесуари та обладнання для номерного фонду",
     links: [
       "Ванна кімната",
       "Засоби індивідуального захисту",
@@ -258,6 +262,7 @@ export const CATALOG_DIRECTIONS: CatalogDirection[] = [
     slug: "protect",
     icon: "/figma-export/catalog/icon-protect.svg",
     title: "Засоби індивідуального захисту",
+    tagline: "Захист персоналу для виробництв, медицини, HoReCa та складів",
     links: PROTECT_LINKS,
     panelItems: PROTECT_CAROUSEL.map((c) => c.label),
     carousel: PROTECT_CAROUSEL,
@@ -269,6 +274,7 @@ export const CATALOG_DIRECTIONS: CatalogDirection[] = [
     slug: "cleaning",
     icon: "/figma-export/catalog/icon-cleaning.svg",
     title: "Засоби та інвентар для прибирання",
+    tagline: "Хімія, інвентар та витратні матеріали для професійного клінінгу",
     links: CLEANING_LINKS,
     panelItems: CLEANING_CAROUSEL.map((c) => c.label),
     carousel: CLEANING_CAROUSEL,
@@ -328,6 +334,17 @@ export type Product = {
   // Chip labels on the cards; defaults to [volume, brand] when absent
   // (the «Купують разом» textile cards show material + feature chips).
   chips?: string[];
+  // B2B platform prices (Figma «B2B :: Product card» 4185:28174): the
+  // wholesale / retail pair in the grey tile and the account's own
+  // «ваша ціна». `price` doubles as the wholesale price.
+  retailPrice?: number;
+  partnerPrice?: number;
+  // «ціна залежить від курсу» (USD-EUR variant 4186:33085).
+  fxPrice?: boolean;
+  // «Під замовлення» (disabled variant 4185:28255): not in stock, but
+  // a partner can still order it - the card swaps the cart glyph for
+  // the orders one.
+  preorder?: boolean;
 };
 
 // Filterable placeholder attributes. The manufacturer list is verbatim
@@ -384,6 +401,8 @@ export const PRODUCTS: Product[] = Array.from({ length: 132 }, (_, i) => {
       ? TAXONOMY_SUBS[i % TAXONOMY_SUBS.length]
       : OTHER_SUBS[j % OTHER_SUBS.length],
     price: 31.65,
+    retailPrice: 36,
+    partnerPrice: 28.99,
     available: true,
   };
 });
@@ -394,8 +413,32 @@ export const PRODUCTS: Product[] = Array.from({ length: 132 }, (_, i) => {
 // в наявності», 4329:51763). The catalog card already renders both.
 // The master's literals are 24,50 / 31,65 / «-25%» (the designer's
 // rounding - the prices compute to 22.6 %), so the label is pinned.
-PRODUCTS[1] = { ...PRODUCTS[1], price: 24.5, oldPrice: 31.65, discount: 25 };
-PRODUCTS[2] = { ...PRODUCTS[2], available: false };
+PRODUCTS[1] = { ...PRODUCTS[1], price: 24.5, oldPrice: 31.65, discount: 25, fxPrice: true };
+PRODUCTS[2] = { ...PRODUCTS[2], available: false, preorder: true };
+// The B2B «Напрям» frame (4329:56219) shows the fourth card «Під
+// замовлення» too.
+PRODUCTS[3] = { ...PRODUCTS[3], preorder: true };
+
+// B2B prices of a product: wholesale = the catalog price, the retail
+// and partner prices default to the master's 36,00 / 28,99 ratios.
+export function b2bPrices(p: Product): { wholesale: number; retail: number; partner: number } {
+  // A B2C promotion does not touch the wholesale list: the regular
+  // (pre-sale) price is the wholesale one.
+  const list = p.oldPrice ?? p.price;
+  return {
+    wholesale: list,
+    retail: p.retailPrice ?? Math.round(list * 1.1374 * 100) / 100,
+    partner: p.partnerPrice ?? Math.round(list * 0.916 * 100) / 100,
+  };
+}
+
+// «Мій асортимент» (4329:56235) narrows the listing to what the company
+// buys. There are no orders yet, so the placeholder assortment is the
+// first product of every taxonomy subcategory - enough to demo the
+// toggle until the CRM feeds the real list per account.
+export const MOCK_ASSORTMENT: ReadonlySet<string> = new Set(
+  PRODUCTS.filter((_, i) => i < TAXONOMY_SUBS.length).map((p) => p.id),
+);
 
 export const SORT_OPTIONS = [
   "за популярністю",

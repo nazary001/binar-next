@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Suspense } from "react";
-import { CatalogClient } from "@/components/catalog/CatalogClient";
-import { CategoryBanners } from "@/components/catalog/CategoryBanners";
-import { ArrowBack } from "@/components/catalog/icons";
+import { CatalogPageView } from "@/components/catalog/CatalogPageView";
 
 export const metadata: Metadata = {
   title: "Каталог",
@@ -27,41 +23,8 @@ export const metadata: Metadata = {
 // gutters that only grow past 1710 to keep the 1550 column centred),
 // not `.lg-pad-x`, and every row (banners, search, 4-up product grid)
 // stretches between the gutters while type stays at Figma px.
+//
+// Signed-in partners get the B2B skin instead (CatalogPageView).
 export default function CatalogPage() {
-  return (
-    <div className="px-6 sm:px-10 lg-shop-pad-x">
-      <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
-        {/* Breadcrumb — the same Back-button recipe as the blog article
-            hero (shared Figma component 2670:6334). */}
-        <div className="flex flex-wrap items-center gap-4">
-          <Link href="/" className="group flex items-center gap-4">
-            <span className="flex size-[40px] shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white">
-              <ArrowBack className="w-[20px]" />
-            </span>
-            <span className="text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-800 transition-colors duration-300 group-hover:text-brand lg:text-[18px] lg:tracking-[0.18px]">
-              Головна
-            </span>
-          </Link>
-          <span className="text-[18px] font-semibold leading-[22px] text-stroke-subtle">
-            /
-          </span>
-          <span className="text-button-md text-brand">Каталог</span>
-        </div>
-
-        <h1 className="text-h1 text-neutral-900">Каталог</h1>
-      </section>
-
-      <section className="mt-12 lg:mt-20">
-        <CategoryBanners />
-      </section>
-
-      <section className="mt-[60px] lg:mt-[148px]">
-        {/* CatalogClient reads the ?sub/?brand filters via
-            useSearchParams, which requires a Suspense boundary. */}
-        <Suspense>
-          <CatalogClient />
-        </Suspense>
-      </section>
-    </div>
-  );
+  return <CatalogPageView page={{ kind: "root" }} />;
 }
