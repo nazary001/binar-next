@@ -13,10 +13,11 @@ import { SideMenu } from "./SideMenu";
 // depths that have a B2B skin: /catalog, /catalog/<direction>,
 // /catalog/<direction>/<category> (CatalogPageView) and the product
 // page /catalog/<direction>/<category>/<product> (ProductPageView, Figma
-// «PDP B2B» 4329:56628). The shell must never wrap a page that was not
-// adapted.
+// «PDP B2B» 4329:56628), plus the cabinet pages (/orders, «Мої
+// Замовлення» 4573:37243). The shell must never wrap a page that was
+// not adapted.
 export function isPlatformRoute(pathname: string): boolean {
-  return /^\/catalog(\/[^/]+){0,3}\/?$/.test(pathname);
+  return /^\/catalog(\/[^/]+){0,3}\/?$/.test(pathname) || /^\/orders\/?$/.test(pathname);
 }
 
 // Swaps the marketing chrome (public header, full footer, scroll dock)

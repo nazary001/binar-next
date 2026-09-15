@@ -9,10 +9,10 @@ import { CatalogueIcon, DashboardIcon, MaterialsIcon, OrdersIcon } from "./icons
 // «Side menu» — Figma 4328:30586 on the B2B frames: a 104-px rail
 // (px-16 py-32) of 72-px items 32 px apart, each a 40-px icon tile (p-8,
 // r12; the active one fills brand with a white glyph) over a 10-px
-// SemiBold #777779 label. Only «Каталог» has pages on the site today:
-// «Дашборд» opens the account summary, «Замовлення» and «Матеріали»
-// wait for their sections. Below lg the rail becomes a horizontal
-// strip under the header.
+// SemiBold #777779 label. «Каталог» and «Замовлення» have pages;
+// «Дашборд» opens the account summary and «Матеріали» waits for its
+// section. Below lg the rail becomes a horizontal strip under the
+// header.
 type Item = {
   key: string;
   label: string;
@@ -24,7 +24,7 @@ type Item = {
 const ITEMS: Item[] = [
   { key: "dashboard", label: "Дашборд", Icon: DashboardIcon, action: "account" },
   { key: "catalog", label: "Каталог", Icon: CatalogueIcon, href: "/catalog" },
-  { key: "orders", label: "Замовлення", Icon: OrdersIcon },
+  { key: "orders", label: "Замовлення", Icon: OrdersIcon, href: "/orders" },
   { key: "materials", label: "Матеріали", Icon: MaterialsIcon },
 ];
 
