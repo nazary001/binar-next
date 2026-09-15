@@ -474,14 +474,20 @@ export function CatalogClient({
           80-px gutters with 80 px between rows; the list view stacks
           full-width horizontal cards, each closed by a #d2d2d2
           hairline. Pagination sits centred 80 px below either. === */}
-      {/* B2B («Напрям» 4329:56219): the toolbar block ends 32 px under
-          the results row and the grid block opens with 32 px, rows sit
-          112 px apart and the pager 80 px under the last row, with no
-          extra bottom padding (the page block carries the 32). */}
+      {/* B2B («Напрям» 4329:56219 / «Каталог :: список» 4329:56549): the
+          toolbar block ends 32 px under the results row; the grid block
+          opens with 32 px (rows 80 apart, the pager 80 under the last
+          row, 32 at the bottom - carried by the page block), the list
+          block with 80 (rows of 224, the pager 80 under, 80 at the
+          bottom). */}
       <div
         ref={gridTopRef}
         className={`flex scroll-mt-[96px] flex-col gap-12 pt-12 lg:gap-20 ${
-          b2b ? "pb-0 lg:pt-16" : "pb-[60px] lg:pb-20 lg:pt-20"
+          b2b
+            ? view === "list"
+              ? "pb-0 lg:pb-12 lg:pt-28"
+              : "pb-0 lg:pt-16"
+            : "pb-[60px] lg:pb-20 lg:pt-20"
         }`}
       >
         {paged.length === 0 ? (
@@ -501,7 +507,7 @@ export function CatalogClient({
             )}
           </div>
         ) : (
-          <div className={`flex flex-col gap-12 ${b2b ? "lg:gap-[112px]" : "lg:gap-20"}`}>
+          <div className="flex flex-col gap-12 lg:gap-20">
           {rows.map((row, ri) => (
             <div
               key={`${current}-${ri}`}

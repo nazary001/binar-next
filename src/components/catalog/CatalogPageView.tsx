@@ -154,14 +154,14 @@ function PlatformTitle({
   title,
   tagline,
 }: {
-  crumb: ReactNode;
+  crumb: ReactNode | null;
   title: string;
   tagline?: string;
 }) {
   return (
     <section className="flex flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:gap-[10px] lg:py-8 lg:pl-10 lg:pr-8">
       <div className="flex min-w-0 flex-1 flex-col gap-6">
-        <div className="flex flex-wrap items-center gap-4">{crumb}</div>
+        {crumb && <div className="flex flex-wrap items-center gap-4">{crumb}</div>}
         <div className="flex flex-col gap-2">
           <h1 className="text-[32px] font-bold leading-9 tracking-[-0.64px] text-neutral-900 lg:text-[44px] lg:leading-[48px] lg:tracking-[-0.88px]">
             {title}
@@ -180,14 +180,12 @@ function PlatformView({ page }: { page: PageKind }) {
   const dir = page.kind === "root" ? undefined : page.dir;
   const card = page.kind === "category" ? page.card : undefined;
 
+  // Crumbs per frame: the root («Каталог :: картки товарів» 4329:56125)
+  // has none (144-px title block), the direction (4329:56219) goes
+  // «До каталогу / <напрям>», the category (4329:56314) «До каталогу /
+  // <напрям> / <категорія>».
   const crumb =
-    page.kind === "root" ? (
-      <>
-        <BackCrumb href="/" label="Головна" />
-        <Slash />
-        <Current label="Каталог" />
-      </>
-    ) : page.kind === "direction" ? (
+    page.kind === "root" ? null : page.kind === "direction" ? (
       <>
         <BackCrumb href="/catalog" label="До каталогу" />
         <Slash />
@@ -195,7 +193,9 @@ function PlatformView({ page }: { page: PageKind }) {
       </>
     ) : (
       <>
-        <BackCrumb href={directionCatalogHref(page.dir)} label={page.dir.title} />
+        <BackCrumb href="/catalog" label="До каталогу" />
+        <Slash />
+        <Crumb href={directionCatalogHref(page.dir)} label={page.dir.title} />
         <Slash />
         <Current label={page.card.label} />
       </>
@@ -215,7 +215,7 @@ function PlatformView({ page }: { page: PageKind }) {
 
       {page.kind === "root" && (
         <section className="px-6 py-6 lg:py-8 lg:pl-10 lg:pr-8">
-          <CategoryBanners />
+          <CategoryBanners gap="b2b" />
         </section>
       )}
       {page.kind === "direction" && (
@@ -225,7 +225,8 @@ function PlatformView({ page }: { page: PageKind }) {
       )}
       {page.kind === "category" && (
         <section className="px-6 py-6 lg:py-8 lg:pl-10 lg:pr-8">
-          <div className="relative h-[240px] w-full overflow-clip rounded-[32px] sm:h-[320px] lg:h-[480px] lg:rounded-[40px]">
+          {/* «Категорія» 4329:56334: the 1534 x 640 rounded-40 hero. */}
+          <div className="relative h-[240px] w-full overflow-clip rounded-[32px] sm:h-[320px] lg:h-[640px] lg:rounded-[40px]">
             {page.card.bg && <span aria-hidden className="absolute inset-0" style={{ background: page.card.bg }} />}
             <img src={page.card.image} alt={page.card.label} fetchPriority="high" decoding="async" className="absolute inset-0 size-full object-cover" />
           </div>

@@ -44,7 +44,10 @@ function measurePanelH(panelEl: HTMLDivElement | null): number | undefined {
   return inner.getBoundingClientRect().height / zoom;
 }
 
-export function CategoryBanners() {
+// `gap="b2b"`: the platform frames (4329:56141) space the three 494-px
+// banners 26 px apart on the 1534-px content column; the public page
+// keeps 32 on its 1550 column.
+export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
   const [active, setActive] = useState<CatalogDirection | null>(null);
   // Keep the LAST hovered direction around even when active goes back
   // to null, so the panel content stays correct during the fade-out.
@@ -170,7 +173,12 @@ export function CategoryBanners() {
   }, [active]);
 
   return (
-    <div ref={rowRef} className="relative flex flex-col gap-6 lg:flex-row lg:gap-8">
+    <div
+      ref={rowRef}
+      className={`relative flex flex-col gap-6 lg:flex-row ${
+        gap === "b2b" ? "lg:gap-[26px]" : "lg:gap-8"
+      }`}
+    >
       {CATALOG_DIRECTIONS.map((dir) => (
         <ZoneCard
           key={dir.slug}
