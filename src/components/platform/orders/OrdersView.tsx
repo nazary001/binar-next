@@ -394,7 +394,8 @@ export function OrdersView() {
 
   const rangeLabel = formatRange(periodStart(period, ORDERS_TODAY), ORDERS_TODAY);
 
-  if (!user) {
+  // Visitors and B2C customers: the orders belong to the partner cabinet.
+  if (user?.type !== "b2b") {
     return (
       <div className="flex flex-col items-start gap-6 px-6 py-12 lg:py-20 lg:pl-10 lg:pr-8">
         <h1 className="text-[32px] font-bold leading-9 tracking-[-0.64px] text-neutral-900 lg:text-[44px] lg:leading-[48px] lg:tracking-[-0.88px]">
@@ -404,7 +405,7 @@ export function OrdersView() {
           Історія замовлень доступна в особистому кабінеті бізнес-клієнта.
         </p>
         <Button type="button" size="responsive" onClick={() => openAuth()}>
-          Увійти
+          {user ? "Кабінет" : "Увійти"}
         </Button>
       </div>
     );

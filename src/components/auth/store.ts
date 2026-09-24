@@ -25,6 +25,12 @@ function isAccount(value: unknown): value is Account {
   );
 }
 
+// Accounts saved before the B2B / B2C split came from the company
+// registration, so they are partners.
+function withType(a: Account): Account {
+  return a.type === "b2b" || a.type === "b2c" ? a : { ...a, type: "b2b" };
+}
+
 function readStorage(): AuthState {
   try {
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -32,7 +38,7 @@ function readStorage(): AuthState {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return EMPTY_STATE;
     const { accounts, sessionId } = parsed as Partial<AuthState>;
-    const valid = Array.isArray(accounts) ? accounts.filter(isAccount) : [];
+    const valid = Array.isArray(accounts) ? accounts.filter(isAccount).map(withType) : [];
     const session =
       typeof sessionId === "string" && valid.some((a) => a.id === sessionId) ? sessionId : null;
     return valid.length || session ? { accounts: valid, sessionId: session } : EMPTY_STATE;

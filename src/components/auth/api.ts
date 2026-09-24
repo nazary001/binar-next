@@ -9,7 +9,8 @@
 //   signIn        -> login + password
 //   resetPassword -> new password after a verified code
 // The mock accepts ANY complete 4-digit code (nothing is sent), stores
-// passwords as SHA-256 digests and keeps everything in localStorage.
+// passwords as SHA-256 digests and keeps everything in localStorage;
+// the shared demo accounts (demo.ts) sign in on any device.
 import {
   CODE_LENGTH,
   CODE_TTL_SECONDS,
@@ -18,6 +19,7 @@ import {
   type CompanyData,
   type PersonData,
 } from "./data";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, isDemoAccount } from "./demo";
 import { currentAccount, getSnapshot, updateState } from "./store";
 
 const LATENCY_MS = 450;
@@ -43,11 +45,21 @@ function newId() {
     : `acc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// The device's own accounts first (a demo account keeps its local copy
+// once it has signed in here), then the shared demo accounts.
 function findByLogin(login: string): Account | undefined {
   const key = phoneDigits(login) || login.trim().toLowerCase();
-  return getSnapshot().accounts.find(
-    (a) => a.login === key || a.phone === key || a.person.email.toLowerCase() === key,
-  );
+  const matches = (a: Account) =>
+    a.login === key || a.phone === key || a.person.email.toLowerCase() === key;
+  return getSnapshot().accounts.find(matches) ?? DEMO_ACCOUNTS.find(matches);
+}
+
+// Patches the stored copy of `account`, or adds it - a demo account
+// enters the device's store this way on its first sign-in.
+function upsert(accounts: Account[], account: Account, patch: Partial<Account> = {}): Account[] {
+  return accounts.some((a) => a.id === account.id)
+    ? accounts.map((a) => (a.id === account.id ? { ...a, ...patch } : a))
+    : [...accounts, { ...account, ...patch }];
 }
 
 export type PhoneLookup = "registered" | "new";
@@ -84,6 +96,7 @@ export async function register(input: {
   const phone = phoneDigits(input.phone);
   const account: Account = {
     id: newId(),
+    type: "b2b",
     phone,
     login: phone,
     passwordHash: await sha256(input.password),
@@ -103,9 +116,9 @@ export async function signIn(login: string, password: string): Promise<Account |
   await delay();
   const account = findByLogin(login);
   if (!account) return null;
-  const hash = await sha256(password);
-  if (hash !== account.passwordHash) return null;
-  updateState((prev) => ({ ...prev, sessionId: account.id }));
+  const demo = isDemoAccount(account) && password === DEMO_PASSWORD;
+  if (!demo && (await sha256(password)) !== account.passwordHash) return null;
+  updateState((prev) => ({ accounts: upsert(prev.accounts, account), sessionId: account.id }));
   return account;
 }
 
@@ -115,7 +128,7 @@ export async function resetPassword(login: string, password: string): Promise<Ac
   if (!account) return null;
   const passwordHash = await sha256(password);
   updateState((prev) => ({
-    accounts: prev.accounts.map((a) => (a.id === account.id ? { ...a, passwordHash } : a)),
+    accounts: upsert(prev.accounts, account, { passwordHash }),
     sessionId: account.id,
   }));
   return { ...account, passwordHash };

@@ -33,10 +33,18 @@ export type PersonData = {
   email: string;
 };
 
+// "b2b" = a business partner: signed in, the catalog, product and order
+// pages switch to the platform shell. "b2c" = a retail customer: the
+// public shop stays, only the header pill and the account screen change.
+// Registration (company data) creates partners; the retail sign-up is
+// not designed yet, so the only B2C account is the demo one (demo.ts).
+export type AccountType = "b2b" | "b2c";
+
 // One registered account. `phone` is the national number the person
 // verified by SMS («0634714689» in the master); it doubles as the login.
 export type Account = {
   id: string;
+  type: AccountType;
   phone: string;
   login: string;
   passwordHash: string;

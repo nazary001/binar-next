@@ -21,9 +21,10 @@ export function isPlatformRoute(pathname: string): boolean {
 }
 
 // Swaps the marketing chrome (public header, full footer, scroll dock)
-// for the platform shell on platform routes while an account is signed
-// in. The session lives in localStorage, so the server always renders
-// the public chrome and the client switches right after hydration.
+// for the platform shell on platform routes while a partner (B2B
+// account) is signed in; a B2C customer keeps the public chrome. The
+// session lives in localStorage, so the server always renders the
+// public chrome and the client switches right after hydration.
 export function PlatformChrome({
   header,
   footer,
@@ -35,7 +36,7 @@ export function PlatformChrome({
 }) {
   const { user } = useAuth();
   const pathname = usePathname();
-  const platform = Boolean(user) && isPlatformRoute(pathname);
+  const platform = user?.type === "b2b" && isPlatformRoute(pathname);
 
   if (!platform) {
     return (

@@ -244,5 +244,5 @@ function PlatformView({ page }: { page: PageKind }) {
 
 export function CatalogPageView({ page }: { page: PageKind }) {
   const { user } = useAuth();
-  return user ? <PlatformView page={page} /> : <PublicView page={page} />;
+  return user?.type === "b2b" ? <PlatformView page={page} /> : <PublicView page={page} />;
 }

@@ -725,13 +725,20 @@ function Screens({ initial }: { initial: Screen }) {
 
 // Signed-in summary. The site has no profile master yet (the account
 // pages in Figma are the CRM admin's), so this reads the registration
-// back in the drawer's own typography and offers «Вийти».
+// back in the drawer's own typography and offers «Вийти». A B2C
+// customer has no company, so only the contact rows show.
 function AccountScreen({ user, onSignOut }: { user: Account; onSignOut: () => void }) {
+  const companyRows: [string, string][] =
+    user.type === "b2b"
+      ? [
+          ["Компанія", user.company.name],
+          ["ЄДРПОУ", user.company.edrpou],
+          ["Регіон", [REGIONS.find((r) => r.value === user.company.region)?.label, user.company.city].filter(Boolean).join(", ")],
+          ["Роль", `${roleLabel(user.person.role)}${user.person.position ? `, ${user.person.position}` : ""}`],
+        ]
+      : [];
   const rows: [string, string][] = [
-    ["Компанія", user.company.name],
-    ["ЄДРПОУ", user.company.edrpou],
-    ["Регіон", [REGIONS.find((r) => r.value === user.company.region)?.label, user.company.city].filter(Boolean).join(", ")],
-    ["Роль", `${roleLabel(user.person.role)}${user.person.position ? `, ${user.person.position}` : ""}`],
+    ...companyRows,
     ["Телефон", formatPhone(user.person.phone || user.phone)],
     ["Електронна пошта", user.person.email],
   ];

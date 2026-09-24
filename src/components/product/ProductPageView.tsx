@@ -189,5 +189,5 @@ function PlatformView({ dir, card, product, details }: Props) {
 
 export function ProductPageView(props: Props) {
   const { user } = useAuth();
-  return user ? <PlatformView {...props} /> : <PublicView {...props} />;
+  return user?.type === "b2b" ? <PlatformView {...props} /> : <PublicView {...props} />;
 }
