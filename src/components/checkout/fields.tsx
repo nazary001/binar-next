@@ -32,11 +32,11 @@ const RING_ERROR =
 const LABEL_SHELL =
   "pointer-events-none absolute -translate-y-1/2 whitespace-nowrap font-medium tracking-[0.15px] transition-all duration-200";
 const LABEL_REST = "left-6 top-1/2 text-[16px] leading-6 text-neutral-500";
-const LABEL_FLOAT = "left-4 top-0 bg-[var(--field-surface,var(--color-bg-subtle))] px-1.5 text-[12px] leading-3";
+const LABEL_FLOAT = "left-[18px] top-0 bg-[var(--field-surface,var(--color-bg-subtle))] px-1.5 text-[12px] leading-3";
 // Filled colour applies only while NOT focused, so a focused field keeps
 // the brand caption of the Figma Focus state after the first keystroke.
 const LABEL =
-  `${LABEL_SHELL} ${LABEL_REST} peer-focus:left-4 peer-focus:top-0 peer-focus:bg-[var(--field-surface,var(--color-bg-subtle))] peer-focus:px-1.5 peer-focus:text-[12px] peer-focus:leading-3 peer-focus:text-brand peer-[:not(:placeholder-shown)]:left-4 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:bg-[var(--field-surface,var(--color-bg-subtle))] peer-[:not(:placeholder-shown)]:px-1.5 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:leading-3 peer-[:not(:placeholder-shown):not(:focus)]:text-black/60`;
+  `${LABEL_SHELL} ${LABEL_REST} peer-focus:left-[18px] peer-focus:top-0 peer-focus:bg-[var(--field-surface,var(--color-bg-subtle))] peer-focus:px-1.5 peer-focus:text-[12px] peer-focus:leading-3 peer-focus:text-brand peer-[:not(:placeholder-shown)]:left-[18px] peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:bg-[var(--field-surface,var(--color-bg-subtle))] peer-[:not(:placeholder-shown)]:px-1.5 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:leading-3 peer-[:not(:placeholder-shown):not(:focus)]:text-black/60`;
 const LABEL_ERROR = "text-negative peer-focus:text-negative peer-[:not(:placeholder-shown)]:text-negative";
 
 // «<FormHelperText>» — the 12/16 Medium error line under a field. The
@@ -159,7 +159,7 @@ export function TextArea({
         onChange={(e) => onChange(e.target.value)}
         placeholder=" "
         rows={3}
-        className={`${RING} h-[120px] resize-none py-[11px]`}
+        className={`${RING} block h-[120px] resize-none py-[11px]`}
       />
       <span className={`${LABEL} top-[11px] translate-y-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2`}>
         {label}
@@ -314,8 +314,12 @@ export function SelectField({
         </button>
         <span
           id={`${id}-label`}
+          // The caption floats only once a value is chosen: an open but
+          // still empty select keeps the label resting inside the brand ring,
+          // as the masters with the delivery / payment menus open draw it
+          // (4329:41045, 4329:41086).
           className={`${LABEL_SHELL} ${
-            filled || open
+            filled
               ? `${LABEL_FLOAT} ${open ? "text-brand" : "text-black/60"}`
               : LABEL_REST
           } ${error ? "text-negative" : ""}`}

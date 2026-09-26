@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { InfoCircleIcon } from "@/components/catalog/icons";
 import { formatPrice } from "@/components/catalog/data";
 import {
   AutocompleteField,
@@ -11,11 +10,13 @@ import {
   TextArea,
   TextField,
 } from "./fields";
+import { InfoCircle24 } from "./icons";
 import {
   BRANCHES,
   CITIES,
   DELIVERY_OPTIONS,
   EMPTY_VALUES,
+  LOCKERS,
   PAYMENT_OPTIONS,
   PICKUP_NOTICE,
   RESERVE_MINUTES,
@@ -32,8 +33,9 @@ import {
 // 14/24 reservation note at 60 % white, and the orange «До оплати».
 // The delivery block adapts to the chosen method exactly as the nine
 // master variants draw it: pickup shows the address notice, a branch
-// pickup adds «Відділення», address delivery adds «Вулиця» + «Будинок» /
-// «Квартира»; the invoice checkbox reveals the company fields.
+// pickup adds «Відділення», a parcel locker adds «Поштомат», address
+// delivery adds «Вулиця» + «Будинок» / «Квартира»; the invoice checkbox
+// reveals the company fields.
 
 export function CheckoutForm({
   subtotal,
@@ -132,7 +134,7 @@ export function CheckoutForm({
 
             {values.delivery === "pickup" && (
               <p className="flex items-start gap-2 text-[14px] leading-6 text-neutral-800">
-                <InfoCircleIcon className="mt-0 size-6 shrink-0 text-neutral-900" />
+                <InfoCircle24 className="size-6 shrink-0 text-neutral-300" />
                 <span>{PICKUP_NOTICE}</span>
               </p>
             )}
@@ -144,6 +146,16 @@ export function CheckoutForm({
                 value={values.branch}
                 onChange={(v) => set("branch", v)}
                 error={errors.branch}
+              />
+            )}
+            {values.delivery === "np-locker" && (
+              <SelectField
+                label="Поштомат"
+                name="locker"
+                options={LOCKERS.map((b) => ({ value: b, label: b }))}
+                value={values.locker}
+                onChange={(v) => set("locker", v)}
+                error={errors.locker}
               />
             )}
             {values.delivery === "np-address" && (

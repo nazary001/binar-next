@@ -5,11 +5,12 @@
 
 export const RESERVE_MINUTES = 15;
 
-export type DeliveryOption = "pickup" | "np-branch" | "np-address";
+export type DeliveryOption = "pickup" | "np-branch" | "np-locker" | "np-address";
 
 export const DELIVERY_OPTIONS: { value: DeliveryOption; label: string }[] = [
   { value: "pickup", label: "Самовивіз" },
   { value: "np-branch", label: "Нова Пошта (Самовивіз)" },
+  { value: "np-locker", label: "Нова Пошта (Поштомат)" },
   { value: "np-address", label: "Нова Пошта (Адресна доставка)" },
 ];
 
@@ -21,6 +22,9 @@ export const PAYMENT_OPTIONS = [
   "Післяплата",
 ] as const;
 
+// The four delivery methods of the master's «<Menu>» (4329:41044): a
+// branch pickup asks for «Відділення» (4329:41150), a parcel locker for
+// «Поштомат» (4329:41168), address delivery for the street and house.
 // Figma 4329:41061.
 export const PICKUP_NOTICE =
   "Самовивіз доступний за адресою: Україна, м. Київ, вул. Хрещатик, 1, пн–пт з 09:00 до 18:00. Будь ласка, дочекайтеся повідомлення про готовність замовлення перед візитом.";
@@ -48,13 +52,21 @@ export const CITIES = [
   "Суми",
 ];
 
+// Placeholder lists until the Nova Poshta API is wired.
 export const BRANCHES = [
   "Відділення №1: вул. Хрещатик, 1",
   "Відділення №2: просп. Перемоги, 24",
   "Відділення №5: вул. Велика Васильківська, 72",
   "Відділення №12: вул. Борщагівська, 154",
   "Відділення №27: просп. Бажана, 10",
+];
+
+export const LOCKERS = [
   "Поштомат №4021: вул. Саксаганського, 120",
+  "Поштомат №6318: вул. Антоновича, 176",
+  "Поштомат №7502: просп. Науки, 8",
+  "Поштомат №9114: вул. Дегтярівська, 21",
+  "Поштомат №10233: бульв. Лесі Українки, 26",
 ];
 
 export type CheckoutValues = {
@@ -64,6 +76,7 @@ export type CheckoutValues = {
   city: string;
   delivery: DeliveryOption | "";
   branch: string;
+  locker: string;
   street: string;
   house: string;
   flat: string;
@@ -84,6 +97,7 @@ export const EMPTY_VALUES: CheckoutValues = {
   city: "",
   delivery: "",
   branch: "",
+  locker: "",
   street: "",
   house: "",
   flat: "",
@@ -112,6 +126,7 @@ export function validate(v: CheckoutValues): CheckoutErrors {
   if (!v.city.trim()) e.city = "Оберіть місто";
   if (!v.delivery) e.delivery = "Оберіть спосіб доставки";
   if (v.delivery === "np-branch" && !v.branch) e.branch = "Оберіть відділення";
+  if (v.delivery === "np-locker" && !v.locker) e.locker = "Оберіть поштомат";
   if (v.delivery === "np-address") {
     if (!v.street.trim()) e.street = "Вкажіть вулицю";
     if (!v.house.trim()) e.house = "Вкажіть будинок";

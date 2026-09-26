@@ -26,14 +26,14 @@ export default function CheckoutPage() {
               Головна
             </span>
           </Link>
-          <span className="text-[18px] font-semibold leading-[22px] text-stroke-subtle">/</span>
+          <span className="text-[18px] font-semibold leading-[22px] tracking-[0.18px] text-stroke-subtle">/</span>
           <Link
             href="/catalog"
             className="cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
           >
             Каталог
           </Link>
-          <span className="text-[18px] font-semibold leading-[22px] text-stroke-subtle">/</span>
+          <span className="text-[18px] font-semibold leading-[22px] tracking-[0.18px] text-stroke-subtle">/</span>
           <span className="text-button-md text-brand" aria-current="page">
             Оформити замовлення
           </span>

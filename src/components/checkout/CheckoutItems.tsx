@@ -13,12 +13,9 @@ import { TrashIcon } from "@/components/cart/icons";
 // «Сума» 130 each and an 84-px action column; 108-px rows padded 16 at
 // the sides with cells padded 16/24: the 60-px r12 photo + 16/22 Bold
 // «title, volume, brand» (one line, ellipsis), the 20/22 Bold stepper,
-// two 16/24 SemiBold amounts and the 52-px trash button; 0.5-px #d2d2d2
+// two 16/24 SemiBold amounts («31,65 ₴», the sign stays on every cell as the
+// master draws it) and the 52-px trash button; 0.5-px #d2d2d2
 // hairlines between rows. Below md the same rows become stacked cards.
-
-function money(n: number) {
-  return formatPrice(n).replace(/\s*₴$/, "");
-}
 
 function Thumb({ entry }: { entry: CartEntry }) {
   const { product } = entry;
@@ -63,8 +60,10 @@ function Name({ entry, truncate = false }: { entry: CartEntry; truncate?: boolea
 }
 
 // Figma draws the 0.5-px #d2d2d2 hairline 16 px in from both table
-// edges: a row background sized to (100% - 32px) x 0.5px does exactly
-// that without touching the cells.
+// edges as its own 0.5-px row between the 108-px rows: a row background
+// sized to (100% - 32px) x 0.5px paints it without touching the cells,
+// and the extra half pixel of top padding keeps the 108.5-px rhythm (the
+// nine-row master is 1040.5 tall, not 1036).
 const DIVIDER =
   "bg-[linear-gradient(var(--color-stroke-subtle),var(--color-stroke-subtle))] bg-[length:calc(100%-32px)_0.5px] bg-[position:16px_0] bg-no-repeat";
 
@@ -107,7 +106,10 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
         </thead>
         <tbody>
           {entries.map((entry, i) => (
-            <tr key={entry.line.id} className={i === 0 ? "" : DIVIDER}>
+            <tr
+              key={entry.line.id}
+              className={i === 0 ? "" : `${DIVIDER} [&>td]:pt-[24.5px]`}
+            >
               <td className="py-6 pl-8 pr-4 align-middle">
                 <div className="flex min-w-0 items-center gap-4">
                   <Thumb entry={entry} />
@@ -125,10 +127,10 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
                 />
               </td>
               <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-                {money(entry.product.price)}
+                {formatPrice(entry.product.price)}
               </td>
               <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-                {money(lineTotal(entry))}
+                {formatPrice(lineTotal(entry))}
               </td>
               <td className="py-6 pl-4 pr-8 text-right align-middle">
                 <button
