@@ -22,13 +22,13 @@ type NavLink = {
 };
 
 // Desktop nav after the «Каталог» trigger (Figma header master 129:1279,
-// seen on 3603:11433): Співпраця, Блог, Ресурси, Контакти. The old
-// Кейси / FAQ anchors were dropped by the redesign. «Ресурси» has no
-// destination in the prototype (hover-only state) — rendered as a
-// non-navigating item below until the page exists.
+// seen on 3603:11433): Співпраця, Блог, Матеріали, Контакти. The old
+// Кейси / FAQ anchors were dropped by the redesign; the former «Ресурси»
+// placeholder became the «Матеріали» library (4635:33058, /materials).
 const TOP_LINKS: NavLink[] = [
   { href: "/spivpratsya", label: "Співпраця" },
   { href: "/blog", label: "Блог" },
+  { href: "/materials", label: "Матеріали" },
 ];
 
 const CONTACTS_LINK: NavLink = { href: "/#contacts", label: "Контакти" };
@@ -45,6 +45,7 @@ const MOBILE_LINKS: NavLink[] = [
   { href: "/catalog", label: "Каталог" },
   { href: "/spivpratsya", label: "Співпраця" },
   { href: "/blog", label: "Блог" },
+  { href: "/materials", label: "Матеріали" },
   { href: "/#contacts", label: "Контакти" },
 ];
 
@@ -406,14 +407,6 @@ export function Header() {
                 </Link>
               </li>
             ))}
-            {/* «Ресурси» (Figma 2749:6914) has only a hover state in the
-                prototype — no destination page exists yet, so it renders
-                as a non-navigating item with the same colour swap. */}
-            <li onMouseEnter={() => setCatalogOpen(false)}>
-              <span className="block text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand">
-                Ресурси
-              </span>
-            </li>
             <li onMouseEnter={() => setCatalogOpen(false)}>
               <Link
                 href={CONTACTS_LINK.href}

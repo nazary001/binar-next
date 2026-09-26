@@ -178,7 +178,7 @@ export function FiltersDrawer({
         }`}
       >
         <div className="flex w-full items-center justify-between">
-          <h2 className="text-[32px] font-bold leading-9 tracking-[-0.64px] text-neutral-900 lg:text-h2">
+          <h2 className="text-[32px] font-bold leading-9 tracking-[-0.64px] text-neutral-900 lg:text-h2 lg:leading-[48px] lg:tracking-[-0.88px]">
             Фільтри
           </h2>
           <button
