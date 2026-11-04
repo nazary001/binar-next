@@ -3,12 +3,27 @@
 import { useRef, useState } from "react";
 import { CheckboxOffIcon, CheckboxOnIcon } from "@/components/catalog/icons";
 import { useModalBehavior } from "@/components/cart/useModalBehavior";
+import { DIRECTIONS, FILE_TYPE_LABELS } from "./data";
 import { ChevronUpIcon, ClearIcon } from "./icons";
 
 export type FilterGroup = {
   key: string;
   title: string;
   options: { value: string; label: string }[];
+};
+
+// The two groups of the sheet, shared by the public and the partner
+// pages: the landings offer the directions only (4635:32986 /
+// 4378:63140), the folders both (4635:33009 / 4396:11930).
+export const DIRECTIONS_GROUP: FilterGroup = {
+  key: "directions",
+  title: "Напрямки",
+  options: DIRECTIONS.map((d) => ({ value: d, label: d })),
+};
+export const TYPES_GROUP: FilterGroup = {
+  key: "types",
+  title: "Тип документу",
+  options: FILE_TYPE_LABELS,
 };
 
 // One collapsible group — Title/Large SemiBold header with the 24-px
@@ -81,6 +96,8 @@ function DrawerGroup({
 // (directions only, the landing): the 502-px right-side sheet under
 // the sticky header (rounded-tl-48, #d2d2d2 left/top hairlines, pl-60
 // pr-80 pt-60 pb-80, 64-px rhythm) over the blurred #343435/50 scrim.
+// The hairlines are CSS borders (Figma strokes sit inside the box), so
+// pl/pt are 59 + 1: «Фільтри» at 60/60, a 362-px content column.
 // H2 «Фільтри» + the 32-px close mark, then the collapsible checkbox
 // groups. Toggles apply instantly; X, the scrim and Escape close.
 export function MaterialsFiltersDrawer({
@@ -127,7 +144,7 @@ export function MaterialsFiltersDrawer({
         aria-label="Фільтри"
         tabIndex={-1}
         style={{ top: "var(--site-header-h, 92px)" }}
-        className={`absolute bottom-0 right-0 flex w-[502px] max-w-[92vw] flex-col gap-10 overflow-y-auto overscroll-contain rounded-tl-[48px] border-l border-t border-stroke-subtle bg-white px-6 py-10 outline-none transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:gap-16 lg:pb-20 lg:pl-[60px] lg:pr-20 lg:pt-[60px] ${
+        className={`absolute bottom-0 right-0 flex w-[502px] max-w-[92vw] flex-col gap-10 overflow-y-auto overscroll-contain rounded-tl-[48px] border-l border-t border-stroke-subtle bg-white px-6 py-10 outline-none transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:gap-16 lg:pb-20 lg:pl-[59px] lg:pr-20 lg:pt-[59px] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >

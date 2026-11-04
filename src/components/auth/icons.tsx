@@ -1,9 +1,12 @@
-// Inline icon SVGs of the account screens, exported 1:1 from the Figma
-// «Реєстрація» section (4573:36735). All ride on currentColor.
+// Inline icon SVGs of the account screens. Paths are the Figma exports
+// in public/figma-export/auth/ (Authorisation NEW 5420:38169) unless
+// noted; single-colour glyphs ride on currentColor.
 
-// «PersonFilled» — the placeholder glyph of the company avatar in the
+type IconProps = { className?: string };
+
+// «PersonFilled» - the placeholder glyph of the company avatar in the
 // welcome modal (4573:35600, a 106-px box inside the 144.65-px square).
-export function PersonIcon({ className }: { className?: string }) {
+export function PersonIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 106.076 106.076" fill="none" aria-hidden className={className}>
       <path
@@ -14,12 +17,81 @@ export function PersonIcon({ className }: { className?: string }) {
   );
 }
 
-// «Dot» — the 8-px separator between «Надіслати код ще раз» and the
-// countdown (4573:35494): a 2-px-radius #626770 disc.
-export function DotIcon({ className }: { className?: string }) {
+// «AdornmentEnd» of the password fields (icon-eye-24.svg, #1d1d1f): the
+// heroicons-outline eye flattened to a fill.
+export function EyeIcon({ className }: IconProps) {
   return (
-    <svg viewBox="0 0 8 8" fill="none" aria-hidden className={className}>
-      <circle cx="4" cy="4" r="2" fill="currentColor" />
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
+      <path
+        d="M12.0003 3.75C16.9706 3.75 21.187 6.97269 22.6761 11.4404C22.7964 11.8015 22.7962 12.1926 22.6761 12.5537C21.1887 17.0245 16.9713 20.25 11.9988 20.25C7.0287 20.2499 2.81363 17.0272 1.32451 12.5596C1.20417 12.1985 1.20292 11.8074 1.32305 11.4463C2.8103 6.97555 7.02797 3.75022 12.0003 3.75ZM12.0003 5.25C7.69331 5.25022 4.03648 8.04348 2.74687 11.9194C2.72912 11.9728 2.72916 12.0316 2.74687 12.085C4.03793 15.9585 7.6935 18.7499 11.9988 18.75C16.306 18.75 19.9625 15.9566 21.2522 12.0806C21.27 12.0271 21.27 11.9685 21.2522 11.915C19.9612 8.04142 16.3057 5.25 12.0003 5.25ZM14.2503 12C14.2503 10.7575 13.2428 9.75016 12.0003 9.75C10.7577 9.75 9.75029 10.7574 9.75029 12C9.75029 13.2426 10.7577 14.25 12.0003 14.25C13.2428 14.2498 14.2503 13.2425 14.2503 12ZM15.7503 12C15.7503 14.071 14.0712 15.7498 12.0003 15.75C9.92923 15.75 8.25029 14.0711 8.25029 12C8.25029 9.92893 9.92923 8.25 12.0003 8.25C14.0712 8.25016 15.7503 9.92903 15.7503 12Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+// The «password visible» adornment: heroicons-outline/eye-slash 5255:907
+// (icon-eye-slash-24.svg, #1d1d1f), a 16-px master the instances scale
+// to 24 (ctx 5420-38195 / 5420-38248), so the 16 viewBox fills the box.
+export function EyeSlashIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
+      <path
+        d="M1.64602 1.64648C1.84128 1.45122 2.15876 1.45122 2.35402 1.64648L4.22512 3.51758C5.334 2.87056 6.62417 2.50008 7.99953 2.5C11.3974 2.5 14.2667 4.75932 15.189 7.85645C15.2167 7.94948 15.2167 8.04857 15.189 8.1416C14.7395 9.6527 13.8267 10.9625 12.6167 11.9092L14.354 13.6465C14.5489 13.8417 14.5489 14.1583 14.354 14.3535C14.1588 14.5488 13.8413 14.5488 13.646 14.3535L1.64602 2.35352C1.45107 2.15831 1.45107 1.84169 1.64602 1.64648ZM2.27199 5.15918C2.45027 4.94843 2.76527 4.92149 2.97609 5.09961C3.18692 5.27795 3.21303 5.59386 3.03469 5.80469C2.49431 6.44354 2.07663 7.18814 1.81398 8.00195C2.65823 10.6126 5.10891 12.5 7.99953 12.5C8.61467 12.5 9.20915 12.415 9.77199 12.2559C10.0377 12.1807 10.314 12.3349 10.3892 12.6006C10.4643 12.8662 10.31 13.1425 10.0445 13.2178C9.39388 13.4017 8.70765 13.5 7.99953 13.5C4.60166 13.5 1.73233 11.2407 0.810078 8.14355C0.782429 8.05056 0.782424 7.95139 0.810078 7.8584C1.10889 6.85384 1.61291 5.93832 2.27199 5.15918ZM9.49953 8C9.49953 7.17157 8.82796 6.5 7.99953 6.5C7.76815 6.50007 7.54957 6.55297 7.35402 6.64648L9.35207 8.64453C9.44547 8.44901 9.49953 8.23131 9.49953 8ZM10.4995 8C10.4995 8.50907 10.3458 8.98194 10.0845 9.37695L11.9029 11.1953C12.9621 10.3981 13.7684 9.28591 14.1841 7.99805C13.3397 5.38764 10.89 3.5 7.99953 3.5C6.90098 3.50007 5.86708 3.77236 4.96047 4.25293L6.62063 5.91406C7.01572 5.65238 7.4902 5.50009 7.99953 5.5C9.38024 5.5 10.4995 6.61929 10.4995 8Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+// «Google__G__logo 1» (google-g-logo-24.svg): the four-colour G, 24 box.
+export function GoogleGIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
+      <path
+        d="M22.56 12.25C22.56 11.47 22.49 10.72 22.36 10H12V14.26H17.92C17.66 15.63 16.88 16.79 15.71 17.57V20.34H19.28C21.36 18.42 22.56 15.6 22.56 12.25Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23C14.97 23 17.46 22.02 19.28 20.34L15.71 17.57C14.73 18.23 13.48 18.63 12 18.63C9.14 18.63 6.71 16.7 5.84 14.1H2.18V16.94C3.99 20.53 7.7 23 12 23Z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09C5.62 13.43 5.49 12.73 5.49 12C5.49 11.27 5.62 10.57 5.84 9.91V7.07H2.18C1.43 8.55 1 10.22 1 12C1 13.78 1.43 15.45 2.18 16.93L5.03 14.71L5.84 14.09Z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38C13.62 5.38 15.06 5.94 16.21 7.02L19.36 3.87C17.45 2.09 14.97 1 12 1C7.7 1 3.99 3.47 2.18 7.07L5.84 9.91C6.71 7.31 9.14 5.38 12 5.38Z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
+// «Checkmark» 48 of the link-sent screens (checkmark-48.svg, #4a9200 =
+// text-positive): a filled circle with the tick knocked out.
+export function CheckmarkCircleIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" aria-hidden className={className}>
+      <path
+        d="M24 4.5C13.2478 4.5 4.5 13.2478 4.5 24C4.5 34.7522 13.2478 43.5 24 43.5C34.7522 43.5 43.5 34.7522 43.5 24C43.5 13.2478 34.7522 4.5 24 4.5ZM20.4375 33.7856L12.8812 25.3884L15.1116 23.3812L20.3616 29.2144L32.8125 14.3869L35.1131 16.3125L20.4375 33.7856Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+// «warning» 24 of the error alerts (icon-warning-24.svg, #d92d20 =
+// text-negative).
+export function WarningIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M21.6 12C21.6 17.3019 17.3019 21.6 12 21.6C6.69807 21.6 2.4 17.3019 2.4 12C2.4 6.69807 6.69807 2.4 12 2.4C17.3019 2.4 21.6 6.69807 21.6 12ZM13.2 16.8C13.2 17.4627 12.6627 18 12 18C11.3373 18 10.8 17.4627 10.8 16.8C10.8 16.1373 11.3373 15.6 12 15.6C12.6627 15.6 13.2 16.1373 13.2 16.8ZM12 6C11.3373 6 10.8 6.53726 10.8 7.2V12C10.8 12.6627 11.3373 13.2 12 13.2C12.6627 13.2 13.2 12.6627 13.2 12V7.2C13.2 6.53726 12.6627 6 12 6Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }

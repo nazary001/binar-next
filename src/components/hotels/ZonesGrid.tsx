@@ -624,6 +624,7 @@ export function ZonesGrid() {
           <div
             ref={panelRef}
             aria-hidden={!active}
+            inert={!active}
             className={`fixed z-50 hidden transition-[opacity,translate,scale,left,top,width,height] duration-300 ease-out lg:block ${
               active
                 ? "pointer-events-auto translate-y-0 scale-100 opacity-100"

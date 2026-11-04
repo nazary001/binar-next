@@ -217,10 +217,13 @@ export function B2BProductCard({ product }: { product: Product }) {
 
   return (
     <article className="group/card @container flex h-full flex-col gap-8 py-6">
+      {/* The master's photo is a fixed 328-px band (the 323.5-px grid
+          card is 696 tall in «Напрям» 4329:56219 / «Категорія»
+          4329:56314), not a square. */}
       <Link
         href={href}
         aria-label={product.title}
-        className="relative block h-[328px] w-full shrink-0 overflow-clip rounded-[40px] bg-bg-product lg:aspect-square lg:h-auto"
+        className="relative block h-[328px] w-full shrink-0 overflow-clip rounded-[40px] bg-bg-product"
       >
         <img
           src={product.image}
@@ -295,7 +298,9 @@ export function B2BProductRow({ product }: { product: Product }) {
           <B2BCartButton product={product} qty={qty} />
         </div>
       </div>
-      <div aria-hidden className="h-px w-full bg-stroke-subtle" />
+      {/* The hairline is the row's last pixel (stroke inside the
+          1534 x 224 «B2B :: Product card horizontal», 4329:56549). */}
+      <div aria-hidden className="-mt-px h-px w-full bg-stroke-subtle" />
     </article>
   );
 }

@@ -43,13 +43,18 @@ export function useModalBehavior({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // A field inside the dialog already used this Escape to close
+        // its own menu (checkout/fields.tsx selects, KebabMenu).
+        if (e.defaultPrevented) return;
         e.preventDefault();
         onClose();
         return;
       }
       if (e.key !== "Tab" || !container.current) return;
+      // Visible and not inside an inert subtree (a hidden popup kept in
+      // the DOM for its exit transition cannot take focus).
       const nodes = [...container.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-        (el) => el.offsetParent !== null,
+        (el) => el.offsetParent !== null && !el.closest("[inert]"),
       );
       if (nodes.length === 0) {
         e.preventDefault();

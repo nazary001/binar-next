@@ -185,6 +185,31 @@ function Burger({ open }: { open: boolean }) {
   );
 }
 
+// Publishes the header's fixed height as `--site-header-h` on <html> so
+// any sticky element below (e.g. the Cases card stack) can pin EXACTLY at
+// the bottom edge of the header rather than slipping underneath it, and
+// the drawers hang from it. The header is locked at a single height per
+// breakpoint - 92 px on desktop (cart button 48 + py-22 x 2, Figma master
+// 129:1279) and 66 px on mobile (Figma 3082:3661); the previous
+// scroll-driven shrink/shadow wasn't in the design and caused layout
+// jitter near the top of the page (sticky elements re-pinning every time
+// the header height toggled). Updated when the viewport crosses the lg
+// breakpoint. The platform header (PlatformHeader, same 92 / 66) calls it
+// too, because the public header is unmounted in the cabinet shell.
+export function usePublishHeaderHeight() {
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const apply = () =>
+      document.documentElement.style.setProperty(
+        "--site-header-h",
+        mq.matches ? "92px" : "66px",
+      );
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+}
+
 export function Header() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -237,27 +262,7 @@ export function Header() {
   }, [catalogOpen]);
 
 
-  // Publish the header's fixed height as a CSS variable on <html> so any
-  // sticky element below (e.g. the Cases card stack) can pin EXACTLY at
-  // the bottom edge of the header rather than slipping underneath it.
-  // The header is locked at a single height per breakpoint — 92 px on
-  // desktop (cart button 48 + py-22 × 2, Figma master 129:1279) and
-  // 66 px on mobile (Figma 3082:3661) — the previous scroll-driven
-  // shrink/shadow wasn't in the design and caused layout jitter near
-  // the top of the page (sticky elements re-pinning every time the
-  // header height toggled). Updated when the viewport crosses the lg
-  // breakpoint.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 640px)");
-    const apply = () =>
-      document.documentElement.style.setProperty(
-        "--site-header-h",
-        mq.matches ? "92px" : "66px",
-      );
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
+  usePublishHeaderHeight();
 
   // Close mobile nav on Escape; lock body scroll while open. We also
   // pin the body to its current scroll offset (position:fixed + top:
@@ -422,8 +427,8 @@ export function Header() {
               masters (129:1279 on the 1440 pages, 4329:39832 on the shop
               frames) replaced the old «Отримати пропозицію» CTA with the
               Button/Small «Увійти» (98 x 42, #1d1d1f, 16/22 medium). The
-              pill opens the account drawer (Figma «Реєстрація»
-              4573:36735); once signed in it reads «Кабінет» and opens
+              pill opens the account drawer (Figma «Authorisation NEW»
+              5420:38169); once signed in it reads «Кабінет» and opens
               the account summary (the masters keep the same header). */}
           <div
             className="flex items-center gap-4"

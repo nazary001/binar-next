@@ -7,8 +7,10 @@ import { DetailsIconButton } from "@/components/ui/DetailsIconButton";
 // the /catalog direction banners and the direction-page subcategory
 // carousel: p-40 / rounded-40 photo card, blurred #151511 blob for
 // label legibility, white Button/Large label + the ДЕТАЛІ arrow
-// button. Hover (the Figma Hover variant): 6-px brand ring, photo
-// desaturation, orange arrow + rotating ring.
+// button. Hover per the Platform frame 4329:39250 / banner 4329:39265
+// (ctx/4329-39265.md): 6-px brand ring, photo desaturation, the arrow
+// button filled brand with a white arrow. No rotating text ring there
+// (that one belongs to the hotels landing zones only).
 export function ZoneCard({
   href,
   label,
@@ -76,11 +78,11 @@ export function ZoneCard({
         aria-hidden
         className="pointer-events-none absolute inset-[-6px] bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100"
       />
-      {/* Figma 1127:5896 — soft blurred dark blob pinned to the bottom
-          edge (l/r −57, bottom −61, h 137, 80 %). */}
+      {/* Figma I4329:39265;1127:5898: soft blurred dark blob pinned to the
+          bottom edge (l/r -63, bottom -67, h 137, blur 22.15, 80 %). */}
       <span
         aria-hidden
-        className="pointer-events-none absolute bottom-[-61px] inset-x-[-57px] h-[137px] bg-[#151511] opacity-80 blur-[22px]"
+        className="pointer-events-none absolute bottom-[-67px] inset-x-[-63px] h-[137px] bg-[#151511] opacity-80 blur-[22.15px]"
       />
       {/* 6-px brand hover ring painted ABOVE the photo. */}
       <span
@@ -89,7 +91,7 @@ export function ZoneCard({
       />
       <span className="relative flex w-full items-center gap-6">
         <span className="flex-1 text-button-lg text-white">{label}</span>
-        <DetailsIconButton variant="light" />
+        <DetailsIconButton variant="light" ring={false} />
       </span>
     </Link>
   );

@@ -3,41 +3,41 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
-import { useAuth } from "@/components/auth/AuthProvider";
-import { CatalogueIcon, DashboardIcon, MaterialsIcon, OrdersIcon } from "./icons";
+import { CatalogueIcon, DashboardIcon, MaterialsIcon, SideMenuOrdersIcon } from "./icons";
 
-// «Side menu» — Figma 4328:30586 on the B2B frames: a 104-px rail
-// (px-16 py-32) of 72-px items 32 px apart, each a 40-px icon tile (p-8,
-// r12; the active one fills brand with a white glyph) over a 10-px
-// SemiBold #777779 label. «Каталог» and «Замовлення» have pages;
-// «Дашборд» opens the account summary and «Матеріали» waits for its
-// section. Below lg the rail becomes a horizontal strip under the
-// header.
+// «Side menu» - the instance 5052:32110 of master 4328:30586
+// (ctx/5052-32110.md): a 104-px rail, px-16 py-32, rounded-tr-48, of
+// exactly four 72-px items 32 px apart. Item = a 40-px «Info icon» tile
+// (p-8, r12, 24-px glyph; the active one is filled brand #f85a0b with a
+// white glyph, the others have no fill and #777779 glyphs) + 4 px + the
+// label Manrope SemiBold 10 / normal (font-intrinsic, not Tailwind's
+// 1.5), -0.2 px, #777779 for every item incl. the active one. Glyphs:
+// Dashboard, Catalogue, Orders (the box with a clock), Materials.
+// Routes: Дашборд /dashboard, Каталог /catalog (also active on «Мій
+// асортимент» /assortment, opened from the catalog head), Замовлення
+// /orders (returns and detail pages live under it), Матеріали
+// /materials*; /profile (via the header chip's account summary) lights
+// none. Hover (not drawn in Figma): #f8f8f8 tile + #1d1d1f glyph. Below
+// lg the rail becomes a horizontal strip under the header.
 type Item = {
   key: string;
   label: string;
   Icon: ComponentType<{ className?: string }>;
-  href?: string;
-  action?: "account";
+  href: string;
+  match: RegExp;
 };
 
 const ITEMS: Item[] = [
-  { key: "dashboard", label: "Дашборд", Icon: DashboardIcon, action: "account" },
-  { key: "catalog", label: "Каталог", Icon: CatalogueIcon, href: "/catalog" },
-  { key: "orders", label: "Замовлення", Icon: OrdersIcon, href: "/orders" },
-  { key: "materials", label: "Матеріали", Icon: MaterialsIcon },
+  { key: "dashboard", label: "Дашборд", Icon: DashboardIcon, href: "/dashboard", match: /^\/dashboard(\/|$)/ },
+  { key: "catalog", label: "Каталог", Icon: CatalogueIcon, href: "/catalog", match: /^\/(catalog|assortment)(\/|$)/ },
+  { key: "orders", label: "Замовлення", Icon: SideMenuOrdersIcon, href: "/orders", match: /^\/orders(\/|$)/ },
+  { key: "materials", label: "Матеріали", Icon: MaterialsIcon, href: "/materials", match: /^\/materials(\/|$)/ },
 ];
-
-function itemClass(active: boolean) {
-  return `group flex w-[72px] shrink-0 flex-col items-center gap-1 ${
-    active ? "" : "cursor-pointer"
-  }`;
-}
 
 function Tile({ active, Icon }: { active: boolean; Icon: Item["Icon"] }) {
   return (
     <span
-      className={`flex size-10 items-center justify-center rounded-xl transition-colors duration-200 ${
+      className={`flex size-10 items-center justify-center overflow-clip rounded-xl p-2 transition-colors duration-200 ${
         active
           ? "bg-brand text-white"
           : "text-neutral-500 group-hover:bg-bg-subtle group-hover:text-neutral-900"
@@ -50,7 +50,7 @@ function Tile({ active, Icon }: { active: boolean; Icon: Item["Icon"] }) {
 
 function Label({ children }: { children: string }) {
   return (
-    <span className="whitespace-nowrap text-center text-[10px] font-semibold leading-normal tracking-[-0.2px] text-neutral-500">
+    <span className="whitespace-nowrap text-center text-[10px] font-semibold leading-[normal] tracking-[-0.2px] text-neutral-500">
       {children}
     </span>
   );
@@ -58,46 +58,19 @@ function Label({ children }: { children: string }) {
 
 export function SideMenu() {
   const pathname = usePathname();
-  const { openAuth } = useAuth();
 
   const items = ITEMS.map((item) => {
-    const active = Boolean(item.href && pathname.startsWith(item.href));
-    if (item.href) {
-      return (
-        <Link
-          key={item.key}
-          href={item.href}
-          aria-current={active ? "page" : undefined}
-          className={itemClass(active)}
-        >
-          <Tile active={active} Icon={item.Icon} />
-          <Label>{item.label}</Label>
-        </Link>
-      );
-    }
-    if (item.action === "account") {
-      return (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => openAuth("account")}
-          className={itemClass(false)}
-        >
-          <Tile active={false} Icon={item.Icon} />
-          <Label>{item.label}</Label>
-        </button>
-      );
-    }
+    const active = item.match.test(pathname);
     return (
-      <span
+      <Link
         key={item.key}
-        aria-disabled="true"
-        title="Розділ у розробці"
-        className="flex w-[72px] shrink-0 cursor-default flex-col items-center gap-1"
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={`group flex w-[72px] shrink-0 flex-col items-center gap-1 ${active ? "" : "cursor-pointer"}`}
       >
-        <Tile active={false} Icon={item.Icon} />
+        <Tile active={active} Icon={item.Icon} />
         <Label>{item.label}</Label>
-      </span>
+      </Link>
     );
   });
 
@@ -106,7 +79,7 @@ export function SideMenu() {
       <aside className="hidden w-[104px] shrink-0 lg:block">
         <nav
           aria-label="Меню платформи"
-          className="sticky top-[var(--site-header-h,92px)] flex flex-col items-center gap-8 px-4 py-8"
+          className="sticky top-[var(--site-header-h,92px)] flex flex-col items-center gap-8 rounded-tr-[48px] px-4 py-8"
         >
           {items}
         </nav>

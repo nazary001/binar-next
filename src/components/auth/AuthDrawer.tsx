@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type CSSProperties,
@@ -10,731 +11,782 @@ import {
 } from "react";
 import { Button } from "@/components/ui/Button";
 import { XMarkIcon } from "@/components/catalog/icons";
-import { AutocompleteField, SelectField, TextField } from "@/components/checkout/fields";
-import { CITIES } from "@/components/checkout/data";
+import { TextField } from "@/components/checkout/fields";
+import { useFitZoom } from "@/components/cart/useFitZoom";
 import { useModalBehavior } from "@/components/cart/useModalBehavior";
 import * as api from "./api";
-import { useAuth } from "./AuthProvider";
-import { CodeInput } from "./CodeInput";
+import { useAuth, type AuthEntry } from "./AuthProvider";
 import {
-  CODE_LENGTH,
-  CODE_TTL_SECONDS,
-  EMPTY_COMPANY,
-  EMPTY_PERSON,
+  COPY,
+  PROFILE_HREF,
   REGIONS,
-  ROLES,
   formatPhone,
-  formatPhoneShort,
   formatTimer,
-  isValidEdrpou,
-  isValidEmail,
-  isValidPhone,
-  passwordError,
-  phoneDigits,
-  required,
+  hasErrors,
+  isMismatch,
   roleLabel,
+  validateSetPassword,
+  validateSignIn,
+  validateSignUp,
   type Account,
-  type CompanyData,
-  type PersonData,
+  type FieldErrors,
+  type SetPasswordFields,
+  type SignInFields,
+  type SignUpFields,
 } from "./data";
-import { DotIcon } from "./icons";
+import { CheckmarkCircleIcon, EyeIcon, EyeSlashIcon, GoogleGIcon, WarningIcon } from "./icons";
 
-// The account drawer — Figma «Sign up» (4573:35476, five states) and
-// «Sign in» (4573:35563, two states): a 576-px sheet hanging from the
-// sticky header at the right edge (rounded-tl-48, 1-px #8e8e8f ring)
-// over the blurred #343435/50 scrim, pt-60 pl-60 pr-80 pb-40 with the
-// ring inside the gutters, 40-px rhythm between the title block, the
-// fields and the button row. Screens:
-//   phone     «Вхід до особистого кабінету» + phone         (Sign up 01)
-//   code      four-box SMS code + resend countdown          (Sign up 02)
-//   password  «Реєстрація 1/3» login (locked) + password x2 (Variant3)
-//   company   «Реєстрація 2/3» company data                 (Variant4)
-//   person    «Реєстрація 3/3» contact data                 (Variant5)
-//   signin    login + password + «Забули пароль?»           (Sign in 01)
-//   recover   «Відновлення паролю» login                    (Variant2)
-//   account   the signed-in summary + «Вийти» (no master yet; the
-//             profile pages are only designed for the CRM admin)
-// The code and password screens are shared by registration and
-// password recovery (`mode`).
-type Screen =
-  | "phone"
-  | "code"
-  | "password"
-  | "company"
-  | "person"
-  | "signin"
-  | "recover"
-  | "account";
-type Mode = "register" | "recover";
+// The account drawer - Figma «Authorisation NEW» 5420:38169: a 576-px
+// sheet hanging from the sticky header at the right edge (x 1134 on the
+// 1710 canvas, 930 tall in the 1022-px frames), rounded-tl-48, 1-px
+// #8e8e8f ring inside the box, pt-60 pl-60 pr-80 pb-40 (so a 436-px
+// content column), 40-px rhythm between the blocks. Screens:
+//   signin       «Вхід до осбистого кабінету»          5420:38175
+//                + empty-field errors                  5420:38180
+//                + «invalid data» alert 436 x 128      5420:38195
+//   forgot       «Відновлення паролю»                  5420:38202
+//   linkSent     checkmark + 0:59 countdown            5420:38217
+//                -> «send again» (2 buttons)           5420:38222
+//   setPassword  «Створіть новий пароль» (reset link)  5420:38207
+//   signup       «Реєстрація», five fields             5420:38228
+//                + «паролі не збігаються»: both password
+//                  fields red, 81-px repeat field          5420:38248
+//                + «account exists» alert 436 x 80     5420:38238
+//   account      the signed-in summary (no master; kept from the first
+//                build): a partner gets «Перейти в профіль» -> /profile,
+//                and «Вийти» is the site's only sign-out for everyone
+// Every field is the checkout «<TextField>» with the Figma FormHelperText
+// box (`muiHelper`): 46 tall, 65 with one message line, 81 with two.
+// No frame draws a close control: on desktop the drawer closes on the
+// scrim and Esc only, and opening focuses the dialog itself. Code-only
+// extra: phones (no master; the scrim there is an 8vw strip) keep a
+// 32-px X in the top-right corner.
+type Screen = "signin" | "forgot" | "linkSent" | "setPassword" | "signup" | "account";
 
+// The frames are 1710 x 1022: 930 px of drawer under the 92-px header.
+// Shorter desktop windows get the same composition scaled to fit.
+const DRAWER_W = 576;
+const DRAWER_DESIGN_H = 930;
+const DESKTOP_HEADER_H = 92;
 const DRAWER_STYLE = { "--field-surface": "#fff" } as CSSProperties;
 
-function TitleBlock({
-  title,
-  step,
-  subtitle,
-}: {
-  title: string;
-  step?: string;
-  subtitle: string;
-}) {
+const EMPTY_SIGNUP: SignUpFields = {
+  firstName: "",
+  lastName: "",
+  login: "",
+  password: "",
+  repeat: "",
+};
+const EMPTY_NEW_PASSWORD: SetPasswordFields = { password: "", repeat: "" };
+
+function entryScreen(entry: AuthEntry, signedIn: boolean): Screen {
+  if (entry === "reset") return "setPassword";
+  return signedIn ? "account" : "signin";
+}
+
+// --- atoms -------------------------------------------------------------
+
+// Title (24/28 Bold -0.48 #1d1d1f, pt-4 pb-16 = a 48-px row) over the
+// Body/Medium 16/24 #777779 subtitle.
+function TitleBlock({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex flex-col">
-      <div className="flex items-start gap-4 pb-4 pt-1">
-        <h2 className="flex-1 text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
+      <div className="flex items-center pb-4 pt-1">
+        <h2 className="min-w-0 flex-1 text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
           {title}
         </h2>
-        {step && (
-          <span className="shrink-0 text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
-            {step}
-          </span>
-        )}
       </div>
       <p className="text-body-sm text-neutral-500">{subtitle}</p>
     </div>
   );
 }
 
-// «Дані компанії» / «Ваші дані» — Title/Small 18/24 ExtraBold #343435.
-function GroupTitle({ children }: { children: ReactNode }) {
+// Link-sent title block (5410:61014): the 48-px «Checkmark» centred over
+// the title (gap 16), everything centred.
+function SuccessTitle({ title, body }: { title: ReactNode; body: string }) {
   return (
-    <h3 className="pb-4 pt-1 text-[18px] font-extrabold leading-6 tracking-[-0.36px] text-neutral-800">
-      {children}
-    </h3>
-  );
-}
-
-function Screens({ initial }: { initial: Screen }) {
-  const { user, closeAuth, signOut, finishRegistration } = useAuth();
-  const [screen, setScreen] = useState<Screen>(initial);
-  const [mode, setMode] = useState<Mode>("register");
-  const [busy, setBusy] = useState(false);
-  const bodyRef = useRef<HTMLDivElement | null>(null);
-
-  // Phone / login
-  const [phone, setPhone] = useState("");
-  const [phoneError, setPhoneError] = useState<string>();
-  const [login, setLogin] = useState("");
-  const [loginError, setLoginError] = useState<string>();
-  const [signinPassword, setSigninPassword] = useState("");
-  const [signinError, setSigninError] = useState<string>();
-
-  // SMS code + countdown
-  const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<string>();
-  const [expiresAt, setExpiresAt] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-
-  // Registration draft
-  const [password, setPassword] = useState("");
-  const [password2, setPassword2] = useState("");
-  const [passwordErrors, setPasswordErrors] = useState<{ a?: string; b?: string }>({});
-  const [company, setCompany] = useState<CompanyData>(EMPTY_COMPANY);
-  const [companyErrors, setCompanyErrors] = useState<Partial<Record<keyof CompanyData, string>>>({});
-  const [person, setPerson] = useState<PersonData>(EMPTY_PERSON);
-  const [personErrors, setPersonErrors] = useState<Partial<Record<keyof PersonData, string>>>({});
-
-  // Focus follows the screen: the first enabled control of every new
-  // screen (after the dialog plumbing has placed focus on the panel).
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      bodyRef.current
-        ?.querySelector<HTMLElement>("input:not([disabled]), button[data-autofocus]")
-        ?.focus();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [screen]);
-
-  // The «2:51» countdown ticks while the code screen is showing.
-  useEffect(() => {
-    if (screen !== "code") return;
-    const id = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(id);
-  }, [screen]);
-  const secondsLeft = Math.max(0, Math.ceil((expiresAt - now) / 1000));
-
-  const goToCode = async (nextMode: Mode) => {
-    await api.sendCode(phone);
-    setMode(nextMode);
-    setCode("");
-    setCodeError(undefined);
-    setExpiresAt(Date.now() + CODE_TTL_SECONDS * 1000);
-    setNow(Date.now());
-    setScreen("code");
-  };
-
-  // --- phone (Sign up 01) --------------------------------------------
-  const submitPhone = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    if (!phone.trim()) return setPhoneError("Введіть номер телефону");
-    if (!isValidPhone(phone)) return setPhoneError("Невірний формат номера");
-    setPhoneError(undefined);
-    setBusy(true);
-    try {
-      const found = await api.lookupPhone(phone);
-      if (found === "registered") {
-        // Already on the site: the login is the phone, only the password
-        // is missing.
-        setLogin(phoneDigits(phone));
-        setSigninPassword("");
-        setSigninError(undefined);
-        setScreen("signin");
-      } else {
-        await goToCode("register");
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // --- code (Sign up 02) --------------------------------------------
-  const submitCode = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    if (code.length < CODE_LENGTH) return setCodeError(`Введіть ${CODE_LENGTH} цифри коду`);
-    if (secondsLeft === 0) return setCodeError("Час дії коду минув, надішліть новий");
-    setBusy(true);
-    try {
-      const ok = await api.verifyCode(phone, code);
-      if (!ok) return setCodeError("Невірний код, спробуйте ще раз");
-      setCodeError(undefined);
-      setPassword("");
-      setPassword2("");
-      setPasswordErrors({});
-      setScreen("password");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resend = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await goToCode(mode);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // --- password (Реєстрація 1/3 / new password) ----------------------
-  const submitPassword = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    const a = passwordError(password);
-    const b = !password2 ? "Повторіть пароль" : password2 !== password ? "Паролі не збігаються" : undefined;
-    setPasswordErrors({ a, b });
-    if (a || b) return;
-    if (mode === "recover") {
-      setBusy(true);
-      try {
-        const account = await api.resetPassword(phone, password);
-        if (!account) return setPasswordErrors({ a: "Акаунт не знайдено" });
-        closeAuth();
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-    setScreen("company");
-  };
-
-  // --- company (Реєстрація 2/3) -------------------------------------
-  const submitCompany = (e: FormEvent) => {
-    e.preventDefault();
-    const errors: typeof companyErrors = {
-      name: required(company.name, "Введіть назву компанії"),
-      edrpou: !company.edrpou.trim()
-        ? "Введіть ЄДРПОУ"
-        : !isValidEdrpou(company.edrpou)
-          ? "ЄДРПОУ складається з 8 цифр"
-          : undefined,
-      region: required(company.region, "Оберіть область"),
-      city: required(company.city, "Вкажіть місто"),
-    };
-    setCompanyErrors(errors);
-    if (Object.values(errors).some(Boolean)) return;
-    if (!person.phone) setPerson((p) => ({ ...p, phone: formatPhone(phone) }));
-    setScreen("person");
-  };
-
-  // --- person (Реєстрація 3/3) ---------------------------------------
-  const submitPerson = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    const errors: typeof personErrors = {
-      fullName: required(person.fullName, "Введіть ПІБ"),
-      role: required(person.role, "Оберіть роль"),
-      position: required(person.position, "Введіть посаду"),
-      phone: !person.phone.trim()
-        ? "Введіть номер телефону"
-        : !isValidPhone(person.phone)
-          ? "Невірний формат номера"
-          : undefined,
-      email: !person.email.trim()
-        ? "Введіть електронну пошту"
-        : !isValidEmail(person.email)
-          ? "Невірний формат пошти"
-          : undefined,
-    };
-    setPersonErrors(errors);
-    if (Object.values(errors).some(Boolean)) return;
-    setBusy(true);
-    try {
-      await api.register({
-        phone,
-        password,
-        company: {
-          ...company,
-          name: company.name.trim(),
-          edrpou: company.edrpou.trim(),
-          city: company.city.trim(),
-        },
-        person: {
-          ...person,
-          fullName: person.fullName.trim(),
-          position: person.position.trim(),
-          phone: phoneDigits(person.phone),
-          email: person.email.trim(),
-        },
-      });
-      finishRegistration();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // --- signin (Sign in 01) -------------------------------------------
-  const submitSignin = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    const lErr = required(login, "Введіть логін");
-    const pErr = required(signinPassword, "Введіть пароль");
-    setLoginError(lErr);
-    setSigninError(pErr);
-    if (lErr || pErr) return;
-    setBusy(true);
-    try {
-      const account = await api.signIn(login, signinPassword);
-      if (!account) return setSigninError("Невірний логін або пароль");
-      closeAuth();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // --- recover (Sign in Variant2) ------------------------------------
-  const submitRecover = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    const lErr = required(login, "Введіть логін");
-    setLoginError(lErr);
-    if (lErr) return;
-    setBusy(true);
-    try {
-      const found = await api.findAccount(login);
-      if (!found) return setLoginError("Акаунт із таким логіном не знайдено");
-      setPhone(phoneDigits(login) || login.trim());
-      await goToCode("recover");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const codeTarget = isValidPhone(phone)
-    ? `номер [${formatPhoneShort(phone)}]`
-    : `пошту [${phone}]`;
-
-  return (
-    <div ref={bodyRef} className="flex flex-col gap-6 lg:gap-10">
-      {screen === "phone" && (
-        <form onSubmit={submitPhone} noValidate className="flex flex-col gap-6 lg:gap-10">
-          <TitleBlock
-            title="Вхід до особистого кабінету"
-            subtitle="Для авторизації введіть номер телефону"
-          />
-          <TextField
-            label="Номер телефону"
-            value={phone}
-            onChange={(v) => {
-              setPhone(formatPhone(v));
-              if (phoneError) setPhoneError(undefined);
-            }}
-            error={phoneError}
-            type="tel"
-            name="phone"
-            inputMode="tel"
-            autoComplete="tel"
-            helperZone
-          />
-          <div className="flex justify-end">
-            <Button type="submit" size="small" disabled={busy}>
-              Увійти
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "code" && (
-        <form onSubmit={submitCode} noValidate className="flex flex-col gap-6 lg:gap-10">
-          <TitleBlock
-            title={mode === "recover" ? "Відновлення паролю" : "Вхід до особистого кабінету"}
-            subtitle={`Введіть код, який ми надіслали на ${codeTarget}`}
-          />
-          <div className="flex flex-col gap-2">
-            <CodeInput
-              value={code}
-              onChange={(v) => {
-                setCode(v);
-                if (codeError) setCodeError(undefined);
-              }}
-              error={codeError}
-              disabled={busy}
-            />
-            <div className="flex items-center gap-2 text-body-sm text-neutral-500">
-              {secondsLeft > 0 ? (
-                <>
-                  <span>Надіслати код ще раз</span>
-                  <DotIcon className="size-2 shrink-0 text-[#626770]" />
-                  <span aria-live="off">{formatTimer(secondsLeft)}</span>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={resend}
-                  disabled={busy}
-                  className="cursor-pointer text-neutral-900 underline transition-colors duration-200 hover:text-brand disabled:opacity-50"
-                >
-                  Надіслати код ще раз
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" size="small" disabled={busy}>
-              Підтвердити
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "password" && (
-        <form onSubmit={submitPassword} noValidate className="flex flex-col gap-6 lg:gap-10">
-          {mode === "register" ? (
-            <TitleBlock
-              title="Реєстрація"
-              step="1/3"
-              subtitle="Створіть пароль для входу в кабінет"
-            />
-          ) : (
-            <TitleBlock title="Новий пароль" subtitle="Створіть новий пароль для входу" />
-          )}
-          <div className="flex flex-col gap-2">
-            <TextField label="Логін" value={phoneDigits(phone) || phone} onChange={() => {}} disabled helperZone />
-            <TextField
-              label="Пароль"
-              value={password}
-              onChange={(v) => {
-                setPassword(v);
-                if (passwordErrors.a) setPasswordErrors((p) => ({ ...p, a: undefined }));
-              }}
-              error={passwordErrors.a}
-              type="password"
-              name="new-password"
-              autoComplete="new-password"
-              helperZone
-            />
-            <TextField
-              label="Повторіть пароль"
-              value={password2}
-              onChange={(v) => {
-                setPassword2(v);
-                if (passwordErrors.b) setPasswordErrors((p) => ({ ...p, b: undefined }));
-              }}
-              error={passwordErrors.b}
-              type="password"
-              name="confirm-password"
-              autoComplete="new-password"
-              helperZone
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" size="small" disabled={busy}>
-              {mode === "register" ? "Дальше" : "Зберегти"}
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "company" && (
-        <form onSubmit={submitCompany} noValidate className="flex flex-col gap-6 lg:gap-10">
-          <TitleBlock title="Реєстрація" step="2/3" subtitle="Вкажіть дані вашої компанії" />
-          <div className="flex flex-col">
-            <GroupTitle>Дані компанії</GroupTitle>
-            <div className="flex flex-col gap-2">
-              <TextField
-                label="Назва компанії"
-                value={company.name}
-                onChange={(v) => {
-                  setCompany((c) => ({ ...c, name: v }));
-                  if (companyErrors.name) setCompanyErrors((p) => ({ ...p, name: undefined }));
-                }}
-                error={companyErrors.name}
-                name="organization"
-                autoComplete="organization"
-                helperZone
-              />
-              <TextField
-                label="ЄДРПОУ"
-                value={company.edrpou}
-                onChange={(v) => {
-                  setCompany((c) => ({ ...c, edrpou: v.replace(/\D/g, "").slice(0, 8) }));
-                  if (companyErrors.edrpou) setCompanyErrors((p) => ({ ...p, edrpou: undefined }));
-                }}
-                error={companyErrors.edrpou}
-                name="edrpou"
-                inputMode="numeric"
-                maxLength={8}
-                helperZone
-              />
-              <SelectField
-                label="Область"
-                value={company.region}
-                options={REGIONS}
-                onChange={(v) => {
-                  setCompany((c) => ({ ...c, region: v }));
-                  if (companyErrors.region) setCompanyErrors((p) => ({ ...p, region: undefined }));
-                }}
-                error={companyErrors.region}
-                name="region"
-                helperZone
-              />
-              <AutocompleteField
-                label="Місто"
-                value={company.city}
-                options={CITIES}
-                onChange={(v) => {
-                  setCompany((c) => ({ ...c, city: v }));
-                  if (companyErrors.city) setCompanyErrors((p) => ({ ...p, city: undefined }));
-                }}
-                error={companyErrors.city}
-                name="city"
-                autoComplete="address-level2"
-                helperZone
-              />
-            </div>
-          </div>
-          <div className="flex items-start justify-between gap-4">
-            <Button
-              type="button"
-              size="small"
-              variant="outlinedDark"
-              onClick={() => setScreen("password")}
-            >
-              Назад
-            </Button>
-            <Button type="submit" size="small">
-              Дальше
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "person" && (
-        <form onSubmit={submitPerson} noValidate className="flex flex-col gap-6 lg:gap-10">
-          <TitleBlock title="Реєстрація" step="3/3" subtitle="Вкажіть ваші контактні дані" />
-          <div className="flex flex-col">
-            <GroupTitle>Ваші дані</GroupTitle>
-            <div className="flex flex-col gap-2">
-              <TextField
-                label="ПІБ"
-                value={person.fullName}
-                onChange={(v) => {
-                  setPerson((p) => ({ ...p, fullName: v }));
-                  if (personErrors.fullName) setPersonErrors((p) => ({ ...p, fullName: undefined }));
-                }}
-                error={personErrors.fullName}
-                name="name"
-                autoComplete="name"
-                helperZone
-              />
-              <SelectField
-                label="Роль"
-                value={person.role}
-                options={ROLES}
-                onChange={(v) => {
-                  setPerson((p) => ({ ...p, role: v }));
-                  if (personErrors.role) setPersonErrors((p) => ({ ...p, role: undefined }));
-                }}
-                error={personErrors.role}
-                name="role"
-                helperZone
-              />
-              <TextField
-                label="Посада"
-                value={person.position}
-                onChange={(v) => {
-                  setPerson((p) => ({ ...p, position: v }));
-                  if (personErrors.position) setPersonErrors((p) => ({ ...p, position: undefined }));
-                }}
-                error={personErrors.position}
-                name="organization-title"
-                autoComplete="organization-title"
-                helperZone
-              />
-              <TextField
-                label="Номер телефону"
-                value={person.phone}
-                onChange={(v) => {
-                  setPerson((p) => ({ ...p, phone: formatPhone(v) }));
-                  if (personErrors.phone) setPersonErrors((p) => ({ ...p, phone: undefined }));
-                }}
-                error={personErrors.phone}
-                type="tel"
-                name="contact-phone"
-                inputMode="tel"
-                autoComplete="tel"
-                helperZone
-              />
-              <TextField
-                label="Електронна пошта"
-                value={person.email}
-                onChange={(v) => {
-                  setPerson((p) => ({ ...p, email: v }));
-                  if (personErrors.email) setPersonErrors((p) => ({ ...p, email: undefined }));
-                }}
-                error={personErrors.email}
-                type="email"
-                name="email"
-                inputMode="email"
-                autoComplete="email"
-                helperZone
-              />
-            </div>
-          </div>
-          <div className="flex items-start justify-between gap-4">
-            <Button
-              type="button"
-              size="small"
-              variant="outlinedDark"
-              onClick={() => setScreen("company")}
-              disabled={busy}
-            >
-              Назад
-            </Button>
-            <Button type="submit" size="small" disabled={busy}>
-              Зареєструватись
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "signin" && (
-        <form onSubmit={submitSignin} noValidate className="flex flex-col gap-6 lg:gap-10">
-          <TitleBlock
-            title="Вхід до особистого кабінету"
-            subtitle="Для авторизації введіть логін та пароль"
-          />
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <TextField
-                label="Логін"
-                value={login}
-                onChange={(v) => {
-                  setLogin(v);
-                  if (loginError) setLoginError(undefined);
-                }}
-                error={loginError}
-                name="username"
-                autoComplete="username"
-                helperZone
-              />
-              <TextField
-                label="Пароль"
-                value={signinPassword}
-                onChange={(v) => {
-                  setSigninPassword(v);
-                  if (signinError) setSigninError(undefined);
-                }}
-                error={signinError}
-                type="password"
-                name="current-password"
-                autoComplete="current-password"
-                helperZone
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setLoginError(undefined);
-                setScreen("recover");
-              }}
-              className="cursor-pointer self-end text-[14px] font-medium leading-[22px] text-neutral-800 underline transition-colors duration-200 hover:text-brand"
-            >
-              Забули пароль?
-            </button>
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" size="small" disabled={busy}>
-              Увійти
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "recover" && (
-        <form onSubmit={submitRecover} noValidate className="flex flex-col gap-6 lg:gap-10">
-          <TitleBlock title="Відновлення паролю" subtitle="Для відновлення паролю введіть логін" />
-          <TextField
-            label="Логін"
-            value={login}
-            onChange={(v) => {
-              setLogin(v);
-              if (loginError) setLoginError(undefined);
-            }}
-            error={loginError}
-            name="username"
-            autoComplete="username"
-            helperZone
-          />
-          <div className="flex items-start justify-between gap-4">
-            <Button
-              type="button"
-              size="small"
-              variant="outlinedDark"
-              onClick={() => {
-                setLoginError(undefined);
-                setScreen("signin");
-              }}
-              disabled={busy}
-            >
-              Назад
-            </Button>
-            <Button type="submit" size="small" disabled={busy}>
-              Надіслати код
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {screen === "account" && user && <AccountScreen user={user} onSignOut={signOut} />}
+    <div className="flex flex-col items-center">
+      <div className="flex w-full flex-col items-center gap-4 pb-4 pt-1">
+        <CheckmarkCircleIcon className="size-12 shrink-0 text-positive" />
+        <h2 className="w-full text-center text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
+          {title}
+        </h2>
+      </div>
+      <p className="w-full text-center text-body-sm text-neutral-500">{body}</p>
     </div>
   );
 }
 
-// Signed-in summary. The site has no profile master yet (the account
-// pages in Figma are the CRM admin's), so this reads the registration
-// back in the drawer's own typography and offers «Вийти». A B2C
-// customer has no company, so only the contact rows show.
-function AccountScreen({ user, onSignOut }: { user: Account; onSignOut: () => void }) {
+// The error alert (layer «Платіж»): #ffe7e5 r24 p-16, the 24-px red
+// «warning» and 16/24 Regular #1d1d1f text 16 px apart, centred.
+function Alert({ children }: { children: ReactNode }) {
+  return (
+    <div role="alert" className="flex w-full items-center gap-4 rounded-3xl bg-[#ffe7e5] p-4">
+      <WarningIcon className="size-6 shrink-0 text-negative" />
+      <p className="min-w-0 flex-1 text-[16px] font-normal leading-6 text-neutral-900">{children}</p>
+    </div>
+  );
+}
+
+// Phones (no master): the full-width pills keep their 42-px height but
+// give the label more room - 12-px side padding (11 + the 1-px ring)
+// below sm and 14-px type under 360 px, so «Отримати посилання ще раз»
+// and «Зареєструватись з Google» fit a 244-px column at 320. The pills
+// are full width, so the padding only matters once a label is too long.
+const PHONE_PILL = "max-sm:[&>span]:px-[11px] max-[360px]:[&>span]:text-[14px]";
+
+// Button/Small, full column width: the orange «Button» (accent) or the
+// #343435-outlined one. 42 tall.
+function WideButton({
+  children,
+  variant = "accent",
+  className = "",
+  ...rest
+}: {
+  children: ReactNode;
+  variant?: "accent" | "outlinedDark";
+  className?: string;
+  type?: "button" | "submit";
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+  "aria-disabled"?: boolean;
+  "data-autofocus"?: boolean;
+}) {
+  return (
+    <div className="flex w-full">
+      <Button size="small" variant={variant} fullWidth className={`${PHONE_PILL} ${className}`} {...rest}>
+        {children}
+      </Button>
+    </div>
+  );
+}
+
+// Phones (below 640): a resting field label longer than the room inside
+// the ring's 24-px sides ends in an ellipsis on one line; it shows in
+// full once it floats. «Електронна пошта або телефон» (249 px) only
+// overflows the 320-px field, but the empty-field error label
+// «Електронна пошта або номер телефону» (311.7 px) overflows every phone
+// width up to about 420, so the cap covers the whole phone range. Labels
+// that fit are untouched (truncate only clips what overflows); the
+// desktop drawer (>= 640) never gets it.
+const PHONE_FIELD_LABEL =
+  "max-lg:[&_input:placeholder-shown:not(:focus)+span]:max-w-[calc(100%-48px)] max-lg:[&_input:placeholder-shown:not(:focus)+span]:truncate";
+
+// An aria-disabled placeholder keeps the master's resting look: no
+// hover inversion, no pointer (the label span carries both in Button).
+const INERT_PILL =
+  "[&>span]:cursor-default [&>span:hover]:border-neutral-800 [&>span:hover]:bg-transparent [&>span:hover]:text-neutral-900";
+
+// «Увійти з Google» / «Зареєструватись з Google» (5258:5093): outlined
+// Button/Small with the 24-px G 10 px before the label, centred. Visual
+// only until Google sign-in exists: aria-disabled, no action, no hover.
+function GoogleButton({ label }: { label: string }) {
+  return (
+    <WideButton variant="outlinedDark" title={COPY.google} aria-disabled className={INERT_PILL}>
+      {/* The 24-px logo overhangs the 22-px label line by 1 px each side,
+          as in the master (logo y 9 in the 42-px box); phones close the
+          gap to 8. */}
+      <span className="flex h-[22px] items-center gap-[10px] max-sm:gap-2">
+        <GoogleGIcon className="size-6 shrink-0" />
+        {label}
+      </span>
+    </WideButton>
+  );
+}
+
+// «Ще не зареєстровані? Зареєструватись» (5254:85725): 16/22, Regular
+// #777779 + Bold #1d1d1f underlined action, 4 px apart, centred.
+function PromptRow({
+  text,
+  action,
+  onAction,
+}: {
+  text: string;
+  action: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-1 text-[16px] leading-[22px]">
+      <span className="whitespace-nowrap text-neutral-500">{text}</span>
+      <button
+        type="button"
+        onClick={onAction}
+        className="cursor-pointer whitespace-nowrap font-bold text-neutral-900 underline decoration-from-font [text-underline-position:from-font] transition-colors duration-200 hover:text-brand"
+      >
+        {action}
+      </button>
+    </div>
+  );
+}
+
+// Password «<TextField>» with the eye «AdornmentEnd»: hidden = eye,
+// visible = eye-slash. The toggle keeps the caret in the field; it is a
+// toggle button with a constant name («Показати пароль», pressed or not).
+// `hintId` / `describedBy` tie the «паролі не збігаються» line under the
+// repeat field to the first field as well.
+function PasswordField({
+  label,
+  value,
+  onChange,
+  error,
+  invalid,
+  hintId,
+  describedBy,
+  name,
+  autoComplete,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+  invalid?: boolean;
+  hintId?: string;
+  describedBy?: string;
+  name: string;
+  autoComplete: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <TextField
+      label={label}
+      value={value}
+      onChange={onChange}
+      error={error}
+      invalid={invalid}
+      hintId={hintId}
+      describedBy={describedBy}
+      type={visible ? "text" : "password"}
+      name={name}
+      autoComplete={autoComplete}
+      muiHelper
+      trailing={
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setVisible((v) => !v)}
+          aria-label="Показати пароль"
+          aria-pressed={visible}
+          data-eye
+          className="flex size-6 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand"
+        >
+          {visible ? <EyeSlashIcon className="size-6" /> : <EyeIcon className="size-6" />}
+        </button>
+      }
+    />
+  );
+}
+
+function LoginField({
+  label = COPY.labels.login,
+  value,
+  onChange,
+  error,
+  helper,
+}: {
+  label?: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+  helper?: string;
+}) {
+  return (
+    <TextField
+      label={label}
+      value={value}
+      onChange={onChange}
+      error={error}
+      helper={helper}
+      name="username"
+      autoComplete="username"
+      inputMode="email"
+      muiHelper
+    />
+  );
+}
+
+// --- screens -----------------------------------------------------------
+
+function Screens({ initial, resetToken }: { initial: Screen; resetToken: string | null }) {
+  const { user, closeAuth, signOut, finishRegistration } = useAuth();
+  const [screen, setScreen] = useState<Screen>(initial);
+  const [busy, setBusy] = useState(false);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  // «Паролі не збігаються» lives under the repeat field; the first
+  // password field (also red) points at it too.
+  const mismatchHintId = useId();
+
+  // The login travels between «Вхід» and «Відновлення паролю».
+  const [login, setLogin] = useState("");
+
+  // Sign in
+  const [password, setPassword] = useState("");
+  const [signinErrors, setSigninErrors] = useState<FieldErrors<SignInFields>>({});
+  const [signinAlert, setSigninAlert] = useState(false);
+
+  // Forgot password + link sent
+  const [forgotError, setForgotError] = useState<string>();
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(0);
+
+  // Set new password
+  const [newPassword, setNewPassword] = useState<SetPasswordFields>(EMPTY_NEW_PASSWORD);
+  const [newPasswordErrors, setNewPasswordErrors] = useState<FieldErrors<SetPasswordFields>>({});
+  const [newPasswordAlert, setNewPasswordAlert] = useState(false);
+
+  // Sign up
+  const [signup, setSignup] = useState<SignUpFields>(EMPTY_SIGNUP);
+  const [signupErrors, setSignupErrors] = useState<FieldErrors<SignUpFields>>({});
+  const [signupAlert, setSignupAlert] = useState(false);
+
+  // «...через 0:59.»: the minute runs 0:59 ... 0:00, then the screen
+  // switches to «send again».
+  const remainingMs = resendAt - now;
+  const timerOn = screen === "linkSent" && remainingMs > 0;
+  useEffect(() => {
+    if (!timerOn) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [timerOn]);
+  const secondsShown = Math.min(59, Math.max(0, Math.ceil(remainingMs / 1000) - 1));
+
+  // Focus follows the view: the first field (or the marked button) of
+  // every screen the visitor moves to. The entry screen keeps the
+  // dialog's own initial focus so it opens in the master's rest state
+  // (compared by value, so the dev double-run of effects cannot skip it).
+  // The link-sent screen swaps its whole body when the countdown ends
+  // and again after «Отримати посилання ще раз»; such a swap inside one
+  // screen moves focus only when the focused control went away with the
+  // old state (otherwise e.g. the close X keeps it).
+  const view: string = screen === "linkSent" ? `linkSent:${timerOn ? "timer" : "again"}` : screen;
+  const shownView = useRef<string>(initial);
+  useEffect(() => {
+    const prev = shownView.current;
+    if (prev === view) return;
+    shownView.current = view;
+    const sameScreen = prev.split(":")[0] === screen;
+    const id = requestAnimationFrame(() => {
+      const body = bodyRef.current;
+      if (!body) return;
+      const focused = document.activeElement;
+      if (sameScreen && focused && focused !== document.body && body.closest("[role=dialog]")?.contains(focused)) {
+        return;
+      }
+      body.querySelector<HTMLElement>("input:not([disabled]), button[data-autofocus]")?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [view, screen]);
+
+  const startTimer = (seconds: number) => {
+    const t = Date.now();
+    setNow(t);
+    setResendAt(t + seconds * 1000);
+  };
+
+  const goTo = (next: Screen) => {
+    setSigninAlert(false);
+    setSignupAlert(false);
+    setNewPasswordAlert(false);
+    setScreen(next);
+  };
+
+  // --- sign in ---------------------------------------------------------
+  const submitSignin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    const errors = validateSignIn({ login, password });
+    setSigninErrors(errors);
+    setSigninAlert(false);
+    if (hasErrors(errors)) return;
+    setBusy(true);
+    try {
+      const result = await api.signIn(login, password);
+      if (result.ok) {
+        // A partner's first login (CRM account not yet welcomed) opens
+        // «Вітаємо на платформі» instead of just closing the drawer.
+        if (result.account.type === "b2b" && !result.account.welcomed) finishRegistration();
+        else closeAuth();
+      } else if (result.error === "empty") {
+        setSigninErrors(result.fields);
+      } else {
+        setSigninAlert(true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // --- forgot password -------------------------------------------------
+  const submitForgot = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (!login.trim()) {
+      setForgotError(COPY.errors.login);
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await api.sendResetLink(login);
+      if (!result.ok) {
+        setForgotError(result.message);
+        return;
+      }
+      startTimer(result.resendAfter);
+      goTo("linkSent");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendLink = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await api.sendResetLink(login);
+      if (result.ok) startTimer(result.resendAfter);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // --- set new password ------------------------------------------------
+  const submitNewPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    const errors = validateSetPassword(newPassword);
+    setNewPasswordErrors(errors);
+    setNewPasswordAlert(false);
+    if (hasErrors(errors)) return;
+    setBusy(true);
+    try {
+      const result = await api.setPassword(
+        resetToken ?? "",
+        newPassword.password,
+        newPassword.repeat,
+      );
+      if (result.ok) {
+        // Back to «Вхід» with the login filled in: the new password
+        // proves itself on the first sign-in.
+        setLogin(result.login);
+        setPassword("");
+        setSigninErrors({});
+        goTo("signin");
+      } else if (result.error === "fields") {
+        setNewPasswordErrors(result.fields);
+      } else {
+        setNewPasswordAlert(true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // --- sign up ---------------------------------------------------------
+  const submitSignup = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    const errors = validateSignUp(signup);
+    setSignupErrors(errors);
+    setSignupAlert(false);
+    if (hasErrors(errors)) return;
+    setBusy(true);
+    try {
+      const result = await api.signUp(signup);
+      if (result.ok) {
+        closeAuth();
+      } else if (result.error === "fields") {
+        setSignupErrors(result.fields);
+      } else {
+        setSignupAlert(true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Editing either password clears «паролі не збігаються» from both.
+  const editSignup = (key: keyof SignUpFields) => (v: string) => {
+    setSignup((f) => ({ ...f, [key]: v }));
+    const clearMismatch = key === "password" && isMismatch(signupErrors);
+    if (signupErrors[key] || clearMismatch) {
+      setSignupErrors((errs) => ({
+        ...errs,
+        [key]: undefined,
+        ...(clearMismatch ? { repeat: undefined } : {}),
+      }));
+    }
+  };
+  const editNewPassword = (key: keyof SetPasswordFields) => (v: string) => {
+    setNewPassword((f) => ({ ...f, [key]: v }));
+    const clearMismatch = key === "password" && isMismatch(newPasswordErrors);
+    if (newPasswordErrors[key] || clearMismatch) {
+      setNewPasswordErrors((errs) => ({
+        ...errs,
+        [key]: undefined,
+        ...(clearMismatch ? { repeat: undefined } : {}),
+      }));
+    }
+  };
+
+  return (
+    <div ref={bodyRef} data-screen={screen} className={`flex flex-col ${PHONE_FIELD_LABEL}`}>
+      {screen === "signin" && (
+        <form onSubmit={submitSignin} noValidate className="flex flex-col gap-6 lg:gap-10">
+          <TitleBlock title={COPY.signin.title} subtitle={COPY.signin.subtitle} />
+          <div className="flex flex-col gap-6 lg:gap-10">
+            <div className="flex flex-col gap-6">
+              {signinAlert && <Alert>{COPY.signin.invalid}</Alert>}
+              {/* 5420:38180 names the empty-login field in full while its
+                  error shows; it drops back with the error (first key). */}
+              <LoginField
+                label={signinErrors.login ? COPY.labels.loginError : undefined}
+                value={login}
+                onChange={(v) => {
+                  setLogin(v);
+                  if (signinErrors.login) setSigninErrors((p) => ({ ...p, login: undefined }));
+                }}
+                error={signinErrors.login}
+              />
+              <PasswordField
+                label={COPY.labels.password}
+                value={password}
+                onChange={(v) => {
+                  setPassword(v);
+                  if (signinErrors.password) setSigninErrors((p) => ({ ...p, password: undefined }));
+                }}
+                error={signinErrors.password}
+                name="current-password"
+                autoComplete="current-password"
+              />
+              <div className="flex h-[22px] justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotError(undefined);
+                    goTo("forgot");
+                  }}
+                  className="cursor-pointer whitespace-nowrap text-[14px] font-medium leading-[22px] text-neutral-800 underline decoration-from-font [text-underline-position:from-font] transition-colors duration-200 hover:text-brand"
+                >
+                  {COPY.signin.forgot}
+                </button>
+              </div>
+              <WideButton type="submit" disabled={busy}>
+                {COPY.signin.submit}
+              </WideButton>
+              <GoogleButton label={COPY.signin.google} />
+            </div>
+            <PromptRow
+              text={COPY.signin.prompt}
+              action={COPY.signin.promptAction}
+              onAction={() => goTo("signup")}
+            />
+          </div>
+        </form>
+      )}
+
+      {screen === "forgot" && (
+        <form onSubmit={submitForgot} noValidate className="flex flex-col gap-6 lg:gap-10">
+          <TitleBlock title={COPY.forgot.title} subtitle={COPY.forgot.subtitle} />
+          <LoginField
+            value={login}
+            onChange={(v) => {
+              setLogin(v);
+              if (forgotError) setForgotError(undefined);
+            }}
+            error={forgotError}
+          />
+          <WideButton type="submit" disabled={busy}>
+            {COPY.forgot.submit}
+          </WideButton>
+        </form>
+      )}
+
+      {screen === "linkSent" && (
+        <div className="flex flex-col gap-6 lg:gap-10">
+          {timerOn ? (
+            <>
+              <SuccessTitle
+                title={
+                  <>
+                    {/* The layer ends line 1 with a space before the
+                        break and Figma centres it with that space; an
+                        NBSP survives the line end, so the line sits 3 px
+                        left like the master (ctx 5420-38217). */}
+                    {COPY.linkSent.titleTimer[0]}&nbsp;
+                    <br />
+                    {COPY.linkSent.titleTimer[1]}
+                  </>
+                }
+                body={COPY.linkSent.body}
+              />
+              {/* 5410:64934: #f8f8f8 r24 p-16, 14/22 Medium #343435 with
+                  the time in Bold; on the 436-px column the three runs
+                  sit 4 px apart on one line (flex, so the space below
+                  is not rendered). Phones get one wrapping sentence:
+                  «...через 0:59.» with the time and dot kept together. */}
+              <p
+                data-countdown
+                className="w-full rounded-3xl bg-bg-subtle p-4 text-[14px] font-medium leading-[22px] text-neutral-800 lg:flex lg:flex-wrap lg:items-center lg:gap-1"
+              >
+                <span className="lg:whitespace-nowrap">{COPY.linkSent.timer}</span>{" "}
+                <span className="whitespace-nowrap font-bold">{formatTimer(secondsShown)}</span>
+                <span>.</span>
+              </p>
+              <WideButton variant="outlinedDark" onClick={() => goTo("signin")} data-autofocus>
+                {COPY.linkSent.back}
+              </WideButton>
+            </>
+          ) : (
+            <>
+              <SuccessTitle title={COPY.linkSent.titleAgain} body={COPY.linkSent.body} />
+              <div className="flex flex-col gap-6">
+                <WideButton onClick={resendLink} disabled={busy} data-autofocus>
+                  {COPY.linkSent.again}
+                </WideButton>
+                <WideButton variant="outlinedDark" onClick={() => goTo("signin")}>
+                  {COPY.linkSent.back}
+                </WideButton>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {screen === "setPassword" && (
+        <form onSubmit={submitNewPassword} noValidate className="flex flex-col gap-6 lg:gap-10">
+          <TitleBlock title={COPY.setPassword.title} subtitle={COPY.setPassword.subtitle} />
+          <div className="flex flex-col gap-6">
+            {newPasswordAlert && <Alert>{COPY.requestFailed}</Alert>}
+            <PasswordField
+              label={COPY.labels.password}
+              value={newPassword.password}
+              onChange={editNewPassword("password")}
+              error={newPasswordErrors.password}
+              invalid={isMismatch(newPasswordErrors)}
+              describedBy={isMismatch(newPasswordErrors) ? mismatchHintId : undefined}
+              name="new-password"
+              autoComplete="new-password"
+            />
+            <PasswordField
+              label={COPY.labels.repeat}
+              value={newPassword.repeat}
+              onChange={editNewPassword("repeat")}
+              error={newPasswordErrors.repeat}
+              hintId={mismatchHintId}
+              name="confirm-password"
+              autoComplete="new-password"
+            />
+          </div>
+          <WideButton type="submit" disabled={busy}>
+            {COPY.setPassword.submit}
+          </WideButton>
+        </form>
+      )}
+
+      {screen === "signup" && (
+        <form onSubmit={submitSignup} noValidate className="flex flex-col gap-6 lg:gap-10">
+          <TitleBlock title={COPY.signup.title} subtitle={COPY.signup.subtitle} />
+          <div className="flex flex-col gap-6 lg:gap-10">
+            <div className="flex flex-col gap-6">
+              {signupAlert && <Alert>{COPY.requestFailed}</Alert>}
+              <TextField
+                label={COPY.labels.firstName}
+                value={signup.firstName}
+                onChange={editSignup("firstName")}
+                error={signupErrors.firstName}
+                name="given-name"
+                autoComplete="given-name"
+                muiHelper
+              />
+              <TextField
+                label={COPY.labels.lastName}
+                value={signup.lastName}
+                onChange={editSignup("lastName")}
+                error={signupErrors.lastName}
+                name="family-name"
+                autoComplete="family-name"
+                muiHelper
+              />
+              <LoginField
+                value={signup.login}
+                onChange={editSignup("login")}
+                error={signupErrors.login}
+                helper={COPY.signup.loginHelper}
+              />
+              <PasswordField
+                label={COPY.labels.password}
+                value={signup.password}
+                onChange={editSignup("password")}
+                error={signupErrors.password}
+                invalid={isMismatch(signupErrors)}
+                describedBy={isMismatch(signupErrors) ? mismatchHintId : undefined}
+                name="new-password"
+                autoComplete="new-password"
+              />
+              <PasswordField
+                label={COPY.labels.repeat}
+                value={signup.repeat}
+                onChange={editSignup("repeat")}
+                error={signupErrors.repeat}
+                hintId={mismatchHintId}
+                name="confirm-password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex flex-col gap-6">
+              <WideButton type="submit" disabled={busy}>
+                {COPY.signup.submit}
+              </WideButton>
+              <GoogleButton label={COPY.signup.google} />
+            </div>
+            <PromptRow
+              text={COPY.signup.prompt}
+              action={COPY.signup.promptAction}
+              onAction={() => goTo("signin")}
+            />
+          </div>
+        </form>
+      )}
+
+      {screen === "account" && user && (
+        <AccountScreen user={user} onSignOut={signOut} onLeave={closeAuth} />
+      )}
+    </div>
+  );
+}
+
+// Signed-in summary in the drawer's own typography. A partner's full
+// profile is the «Мій профіль» page, linked first; «Вийти» stays here for
+// everyone (no other screen signs out). A retail customer has no company
+// and no profile page, so only the contact rows and «Вийти» show. The
+// two buttons stack 24 apart like «send again» (5420:38222).
+function AccountScreen({
+  user,
+  onSignOut,
+  onLeave,
+}: {
+  user: Account;
+  onSignOut: () => void;
+  onLeave: () => void;
+}) {
+  // «м. Київ» already names the city: the city joins the region label
+  // only when it is a different place («Львівська область, Дрогобич»).
+  const { region, city } = user.company;
   const companyRows: [string, string][] =
     user.type === "b2b"
       ? [
           ["Компанія", user.company.name],
           ["ЄДРПОУ", user.company.edrpou],
-          ["Регіон", [REGIONS.find((r) => r.value === user.company.region)?.label, user.company.city].filter(Boolean).join(", ")],
-          ["Роль", `${roleLabel(user.person.role)}${user.person.position ? `, ${user.person.position}` : ""}`],
+          [
+            "Регіон",
+            [REGIONS.find((r) => r.value === region)?.label, city !== region ? city : null]
+              .filter(Boolean)
+              .join(", "),
+          ],
+          [
+            "Роль",
+            `${roleLabel(user.person.role)}${user.person.position ? `, ${user.person.position}` : ""}`,
+          ],
         ]
       : [];
   const rows: [string, string][] = [
@@ -747,45 +799,63 @@ function AccountScreen({ user, onSignOut }: { user: Account; onSignOut: () => vo
       <TitleBlock title="Особистий кабінет" subtitle={`Ви увійшли як ${user.person.fullName}`} />
       <div className="flex flex-col gap-4 rounded-3xl bg-bg-subtle p-6">
         {user.logo && (
-          <img
-            src={user.logo}
-            alt="Лого компанії"
-            className="size-16 rounded-xl object-cover"
-          />
+          <img src={user.logo} alt="Лого компанії" className="size-16 rounded-xl object-cover" />
         )}
         {rows.map(([label, value]) => (
           <div key={label} className="flex flex-col gap-0.5">
             <span className="text-[14px] leading-6 text-neutral-500">{label}</span>
-            <span className="text-body-sm font-medium text-neutral-900">{value || "—"}</span>
+            <span className="text-body-sm font-medium text-neutral-900">{value || "-"}</span>
           </div>
         ))}
       </div>
-      <div className="flex justify-end">
-        <Button type="button" size="small" variant="outlinedDark" onClick={onSignOut} data-autofocus>
+      <div className="flex flex-col gap-6">
+        {user.type === "b2b" && (
+          <div className="flex w-full">
+            <Button
+              href={PROFILE_HREF}
+              size="small"
+              variant="accent"
+              fullWidth
+              className={PHONE_PILL}
+              onClick={onLeave}
+              data-autofocus
+            >
+              Перейти в профіль
+            </Button>
+          </div>
+        )}
+        <WideButton
+          variant="outlinedDark"
+          onClick={onSignOut}
+          data-autofocus={user.type !== "b2b" || undefined}
+        >
           Вийти
-        </Button>
+        </WideButton>
       </div>
     </div>
   );
 }
 
+// --- shell -------------------------------------------------------------
+
 export function AuthDrawer() {
-  const { open, openCount, entry, user, hasAccounts, closeAuth } = useAuth();
+  const { open, openCount, entry, user, resetToken, closeAuth } = useAuth();
   const asideRef = useRef<HTMLElement | null>(null);
-  const closeRef = useRef<HTMLButtonElement | null>(null);
+  // The 930-px master panel is zoomed to the space under the header on
+  // shorter desktop windows (the cart drawer's rule), never scaled up.
+  const fit = useFitZoom(DRAWER_DESIGN_H, DESKTOP_HEADER_H);
+  const fitted = fit < 1;
 
   useModalBehavior({
     open,
     onClose: closeAuth,
+    // Focus lands on the dialog (no field, no control focused): the
+    // master's rest state on every screen.
     container: asideRef,
-    initial: closeRef,
     inertSelector: "body > header",
   });
 
-  // Entry screen: the signed-in summary for an account, «Sign in» when
-  // the device already holds an account, the phone screen otherwise.
-  const initial: Screen =
-    entry === "account" || user ? "account" : hasAccounts ? "signin" : "phone";
+  const initial = entryScreen(entry, Boolean(user));
 
   return (
     <div
@@ -807,23 +877,39 @@ export function AuthDrawer() {
         aria-modal="true"
         aria-label={user ? "Особистий кабінет" : "Вхід до особистого кабінету"}
         tabIndex={-1}
-        style={{ top: "var(--site-header-h, 92px)", ...DRAWER_STYLE }}
-        className={`scrollbar-hidden absolute bottom-0 right-0 flex w-[576px] max-w-[92vw] flex-col overflow-y-auto overscroll-contain rounded-tl-[32px] border border-stroke-default bg-white px-6 pb-6 pt-14 transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:rounded-tl-[48px] lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-[59px] ${
+        data-auth-drawer
+        style={{
+          top: "var(--site-header-h, 92px)",
+          ...(fitted ? { width: DRAWER_W * fit } : undefined),
+        }}
+        className={`absolute bottom-0 right-0 flex w-[576px] max-w-[92vw] flex-col overflow-hidden outline-none transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={closeAuth}
-          aria-label="Закрити"
-          className="absolute right-4 top-4 z-[1] flex size-8 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand lg:right-6 lg:top-6"
+        {/* The sheet in the master's px; on short windows it is the
+            576 x 930 design box zoomed into the space under the header
+            (CSS zoom keeps text crisp and hit-testing exact). */}
+        <div
+          data-auth-sheet
+          style={{
+            ...DRAWER_STYLE,
+            ...(fitted ? { zoom: fit, width: DRAWER_W, height: DRAWER_DESIGN_H, flex: "none" } : undefined),
+          }}
+          className="scrollbar-hidden relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-tl-[32px] border border-stroke-default bg-white px-6 pb-6 pt-14 lg:rounded-tl-[48px] lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]"
         >
-          <XMarkIcon className="size-8" />
-        </button>
-        {/* Remounts on every open so each visit starts at the entry
-            screen with empty fields. */}
-        <Screens key={openCount} initial={initial} />
+          {/* Phones only (see the header note): no frame draws it. */}
+          <button
+            type="button"
+            onClick={closeAuth}
+            aria-label="Закрити"
+            className="absolute right-4 top-4 z-[1] flex size-8 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand lg:hidden"
+          >
+            <XMarkIcon className="size-8" />
+          </button>
+          {/* Remounts on every open so each visit starts at the entry
+              screen with empty fields. */}
+          <Screens key={openCount} initial={initial} resetToken={resetToken} />
+        </div>
       </aside>
     </div>
   );

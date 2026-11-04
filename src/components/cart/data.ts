@@ -1,5 +1,5 @@
 // Cart domain helpers — Figma «Кошик» section (4329:39830).
-import type { Product } from "@/components/catalog/data";
+import { b2bPrices, type Product } from "@/components/catalog/data";
 import { ALL_PRODUCTS, findProduct } from "@/components/product/data";
 
 // A cart line: product id + quantity. Prices come from the product
@@ -7,6 +7,17 @@ import { ALL_PRODUCTS, findProduct } from "@/components/product/data";
 export type CartLine = { id: string; qty: number };
 
 export type CartEntry = { line: CartLine; product: Product };
+
+// Which price a line is charged at. A signed-in B2B partner pays the
+// partner price («ваша ціна» of the catalog trio): the drawer of the
+// «Мій асортимент :: Додано у кошик» frame (4204:56703) bills 50 x 28,99
+// = «1 449,50 ₴» per line and «7 247,50 ₴» for five. Everyone else pays
+// the shop price.
+export type PriceMode = "retail" | "partner";
+
+export function unitPrice(product: Product, mode: PriceMode = "retail"): number {
+  return mode === "partner" ? b2bPrices(product).partner : product.price;
+}
 
 // «5 000 ₴» — the free-delivery threshold the summary's progress bar
 // measures against (4329:40056).
@@ -21,12 +32,12 @@ export function resolveLines(lines: CartLine[]): CartEntry[] {
   });
 }
 
-export function lineTotal(entry: CartEntry): number {
-  return Math.round(entry.product.price * entry.line.qty * 100) / 100;
+export function lineTotal(entry: CartEntry, mode: PriceMode = "retail"): number {
+  return Math.round(unitPrice(entry.product, mode) * entry.line.qty * 100) / 100;
 }
 
-export function cartSubtotal(entries: CartEntry[]): number {
-  return Math.round(entries.reduce((sum, e) => sum + lineTotal(e), 0) * 100) / 100;
+export function cartSubtotal(entries: CartEntry[], mode: PriceMode = "retail"): number {
+  return Math.round(entries.reduce((sum, e) => sum + lineTotal(e, mode), 0) * 100) / 100;
 }
 
 export function cartCount(lines: CartLine[]): number {
@@ -52,7 +63,11 @@ export type StockIssue = {
 // unavailable in the feed, and PROMO lines (the item with an oldPrice —
 // a sale running out is the realistic demo case; add the «-25%» shampoo
 // from /catalog and press «Оформити замовлення» to see the modal).
-export function checkStock(entries: CartEntry[]): StockIssue[] {
+// Retail only: a B2B partner orders on request, so an unavailable or
+// preorder line is «Під замовлення» (B2BStatusLine) and stays orderable,
+// and the partner price row has no promo - nothing ever sells out there.
+export function checkStock(entries: CartEntry[], mode: PriceMode = "retail"): StockIssue[] {
+  if (mode === "partner") return [];
   const inCart = new Set(entries.map((e) => e.line.id));
   return entries.flatMap((entry) => {
     const soldOut = !entry.product.available || entry.product.oldPrice !== undefined;

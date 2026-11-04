@@ -2,22 +2,29 @@
 // call is answered from the browser store after a short delay that keeps
 // the loading states honest; the CRM integration replaces the bodies
 // below one by one (the signatures are what the screens depend on):
-//   lookupPhone   -> is this CRM contact already registered on the site?
-//   sendCode      -> SMS with a 4-digit code, valid CODE_TTL_SECONDS
-//   verifyCode    -> the code the person typed
-//   register      -> create the site account for a verified phone
-//   signIn        -> login + password
-//   resetPassword -> new password after a verified code
-// The mock accepts ANY complete 4-digit code (nothing is sent), stores
-// passwords as SHA-256 digests and keeps everything in localStorage;
-// the shared demo accounts (demo.ts) sign in on any device.
+//   signIn        -> login (e-mail or phone) + password
+//   signUp        -> a retail (B2C) account from the sign-up form
+//   sendResetLink -> e-mail / SMS with the password reset link
+//   setPassword   -> the new password, authorised by the link's token
+// The mock stores passwords as SHA-256 digests in localStorage, sends
+// nothing (the reset link is always `/?reset=demo`, see data.ts) and
+// signs the shared demo accounts (demo.ts) in on any device.
 import {
-  CODE_LENGTH,
-  CODE_TTL_SECONDS,
-  phoneDigits,
+  COPY,
+  DEMO_RESET_TOKEN,
+  EMPTY_COMPANY,
+  RESET_RESEND_SECONDS,
+  hasErrors,
+  isEmailLike,
+  normalizeLogin,
+  validateSetPassword,
+  validateSignIn,
+  validateSignUp,
   type Account,
-  type CompanyData,
-  type PersonData,
+  type FieldErrors,
+  type SetPasswordFields,
+  type SignInFields,
+  type SignUpFields,
 } from "./data";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD, isDemoAccount } from "./demo";
 import { currentAccount, getSnapshot, updateState } from "./store";
@@ -28,7 +35,9 @@ function delay(ms = LATENCY_MS) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-async function sha256(text: string): Promise<string> {
+// SHA-256 hex of a password (the profile page's password change uses
+// the same digest, so a password set there opens the sign-in drawer).
+export async function sha256(text: string): Promise<string> {
   if (typeof crypto !== "undefined" && crypto.subtle) {
     const bytes = new TextEncoder().encode(text);
     const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -46,9 +55,11 @@ function newId() {
 }
 
 // The device's own accounts first (a demo account keeps its local copy
-// once it has signed in here), then the shared demo accounts.
+// once it has signed in here), then the shared demo accounts. A login
+// matches the account's login, phone or e-mail.
 function findByLogin(login: string): Account | undefined {
-  const key = phoneDigits(login) || login.trim().toLowerCase();
+  const key = normalizeLogin(login);
+  if (!key) return undefined;
   const matches = (a: Account) =>
     a.login === key || a.phone === key || a.person.email.toLowerCase() === key;
   return getSnapshot().accounts.find(matches) ?? DEMO_ACCOUNTS.find(matches);
@@ -62,77 +73,118 @@ function upsert(accounts: Account[], account: Account, patch: Partial<Account> =
     : [...accounts, { ...account, ...patch }];
 }
 
-export type PhoneLookup = "registered" | "new";
+// --- sign in (5420:38171) ------------------------------------------------
 
-export async function lookupPhone(phone: string): Promise<PhoneLookup> {
+export type SignInResult =
+  | { ok: true; account: Account }
+  // "empty": the field errors of «Error :: user didn't enter data»;
+  // "invalid": the 436 x 128 alert of «Error :: invalid data».
+  | { ok: false; error: "empty"; fields: FieldErrors<SignInFields> }
+  | { ok: false; error: "invalid" };
+
+export async function signIn(login: string, password: string): Promise<SignInResult> {
+  const fields = validateSignIn({ login, password });
+  if (hasErrors(fields)) return { ok: false, error: "empty", fields };
   await delay();
-  return findByLogin(phone) ? "registered" : "new";
+  const account = findByLogin(login);
+  if (!account) return { ok: false, error: "invalid" };
+  const demo = isDemoAccount(account) && password === DEMO_PASSWORD;
+  if (!demo && (await sha256(password)) !== account.passwordHash) {
+    return { ok: false, error: "invalid" };
+  }
+  updateState((prev) => ({ ...prev, accounts: upsert(prev.accounts, account), sessionId: account.id }));
+  return { ok: true, account };
 }
 
-export async function findAccount(login: string): Promise<boolean> {
-  await delay();
-  return Boolean(findByLogin(login));
-}
+// --- sign up (5420:38224) ------------------------------------------------
 
-export async function sendCode(_phone: string): Promise<{ ttl: number }> {
-  void _phone;
-  await delay();
-  return { ttl: CODE_TTL_SECONDS };
-}
+export type SignUpResult =
+  | { ok: true; account: Account }
+  // "fields": empty / malformed fields or «паролі не збігаються» (the
+  // 5th field of 5420:38244); "exists": the 436 x 80 alert of 5420:38234.
+  | { ok: false; error: "fields"; fields: FieldErrors<SignUpFields> }
+  | { ok: false; error: "exists" };
 
-export async function verifyCode(_phone: string, code: string): Promise<boolean> {
-  void _phone;
+export async function signUp(input: SignUpFields): Promise<SignUpResult> {
+  const fields = validateSignUp(input);
+  if (hasErrors(fields)) return { ok: false, error: "fields", fields };
   await delay();
-  return new RegExp(`^\\d{${CODE_LENGTH}}$`).test(code);
-}
-
-export async function register(input: {
-  phone: string;
-  password: string;
-  company: CompanyData;
-  person: PersonData;
-}): Promise<Account> {
-  await delay();
-  const phone = phoneDigits(input.phone);
+  if (findByLogin(input.login)) return { ok: false, error: "exists" };
+  const login = normalizeLogin(input.login);
+  const email = isEmailLike(login) ? login : "";
+  const phone = email ? "" : login;
   const account: Account = {
     id: newId(),
-    type: "b2b",
+    type: "b2c",
     phone,
-    login: phone,
+    login,
     passwordHash: await sha256(input.password),
-    company: input.company,
-    person: input.person,
+    company: EMPTY_COMPANY,
+    person: {
+      // «Прізвище Імʼя», the order the profile pages read names in.
+      fullName: `${input.lastName.trim()} ${input.firstName.trim()}`,
+      role: "",
+      position: "",
+      phone,
+      email,
+    },
     createdAt: new Date().toISOString(),
-    welcomed: false,
+    // The «Вітаємо на платформі» modal is the partner's first login (it
+    // asks for a company logo); retail customers never see it.
+    welcomed: true,
   };
+  updateState((prev) => ({ ...prev, accounts: [...prev.accounts, account], sessionId: account.id }));
+  return { ok: true, account };
+}
+
+// --- password reset (5420:38196) -----------------------------------------
+
+export type ResetLinkResult =
+  | { ok: true; resendAfter: number }
+  | { ok: false; error: "empty"; message: string };
+
+// «Відновити пароль». The answer is the same whether or not the login
+// exists (no account probing); only a known login gets a pending reset,
+// which the mocked link `/?reset=demo` then redeems.
+export async function sendResetLink(login: string): Promise<ResetLinkResult> {
+  if (!login.trim()) return { ok: false, error: "empty", message: COPY.errors.login };
+  await delay();
+  const account = findByLogin(login);
   updateState((prev) => ({
-    accounts: [...prev.accounts.filter((a) => a.phone !== phone), account],
-    sessionId: account.id,
+    ...prev,
+    reset: account ? { token: DEMO_RESET_TOKEN, login: account.login } : null,
   }));
-  return account;
+  return { ok: true, resendAfter: RESET_RESEND_SECONDS };
 }
 
-export async function signIn(login: string, password: string): Promise<Account | null> {
-  await delay();
-  const account = findByLogin(login);
-  if (!account) return null;
-  const demo = isDemoAccount(account) && password === DEMO_PASSWORD;
-  if (!demo && (await sha256(password)) !== account.passwordHash) return null;
-  updateState((prev) => ({ accounts: upsert(prev.accounts, account), sessionId: account.id }));
-  return account;
-}
+export type SetPasswordResult =
+  | { ok: true; login: string }
+  | { ok: false; error: "fields"; fields: FieldErrors<SetPasswordFields> }
+  // No pending reset for this token (expired, used, or never requested):
+  // the drawer shows the «Не вдалося обробити запит» alert.
+  | { ok: false; error: "token" };
 
-export async function resetPassword(login: string, password: string): Promise<Account | null> {
+export async function setPassword(
+  token: string,
+  password: string,
+  repeat: string = password,
+): Promise<SetPasswordResult> {
+  const fields = validateSetPassword({ password, repeat });
+  if (hasErrors(fields)) return { ok: false, error: "fields", fields };
   await delay();
-  const account = findByLogin(login);
-  if (!account) return null;
+  const pending = getSnapshot().reset;
+  const account = pending && pending.token === token ? findByLogin(pending.login) : undefined;
+  if (!account) return { ok: false, error: "token" };
   const passwordHash = await sha256(password);
   updateState((prev) => ({
+    ...prev,
     accounts: upsert(prev.accounts, account, { passwordHash }),
-    sessionId: account.id,
+    reset: null,
   }));
-  return { ...account, passwordHash };
+  return { ok: true, login: account.person.email || account.login };
 }
+
+// --- session -------------------------------------------------------------
 
 export function signOut() {
   updateState((prev) => ({ ...prev, sessionId: null }));

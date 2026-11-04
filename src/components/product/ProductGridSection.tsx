@@ -13,10 +13,19 @@ import type { Product } from "@/components/catalog/data";
 // Rows follow the catalog grid: four cards separated by full-height
 // #d2d2d2 hairlines centred in 80-px gutters, 80 px between rows.
 // `mode="b2b"` is the platform product page (4329:56749 «З цієї серії»,
-// 4329:57767 «Схожі товари в наявності»): B2B cards on the 40 / 32
-// gutters with 64 above and below; the series grid starts 64 under its
-// title row and keeps 64 between rows, the similar-products row 80
-// under its title (`headGap`).
+// 4329:57767 «Схожі товари в наявності»): the 40 / 32 gutters with 64
+// above and below; the series grid starts 64 under its title row and
+// keeps 64 between rows, the similar-products row 80 under its title
+// (`headGap`).
+// `card` picks the card flavour (default: the mode's own). The platform
+// page draws two different ones: «Схожі товари» holds «B2B :: Product
+// card» instances (323.5 x 696, 4329:57715), while «З цієї серії» holds
+// plain «B2C :: Product card» instances (323.5 x 612, 4329:56754 ...;
+// rows 1647 / 2323 = 612 + 64), so that grid passes card="b2c". The B2C
+// master's photo is a fixed 328-px band; ProductCard keeps a 655:656
+// box instead (328 at its 327.5-px catalog width, 324 at 323.5), so the
+// 323.5-px platform card pins the photo link to 328 at lg (24 + 328 +
+// 32 + 120 + 32 + 52 + 24 = 612).
 export function ProductGridSection({
   id,
   title,
@@ -24,6 +33,7 @@ export function ProductGridSection({
   products,
   className = "",
   mode = "b2c",
+  card,
   headGap = "md",
 }: {
   id?: string;
@@ -32,9 +42,12 @@ export function ProductGridSection({
   products: Product[];
   className?: string;
   mode?: "b2c" | "b2b";
+  card?: "b2c" | "b2b";
   headGap?: "md" | "lg";
 }) {
   const b2b = mode === "b2b";
+  const b2bCards = (card ?? mode) === "b2b";
+  const pinPhoto = b2b && !b2bCards;
   const rows: Product[][] = [];
   for (let i = 0; i < products.length; i += 4) rows.push(products.slice(i, i + 4));
 
@@ -78,8 +91,14 @@ export function ProductGridSection({
                     className="hidden w-px shrink-0 self-stretch bg-stroke-subtle lg:block"
                   />
                 )}
-                <div className="min-w-0 lg:flex-1">
-                  {b2b ? <B2BProductCard product={product} /> : <ProductCard product={product} />}
+                <div
+                  className={`min-w-0 lg:flex-1 ${pinPhoto ? "lg:[&_article>a]:h-[328px]" : ""}`}
+                >
+                  {b2bCards ? (
+                    <B2BProductCard product={product} />
+                  ) : (
+                    <ProductCard product={product} />
+                  )}
                 </div>
               </Fragment>
             ))}

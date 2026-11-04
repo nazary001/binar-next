@@ -10,7 +10,9 @@ type ButtonStyle = {
   // "responsive" renders the compact (small) button below lg and the
   // large button at lg+ in a single instance — used where Figma's mobile
   // master shows the small CTA but desktop keeps the large one.
-  size?: "large" | "small" | "responsive";
+  // "xsmall" is the 38-px Button/Small of the B2B dashboard (5052:32306
+  // «Написати менеджеру»): px-24 py-8, Manrope Medium 14/22.
+  size?: "large" | "small" | "responsive" | "xsmall";
   // "outlinedDark" is the Figma Button/Large «Outlined» on a white
   // surface (3865:19962 - the PDP «Купити зараз»): 1-px #343435 stroke,
   // dark label; hover inverts to the solid black pill.
@@ -29,6 +31,11 @@ type ButtonStyle = {
   iconDesktopOnly?: boolean;
   // Stretch the pill to the wrapper's full width (cart / modal CTAs).
   fullWidth?: boolean;
+  // How a disabled <button> looks. "fade" (default) dims the whole
+  // button to 50 %; "solid" is the Figma Button/Large disabled state of
+  // the cabinet modals (4868:31335 / 4868:31495: Button/Disabled #e8e8e9
+  // fill, Text/Disabled #a5a5a5 label, no hover).
+  disabledStyle?: "fade" | "solid";
   className?: string;
   children: ReactNode;
 };
@@ -55,24 +62,32 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 // appears, bg disappears, text flips dark). Keeping a 1-px transparent
 // border on the default state means the hover border addition does not
 // shift layout by 1 px when the user mouses over.
-// The 1-px hover-stability border is part of the box, so the pills use
-// one-px-smaller paddings to hit Figma's exact heights: small py-[9px]
-// (9 + 22 + 9 + 2 border = 42 — py-[10px] rendered 44 px) and large
-// py-[14px] (14 + 22 + 14 + 2 border = 52 — py-[15px] rendered 54 px,
-// which pushed e.g. the 484-px blog hero to 486).
+// The 1-px hover-stability border is part of the box (Figma draws its
+// stroke INSIDE the box, CSS adds it outside the padding), so every
+// pill pads one px less than the master on ALL four sides to hit
+// Figma's exact outer box: small py-[9px] (9 + 22 + 9 + 2 border = 42 -
+// py-[10px] rendered 44 px), large py-[14px] (14 + 22 + 14 + 2 = 52 -
+// py-[15px] rendered 54 px, which pushed e.g. the 484-px blog hero to
+// 486), and px-[23px] on every size (23 + 1 border = the master's 24,
+// so a hug-width label is text + 48 like Figma, not text + 50).
 // The border COLOUR lives on each variant (transparent for the filled
 // ones) — putting `border-transparent` here as well made two utilities
 // compete for the same property, and Tailwind's sort order let it beat
 // the outlined variants' stroke.
 const labelSize = {
+  // Below sm the large pill is the site's own compact size (no Figma
+  // master), so only the sm+ (= Figma Button/Large) values are exact.
   large:
-    "rounded-[25px] border px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-6 sm:py-[14px] sm:text-button-lg",
+    "rounded-[25px] border px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-[23px] sm:py-[14px] sm:text-button-lg",
   small:
-    "rounded-[24px] border px-6 py-[9px] text-button-md whitespace-nowrap",
+    "rounded-[24px] border px-[23px] py-[9px] text-button-md whitespace-nowrap",
   // Small below lg, large at lg (the lg overrides equal the `large`
   // value resolved at >=1024, so desktop is identical to size="large").
   responsive:
-    "rounded-[24px] border px-6 py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[14px] lg:text-button-lg",
+    "rounded-[24px] border px-[23px] py-[9px] text-button-md whitespace-nowrap lg:rounded-[25px] lg:py-[14px] lg:text-button-lg",
+  // 7 + 22 + 7 + 2 border = 38 (Figma py-8 without a stroke).
+  xsmall:
+    "rounded-[24px] border px-[23px] py-[7px] text-[14px] font-medium leading-[22px] whitespace-nowrap",
 };
 
 const arrowWrap = {
@@ -80,6 +95,7 @@ const arrowWrap = {
   // Figma mobile compact button (e.g. 3082:3250): 42px arrow square.
   small: "size-[42px] rounded-[21px]",
   responsive: "size-[42px] rounded-[21px] lg:size-[52px] lg:rounded-[26px]",
+  xsmall: "size-[38px] rounded-[19px]",
 };
 
 // Figma `heroicons-outline/arrow-up-right` lives inside a 24-px (large)
@@ -95,6 +111,7 @@ const arrowIcon = {
   // ~11 px. Our SVG is edge-to-edge, so size the img to the visible ink.
   small: "size-[11px]",
   responsive: "size-[11px] lg:size-[16.5px]",
+  xsmall: "size-[11px]",
 };
 
 // The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px
@@ -103,6 +120,7 @@ const plusIcon = {
   large: "size-[16px] sm:size-[18.75px]",
   small: "size-[13px]",
   responsive: "size-[16px] lg:size-[18.75px]",
+  xsmall: "size-[13px]",
 };
 
 // All transitions are colour-only — no slide, no rotate, no scale on
@@ -138,6 +156,8 @@ const labelVariant = {
     "border-transparent bg-bg-subtle text-neutral-900 transition-colors duration-300 hover:bg-white peer-hover:bg-white",
 };
 
+const mutedLabel = "border-transparent bg-button-disabled text-neutral-300";
+
 function ButtonInner({
   size,
   variant,
@@ -146,6 +166,7 @@ function ButtonInner({
   minus,
   iconDesktopOnly,
   fullWidth,
+  muted = false,
   children,
 }: Required<
   Pick<
@@ -153,6 +174,7 @@ function ButtonInner({
     "size" | "variant" | "arrow" | "plus" | "minus" | "iconDesktopOnly" | "fullWidth"
   >
 > & {
+  muted?: boolean;
   children: ReactNode;
 }) {
   const showIcon = arrow || plus || minus;
@@ -184,7 +206,7 @@ function ButtonInner({
         </span>
       )}
       <span
-        className={`order-1 inline-flex cursor-pointer items-center justify-center ${fullWidth ? "flex-1 " : ""}${labelSize[size]} ${labelVariant[variant]}`}
+        className={`order-1 inline-flex ${muted ? "cursor-not-allowed" : "cursor-pointer"} items-center justify-center ${fullWidth ? "flex-1 " : ""}${labelSize[size]} ${muted ? mutedLabel : labelVariant[variant]}`}
       >
         {children}
       </span>
@@ -201,8 +223,8 @@ function ButtonInner({
 // across the whole wrapper area, the cursor change is purely visual.
 // A full-width button is a flex item that may shrink (two of them share
 // a row in the stock modal); the inline one keeps its intrinsic width.
-const wrapperClass = (className?: string, fullWidth?: boolean) =>
-  `${fullWidth ? "flex w-full min-w-0 flex-1" : "inline-flex shrink-0"} cursor-default items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 ${className ?? ""}`.trim();
+const wrapperClass = (className?: string, fullWidth?: boolean, muted?: boolean) =>
+  `${fullWidth ? "flex w-full min-w-0 flex-1" : "inline-flex shrink-0"} cursor-default items-center gap-2 disabled:cursor-not-allowed ${muted ? "" : "disabled:opacity-50 "}${className ?? ""}`.trim();
 
 export function Button(props: ButtonProps) {
   const size = props.size ?? "large";
@@ -212,6 +234,10 @@ export function Button(props: ButtonProps) {
   const minus = props.minus ?? false;
   const iconDesktopOnly = props.iconDesktopOnly ?? false;
   const fullWidth = props.fullWidth ?? false;
+  const muted =
+    props.disabledStyle === "solid" &&
+    !("href" in props && typeof props.href === "string") &&
+    Boolean((props as ButtonAsButton).disabled);
 
   const inner = (
     <ButtonInner
@@ -222,6 +248,7 @@ export function Button(props: ButtonProps) {
       minus={minus}
       iconDesktopOnly={iconDesktopOnly}
       fullWidth={fullWidth}
+      muted={muted}
     >
       {props.children}
     </ButtonInner>
@@ -236,11 +263,13 @@ export function Button(props: ButtonProps) {
       minus: _minus,
       iconDesktopOnly: _iconDesktopOnly,
       fullWidth: _fullWidth,
+      disabledStyle: _disabledStyle,
       className,
       children: _children,
       href,
       ...rest
     } = props;
+    void _disabledStyle;
     void _size;
     void _variant;
     void _arrow;
@@ -264,11 +293,13 @@ export function Button(props: ButtonProps) {
     minus: _minus,
     iconDesktopOnly: _iconDesktopOnly,
     fullWidth: _fullWidth,
+    disabledStyle: _disabledStyle,
     className,
     children: _children,
     type,
     ...rest
   } = props as ButtonAsButton;
+  void _disabledStyle;
   void _size;
   void _variant;
   void _arrow;
@@ -280,7 +311,7 @@ export function Button(props: ButtonProps) {
   return (
     <button
       type={type ?? "button"}
-      className={wrapperClass(className, fullWidth)}
+      className={wrapperClass(className, fullWidth, muted)}
       {...rest}
     >
       {inner}

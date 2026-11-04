@@ -5,7 +5,13 @@
 // to the account right after; other tabs follow via the `storage` event.
 // This is the browser-side stand-in for the CRM: api.ts is the only
 // module that writes here, so a real backend replaces api.ts alone.
-import { AUTH_STORAGE_KEY, EMPTY_STATE, type Account, type AuthState } from "./data";
+import {
+  AUTH_STORAGE_KEY,
+  EMPTY_STATE,
+  type Account,
+  type AuthState,
+  type PendingReset,
+} from "./data";
 
 let state: AuthState | null = null;
 const listeners = new Set<() => void>();
@@ -25,6 +31,13 @@ function isAccount(value: unknown): value is Account {
   );
 }
 
+// «Відновити пароль» leaves one of these until the link is used.
+function isPendingReset(value: unknown): value is PendingReset {
+  if (typeof value !== "object" || value === null) return false;
+  const r = value as PendingReset;
+  return typeof r.token === "string" && typeof r.login === "string";
+}
+
 // Accounts saved before the B2B / B2C split came from the company
 // registration, so they are partners.
 function withType(a: Account): Account {
@@ -37,11 +50,14 @@ function readStorage(): AuthState {
     if (!raw) return EMPTY_STATE;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return EMPTY_STATE;
-    const { accounts, sessionId } = parsed as Partial<AuthState>;
+    const { accounts, sessionId, reset } = parsed as Partial<AuthState>;
     const valid = Array.isArray(accounts) ? accounts.filter(isAccount).map(withType) : [];
     const session =
       typeof sessionId === "string" && valid.some((a) => a.id === sessionId) ? sessionId : null;
-    return valid.length || session ? { accounts: valid, sessionId: session } : EMPTY_STATE;
+    const pending = isPendingReset(reset) ? reset : null;
+    return valid.length || session || pending
+      ? { accounts: valid, sessionId: session, reset: pending }
+      : EMPTY_STATE;
   } catch {
     return EMPTY_STATE;
   }
@@ -85,7 +101,7 @@ export function subscribe(listener: () => void): () => void {
 
 export function updateState(updater: (prev: AuthState) => AuthState) {
   const next = updater(getSnapshot());
-  state = next.accounts.length || next.sessionId ? next : EMPTY_STATE;
+  state = next.accounts.length || next.sessionId || next.reset ? next : EMPTY_STATE;
   writeStorage(state);
   emit();
 }

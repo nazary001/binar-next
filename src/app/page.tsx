@@ -11,7 +11,7 @@ import { Faq } from "@/components/home/Faq";
 
 export default function HomePage() {
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <div className="flex w-full flex-1 flex-col">
       {/* All sections are full-width. Content stays at the 1440 design's
           x-positions via adaptive horizontal padding (.lg-pad-x in
           globals.css), so backgrounds, borders, photos and dividers run
@@ -27,6 +27,6 @@ export default function HomePage() {
       <TeamCta />
       <QuizForm decorations="home" />
       <Faq />
-    </main>
+    </div>
   );
 }

@@ -80,7 +80,10 @@ export function StatusLine({
 
 // Chips — 36-px pills, stroke-default border; hover flips the border +
 // label to brand (Figma Chip State=Hover). On the dark band the chips
-// are white-outlined with white labels (4329:51408).
+// are white-outlined with white labels (4329:51408). px-15 + the 1-px
+// border = the master's px-16 with the stroke inside the box (text +
+// 32: «40 мл» = 76, «Botanica» = 99), same as the applied-filter and
+// popover chips.
 export function ChipsRow({
   product,
   tone = "dark",
@@ -98,7 +101,7 @@ export function ChipsRow({
       {chips.map((chip) => (
         <span
           key={chip}
-          className={`flex h-9 items-center justify-center whitespace-nowrap rounded-[60px] border px-4 text-button-md transition-colors duration-200 hover:border-brand hover:text-brand ${look}`}
+          className={`flex h-9 items-center justify-center whitespace-nowrap rounded-[60px] border px-[15px] text-button-md transition-colors duration-200 hover:border-brand hover:text-brand ${look}`}
         >
           {chip}
         </span>
@@ -110,18 +113,24 @@ export function ChipsRow({
 // Qty stepper — 16-px minus/plus glyph buttons around the count in
 // Title/Large, 8-px gaps (Figma Frame 1010106549).
 // `size="sm"` is the cart flavour (4329:39939): the count in 20/22 Bold.
+// `slot` drops the 2-px count padding of the catalog flavour for the
+// cart masters: "fixed" = the drawer row (4329:39939 / 4204:56952), the
+// count centred in a 28-px slot (76 for one or two digits); "hug" = the
+// stock-modal table (4329:40413), the count hugs its digits (60 for «2»).
 export function QtyStepper({
   qty,
   onQty,
   disabled,
   tone = "dark",
   size = "md",
+  slot,
 }: {
   qty: number;
   onQty: (next: number) => void;
   disabled?: boolean;
   tone?: Tone;
   size?: "md" | "sm";
+  slot?: "fixed" | "hug";
 }) {
   const btn =
     tone === "light"
@@ -130,8 +139,10 @@ export function QtyStepper({
   const count = `${tone === "light" ? "text-white" : "text-neutral-900"} ${
     size === "sm" ? "text-[20px] font-bold leading-[22px] tracking-[0.2px]" : "text-title-lg"
   }`;
+  const countBox =
+    slot === "hug" ? "" : slot === "fixed" ? "min-w-7 text-center" : "min-w-7 px-0.5 text-center";
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${slot ? "w-fit" : ""}`}>
       <button
         type="button"
         aria-label="Зменшити кількість"
@@ -144,7 +155,7 @@ export function QtyStepper({
       {/* min-w-7 keeps the master's 28-px slot for 1-2 digits and grows
           for more; nowrap beats the site-wide mobile `overflow-wrap:
           anywhere` on spans, which split «120» into two lines. */}
-      <span className={`min-w-7 shrink-0 whitespace-nowrap px-0.5 text-center ${count}`}>
+      <span className={`shrink-0 whitespace-nowrap ${countBox} ${count}`}>
         {qty}
       </span>
       <button
@@ -297,14 +308,14 @@ export function ProductCard({ product }: { product: Product }) {
           card shares the same studio-gray backdrop, and product PNGs of
           any aspect (or with transparency) lay over it without cropping
           — square opaque photos render exactly as before. */}
-      {/* Figma: 328 x 328 photo box in a 327.5-wide card, i.e. square and as
-          wide as the column. The 4-up grid is fluid (260 px at 1440, 327.5 at
-          1710, 380 at 1920), so the box keeps a 1:1 aspect at lg instead of
-          a fixed height. */}
+      {/* Figma: 328 x 328 photo box in a 327.5-wide card (rows 692 apart:
+          612 + 80). The 4-up grid is fluid (260 px at 1440, 327.5 at 1710,
+          380 at 1920), so the box keeps the 327.5 : 328 aspect at lg
+          (655/656) instead of a fixed height: 328 tall at 1710. */}
       <Link
         href={href}
         aria-label={product.title}
-        className="relative block h-[328px] w-full shrink-0 overflow-clip rounded-[40px] bg-bg-product lg:aspect-square lg:h-auto"
+        className="relative block h-[328px] w-full shrink-0 overflow-clip rounded-[40px] bg-bg-product lg:aspect-[655/656] lg:h-auto"
       >
         <img
           src={product.image}
@@ -336,10 +347,11 @@ export function ProductCard({ product }: { product: Product }) {
   );
 }
 
-// List row — Figma «B2C :: Product card Horizontal» (1180×168): the
-// 120-px photo, the same content stack, and the price/stepper/cart
-// cluster centred against the photo, with a full-width #d2d2d2
-// hairline under the row.
+// List row — Figma «B2C :: Product card Horizontal» (1550×168 in
+// «Каталог :: список» 4329:39129, rows stacked with no gap): the 120-px
+// photo, the same content stack, and the price/stepper/cart cluster
+// centred against the photo, with a full-width #d2d2d2 hairline as the
+// row's last pixel (-mt-px: the Figma stroke sits inside the 168).
 export function ProductRow({ product }: { product: Product }) {
   const [qty, setQty] = useState(1);
   const out = !product.available;
@@ -391,7 +403,7 @@ export function ProductRow({ product }: { product: Product }) {
           <CartButton product={product} out={out} qty={qty} />
         </div>
       </div>
-      <div aria-hidden className="h-px w-full bg-stroke-subtle" />
+      <div aria-hidden className="-mt-px h-px w-full bg-stroke-subtle" />
     </article>
   );
 }

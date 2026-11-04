@@ -1,14 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
+import { BackCrumb, Slash } from "@/components/ui/Breadcrumb";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { CatalogClient } from "./CatalogClient";
 import { CategoryBanners } from "./CategoryBanners";
 import { SubcategoryCarousel } from "./SubcategoryCarousel";
-import { ArrowBack } from "./icons";
+import { FIGMA_TEXT_BOX } from "./textBox";
 import {
   directionCatalogHref,
   type CatalogDirection,
@@ -22,33 +22,20 @@ import {
 // in: content blocks with their own 32-px vertical rhythm on the
 // 40 / 32 side gutters of the 12-column «B2B Platform» grid, the «До
 // каталогу» back crumb, the H2 title with its tagline, the «Мій
-// асортимент» toggle and the B2B listing.
+// асортимент» link and the B2B listing.
 type PageKind =
   | { kind: "root" }
   | { kind: "direction"; dir: CatalogDirection }
   | { kind: "category"; dir: CatalogDirection; card: SubcategoryCard };
 
-function BackCrumb({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="group flex items-center gap-4">
-      <span className="flex size-[40px] shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white">
-        <ArrowBack className="w-[20px]" />
-      </span>
-      <span className="text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-800 transition-colors duration-300 group-hover:text-brand lg:text-[18px] lg:tracking-[0.18px]">
-        {label}
-      </span>
-    </Link>
-  );
-}
-
-function Slash() {
-  return <span className="text-[18px] font-semibold leading-[22px] text-stroke-subtle">/</span>;
-}
-
+// Every crumb piece takes its whole-pixel Figma box (FIGMA_TEXT_BOX), so
+// the 16-px gaps put each «/» and label on the Figma x (B2C 226 / 250 /
+// 329 / 353 / 488 / 512, B2B 325 / 349 / 484 / 508).
 function Crumb({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
+      style={FIGMA_TEXT_BOX}
       className="cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
     >
       {label}
@@ -57,7 +44,61 @@ function Crumb({ href, label }: { href: string; label: string }) {
 }
 
 function Current({ label }: { label: string }) {
-  return <span className="text-button-md text-brand">{label}</span>;
+  return (
+    <span style={FIGMA_TEXT_BOX} className="text-button-md text-brand">
+      {label}
+    </span>
+  );
+}
+
+// A crumb that is not a link: the B2C «Категорія» frame (4329:39413)
+// draws the direction as a plain text layer (the other crumbs are Text
+// button instances), in the Text button's 16/22 Medium #4a4a4c.
+function PlainCrumb({ label }: { label: string }) {
+  return (
+    <span style={FIGMA_TEXT_BOX} className="text-button-md text-neutral-700">
+      {label}
+    </span>
+  );
+}
+
+// The shared Back button and «/» wrapped in their whole-pixel Figma
+// boxes (130 / 165 and 8 wide).
+function Back({ href, label }: { href: string; label: string }) {
+  return (
+    <span style={FIGMA_TEXT_BOX} className="flex shrink-0">
+      <BackCrumb href={href} label={label} />
+    </span>
+  );
+}
+
+function CrumbSlash() {
+  return (
+    <span style={FIGMA_TEXT_BOX} className="flex shrink-0">
+      <Slash />
+    </span>
+  );
+}
+
+// «Категорія» hero (Rectangle 116: B2C 4329:39421 1550 x 640, B2B
+// 4329:56334 1534 x 640, r40). The category's dedicated photo when it
+// has one, else its carousel photo (the full-size file) as a centred
+// cover.
+function CategoryHero({ card }: { card: SubcategoryCard }) {
+  const image = card.hero?.image ?? card.fullImage;
+  return (
+    <div className="relative h-[240px] w-full overflow-clip rounded-[32px] sm:h-[320px] lg:h-[640px] lg:rounded-[40px]">
+      {!card.hero && card.bg && <span aria-hidden className="absolute inset-0" style={{ background: card.bg }} />}
+      <img
+        src={image}
+        alt={card.label}
+        fetchPriority="high"
+        decoding="async"
+        className="absolute inset-0 size-full object-cover"
+        style={card.hero?.position ? { objectPosition: card.hero.position } : undefined}
+      />
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- B2C
@@ -71,18 +112,18 @@ function PublicView({ page }: { page: PageKind }) {
     <div className="px-6 sm:px-10 lg-shop-pad-x">
       <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
         <div className="flex flex-wrap items-center gap-4">
-          <BackCrumb href="/" label="Головна" />
-          <Slash />
+          <Back href="/" label="Головна" />
+          <CrumbSlash />
           {page.kind === "root" ? <Current label="Каталог" /> : <Crumb href="/catalog" label="Каталог" />}
           {dir && (
             <>
-              <Slash />
-              {card ? <Crumb href={directionCatalogHref(dir)} label={dir.title} /> : <Current label={dir.title} />}
+              <CrumbSlash />
+              {card ? <PlainCrumb label={dir.title} /> : <Current label={dir.title} />}
             </>
           )}
           {card && (
             <>
-              <Slash />
+              <CrumbSlash />
               <Current label={card.label} />
             </>
           )}
@@ -102,10 +143,7 @@ function PublicView({ page }: { page: PageKind }) {
       )}
       {page.kind === "category" && (
         <section className="mt-12 lg:mt-20">
-          <div className="relative h-[240px] w-full overflow-clip rounded-[32px] sm:h-[320px] lg:h-[640px] lg:rounded-[40px]">
-            {page.card.bg && <span aria-hidden className="absolute inset-0" style={{ background: page.card.bg }} />}
-            <img src={page.card.image} alt={page.card.label} fetchPriority="high" decoding="async" className="absolute inset-0 size-full object-cover" />
-          </div>
+          <CategoryHero card={page.card} />
         </section>
       )}
 
@@ -119,35 +157,6 @@ function PublicView({ page }: { page: PageKind }) {
 }
 
 // ---------------------------------------------------------------- B2B
-
-// «Мій асортимент» — the Button/Large at the right of the title block
-// (4329:56235). A toggle kept in the URL (?mine=1) so the listing,
-// filters and pagination all read one source.
-function AssortmentToggle() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const active = searchParams.get("mine") === "1";
-  const toggle = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (active) params.delete("mine");
-    else params.set("mine", "1");
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  };
-  return (
-    <Button
-      type="button"
-      size="responsive"
-      variant={active ? "accent" : "solid"}
-      aria-pressed={active}
-      onClick={toggle}
-      className="shrink-0"
-    >
-      Мій асортимент
-    </Button>
-  );
-}
 
 function PlatformTitle({
   crumb,
@@ -169,9 +178,11 @@ function PlatformTitle({
           {tagline && <p className="text-[14px] leading-6 text-neutral-500">{tagline}</p>}
         </div>
       </div>
-      <Suspense>
-        <AssortmentToggle />
-      </Suspense>
+      {/* «Мій асортимент» (4329:56235) opens the assortment page
+          (Figma 4209:74148). */}
+      <Button href="/assortment" size="responsive" className="shrink-0">
+        Мій асортимент
+      </Button>
     </section>
   );
 }
@@ -187,16 +198,16 @@ function PlatformView({ page }: { page: PageKind }) {
   const crumb =
     page.kind === "root" ? null : page.kind === "direction" ? (
       <>
-        <BackCrumb href="/catalog" label="До каталогу" />
-        <Slash />
+        <Back href="/catalog" label="До каталогу" />
+        <CrumbSlash />
         <Current label={page.dir.title} />
       </>
     ) : (
       <>
-        <BackCrumb href="/catalog" label="До каталогу" />
-        <Slash />
+        <Back href="/catalog" label="До каталогу" />
+        <CrumbSlash />
         <Crumb href={directionCatalogHref(page.dir)} label={page.dir.title} />
-        <Slash />
+        <CrumbSlash />
         <Current label={page.card.label} />
       </>
     );
@@ -226,10 +237,7 @@ function PlatformView({ page }: { page: PageKind }) {
       {page.kind === "category" && (
         <section className="px-6 py-6 lg:py-8 lg:pl-10 lg:pr-8">
           {/* «Категорія» 4329:56334: the 1534 x 640 rounded-40 hero. */}
-          <div className="relative h-[240px] w-full overflow-clip rounded-[32px] sm:h-[320px] lg:h-[640px] lg:rounded-[40px]">
-            {page.card.bg && <span aria-hidden className="absolute inset-0" style={{ background: page.card.bg }} />}
-            <img src={page.card.image} alt={page.card.label} fetchPriority="high" decoding="async" className="absolute inset-0 size-full object-cover" />
-          </div>
+          <CategoryHero card={page.card} />
         </section>
       )}
 

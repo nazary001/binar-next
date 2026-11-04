@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCart } from "@/components/cart/CartProvider";
 import { formatPrice } from "@/components/catalog/data";
+import { useHydrated } from "@/components/platform/ui/useHydrated";
 import { CheckoutForm } from "./CheckoutForm";
 import { CheckoutItems } from "./CheckoutItems";
 import type { CheckoutValues } from "./data";
@@ -13,6 +14,11 @@ import type { CheckoutValues } from "./data";
 // width), 104 px under the H1 block, 148 px above the footer.
 export function CheckoutClient() {
   const { entries, subtotal, clear } = useCart();
+  // The cart lives in localStorage, so the server (and the hydrating
+  // first client render) sees an empty cart: «Кошик порожній» may only
+  // show once the stored lines are known, never as a flash before the
+  // table + form of a filled cart.
+  const hydrated = useHydrated();
   const [placed, setPlaced] = useState<{ number: string; email: string } | null>(null);
   const doneRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -58,6 +64,12 @@ export function CheckoutClient() {
         </div>
       </div>
     );
+  }
+
+  if (!hydrated) {
+    // Neutral stand-in that keeps the footer from jumping up under the
+    // H1 for the few hundred ms before the cart is read.
+    return <div aria-hidden className="min-h-[60vh]" />;
   }
 
   if (entries.length === 0) {

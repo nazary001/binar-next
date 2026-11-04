@@ -91,16 +91,21 @@ export function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
 // 24px. Sizing the img to 16.5 keeps the stroke exactly as thin as the
 // design (the old size-6 / 24px rendered the arrow ~1.45x too big, so
 // its lines looked too thick).
-export function DetailsIconButton({ variant }: { variant: "light" | "dark" }) {
+// `ring` (default true) draws the rotating text ring on hover. The catalog
+// banners pass false: their Platform hover frame 4329:39265 shows only the
+// accent-filled button (ctx/4329-39265.md), no ring.
+export function DetailsIconButton({ variant, ring = true }: { variant: "light" | "dark"; ring?: boolean }) {
   return (
     <span className="relative size-[52px] shrink-0">
       {/* Circular ДЕТАЛІ text — wrapper grows in lock-step with the
           icon so the 88-unit SVG viewBox stays centred and the path
           radius reads as a consistent ring around the icon. Hidden by
           default; the parent card's :hover state fades it in. */}
-      <span className="pointer-events-none absolute -inset-[18px] opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <DetailsCircleText variant={variant} />
-      </span>
+      {ring && (
+        <span className="pointer-events-none absolute -inset-[18px] opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <DetailsCircleText variant={variant} />
+        </span>
+      )}
 
       <span
         className={`absolute inset-0 flex items-center justify-center rounded-[26px] border transition-[background-color,border-color] duration-300 ${

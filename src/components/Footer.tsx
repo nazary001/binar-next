@@ -231,18 +231,15 @@ export function Footer() {
                   © {new Date().getFullYear()} Binar-2000. All rights reserved
                 </p>
               </div>
-              <Link
-                href="/privacy"
-                className="cursor-pointer text-[14px] leading-[30px] text-white underline decoration-white underline-offset-2 md:whitespace-nowrap"
-              >
+              {/* Legal pages (/privacy, /terms) have no Figma frames yet and
+                  404: plain text for now. Restore <Link href="/privacy"> /
+                  <Link href="/terms"> (with cursor-pointer) once they exist. */}
+              <span className="text-[14px] leading-[30px] text-white underline decoration-white underline-offset-2 md:whitespace-nowrap">
                 Політика конфіденційності
-              </Link>
-              <Link
-                href="/terms"
-                className="cursor-pointer text-[14px] leading-[30px] text-white underline decoration-white underline-offset-2 md:whitespace-nowrap"
-              >
+              </span>
+              <span className="text-[14px] leading-[30px] text-white underline decoration-white underline-offset-2 md:whitespace-nowrap">
                 Угода про публічну оферту
-              </Link>
+              </span>
             </div>
             <Link
               href="https://chilline.studio"

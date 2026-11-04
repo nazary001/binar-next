@@ -13,23 +13,32 @@ import type { MaterialFile } from "./data";
 // one px under the master's 60 / 80 to keep the 963-px content column.
 // Head row: the badge tile, Title/Large Bold name over
 // «Розмір: …», and at the right the 32-px download, a #d2d2d2 hairline
-// and the 32-px close mark (24 / 23 px apart). Body: the 16/24 #343435
+// and the 32-px close mark (24 / 23 px apart). The 851-px name group
+// meets the 112-px actions with no gap (4825:60622), so the name's
+// ellipsis box is 779 wide; phones keep a 16-px gap. Body: the 16/24 #343435
 // description, then the document box (1-px #d2d2d2, r24) filling the
-// rest of the height with its own 8-px scrollbar (track #f8f8f8 inset
-// 15 / 14 from the stroked edge, i.e. 14 / 13 inside the CSS border;
-// thumb #343435, both r24).
+// rest of the height with its own 8-px scrollbar: track #f8f8f8 inset
+// 16 / 15 / 16 from the stroked edge (Frame 1010107153 4825:60636 at
+// 940 / 16 in the 963 x 654 box), i.e. 15 / 14 / 15 inside the CSS
+// border; thumb #343435 (Rectangle 157), both r24.
 
 // Placeholder document until real files are wired: the master's page
-// render, 108.08 % wide and cropped 8.08 % on the left as Figma shows it.
+// render. Figma lays the 963-px image box at +1 / +1 inside the stroke
+// (so it overhangs the right edge by 2 px, clipped) and crops the bitmap
+// to 108.08 % of that box, 8.08 % off the left: 1040.8 px wide.
 const PREVIEW_IMAGE = "/figma-export/materials/preview-doc.png";
+
+// Rectangle 157 (4825:60637 / 4825:61137): a fixed 120-px thumb that
+// travels the track, not a proportional one.
+const THUMB_H = 120;
 
 function DocumentScroller({ file }: { file: MaterialFile }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [thumb, setThumb] = useState({ top: 0, height: 0, visible: false });
 
-  // The thumb mirrors the hidden native scrollbar: proportional height
-  // (never under 48 px), position from scrollTop.
+  // The thumb mirrors the hidden native scrollbar: the master's fixed
+  // 120-px height (capped by a shorter track), position from scrollTop.
   const measure = useCallback(() => {
     const el = scrollRef.current;
     const track = trackRef.current;
@@ -40,7 +49,7 @@ function DocumentScroller({ file }: { file: MaterialFile }) {
       setThumb({ top: 0, height: 0, visible: false });
       return;
     }
-    const height = Math.max(48, Math.round(trackH * ratio));
+    const height = Math.min(THUMB_H, trackH);
     const maxTop = trackH - height;
     const maxScroll = el.scrollHeight - el.clientHeight;
     const top = maxScroll > 0 ? Math.round((el.scrollTop / maxScroll) * maxTop) : 0;
@@ -88,6 +97,7 @@ function DocumentScroller({ file }: { file: MaterialFile }) {
       <div
         ref={scrollRef}
         tabIndex={0}
+        role="region"
         aria-label={`Перегляд: ${file.name}`}
         className="scrollbar-hidden absolute inset-0 overflow-y-auto overscroll-contain outline-none"
       >
@@ -103,21 +113,25 @@ function DocumentScroller({ file }: { file: MaterialFile }) {
             </a>
           </div>
         ) : (
-          <div className="-ml-[8.08%] w-[108.08%]">
-            <img
-              src={file.type === "png" ? file.href : PREVIEW_IMAGE}
-              alt=""
-              decoding="async"
-              className="block w-full"
-              onLoad={measure}
-            />
+          <div className="overflow-hidden">
+            <div className="w-[calc(100%+2px)]">
+              <div className="-ml-[8.08%] w-[108.08%]">
+                <img
+                  src={file.type === "png" ? file.href : PREVIEW_IMAGE}
+                  alt=""
+                  decoding="async"
+                  className="block w-full"
+                  onLoad={measure}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>
       <div
         ref={trackRef}
         aria-hidden
-        className={`absolute bottom-[14px] right-[13px] top-[14px] w-2 rounded-3xl bg-bg-subtle transition-opacity duration-200 ${
+        className={`absolute bottom-[15px] right-[14px] top-[15px] w-2 rounded-3xl bg-bg-subtle transition-opacity duration-200 ${
           thumb.visible ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -131,16 +145,21 @@ function DocumentScroller({ file }: { file: MaterialFile }) {
   );
 }
 
+// The partner pages reuse it unchanged (B2B «Component 3» 4825:60620 is
+// the same 1103 x 948 sheet); a file outside the partner's agreement
+// shows the static padlock (no `onLocked`) with `lockedHint`.
 export function PreviewPanel({
   file,
   onClose,
   canDownload,
   onLocked,
+  lockedHint,
 }: {
   file: MaterialFile | null;
   onClose: () => void;
   canDownload: boolean;
-  onLocked: () => void;
+  onLocked?: () => void;
+  lockedHint?: string;
 }) {
   const open = file !== null;
   const panelRef = useRef<HTMLElement | null>(null);
@@ -184,7 +203,7 @@ export function PreviewPanel({
       >
         {shown && (
           <>
-            <div className="flex w-full items-start justify-between gap-4">
+            <div className="flex w-full items-start justify-between gap-4 lg:gap-0">
               <div className="flex min-w-0 flex-1 items-center gap-4 lg:gap-6">
                 <FileTile type={shown.type} />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -199,6 +218,7 @@ export function PreviewPanel({
                   file={shown}
                   canDownload={canDownload}
                   onLocked={onLocked}
+                  lockedHint={lockedHint}
                   size="lg"
                   className="size-8"
                 />

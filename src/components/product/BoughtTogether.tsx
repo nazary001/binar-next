@@ -69,8 +69,10 @@ export function BoughtTogether({
 // «B2C :: Product card» wide variant (4329:51395): a 328-px square
 // photo (r40, white backdrop) beside a content column — status / Title
 // Large / white-outlined chips, a disc list of three benefits, and the
-// price row pinned to the bottom (price · hairline · stepper, white
-// cart ring). Everything neutral is white on the dark band.
+// price row (price · hairline · stepper, white cart ring). The column
+// (4329:51398) is a plain 32-px stack, 120 + 32 + 88 + 32 + 52 = 324,
+// so the price row sits at y 272, 4 px above the photo's bottom - NOT
+// pinned to it. Everything neutral is white on the dark band.
 function WideCard({
   product,
   benefits,
@@ -89,7 +91,12 @@ function WideCard({
       <Link
         href={href}
         aria-label={product.title}
-        className="relative block aspect-square w-full shrink-0 overflow-clip rounded-[32px] bg-white sm:w-[240px] lg:w-[min(328px,44.6%)] lg:rounded-[40px]"
+        // 328 in both masters: the B2C card is 735 wide (44.6 %), the B2B
+        // one 727 (45.1 %), so the cap is what bites on the 1710 canvas
+        // and the percentage only on narrower ones. self-start keeps the
+        // photo square when the content column is the taller one (the
+        // B2B price row is 56 tall, the stretched photo was 324 x 328).
+        className="relative block aspect-square w-full shrink-0 self-start overflow-clip rounded-[32px] bg-white sm:w-[240px] lg:w-[min(328px,45.2%)] lg:rounded-[40px]"
       >
         <img
           src={product.image}
@@ -123,7 +130,7 @@ function WideCard({
           ))}
         </ul>
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-y-3">
           {/* 300-px column at 1440: price 126 + 24·2 + hairline + stepper
               76 + cart 52 = 303, so the gaps drop to 12 below 340. */}
           {b2b ? (

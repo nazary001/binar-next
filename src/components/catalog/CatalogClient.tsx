@@ -3,14 +3,21 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Fragment,
+  useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { FiltersDrawer, type FilterSection } from "./FiltersDrawer";
+import {
+  FiltersDrawer,
+  type FilterParam,
+  type FilterSection,
+} from "./FiltersDrawer";
 import { ProductCard, ProductRow } from "./ProductCard";
 import { B2BProductCard, B2BProductRow } from "./B2BProductCard";
+import { FIGMA_TEXT_BOX } from "./textBox";
 import {
   CardViewIcon,
   ChevronDown16,
@@ -23,11 +30,11 @@ import {
 import {
   BRANDS,
   CATALOG_DIRECTIONS,
-  MOCK_ASSORTMENT,
   PAGE_SIZES,
   PRODUCTS,
+  PRODUCT_TYPE_OPTIONS,
   SORT_OPTIONS,
-  SUBCATEGORIES,
+  ZONE_OPTIONS,
   directionSubcategorySet,
   productsPlural,
   type CatalogDirection,
@@ -42,10 +49,13 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 // Shared close-on-outside-press / Escape wiring for the small popovers.
+// Escape hands focus back to `trigger` when it was inside the popover:
+// the closed list turns inert, which would otherwise drop it to <body>.
 function useDismiss(
   open: boolean,
   ref: React.RefObject<HTMLDivElement | null>,
   close: () => void,
+  trigger: React.RefObject<HTMLButtonElement | null>,
 ) {
   useEffect(() => {
     if (!open) return;
@@ -54,7 +64,12 @@ function useDismiss(
       if (el && e.target instanceof Node && !el.contains(e.target)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key !== "Escape") return;
+      const el = ref.current;
+      const focus = document.activeElement;
+      const inside = !!el && focus instanceof Node && el.contains(focus);
+      close();
+      if (inside) trigger.current?.focus();
     };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -62,13 +77,26 @@ function useDismiss(
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, ref, close]);
+  }, [open, ref, close, trigger]);
+}
+
+// Moves focus to option `i` of a listbox (wrapping; -1 = the last).
+function focusOptionIn(list: HTMLUListElement | null, i: number) {
+  const els = [...(list?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])];
+  if (els.length) els[((i % els.length) + els.length) % els.length].focus();
 }
 
 // Inline text-button dropdown used by «Сортування» and «Кількість
-// товарів на сторінці» — the Figma Text button (16/22 Medium #4a4a4c)
-// with the exact 16-px chevron, opening the site's standard small white
-// panel (rounded-2xl, stroke-subtle border, 240 ms fade+slide).
+// товарів на сторінці» — the grey 16/22 Medium label («Сортування:»,
+// #777779) + the Figma Text button (16/22 Medium #4a4a4c) with the exact
+// 16-px chevron, opening the site's standard small white panel
+// (rounded-2xl, stroke-subtle border, 240 ms fade+slide). The trigger is
+// named by the visible label AND its value («Сортування: за
+// популярністю», WCAG 2.5.3). The list follows the collapsible listbox
+// pattern: Enter / Space / ArrowDown / ArrowUp open it on the selected
+// option, arrows / Home / End move between options, Enter or a click
+// selects, Escape / Tab / an outside press close it, and focus comes
+// back to the trigger after a choice or Escape.
 function TextDropdown<T extends string | number>({
   value,
   options,
@@ -82,59 +110,127 @@ function TextDropdown<T extends string | number>({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-  useDismiss(open, ref, () => setOpen(false));
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  // Option to focus once the list is open (keyboard opening): the list
+  // is inert while closed, so focus has to wait for the commit.
+  const pendingFocus = useRef<number | null>(null);
+  const id = useId();
+  const labelId = `${id}-label`;
+  const buttonId = `${id}-button`;
+  const listId = `${id}-list`;
+  useDismiss(open, ref, () => setOpen(false), triggerRef);
+
+  useEffect(() => {
+    if (!open || pendingFocus.current === null) return;
+    focusOptionIn(listRef.current, pendingFocus.current);
+    pendingFocus.current = null;
+  }, [open]);
+
+  const selected = Math.max(0, options.indexOf(value));
+  const openOnSelected = () => {
+    if (open) focusOptionIn(listRef.current, selected);
+    else {
+      pendingFocus.current = selected;
+      setOpen(true);
+    }
+  };
+  const choose = (opt: T) => {
+    onSelect(opt);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-label={label}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex cursor-pointer items-center gap-[2px] text-button-md transition-colors duration-200 hover:text-brand ${
-          open ? "text-brand" : "text-neutral-700"
-        }`}
-      >
-        {value}
-        <ChevronDown16
-          className={`size-4 shrink-0 transition-[rotate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-      <div
-        className={`absolute right-0 top-full z-30 pt-3 ${
-          open ? "pointer-events-auto" : "pointer-events-none"
-        }`}
-      >
-        <ul
-          role="listbox"
-          aria-hidden={!open}
-          inert={!open}
-          className={`min-w-[180px] rounded-2xl border border-stroke-subtle bg-white p-2 shadow-lg transition-[opacity,translate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] ${
-            open ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+    <div className="flex items-center gap-1">
+      {/* Label and value take their whole-pixel Figma boxes («Сортування:»
+          99, «за популярністю» 147, «Кількість товарів на сторінці:»
+          225, «20» 38), so the right-aligned row starts on the Figma x. */}
+      <span id={labelId} style={FIGMA_TEXT_BOX} className="text-button-md text-neutral-500">
+        {`${label}:`}
+      </span>
+      <div ref={ref} className="relative">
+        <button
+          ref={triggerRef}
+          id={buttonId}
+          type="button"
+          style={FIGMA_TEXT_BOX}
+          aria-labelledby={`${labelId} ${buttonId}`}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-controls={listId}
+          onClick={(e) => {
+            // detail 0 = a keyboard click (Enter / Space): open on the
+            // selected option so the arrows work straight away.
+            if (!open && e.detail === 0) openOnSelected();
+            else setOpen((v) => !v);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              openOnSelected();
+            } else if (e.key === "Tab" && open) {
+              setOpen(false);
+            }
+          }}
+          className={`flex cursor-pointer items-center gap-[2px] text-button-md transition-colors duration-200 hover:text-brand ${
+            open ? "text-brand" : "text-neutral-700"
           }`}
         >
-          {options.map((opt) => (
-            <li key={String(opt)}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={opt === value}
-                onClick={() => {
-                  onSelect(opt);
-                  setOpen(false);
-                }}
-                className={`block w-full cursor-pointer rounded-xl px-4 py-2 text-left text-button-md transition-colors duration-200 hover:text-brand ${
-                  opt === value ? "text-brand" : "text-neutral-700"
-                }`}
-              >
-                {opt}
-              </button>
-            </li>
-          ))}
-        </ul>
+          {value}
+          <ChevronDown16
+            className={`size-4 shrink-0 transition-[rotate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        <div
+          className={`absolute right-0 top-full z-30 pt-3 ${
+            open ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
+          <ul
+            ref={listRef}
+            id={listId}
+            role="listbox"
+            aria-labelledby={labelId}
+            aria-hidden={!open}
+            inert={!open}
+            onKeyDown={(e) => {
+              const els = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]')];
+              const i = els.indexOf(document.activeElement as HTMLButtonElement);
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                focusOptionIn(e.currentTarget, i + (e.key === "ArrowDown" ? 1 : -1));
+              } else if (e.key === "Home" || e.key === "End") {
+                e.preventDefault();
+                focusOptionIn(e.currentTarget, e.key === "Home" ? 0 : -1);
+              } else if (e.key === "Tab") {
+                setOpen(false);
+              }
+            }}
+            className={`min-w-[180px] rounded-2xl border border-stroke-subtle bg-white p-2 shadow-lg transition-[opacity,translate] duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] ${
+              open ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+            }`}
+          >
+            {options.map((opt) => (
+              <li key={String(opt)} role="presentation">
+                <button
+                  type="button"
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={opt === value}
+                  onClick={() => choose(opt)}
+                  className={`block w-full cursor-pointer rounded-xl px-4 py-2 text-left text-button-md transition-colors duration-200 hover:text-brand focus-visible:text-brand ${
+                    opt === value ? "text-brand" : "text-neutral-700"
+                  }`}
+                >
+                  {opt}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -142,21 +238,19 @@ function TextDropdown<T extends string | number>({
 
 // Search + view controls + applied-filter chips + results/sorting row +
 // product grid + pagination — Figma frames 1010106935/1010106936 and
-// the filters-applied state (3677:40553) wired to local state over the
-// placeholder product list. The sub/brand filters live in the URL
-// (?sub=…&brand=…) so mega-menu subcategory links deep-link into a
-// pre-filtered catalog and the state is shareable. With a `direction`
-// (the /catalog/<slug> pages, Figma «Напрям» 3682:46834) the product
-// pool is scoped to that direction's subcategory vocabulary first.
-// `fixedSubcategory` (the /catalog/<dir>/<category> pages, Figma
-// «Категорія» 3685:48403) pins the listing to ONE subcategory — the
-// page itself is the filter, so ?sub= params are ignored there and
-// only the brand filter remains interactive.
+// the filters-applied state (4329:39587) wired to local state over the
+// placeholder product list. The three filter groups live in the URL
+// (?zone=…&type=…&brand=…, repeated) so the state is shareable; OR
+// inside a group, AND across groups. With a `direction` (the
+// /catalog/<slug> pages, Figma «Напрям» 4329:39333) the product pool is
+// scoped to that direction's categories first. `fixedSubcategory` (the
+// /catalog/<dir>/<category> pages, Figma «Категорія» 4329:39403) pins
+// the listing to ONE category; its sheet still carries all three groups
+// (4329:39472 / B2B 4329:56409).
 // `mode="b2b"` is the signed-in platform listing (Figma «Каталог ::
 // B2B» 4329:56124): B2B cards with the wholesale / retail / partner
-// prices, the light #e8e8e9 view switcher, rows 112 px apart on a
-// 32-px block padding, and the «Мій асортимент» toggle (?mine=1)
-// narrowing the pool to the company's assortment.
+// prices, the light #e8e8e9 view switcher, rows 80 px apart on a
+// 32-px block padding.
 export function CatalogClient({
   direction,
   fixedSubcategory,
@@ -177,24 +271,28 @@ export function CatalogClient({
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Stable: the sheet's modal effect depends on it (a new function per
+  // render would re-run it on every checkbox tick and bounce focus).
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const gridTopRef = useRef<HTMLDivElement | null>(null);
 
-  const activeSubs = useMemo(
-    () =>
-      fixedSubcategory
-        ? []
-        : searchParams.getAll("sub").filter((s) => SUBCATEGORIES.includes(s)),
-    [searchParams, fixedSubcategory],
+  // The vocabulary each group accepts in this context; unknown values
+  // in a hand-edited URL are dropped.
+  const vocab = useMemo<Record<FilterParam, readonly string[]>>(
+    () => ({
+      zone: direction ? direction.facet.options : ZONE_OPTIONS,
+      type: direction ? direction.productFilters : PRODUCT_TYPE_OPTIONS,
+      brand: BRANDS,
+    }),
+    [direction],
   );
-  const activeBrands = useMemo(
-    () =>
-      searchParams
-        .getAll("brand")
-        .filter((b) => (BRANDS as readonly string[]).includes(b)),
-    [searchParams],
-  );
-  const hasFilters = activeSubs.length > 0 || activeBrands.length > 0;
-  const mine = b2b && searchParams.get("mine") === "1";
+  const active = useMemo<Record<FilterParam, string[]>>(() => {
+    const read = (param: FilterParam) =>
+      [...new Set(searchParams.getAll(param))].filter((v) => vocab[param].includes(v));
+    return { zone: read("zone"), type: read("type"), brand: read("brand") };
+  }, [searchParams, vocab]);
+  const hasFilters =
+    active.zone.length > 0 || active.type.length > 0 || active.brand.length > 0;
 
   // A filter change (menu deep-link, chip removal, brand toggle) resets
   // pagination — render-phase adjustment, same pattern as Header.
@@ -205,11 +303,11 @@ export function CatalogClient({
     setPage(1);
   }
 
-  const applyFilters = (subs: string[], brands: string[]) => {
+  const applyFilters = (next: Record<FilterParam, string[]>) => {
     const params = new URLSearchParams();
-    subs.forEach((s) => params.append("sub", s));
-    brands.forEach((b) => params.append("brand", b));
-    if (mine) params.set("mine", "1");
+    (["zone", "type", "brand"] as const).forEach((param) =>
+      next[param].forEach((v) => params.append(param, v)),
+    );
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
@@ -219,50 +317,34 @@ export function CatalogClient({
     [direction],
   );
 
-  // Drawer sections adapt to the context, mirroring the three Figma
-  // «Фільтри» frames (Готель 3685:53426 / ЗІЗ 3424:32503 / Прибирання
-  // 3424:32651): each direction gets its context facet (готельні зони
-  // / промислові ризики та галузі / зони клінінгу), its «Товари»
-  // checklist and the manufacturers. Category pages pin their
-  // subcategory (sub params are ignored there), so only the
-  // manufacturer section stays.
+  // Sheet sections per context, mirroring the three Figma «Фільтри»
+  // sheets (Готель 4329:39542 / ЗІЗ 4329:39659 / Прибирання
+  // 4329:39692): on direction AND category pages the direction's facet
+  // (готельні зони / промислові ризики та галузі / зони клінінгу), its
+  // «Товари» checklist and the manufacturers. The root /catalog has no
+  // direction context: every direction's «Товари» + the manufacturers.
   const filterSections = useMemo<FilterSection[]>(() => {
     const out: FilterSection[] = [];
-    if (!fixedSubcategory) {
-      if (direction) {
-        out.push({
-          title: direction.facet.title,
-          param: "sub",
-          options: direction.facet.options,
-        });
-        out.push({
-          title: "Товари",
-          param: "sub",
-          options: direction.productFilters,
-        });
-      } else {
-        out.push({
-          title: "Товари",
-          param: "sub",
-          options: [
-            ...new Set(CATALOG_DIRECTIONS.flatMap((d) => d.productFilters)),
-          ],
-        });
-      }
+    if (direction) {
+      out.push({ title: direction.facet.title, param: "zone", options: direction.facet.options });
+      out.push({ title: "Товари", param: "type", options: direction.productFilters });
+    } else {
+      out.push({
+        title: "Товари",
+        param: "type",
+        options: [...new Set(CATALOG_DIRECTIONS.flatMap((d) => d.productFilters))],
+      });
     }
     out.push({ title: "Виробник", param: "brand", options: [...BRANDS] });
     return out;
-  }, [direction, fixedSubcategory]);
+  }, [direction]);
 
-  const toggleFilter = (param: "sub" | "brand", value: string) => {
-    const current = param === "sub" ? activeSubs : activeBrands;
+  const toggleFilter = (param: FilterParam, value: string) => {
+    const current = active[param];
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
-    applyFilters(
-      param === "sub" ? next : activeSubs,
-      param === "brand" ? next : activeBrands,
-    );
+    applyFilters({ ...active, [param]: next });
   };
 
   const filtered = useMemo(() => {
@@ -273,12 +355,16 @@ export function CatalogClient({
     if (fixedSubcategory) {
       base = base.filter((p) => p.subcategory === fixedSubcategory);
     }
-    if (mine) base = base.filter((p) => MOCK_ASSORTMENT.has(p.id));
-    if (activeSubs.length > 0) {
-      base = base.filter((p) => activeSubs.includes(p.subcategory));
+    if (active.zone.length > 0) {
+      base = base.filter((p) => p.zone !== undefined && active.zone.includes(p.zone));
     }
-    if (activeBrands.length > 0) {
-      base = base.filter((p) => activeBrands.includes(p.brand));
+    if (active.type.length > 0) {
+      base = base.filter(
+        (p) => p.productType !== undefined && active.type.includes(p.productType),
+      );
+    }
+    if (active.brand.length > 0) {
+      base = base.filter((p) => active.brand.includes(p.brand));
     }
     if (q) base = base.filter((p) => p.title.toLowerCase().includes(q));
     if (sort === "за назвою") {
@@ -288,7 +374,7 @@ export function CatalogClient({
       return [...base].sort((a, b) => a.price - b.price);
     }
     return base;
-  }, [query, sort, activeSubs, activeBrands, directionSubs, fixedSubcategory, mine]);
+  }, [query, sort, active, directionSubs, fixedSubcategory]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
@@ -307,21 +393,18 @@ export function CatalogClient({
     gridTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const appliedChips = [
-    ...activeSubs.map((value) => ({ kind: "sub" as const, value })),
-    ...activeBrands.map((value) => ({ kind: "brand" as const, value })),
-  ];
+  const appliedChips = (["zone", "type", "brand"] as const).flatMap((kind) =>
+    active[kind].map((value) => ({ kind, value })),
+  );
 
-  const removeChip = (chip: { kind: "sub" | "brand"; value: string }) => {
-    applyFilters(
-      chip.kind === "sub"
-        ? activeSubs.filter((s) => s !== chip.value)
-        : activeSubs,
-      chip.kind === "brand"
-        ? activeBrands.filter((b) => b !== chip.value)
-        : activeBrands,
-    );
+  const removeChip = (chip: { kind: FilterParam; value: string }) => {
+    applyFilters({
+      ...active,
+      [chip.kind]: active[chip.kind].filter((v) => v !== chip.value),
+    });
   };
+
+  const clearFilters = () => applyFilters({ zone: [], type: [], brand: [] });
 
   return (
     <>
@@ -401,8 +484,10 @@ export function CatalogClient({
         </div>
       </div>
 
-      {/* === Applied filters (Figma 3677:40579): removable chips 48 px
-          below the search row + «Скинути фільтрацію», gap-16. === */}
+      {/* === Applied filters (Figma 4329:39611): removable 36-px chips
+          48 px below the search row + «Скинути фільтрацію», gap-16
+          (px-15 + the 1-px border = the master's px-16, stroke inside:
+          «Allegrini» = 117). === */}
       {hasFilters && (
         <div className="mt-8 flex flex-wrap items-center gap-4 lg:mt-12">
           {appliedChips.map((chip) => (
@@ -411,7 +496,7 @@ export function CatalogClient({
               type="button"
               onClick={() => removeChip(chip)}
               aria-label={`Прибрати фільтр «${chip.value}»`}
-              className="flex h-9 cursor-pointer items-center gap-2 rounded-[60px] border border-stroke-default px-4 text-button-md text-neutral-900 transition-colors duration-200 hover:border-brand hover:text-brand"
+              className="flex h-9 cursor-pointer items-center gap-2 rounded-[60px] border border-stroke-default px-[15px] text-button-md text-neutral-900 transition-colors duration-200 hover:border-brand hover:text-brand"
             >
               {chip.value}
               <XMarkIcon className="size-4 shrink-0" />
@@ -419,7 +504,7 @@ export function CatalogClient({
           ))}
           <button
             type="button"
-            onClick={() => applyFilters([], [])}
+            onClick={clearFilters}
             className="flex cursor-pointer items-center gap-[2px] text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
           >
             Скинути фільтрацію
@@ -434,38 +519,31 @@ export function CatalogClient({
           Знайдено {filtered.length} {productsPlural(filtered.length)}
         </p>
         <div className="flex flex-wrap items-center gap-4 lg:gap-6">
-          <div className="flex items-center gap-1">
-            <span className="text-button-md text-neutral-500">
-              Сортування:
-            </span>
-            <TextDropdown
-              label="Сортування"
-              value={sort}
-              options={SORT_OPTIONS}
-              onSelect={(v) => {
-                setSort(v);
-                setPage(1);
-              }}
-            />
-          </div>
-          <span
-            aria-hidden
-            className="hidden h-6 w-px bg-stroke-subtle lg:block"
+          <TextDropdown
+            label="Сортування"
+            value={sort}
+            options={SORT_OPTIONS}
+            onSelect={(v) => {
+              setSort(v);
+              setPage(1);
+            }}
           />
-          <div className="flex items-center gap-1">
-            <span className="text-button-md text-neutral-500">
-              Кількість товарів на сторінці:
-            </span>
-            <TextDropdown
-              label="Кількість товарів на сторінці"
-              value={pageSize}
-              options={PAGE_SIZES}
-              onSelect={(v) => {
-                setPageSize(v);
-                setPage(1);
-              }}
-            />
-          </div>
+          {/* «Line 2» (B2C 4329:39212, B2B 4329:56157) takes no width in the
+              Figma auto-layout (0 x 24, 24-px gaps either side, the
+              group is 250 + 24 + 24 + 267 = 565); the 1-px stroke is
+              drawn from its x without pushing the sort group left. */}
+          <span aria-hidden className="relative hidden h-6 w-0 lg:block">
+            <span className="absolute inset-y-0 left-0 w-px bg-stroke-subtle" />
+          </span>
+          <TextDropdown
+            label="Кількість товарів на сторінці"
+            value={pageSize}
+            options={PAGE_SIZES}
+            onSelect={(v) => {
+              setPageSize(v);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 
@@ -492,9 +570,7 @@ export function CatalogClient({
       >
         {paged.length === 0 ? (
           <p className="text-body-md text-neutral-500">
-            {mine
-              ? "У вашому асортименті поки немає товарів із цього розділу."
-              : "За запитом нічого не знайдено. Спробуйте змінити пошук або фільтри."}
+            За запитом нічого не знайдено. Спробуйте змінити пошук або фільтри.
           </p>
         ) : view === "list" ? (
           <div className="flex flex-col">
@@ -589,12 +665,11 @@ export function CatalogClient({
 
       <FiltersDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={closeDrawer}
         sections={filterSections}
-        activeSubs={activeSubs}
-        activeBrands={activeBrands}
+        active={active}
         onToggle={toggleFilter}
-        onReset={() => applyFilters([], [])}
+        onReset={clearFilters}
       />
     </>
   );

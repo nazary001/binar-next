@@ -14,8 +14,8 @@ export const DELIVERY_OPTIONS: { value: DeliveryOption; label: string }[] = [
   { value: "np-address", label: "Нова Пошта (Адресна доставка)" },
 ];
 
-// «Банківською карткою» is the master's filled value; the other two are
-// the payment methods the product page's delivery tab lists.
+// The payment «<Menu>» of the master (4329:41085, the slot of the open
+// form variant 4329:41086): three 46-px items in this order, verbatim.
 export const PAYMENT_OPTIONS = [
   "Банківською карткою",
   "Безготівковий розрахунок",

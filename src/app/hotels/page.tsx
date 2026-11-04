@@ -16,7 +16,7 @@ export const metadata = {
 
 export default function HotelsPage() {
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <div className="flex w-full flex-1 flex-col">
       <HotelsHero />
       <ZonesGrid />
       <HotelBenefits />
@@ -26,6 +26,6 @@ export default function HotelsPage() {
       <SupplyExamples />
       <HotelQuizCta />
       <HotelFaq />
-    </main>
+    </div>
   );
 }

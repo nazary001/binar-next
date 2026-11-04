@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { CATALOG_DIRECTIONS, productHref } from "@/components/catalog/data";
 import { ALL_PRODUCTS } from "@/components/product/data";
 import { CATEGORIES as MATERIAL_CATEGORIES } from "@/components/materials/data";
+import { BLOG_POSTS } from "@/components/blog/data";
 
 const SITE_URL = "https://binar-2000.com";
 
@@ -30,6 +31,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly" as const,
     priority: 0.6,
   }));
+  // Blog articles (/blog/<slug>, the same list generateStaticParams uses).
+  const blogPages: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({
+    url: `${SITE_URL}/blog/${post.slug}`,
+    lastModified,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }));
+  // The B2B cabinet (/dashboard, /orders, /profile, /assortment) is
+  // noindex and stays out of the sitemap.
   return [
     {
       url: `${SITE_URL}/`,
@@ -88,5 +98,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    {
+      url: `${SITE_URL}/spivpratsya`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/blog`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    ...blogPages,
   ];
 }

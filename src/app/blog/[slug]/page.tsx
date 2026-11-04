@@ -39,10 +39,10 @@ export default async function ArticlePage({
   const related = BLOG_POSTS.slice(0, 3);
 
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <div className="flex w-full flex-1 flex-col">
       <ArticleHero post={post} />
       <ArticleBody slug={post.slug} />
       <ReadAlso posts={related} />
-    </main>
+    </div>
   );
 }

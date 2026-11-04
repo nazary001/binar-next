@@ -3,11 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
-  DIRECTIONS,
-  FILE_TYPE_LABELS,
-  filesOf,
-  matchesFilters,
-  matchesQuery,
+  folderFiles,
+  toggleValue,
   type Direction,
   type FileType,
   type MaterialCategory,
@@ -15,9 +12,21 @@ import {
   type MaterialsFilters,
 } from "./data";
 import { FileCard } from "./FileCard";
-import { MaterialsFiltersDrawer } from "./FiltersDrawer";
+import { DIRECTIONS_GROUP, MaterialsFiltersDrawer, TYPES_GROUP } from "./FiltersDrawer";
 import { MaterialsHero } from "./Hero";
+import { PartnerMaterialsCategory } from "./PartnerMaterials";
 import { PreviewPanel } from "./PreviewPanel";
+
+// /materials/<category>: the partner folder (Figma «Матеріали B2B»
+// 4377:61576) for a signed-in B2B account, the public page otherwise.
+export function MaterialsCategory({ category }: { category: MaterialCategory }) {
+  const { user } = useAuth();
+  return user?.type === "b2b" ? (
+    <PartnerMaterialsCategory category={category} />
+  ) : (
+    <PublicMaterialsCategory category={category} />
+  );
+}
 
 // A materials category — Figma 4634:64897 («Каталоги»): the three-level
 // crumb and H1, the search row, then the file rows in three columns
@@ -26,7 +35,7 @@ import { PreviewPanel } from "./PreviewPanel";
 // row opens the preview panel (4825:61120); the padlock of a file that
 // needs an account carries the «Завантажити після авторизації» tooltip
 // (4634:65705) and opens the sign-in drawer.
-export function MaterialsCategory({ category }: { category: MaterialCategory }) {
+function PublicMaterialsCategory({ category }: { category: MaterialCategory }) {
   const { user, openAuth } = useAuth();
   const [query, setQuery] = useState("");
   const [directions, setDirections] = useState<Direction[]>([]);
@@ -39,25 +48,13 @@ export function MaterialsCategory({ category }: { category: MaterialCategory }) 
 
   const filters: MaterialsFilters = useMemo(() => ({ directions, types }), [directions, types]);
   const files = useMemo(
-    () =>
-      filesOf(category.slug).filter(
-        (f) => matchesFilters(f, filters) && matchesQuery(f.name, query),
-      ),
+    () => folderFiles(category.slug, filters, query),
     [category.slug, filters, query],
   );
 
   const toggle = (key: string, value: string) => {
-    if (key === "directions") {
-      const dir = value as Direction;
-      setDirections((list) =>
-        list.includes(dir) ? list.filter((d) => d !== dir) : [...list, dir],
-      );
-    } else {
-      const type = value as FileType;
-      setTypes((list) =>
-        list.includes(type) ? list.filter((t) => t !== type) : [...list, type],
-      );
-    }
+    if (key === "directions") setDirections((list) => toggleValue(list, value as Direction));
+    else setTypes((list) => toggleValue(list, value as FileType));
   };
 
   const canDownload = (file: MaterialFile) => !file.locked || user !== null;
@@ -98,18 +95,7 @@ export function MaterialsCategory({ category }: { category: MaterialCategory }) 
       <MaterialsFiltersDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        groups={[
-          {
-            key: "directions",
-            title: "Напрямки",
-            options: DIRECTIONS.map((d) => ({ value: d, label: d })),
-          },
-          {
-            key: "types",
-            title: "Тип документу",
-            options: FILE_TYPE_LABELS,
-          },
-        ]}
+        groups={[DIRECTIONS_GROUP, TYPES_GROUP]}
         active={{ directions, types }}
         onToggle={toggle}
       />

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowBack } from "@/components/catalog/icons";
 import { CheckoutClient } from "@/components/checkout/CheckoutClient";
+import { BackCrumb, Slash } from "@/components/ui/Breadcrumb";
+import { FIGMA_TEXT_BOX } from "@/components/catalog/textBox";
 
 export const metadata: Metadata = {
   title: "Оформити замовлення",
@@ -18,22 +19,16 @@ export default function CheckoutPage() {
     <div className="px-6 pb-[60px] sm:px-10 lg-shop-pad-x lg:pb-[148px]">
       <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
         <nav aria-label="Навігація" className="flex flex-wrap items-center gap-4">
-          <Link href="/" className="group flex items-center gap-4">
-            <span className="flex size-[40px] shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white">
-              <ArrowBack className="w-[20px]" />
-            </span>
-            <span className="text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-800 transition-colors duration-300 group-hover:text-brand lg:text-[18px] lg:tracking-[0.18px]">
-              Головна
-            </span>
-          </Link>
-          <span className="text-[18px] font-semibold leading-[22px] tracking-[0.18px] text-stroke-subtle">/</span>
+          <BackCrumb href="/" label="Головна" />
+          <Slash />
           <Link
             href="/catalog"
+            style={FIGMA_TEXT_BOX}
             className="cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
           >
             Каталог
           </Link>
-          <span className="text-[18px] font-semibold leading-[22px] tracking-[0.18px] text-stroke-subtle">/</span>
+          <Slash />
           <span className="text-button-md text-brand" aria-current="page">
             Оформити замовлення
           </span>

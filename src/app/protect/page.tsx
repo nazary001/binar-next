@@ -14,7 +14,7 @@ export const metadata = {
 
 export default function ProtectPage() {
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <div className="flex w-full flex-1 flex-col">
       <ProtectHero />
       <TargetAudiences />
       <ProtectBenefits />
@@ -22,6 +22,6 @@ export default function ProtectPage() {
       <ProtectSolutions />
       <ProtectQuizCta />
       <ProtectFaq />
-    </main>
+    </div>
   );
 }

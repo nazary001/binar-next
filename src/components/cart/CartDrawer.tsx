@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipsRow, QtyStepper, StatusLine } from "@/components/catalog/ProductCard";
+import { B2BStatusLine } from "@/components/catalog/B2BProductCard";
 import { InfoCircleIcon, XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, formatPriceWhole, productHref } from "@/components/catalog/data";
 import { useCart } from "./CartProvider";
@@ -13,11 +14,19 @@ import { CheckCircleIcon, DeliveryIcon, TrashIcon } from "./icons";
 import { useFitZoom } from "./useFitZoom";
 import { useModalBehavior } from "./useModalBehavior";
 
-// Master geometry (4329:39906): the panel is 576 wide and fills the
-// 1117-px screen under the 92-px header, i.e. 1025 px tall.
+// Master geometry. Public (B2C) drawer, overlay 4329:39905 / 4329:40142 /
+// 4929:61873 and sheet 4329:39906 / 4329:40143 / 4929:61874: 576 x 1031
+// at y 87 of the 1117-px frame. The overlay is drawn above the 92-px
+// header, so the scrim dims the header's bottom 5 px and the sheet's
+// r48 corner overlaps it; the sheet runs 1 px past the frame bottom
+// (its bottom stroke is clipped off-screen). Partner drawer (4204:56703
+// in «Мій асортимент :: Додано у кошик»): the overlay starts at the
+// 92-px B2B bar's bottom edge, 1025 px of a 1117-px screen.
 const DRAWER_W = 576;
-const DRAWER_DESIGN_H = 1025;
 const DESKTOP_HEADER_H = 92;
+const B2C_HEADER_OVERLAP = 5;
+const B2C_DESIGN_H = 1031;
+const B2B_DESIGN_H = 1025;
 
 // «Кошик» drawer — Figma 4329:39905: a 576-px sheet hanging from the
 // sticky header at the right edge (rounded-tl-48) over the blurred
@@ -32,10 +41,16 @@ const DESKTOP_HEADER_H = 92;
 // of [status + Title/Medium] and [chips + price row]; the price row is
 // the line total in 20/22 Bold, the hairline, the stepper and a 52-px
 // trash button. A #d2d2d2 hairline closes every row.
+// For a signed-in partner (drawer 4204:56703 of «Мій асортимент :: Додано
+// у кошик») the row bills the partner price and the status row shows
+// only the availability (the «роздрібна ціна» group is hidden there) -
+// the catalog's B2BStatusLine; a «Під замовлення» line stays orderable.
 function CartRow({ entry }: { entry: CartEntry }) {
-  const { setQty, remove } = useCart();
+  const { setQty, remove, priceMode } = useCart();
   const { product, line } = entry;
-  const out = !product.available;
+  const b2b = priceMode === "partner";
+  const out = !b2b && !product.available;
+  const grey = b2b ? Boolean(product.preorder) || !product.available : out;
   const href = productHref(product);
 
   // Phones: a 64-px photo and 16-px gap leave ~230 px for the content
@@ -54,13 +69,13 @@ function CartRow({ entry }: { entry: CartEntry }) {
             alt={product.title}
             loading="lazy"
             decoding="async"
-            className={`absolute inset-0 size-full object-cover ${out ? "grayscale" : ""}`}
+            className={`absolute inset-0 size-full object-cover ${grey ? "grayscale" : ""}`}
           />
         </Link>
 
         <div className="@container flex min-w-0 flex-1 flex-col gap-4">
           <div className="flex flex-col gap-3">
-            <StatusLine out={out} />
+            {b2b ? <B2BStatusLine product={product} /> : <StatusLine out={out} />}
             <h3 className="text-title-md text-neutral-900">
               <Link href={href}>{product.title}</Link>
             </h3>
@@ -71,14 +86,17 @@ function CartRow({ entry }: { entry: CartEntry }) {
             <div className="flex flex-wrap items-center justify-between gap-y-3">
               <div className="flex items-center gap-6 @max-[300px]:gap-2">
                 <span className="whitespace-nowrap text-[20px] font-bold leading-[22px] tracking-[0.2px] text-neutral-900">
-                  {formatPrice(lineTotal(entry))}
+                  {formatPrice(lineTotal(entry, priceMode))}
                 </span>
-                <span aria-hidden className="h-6 w-px shrink-0 bg-stroke-subtle" />
+                {/* «Line 1» is a 0-wide box in the master (price + 24 + line +
+                    24 = stepper), so the 1-px rule nets no width. */}
+                <span aria-hidden className="-mx-[0.5px] h-6 w-px shrink-0 bg-stroke-subtle" />
                 <QtyStepper
+                  size="sm"
+                  slot="fixed"
                   qty={line.qty}
                   onQty={(next) => setQty(product.id, next)}
                   disabled={out}
-                  size="sm"
                 />
               </div>
               <button
@@ -93,7 +111,9 @@ function CartRow({ entry }: { entry: CartEntry }) {
           </div>
         </div>
       </article>
-      <div aria-hidden className="h-px w-full bg-stroke-subtle" />
+      {/* «Vector 59» is a 0-height line (rows step by 228: 132, 360,
+          588 in 4329:39906 and 4204:56703), not a 1-px row. */}
+      <Hairline />
     </div>
   );
 }
@@ -151,23 +171,79 @@ function DeliveryMeter({ subtotal }: { subtotal: number }) {
   );
 }
 
+// «Vector 60 / 59» (4929:62811 / 4929:62809): a 1-px #d2d2d2 line drawn
+// on a 0-height row (the stroke straddles the row's y, as in Figma), so
+// the 40-px gaps around it measure from the line itself.
+function Hairline() {
+  return (
+    <div aria-hidden className="relative h-0 w-full shrink-0">
+      <span className="absolute inset-x-0 -top-[0.5px] h-px bg-stroke-subtle" />
+    </div>
+  );
+}
+
+// «Кошик :: Пустий» (4929:61799, sheet 4929:61875): the drawer body keeps
+// its pl-60 pr-80 pt-60 gutters and 40-px rhythm - title «Кошик»,
+// hairline (y 132), the centred note (y 172: Title/Extra Small 16/22
+// Bold +1 % «Кошик порожній», 8, Body/Small 14/24 #343435), hairline
+// (y 266), then the full-width accent Button/Large «Переглянути каталог»
+// (436 x 52 at y 306). No summary footer in this state.
+function EmptyCart({ onBrowse }: { onBrowse: () => void }) {
+  return (
+    <div className="flex flex-col gap-6 px-6 pt-8 pb-6 lg:gap-10 lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]">
+      <div className="flex items-center pt-1">
+        <h2 className="text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
+          Кошик
+        </h2>
+      </div>
+      <Hairline />
+      <div className="flex flex-col gap-2 text-center">
+        <p className="text-[16px] font-bold leading-[22px] tracking-[0.16px] text-neutral-900">
+          Кошик порожній
+        </p>
+        <p className="text-[14px] font-normal leading-6 text-neutral-800">
+          Додайте товари до кошика, щоб оформити замовлення.
+        </p>
+      </div>
+      <Hairline />
+      {/* Plain block parent: the fullWidth wrapper is flex-1, which would
+          otherwise stretch down the column. */}
+      <div>
+        <Button href="/catalog" variant="accent" size="large" fullWidth onClick={onBrowse}>
+          Переглянути каталог
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function CartDrawer() {
-  const { open, closeCart, entries, subtotal, clear, checkout } = useCart();
+  const { open, closeCart, entries, subtotal, clear, checkout, priceMode } = useCart();
+  const empty = entries.length === 0;
   const router = useRouter();
   const asideRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
-  // The master (4329:39906) fills a 1117-px screen: 1025 px of panel under
-  // the 92-px header. Shorter desktop windows get the same composition
-  // scaled to fit (2.3 rows over the summary) instead of a cropped list.
-  const fit = useFitZoom(DRAWER_DESIGN_H, DESKTOP_HEADER_H);
+  // The public header is overlapped by the B2C sheet; the partner's B2B
+  // bar is not (see the master geometry above).
+  const overlap = priceMode !== "partner";
+  const designH = overlap ? B2C_DESIGN_H : B2B_DESIGN_H;
+  // The masters fill a 1117-px screen: the B2C sheet spans y 87 .. 1118
+  // (header - 5 .. bottom + 1, so the space it cannot use is 86 px), the
+  // partner one 92 .. 1117. Shorter desktop windows get the same
+  // composition scaled to fit (2.3 rows over the summary) instead of a
+  // cropped list.
+  const fit = useFitZoom(
+    designH,
+    overlap ? DESKTOP_HEADER_H - B2C_HEADER_OVERLAP - 1 : DESKTOP_HEADER_H,
+  );
   const fitted = fit < 1;
   const reached = subtotal >= FREE_DELIVERY_THRESHOLD;
   const remaining = Math.max(0, Math.round((FREE_DELIVERY_THRESHOLD - subtotal) * 100) / 100);
 
   // Escape / scroll lock / focus trap / focus restore. The sticky header
-  // paints above the drawer's scrim (the sheet hangs from it, as drawn),
-  // so it is made inert while the drawer is open — a truly modal drawer
-  // must not leave the nav clickable.
+  // stays visible above the scrim's top edge (the sheet hangs from it, as
+  // drawn), so it is made inert while the drawer is open - a truly modal
+  // drawer must not leave the nav clickable.
   useModalBehavior({
     open,
     onClose: closeCart,
@@ -180,14 +256,20 @@ export function CartDrawer() {
     <div
       aria-hidden={!open}
       inert={!open}
-      className={`fixed inset-0 z-40 ${open ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-40 ${overlap ? "lg:z-[51]" : ""} ${open ? "" : "pointer-events-none"}`}
     >
+      {/* The scrim starts at the header's bottom edge (--site-header-h:
+          92 on desktop, 66 on phones); the header stays inert under it.
+          B2C desktop: the overlay frame sits at y 87, drawn above the
+          92-px header, so the layer rises above the header's z-50 and
+          starts 5 px higher - the scrim dims the header's bottom strip
+          and the sheet's r48 corner overlaps it, as in the masters. */}
       <div
         aria-hidden
         onClick={closeCart}
-        className={`absolute inset-0 bg-[#343435]/50 backdrop-blur-[4px] transition-opacity duration-300 ${
-          open ? "opacity-100" : "opacity-0"
-        }`}
+        className={`absolute inset-x-0 bottom-0 top-[var(--site-header-h,92px)] bg-[#343435]/50 backdrop-blur-[4px] transition-opacity duration-300 ${
+          overlap ? "lg:top-[calc(var(--site-header-h,92px)_-_5px)]" : ""
+        } ${open ? "opacity-100" : "opacity-0"}`}
       />
 
       <aside
@@ -196,69 +278,63 @@ export function CartDrawer() {
         aria-modal="true"
         aria-label="Кошик"
         tabIndex={-1}
-        style={{
-          top: "var(--site-header-h, 92px)",
-          ...(fitted
-            ? { width: DRAWER_W * fit, borderTopLeftRadius: 48 * fit }
-            : undefined),
-        }}
-        className={`absolute bottom-0 right-0 flex w-[576px] max-w-[92vw] flex-col overflow-hidden rounded-tl-[32px] bg-white transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:rounded-tl-[48px] ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+        style={
+          fitted ? { width: DRAWER_W * fit, borderTopLeftRadius: 48 * fit } : undefined
+        }
+        className={`absolute bottom-0 right-0 top-[var(--site-header-h,92px)] flex w-[576px] max-w-[92vw] flex-col overflow-hidden rounded-tl-[32px] bg-white transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:rounded-tl-[48px] ${
+          overlap ? "lg:-bottom-px lg:top-[calc(var(--site-header-h,92px)_-_5px)]" : ""
+        } ${open ? "translate-x-0" : "translate-x-full"}`}
       >
         {/* Everything inside lives in the master's px; on short windows the
-            wrapper is the 576 x 1025 design box zoomed to the space left
-            under the header (CSS zoom keeps text crisp and hit-testing
-            exact, unlike a transform). */}
+            wrapper is the 576 x 1031 (B2C) / 576 x 1025 (partner) design
+            box zoomed to the space it may use (CSS zoom keeps text crisp
+            and hit-testing exact, unlike a transform). It also carries the
+            sheet's 1-px #8e8e8f stroke («Frame 1010107019», 4929:61874 /
+            4204:56703), so the stroke zooms with the content; Figma
+            strokes sit inside the box, hence every inner offset below is
+            the master's minus 1 px (pl 59 / pr 79 / pt 59 / pb 39, close
+            at 23 / 23). */}
         <div
-          className="relative flex min-h-0 flex-1 flex-col"
-          style={fitted ? { zoom: fit, width: DRAWER_W, height: DRAWER_DESIGN_H, flex: "none" } : undefined}
+          className="relative flex min-h-0 flex-1 flex-col rounded-tl-[32px] border border-stroke-default lg:rounded-tl-[48px]"
+          style={fitted ? { zoom: fit, width: DRAWER_W, height: designH, flex: "none" } : undefined}
         >
         <button
           ref={closeRef}
           type="button"
           onClick={closeCart}
           aria-label="Закрити кошик"
-          className="absolute right-4 top-4 z-[1] flex size-8 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand lg:right-6 lg:top-6"
+          className="absolute right-4 top-4 z-[1] flex size-8 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand lg:right-[23px] lg:top-[23px]"
         >
           <XMarkIcon className="size-8" />
         </button>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-6 px-6 pt-8 lg:gap-10 lg:pl-[60px] lg:pr-20 lg:pt-[60px]">
+        {empty ? (
+          <EmptyCart onBrowse={closeCart} />
+        ) : (
+        <>
+        <div className="flex min-h-0 flex-1 flex-col gap-6 px-6 pt-8 lg:gap-10 lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]">
           <div className="flex items-center justify-between pt-1">
             <h2 className="text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
               Кошик
             </h2>
-            {entries.length > 0 && (
-              <button
-                type="button"
-                onClick={clear}
-                className="flex cursor-pointer items-center gap-[2px] text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
-              >
-                Очистити
-                <XMarkIcon className="size-4 shrink-0" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={clear}
+              className="flex cursor-pointer items-center gap-[2px] text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
+            >
+              Очистити
+              <XMarkIcon className="size-4 shrink-0" />
+            </button>
           </div>
 
           <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {entries.length === 0 ? (
-              <div className="flex flex-col items-start gap-6 py-6">
-                <p className="text-title-md text-neutral-900">Кошик порожній</p>
-                <p className="text-body-sm text-neutral-800">
-                  Додайте товари з каталогу, і вони з&apos;являться тут.
-                </p>
-                <Button href="/catalog" size="small" arrow onClick={closeCart}>
-                  Перейти в каталог
-                </Button>
-              </div>
-            ) : (
-              entries.map((entry) => <CartRow key={entry.line.id} entry={entry} />)
-            )}
+            {entries.map((entry) => (
+              <CartRow key={entry.line.id} entry={entry} />
+            ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-6 bg-neutral-900 px-6 py-6 lg:gap-10 lg:pl-[60px] lg:pr-20 lg:py-10">
+        <div className="flex flex-col gap-6 bg-neutral-900 px-6 py-6 lg:gap-10 lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-10">
           <div className="flex flex-col gap-8">
             <div className="flex items-center justify-between text-white">
               <span className="text-body-md">Сума замовлення</span>
@@ -292,11 +368,12 @@ export function CartDrawer() {
             onClick={() => {
               if (checkout()) router.push("/checkout");
             }}
-            disabled={entries.length === 0}
           >
             Оформити замовлення
           </Button>
         </div>
+        </>
+        )}
         </div>
       </aside>
     </div>

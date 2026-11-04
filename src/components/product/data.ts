@@ -44,6 +44,9 @@ export const EXTRA_PRODUCTS: Product[] = [
     subcategory: "Готельний текстиль",
     price: 120.05,
     available: true,
+    // The B2B band (4329:56720) prints «ваша ціна 120,05 ₴» on this card
+    // too (not the derived 0.916 x list = 109,97).
+    partnerPrice: 120.05,
   },
   {
     id: "soap-1",
@@ -88,6 +91,34 @@ export const EXTRA_PRODUCTS: Product[] = [
     price: 31.65,
     available: true,
   },
+  // Mock state «Піраміда запаху :: ноти в два рядки» (4329:52228): the
+  // same Botanica shampoo with the master's long note lists, so the
+  // scent tab shows the 96-px two-line rows. Reached by URL only
+  // (productHref = /catalog/hotels/<Готельна косметика card>/shampoo-long-notes).
+  {
+    id: "shampoo-long-notes",
+    title: "Шампунь для волосся і тіла",
+    image: "/figma-export/catalog/product-shampoo.png",
+    volume: "40 мл",
+    brand: "Botanica",
+    subcategory: "Готельна косметика",
+    price: 31.65,
+    available: true,
+  },
+  // A third sold-out line for the cart's stock modal: the master draws
+  // «3 з 3» (4329:40304) and the catalog mock has only two lines the
+  // stock rule flags (the «-25%» shampoo-2 and the unavailable
+  // shampoo-3). URL only; its product page is a sold-out PDP too.
+  {
+    id: "shampoo-sold-out",
+    title: "Шампунь для волосся і тіла",
+    image: "/figma-export/catalog/product-shampoo.png",
+    volume: "40 мл",
+    brand: "Botanica",
+    subcategory: "Готельна косметика",
+    price: 31.65,
+    available: false,
+  },
 ];
 
 export const ALL_PRODUCTS: Product[] = [...PRODUCTS, ...EXTRA_PRODUCTS];
@@ -113,6 +144,9 @@ export type ProductDetails = {
   // several = the main 627×413 photo over a row of three thumbnails
   // («Галерея», 4329:51496).
   images: string[];
+  // The same for the signed-in partner skin (ProductView mode="b2b"):
+  // differs only where the masters draw the product differently there.
+  platformImages: string[];
   boughtTogether: { product: Product; benefits: string[] }[];
   series: Product[];
   similar: Product[];
@@ -253,6 +287,20 @@ const TEXTILE_SCENT = {
   base: "Без ароматизації",
 };
 
+// Figma 4329:52276 - the master's long note lists (each wraps to two
+// lines in the 428-px notes slot).
+const LONG_SCENT = {
+  intro: SCENT.intro,
+  top: "Бергамот, Зелений чай, М'ята, Лимон, Бергамот, Зелений чай, М'ята, Лимон",
+  middle:
+    "Лаванда, Жасмин, Троянда, Лаванда, Жасмин, Троянда, Лаванда, Жасмин, Троянда",
+  base: "Кедр, Мускус, Сандал, Ваніль, Кедр, Мускус, Сандал, Ваніль",
+};
+
+const SCENT_BY_ID: Record<string, ProductDetails["scent"]> = {
+  "shampoo-long-notes": LONG_SCENT,
+};
+
 const SERIES_LEAD = ["soap-1", "lotion-1", "conditioner-1"];
 const TOGETHER_LEAD = ["slippers-1", "robe-1"];
 
@@ -267,16 +315,23 @@ export function getProductDetails(product: Product): ProductDetails {
   const shampooIndex = isShampoo ? Number(product.id.slice("shampoo-".length)) : NaN;
 
   // Even-numbered placeholder shampoos open with the four-image gallery
-  // (the Botanica set); the first one keeps the single master photo.
-  const images =
-    isShampoo && shampooIndex % 2 === 0
-      ? [
-          HERO_SHAMPOO,
-          `${IMG}series-soap.jpg`,
-          `${IMG}series-lotion.jpg`,
-          `${IMG}series-conditioner.jpg`,
-        ]
-      : [isShampoo ? HERO_SHAMPOO : product.image];
+  // (the Botanica set, «Опис :: Галерея» 4329:51475); the first one keeps
+  // the single master photo. The promo mock (shampoo-2) is the one
+  // product both skins draw: the shop's «Ціна з пропозицією» (4329:51621)
+  // puts the sale chip on a single 627×627 photo, while the partner page,
+  // which has no sale, shows its gallery («Галерея + ціна залежить від
+  // курсу», 4329:57538) - so a sale item keeps the single photo in the
+  // shop only.
+  const gallery = [
+    HERO_SHAMPOO,
+    `${IMG}series-soap.jpg`,
+    `${IMG}series-lotion.jpg`,
+    `${IMG}series-conditioner.jpg`,
+  ];
+  const single = [isShampoo ? HERO_SHAMPOO : product.image];
+  const evenShampoo = isShampoo && shampooIndex % 2 === 0;
+  const images = evenShampoo && product.oldPrice === undefined ? gallery : single;
+  const platformImages = evenShampoo ? gallery : single;
 
   // Same-brand siblings fill the series grid; sale items stay out of it
   // (the master's «З цієї серії» cards carry no «-25%» chip).
@@ -310,8 +365,9 @@ export function getProductDetails(product: Product): ProductDetails {
     characteristics: characteristicsOf(product, sku),
     payment: PAYMENT,
     delivery: DELIVERY,
-    scent: kind === "textile" ? TEXTILE_SCENT : SCENT,
+    scent: SCENT_BY_ID[product.id] ?? (kind === "textile" ? TEXTILE_SCENT : SCENT),
     images,
+    platformImages,
     boughtTogether: together.map((p) => ({ product: p, benefits: benefitsOf(p) })),
     series,
     similar,

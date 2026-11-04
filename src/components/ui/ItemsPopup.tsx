@@ -21,7 +21,9 @@ import { Button } from "./Button";
 //     the chips become links styled per the newer Chip component
 //     (36-px pill, Button/Medium 16/22, hover → brand border + text)
 //     and an optional white-outlined «Переглянути все» CTA renders
-//     48 px below the chip cloud (Figma 3682:46827).
+//     48 px below the chip cloud. The catalog popover (4329:39318) is
+//     587 x 478: head p-32 (title 48 + the 40-px clear glyph), chips
+//     523 wide in a 16-gap cloud, the 230 x 42 CTA, pb-32; no shadow.
 export function ItemsPanel({
   title,
   items,
@@ -47,7 +49,9 @@ export function ItemsPanel({
     <div
       role="dialog"
       aria-label={title}
-      className="flex max-h-full flex-col overflow-hidden rounded-[28px] shadow-[0_24px_64px_-12px_rgba(15,15,20,0.42)] sm:rounded-[36px] lg:rounded-[40px]"
+      className={`flex max-h-full flex-col overflow-hidden rounded-[28px] sm:rounded-[36px] lg:rounded-[40px] ${
+        itemHref ? "" : "shadow-[0_24px_64px_-12px_rgba(15,15,20,0.42)]"
+      }`}
       style={{ background: "#343435" }}
     >
       {/* Header — Figma 1333:7786 has `p-[32px] items-center
@@ -55,29 +59,24 @@ export function ItemsPanel({
           is text-h2 (44/48 bold -0.88px) white at lg, shrinks on
           smaller viewports so the modal still fits. */}
       <div className="flex items-center justify-between gap-4 p-8">
-        <h3 className="text-[32px] font-bold leading-[36px] tracking-[-0.64px] text-white lg:text-h2">
+        <h3 className="text-[32px] font-bold leading-[36px] tracking-[-0.64px] text-white lg:text-h2 lg:leading-[48px] lg:tracking-[-0.88px]">
           {title}
         </h3>
-        {/* Figma 1333:7788 — heroicons-outline/x-mark inside a 40-px
-            container with inset 21.88% → visual X ~22.5 px. A real
-            close button so the panel is always explicitly
-            dismissable. Stroke color = white via currentColor. */}
+        {/* Figma «clear» 40 (4329:39321): the exported filled x-mark
+            (9.1..30.9 in its 40-px box). A real close button so the
+            panel is always explicitly dismissable; colour rides on
+            currentColor (white, brand on hover). */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Закрити"
           className="flex size-10 shrink-0 cursor-pointer items-center justify-center text-white transition-colors duration-200 hover:text-brand"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            aria-hidden
-            className="size-[22.5px]"
-          >
-            <path d="M6 6l12 12M18 6L6 18" />
+          <svg viewBox="0 0 40 40" fill="none" aria-hidden className="size-10">
+            <path
+              d="M29.1162 9.11621C29.6044 8.62806 30.3956 8.62806 30.8838 9.11621C31.3719 9.60437 31.3719 10.3956 30.8838 10.8838L21.7676 20L30.8838 29.1162C31.3719 29.6044 31.3719 30.3956 30.8838 30.8838C30.3956 31.3719 29.6044 31.3719 29.1162 30.8838L20 21.7676L10.8838 30.8838C10.3956 31.3719 9.60437 31.3719 9.11621 30.8838C8.62806 30.3956 8.62806 29.6044 9.11621 29.1162L18.2324 20L9.11621 10.8838C8.62806 10.3956 8.62806 9.60437 9.11621 9.11621C9.60437 8.62806 10.3956 8.62806 10.8838 9.11621L20 18.2324L29.1162 9.11621Z"
+              fill="currentColor"
+            />
           </svg>
         </button>
       </div>
@@ -90,17 +89,18 @@ export function ItemsPanel({
           + overflow-hidden clips any rare excess silently. */}
       <div className="px-8 pb-8">
         {itemHref ? (
-          // Catalog-banner mode (Figma 3677:42137): 36-px Chip pills in
-          // a 16-px-gapped cloud, each deep-linking into the filtered
-          // catalog; hover = brand border + label (Chip State=Hover,
-          // Colour=Inverted).
+          // Catalog-banner mode (Figma 4329:39323): 36-px Chip pills in
+          // a 16-px-gapped cloud, each opening its «Категорія» page;
+          // hover = brand border + label (Chip State=Hover,
+          // Colour=Inverted). px-15 + the 1-px border = the master's
+          // px-16 with the stroke inside («Готельна косметика» = 188).
           <ul className="flex flex-wrap content-center items-center gap-4">
             {items.map((item) => (
               <li key={item}>
                 <Link
                   href={itemHref(item)}
                   onClick={onItemClick}
-                  className="flex h-9 cursor-pointer items-center justify-center whitespace-nowrap rounded-[60px] border border-white px-4 text-button-md text-white transition-colors duration-200 hover:border-brand hover:text-brand"
+                  className="flex h-9 cursor-pointer items-center justify-center whitespace-nowrap rounded-[60px] border border-white px-[15px] text-button-md text-white transition-colors duration-200 hover:border-brand hover:text-brand"
                 >
                   {item}
                 </Link>
@@ -117,9 +117,12 @@ export function ItemsPanel({
               // Manrope Cyrillic renders ~3 % wider in Chrome than in
               // Figma's text engine; `tracking-[-0.025em]` claws back
               // the delta so chip rows pack like the Figma master.
+              // The stroke sits inside the chip in Figma (40 tall), so
+              // the CSS border comes out of the padding: 11 / 15 + 1.
+              // 21 «Ванна кімната» items = 9 rows -> the 587 x 624 panel.
               <li
                 key={item}
-                className="inline-flex items-center whitespace-nowrap rounded-[60px] border border-white px-4 py-3 text-[16px] leading-[16px] tracking-[-0.025em] text-white"
+                className="inline-flex items-center whitespace-nowrap rounded-[60px] border border-white px-[15px] py-[11px] text-[16px] leading-[16px] tracking-[-0.025em] text-white"
               >
                 {item}
               </li>
@@ -153,11 +156,13 @@ export function ItemsPanel({
 export const PANEL_W = 587;
 export const PANEL_H = 624;
 // Visual breathing space around the panel — `24` of ACTUAL screen
-// pixels regardless of html zoom. Used as both the gap between the
-// panel and the hovered card AND as the minimum margin to the
-// viewport edges. computePos() divides by `zoom` to express this
-// in logical/pre-zoom pixels for the rest of its math, so the
-// rendered gap stays 24 visual px at 1024, 1440, 1920, 2560+.
+// pixels regardless of html zoom. The minimum margin to the viewport
+// edges and, by default, the gap between the panel and the hovered
+// card (the catalog banners pass `cardGap: 0`: the Figma popover
+// 4329:39318 sits flush on the banner's right edge, x 575 vs 575.33).
+// computePos() divides by `zoom` to express this in logical/pre-zoom
+// pixels for the rest of its math, so the rendered gap stays 24
+// visual px at 1024, 1440, 1920, 2560+.
 const PANEL_GAP_VISUAL = 24;
 // Smallest acceptable width before we fall back to placing the panel
 // above/below the card. 360 leaves room for two chip columns at the
@@ -202,6 +207,7 @@ export type PopupPosition = {
 export function computePos(
   cardEl: HTMLElement,
   panelH: number = PANEL_H,
+  { cardGap = PANEL_GAP_VISUAL }: { cardGap?: number } = {},
 ): PopupPosition {
   // `html { zoom: min(1, calc(100vw / 1440px)) }` in globals.css scales the
   // whole page so every desktop viewport renders as 1440 effective.
@@ -229,13 +235,15 @@ export function computePos(
   // Convert the visual 24-px gap to logical pixels so the rendered
   // breathing room stays 24 actual screen pixels at every zoom level.
   const PANEL_GAP = PANEL_GAP_VISUAL / zoom;
+  // Gap between the card and the panel (same unit conversion).
+  const CARD_GAP = cardGap / zoom;
 
   // Available space on each side of the card, accounting for the
-  // PANEL_GAP that sits between the panel and the card.
-  const spaceRight = vw - cardRect.right - PANEL_GAP;
-  const spaceLeft = cardRect.left - PANEL_GAP;
-  const spaceAbove = cardRect.top - PANEL_GAP;
-  const spaceBelow = vh - cardRect.bottom - PANEL_GAP;
+  // CARD_GAP that sits between the panel and the card.
+  const spaceRight = vw - cardRect.right - CARD_GAP;
+  const spaceLeft = cardRect.left - CARD_GAP;
+  const spaceAbove = cardRect.top - CARD_GAP;
+  const spaceBelow = vh - cardRect.bottom - CARD_GAP;
 
   // Reserve PANEL_GAP at the OUTER viewport edge too — i.e. the
   // panel never abuts the screen, always has 24 px of breathing
@@ -281,8 +289,8 @@ export function computePos(
 
   if (side === "right" || side === "left") {
     left = side === "right"
-      ? cardRect.right + PANEL_GAP
-      : cardRect.left - width - PANEL_GAP;
+      ? cardRect.right + CARD_GAP
+      : cardRect.left - width - CARD_GAP;
     // Top-align with the card (Figma master), then clamp to the
     // viewport. For tall cards or cards scrolled near the bottom
     // edge, this slides the panel up so it stays fully visible
@@ -293,8 +301,8 @@ export function computePos(
     );
   } else {
     top = side === "below"
-      ? cardRect.bottom + PANEL_GAP
-      : cardRect.top - height - PANEL_GAP;
+      ? cardRect.bottom + CARD_GAP
+      : cardRect.top - height - CARD_GAP;
     // Centre on the card horizontally so the visual link to the
     // hovered card reads cleanly even when the panel is above/below
     // rather than alongside it.

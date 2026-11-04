@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { Button } from "@/components/ui/Button";
-import { QtyStepper } from "@/components/catalog/ProductCard";
 import { XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, type Product } from "@/components/catalog/data";
+import { QtyStepper } from "@/components/catalog/ProductCard";
 import { useCart } from "./CartProvider";
 import { soldOutPhrase, type StockIssue } from "./data";
 import { CheckCircleIcon, InfoBadgeIcon } from "./icons";
@@ -23,23 +23,37 @@ import { useModalBehavior } from "./useModalBehavior";
 // «Замінено» once swapped); two full-width Button/Large at the bottom.
 
 // «Frame 1010107063» — the 307-px product mini card in a table cell:
-// 60-px r12 photo, Title/Extra Small name «title, volume, brand» and
-// the uppercase availability caption.
-function MiniProduct({ product, out }: { product: Product; out: boolean }) {
+// 60-px r12 photo (in colour even for the sold-out line: 4329:40406 is a
+// plain object-cover fill), Title/Extra Small name «title, volume,
+// brand» and the uppercase availability caption. 307 is fixed in the master (the
+// name wraps at 231 px into the two drawn lines); the phone cards let
+// it take the card width.
+function MiniProduct({
+  product,
+  out,
+  className = "w-full",
+}: {
+  product: Product;
+  out: boolean;
+  className?: string;
+}) {
   return (
-    <div className="flex min-w-[240px] items-center gap-4">
+    <div className={`flex items-center gap-4 ${className}`}>
       <span className="relative block size-[60px] shrink-0 overflow-clip rounded-xl bg-bg-product">
         <img
           src={product.image}
           alt=""
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 size-full object-cover ${out ? "grayscale" : ""}`}
+          className="absolute inset-0 size-full object-cover"
         />
       </span>
       <div className="flex min-w-0 flex-col gap-[7px]">
         <p className="text-[16px] font-bold leading-[22px] tracking-[0.16px] text-neutral-900">
-          {product.title}, {product.volume}, {product.brand}
+          {/* «Шампунь для волосся і тіла, 40мл, Botanica» - the master
+              writes the volume without a space before the unit. */}
+          {product.title}, {product.volume.replace(/(\d)\s+(мл|л|г|кг)$/u, "$1$2")},{" "}
+          {product.brand}
         </p>
         <p
           className={`text-[14px] font-medium uppercase leading-6 ${
@@ -53,24 +67,26 @@ function MiniProduct({ product, out }: { product: Product; out: boolean }) {
   );
 }
 
-// Rows after the first carry the 0.5-px #d2d2d2 hairline as a row
-// background 16 px in from both edges (a collapsed table border would
-// round it up to 1 px, and the head row must stay flush with the first
-// row).
+// The master's Divider (4329:40431, 1166 x 0.5) is its own 0.5-px row
+// whose line runs 16 px in from both edges (M16..1150). Rows after the
+// first carry it as a background band on their top 0.5 px and add those
+// 0.5 px to the top padding, so the next row starts at 123.5 and the
+// three-row table is 434 tall like the frame (a collapsed table border
+// would round the line up to 1 px).
 const DIVIDER =
   "bg-[linear-gradient(var(--color-stroke-subtle),var(--color-stroke-subtle))] bg-[length:calc(100%-32px)_0.5px] bg-[position:16px_0] bg-no-repeat";
 
 function IssueRow({ issue, first }: { issue: StockIssue; first: boolean }) {
-  const { resolveIssue, setIssueQty } = useCart();
+  const { resolveIssue, setIssueQty, unitPrice } = useCart();
   const alt = issue.replacement;
   return (
-    <tr className={first ? "" : DIVIDER}>
+    <tr className={first ? "" : `${DIVIDER} [&>td]:pt-[24.5px]`}>
       <td className="py-6 pl-8 pr-4 align-middle">
-        <MiniProduct product={issue.product} out />
+        <MiniProduct product={issue.product} out className="w-[307px] max-w-full" />
       </td>
       <td className="px-4 py-6 align-middle">
         {alt ? (
-          <MiniProduct product={alt} out={false} />
+          <MiniProduct product={alt} out={false} className="w-[307px] max-w-full" />
         ) : (
           <span className="text-body-sm text-neutral-500">Альтернативи немає</span>
         )}
@@ -78,19 +94,27 @@ function IssueRow({ issue, first }: { issue: StockIssue; first: boolean }) {
       <td className="px-4 py-6 align-middle">
         {alt && (
           <QtyStepper
+            size="sm"
+            slot="hug"
             qty={issue.qty}
             onQty={(next) => setIssueQty(issue.lineId, next)}
             disabled={issue.resolved}
-            size="sm"
           />
         )}
       </td>
+      {/* «Component 2» (4329:40422): SemiBold 16/24 with the sign - the
+          screenshot reads «65,79 ₴» (the head says «Ціна, ₴» too). */}
       <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-        {alt ? formatPrice(alt.price * issue.qty).replace(/\s*₴$/, "") : "-"}
+        {alt ? formatPrice(Math.round(unitPrice(alt) * issue.qty * 100) / 100) : "-"}
       </td>
-      <td className="py-6 pl-4 pr-8 text-right align-middle">
+      {/* Action cell 152 + the row's 16: the outlined «Замінити» (119)
+          fills the padded box; the resolved «Замінено» (16-px check, 4,
+          label = 93) is centred in it (4329:40621 at x+13). */}
+      <td className="py-6 pl-4 pr-8 text-center align-middle">
         {issue.resolved ? (
-          <span className="inline-flex items-center gap-1 text-button-md text-positive">
+          // A block-level flex (not inline-flex): an inline box would sit
+          // on the cell's 24-px line box and land 1.5 px high.
+          <span className="mx-auto flex w-fit items-center gap-1 text-button-md text-positive">
             <CheckCircleIcon className="size-4 shrink-0" />
             {alt ? "Замінено" : "Видалено"}
           </span>
@@ -111,7 +135,7 @@ function IssueRow({ issue, first }: { issue: StockIssue; first: boolean }) {
 // and a full-width action button that flips to the green «Замінено» /
 // «Видалено» once resolved. Same DIVIDER hairline between cards.
 function IssueCard({ issue, first }: { issue: StockIssue; first: boolean }) {
-  const { resolveIssue, setIssueQty } = useCart();
+  const { resolveIssue, setIssueQty, unitPrice } = useCart();
   const alt = issue.replacement;
   return (
     <li className={`flex flex-col gap-4 p-4 ${first ? "" : DIVIDER}`}>
@@ -126,13 +150,14 @@ function IssueCard({ issue, first }: { issue: StockIssue; first: boolean }) {
           </div>
           <div className="flex items-center justify-between gap-4">
             <QtyStepper
+              size="sm"
+              slot="hug"
               qty={issue.qty}
               onQty={(next) => setIssueQty(issue.lineId, next)}
               disabled={issue.resolved}
-              size="sm"
             />
             <span className="whitespace-nowrap text-[16px] font-semibold leading-6 text-neutral-900">
-              {formatPrice(alt.price * issue.qty)}
+              {formatPrice(Math.round(unitPrice(alt) * issue.qty * 100) / 100)}
             </span>
           </div>
         </>
@@ -159,7 +184,7 @@ function IssueCard({ issue, first }: { issue: StockIssue; first: boolean }) {
 }
 
 export function StockModal() {
-  const { issues, dismissIssues, resolveAll, finishIssues, closeCart } = useCart();
+  const { issues, dismissIssues, resolveAll, closeCart } = useCart();
   const router = useRouter();
   const open = issues !== null && issues.length > 0;
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -167,10 +192,11 @@ export function StockModal() {
   const total = issues?.length ?? 0;
   const left = issues?.filter((i) => !i.resolved).length ?? 0;
   // Master height (4329:40379, 3 rows = 880): 60 + 52 + 40 + 28 + 40 + 42 +
-  // 32 + head 64 + rows x 123 + 40 + 52 + 60 = 511 + 123 x rows. On a
+  // 32 + head 64 + rows x 123 + 0.5-px dividers + 40 + 52 + 60. On a
   // shorter desktop window the dialog is zoomed to fit inside 40-px
   // gutters, like the frame fitted to the screen, instead of scrolling.
-  const fit = useFitZoom(511 + 123 * Math.max(1, total), 80);
+  const rows = Math.max(1, total);
+  const fit = useFitZoom(510 + 123 * rows + 0.5 * (rows - 1), 80);
 
   useModalBehavior({
     open,
@@ -240,16 +266,15 @@ export function StockModal() {
           </div>
 
           <div className="overflow-x-auto rounded-3xl bg-bg-subtle">
-            {/* Desktop / tablet table (>=1024, under the 1440-master zoom
-                so the min-width holds and all five columns fit). Fixed
-                layout so the master's column widths hold and the two
-                product columns split the rest equally. The first and last
-                columns include the row's 16-px gutter (Figma pads the row,
-                then the cell), hence 152 + 16 for the action. Below lg the
-                rows become stacked cards (IssueCard) instead. */}
+            {/* Desktop table (the modal is always the 1286-px master from
+                640 up, so the table is 1166). Fixed layout with the
+                master's columns: 356 / 356 / 140 / 130 / 152, the first
+                and last carrying the row's 16-px gutter (Figma pads the
+                row, then the cell) = 372 / auto (356) / 140 / 130 / 168.
+                Below lg the rows become stacked cards (IssueCard). */}
             <table className="hidden w-full min-w-[1000px] table-fixed border-collapse lg:table">
               <colgroup>
-                <col />
+                <col className="w-[372px]" />
                 <col />
                 <col className="w-[140px]" />
                 <col className="w-[130px]" />
@@ -305,7 +330,7 @@ export function StockModal() {
             variant="accent"
             fullWidth
             onClick={() => {
-              finishIssues();
+              dismissIssues();
               router.push("/checkout");
             }}
             disabled={left > 0}

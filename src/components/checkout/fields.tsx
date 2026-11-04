@@ -11,15 +11,26 @@ import { ChevronDown24 } from "./icons";
 //   filled  the label floats onto the top edge as a 12/12 Medium caption
 //           on the panel background (left 16 + 6 px padding), value in
 //           16/24 Medium #1d1d1f;
-//   focus   2-px brand ring, brand caption.
+//   focus   2-px brand ring, brand caption;
+//   error   «State=Error» (4130:38611): a plain 1-px #d92d20 ring, the
+//           resting caption stays grey, a floated one and the helper line
+//           turn Error/Main #d32f2f (see RING_ERROR / Hint).
 // Selects add a 24-px chevron (up while open) and drop a white r24 menu
 // with a 0/2/6 shadow 4.5 px under the field («<Menu>», 4329:41026):
 // 16/22 Medium rows padded 16/12 with 0.5-px dividers, 250 px max.
 
 const RING =
   "peer h-[46px] w-full rounded-3xl border border-stroke-subtle bg-transparent px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none transition-[border-color,box-shadow] duration-200 placeholder-transparent focus:border-brand focus:[box-shadow:inset_0_0_0_1px_var(--color-brand)] disabled:cursor-default disabled:border-[#bbbbbc] disabled:text-neutral-300";
+// «<TextField>» State=Error (4130:38611 / 4130:38612, ctx 5420-38180 /
+// 5420-38248) - the checkout, the account drawer and the cabinet forms
+// share it: a plain 1-px Stroke/Negative #d92d20 ring, no inset; focus
+// keeps the 2-px look of every focused field. Keyed on [aria-invalid]
+// (every control sets it while in error) so the red outranks RING's own
+// border-stroke-subtle / focus:border-brand: same-specificity colour
+// utilities do not reliably override each other (.border-negative is
+// emitted before .border-stroke-subtle).
 const RING_ERROR =
-  "border-negative [box-shadow:inset_0_0_0_1px_var(--color-negative)] focus:border-negative focus:[box-shadow:inset_0_0_0_1px_var(--color-negative)]";
+  "aria-invalid:border-negative aria-invalid:focus:border-negative aria-invalid:focus:[box-shadow:inset_0_0_0_1px_var(--color-negative)]";
 // Floating caption: rides the field's top edge once the control has a
 // value or focus (peer-[:not(:placeholder-shown)] / peer-focus), painted
 // on the panel surface so it cuts the ring exactly as the master draws:
@@ -29,40 +40,65 @@ const RING_ERROR =
 // into the other: resting (inside the field, placeholder-like) and
 // floated (on the top edge). Text inputs switch through the peer's
 // focus / :placeholder-shown state; the select switches from React state.
+// Both branches pin an explicit height (24 resting, 12 floated) so the
+// float transition interpolates it instead of snapping auto -> 12. The
+// floated caption keeps the master's 12-px Label Container box (-6 on
+// the ring's top edge) but sets its text on a 14-px line: the glyphs drop
+// 1 px inside the box, onto the Figma ink (5420:38195 / 5420:38248 ink
+// tops were 1-2 px high with a 12-px line).
 const LABEL_SHELL =
   "pointer-events-none absolute -translate-y-1/2 whitespace-nowrap font-medium tracking-[0.15px] transition-all duration-200";
-const LABEL_REST = "left-6 top-1/2 text-[16px] leading-6 text-neutral-500";
-const LABEL_FLOAT = "left-[18px] top-0 bg-[var(--field-surface,var(--color-bg-subtle))] px-1.5 text-[12px] leading-3";
+const LABEL_REST = "left-6 top-1/2 h-6 text-[16px] leading-6 text-neutral-500";
+const LABEL_FLOAT = "left-[18px] top-0 bg-[var(--field-surface,var(--color-bg-subtle))] px-1.5 h-3 text-[12px] leading-[14px]";
 // Filled colour applies only while NOT focused, so a focused field keeps
 // the brand caption of the Figma Focus state after the first keystroke.
-const LABEL =
-  `${LABEL_SHELL} ${LABEL_REST} peer-focus:left-[18px] peer-focus:top-0 peer-focus:bg-[var(--field-surface,var(--color-bg-subtle))] peer-focus:px-1.5 peer-focus:text-[12px] peer-focus:leading-3 peer-focus:text-brand peer-[:not(:placeholder-shown)]:left-[18px] peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:bg-[var(--field-surface,var(--color-bg-subtle))] peer-[:not(:placeholder-shown)]:px-1.5 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:leading-3 peer-[:not(:placeholder-shown):not(:focus)]:text-black/60`;
-const LABEL_ERROR = "text-negative peer-focus:text-negative peer-[:not(:placeholder-shown)]:text-negative";
+// Geometry and colours are kept apart so the error caption can swap the
+// colours without fighting the grey filled rule (its double :not()
+// out-ranks a single-state colour); LABEL is the same class list as ever.
+const LABEL_GEOM =
+  `${LABEL_SHELL} ${LABEL_REST} peer-focus:left-[18px] peer-focus:top-0 peer-focus:bg-[var(--field-surface,var(--color-bg-subtle))] peer-focus:px-1.5 peer-focus:h-3 peer-focus:text-[12px] peer-focus:leading-[14px] peer-[:not(:placeholder-shown)]:left-[18px] peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:bg-[var(--field-surface,var(--color-bg-subtle))] peer-[:not(:placeholder-shown)]:px-1.5 peer-[:not(:placeholder-shown)]:h-3 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:leading-[14px]`;
+const LABEL_TONE =
+  "peer-focus:text-brand peer-[:not(:placeholder-shown):not(:focus)]:text-black/60";
+const LABEL = `${LABEL_GEOM} ${LABEL_TONE}`;
+// Error caption: the resting (empty) label stays #777779 (5420-38180),
+// the floated one turns Error/Main #d32f2f (5420-38248).
+const LABEL_ERROR = `${LABEL_GEOM} peer-focus:text-[#d32f2f] peer-[:not(:placeholder-shown)]:text-[#d32f2f]`;
+// Error/Main of the FormHelperText and the floated caption.
+const ERROR_TEXT = "text-[#d32f2f]";
 
-// «<FormHelperText>» — the 12/16 Medium error line under a field. The
-// checkout shows it only when there is an error; the account drawer
-// (4573:35482 etc.) reserves the master's 19-px zone (3 px top padding +
-// one line) under every field so the stack keeps its rhythm whether or
-// not a message is showing.
+// «<FormHelperText>» — the 12/16 Medium line under a field, the exact
+// Figma box (4132:38988): pt-3 px-24, shown only while there is text, so
+// an empty field is 46 tall, a one-line message makes it 65 and a
+// two-line one 81. `reserve` instead keeps the master's 19-px zone
+// (3 px top padding + one line) under the field whether or not a
+// message is showing; `mui` (the account drawer, Authorisation NEW
+// 5420:38169) never reserves it. A permanent `helper` (5258:43746 «Це
+// буде ваш логін...») is text/secondary rgba(0,0,0,.6); an error
+// replaces it in Error/Main #d32f2f.
 function Hint({
   id,
   error,
+  helper,
   reserve,
+  mui,
 }: {
   id: string;
   error?: string;
+  helper?: string;
   reserve?: boolean;
+  mui?: boolean;
 }) {
-  if (!error && !reserve) return null;
+  const text = error || helper;
+  if (!text && !reserve) return null;
+  const box = reserve && !mui ? "min-h-[19px] pl-6 pt-[3px]" : "px-6 pt-[3px]";
+  const tone = error ? ERROR_TEXT : "text-black/60";
   return (
     <p
       id={id}
       role={error ? "alert" : undefined}
-      className={`${
-        reserve ? "min-h-[19px] pt-[3px]" : "mt-1"
-      } pl-6 text-[12px] font-medium leading-4 tracking-[0.15px] text-negative`}
+      className={`${box} text-[12px] font-medium leading-4 tracking-[0.15px] ${tone}`}
     >
-      {error}
+      {text}
     </p>
   );
 }
@@ -86,6 +122,12 @@ export function TextField({
   autoFocus,
   disabled,
   helperZone,
+  helper,
+  muiHelper,
+  invalid,
+  hintId,
+  describedBy,
+  trailing,
   className = "",
 }: {
   label: string;
@@ -102,35 +144,72 @@ export function TextField({
   disabled?: boolean;
   // Reserve the 19-px helper line under the field (see Hint).
   helperZone?: boolean;
+  // Permanent helper line under the field (an error replaces it).
+  helper?: string;
+  // The account drawer's MUI TextField: never reserves the helper zone
+  // (the error look is the shared State=Error one either way).
+  muiHelper?: boolean;
+  // Error look without a message of its own (the first password field
+  // of «паролі не збігаються», 5420:38248).
+  invalid?: boolean;
+  // A fixed id for the helper line, so another field can point at it.
+  hintId?: string;
+  // Extra aria-describedby ids: an `invalid` field names the message
+  // that explains it (the repeat field's «Паролі не збігаються»).
+  describedBy?: string;
+  // «AdornmentEnd»: a 24-px control on the right of the 46-px ring, 24 px
+  // from its outer edge, 8 px clear of the text (the password eye). It
+  // sits outside the <label> because a button may not live inside one.
+  trailing?: ReactNode;
   className?: string;
 }) {
   const id = useId();
+  const isError = Boolean(error) || Boolean(invalid);
   const labelClass = disabled
     ? `${LABEL_SHELL} ${value ? LABEL_FLOAT : LABEL_REST} ${LABEL_DISABLED}`
-    : `${LABEL} ${error ? LABEL_ERROR : ""}`;
+    : isError
+      ? LABEL_ERROR
+      : LABEL;
+  const ringError = isError ? RING_ERROR : "";
+  const hint = hintId ?? `${id}-hint`;
+  const described =
+    [error || helper ? hint : null, describedBy].filter(Boolean).join(" ") || undefined;
   return (
     <div className={className}>
-      <label className="relative block">
-        <input
-          id={id}
-          name={name}
-          type={type}
-          inputMode={inputMode}
-          autoComplete={autoComplete}
-          maxLength={maxLength}
-          autoFocus={autoFocus}
-          disabled={disabled}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          placeholder=" "
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-hint` : undefined}
-          className={`${RING} ${error ? RING_ERROR : ""}`}
-        />
-        <span className={labelClass}>{label}</span>
-      </label>
-      <Hint id={`${id}-hint`} error={error} reserve={helperZone} />
+      <div className="relative">
+        <label className="relative block">
+          <input
+            id={id}
+            name={name}
+            type={type}
+            inputMode={inputMode}
+            autoComplete={autoComplete}
+            maxLength={maxLength}
+            autoFocus={autoFocus}
+            disabled={disabled}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onBlur={onBlur}
+            placeholder=" "
+            aria-invalid={isError ? true : undefined}
+            aria-describedby={described}
+            className={`${RING} ${trailing ? "pr-14" : ""} ${ringError}`}
+          />
+          <span className={labelClass}>{label}</span>
+        </label>
+        {trailing && (
+          <span className="absolute right-6 top-[11px] flex size-6 items-center justify-center">
+            {trailing}
+          </span>
+        )}
+      </div>
+      <Hint
+        id={hint}
+        error={error}
+        helper={helper}
+        reserve={helperZone}
+        mui={muiHelper}
+      />
     </div>
   );
 }
@@ -275,7 +354,11 @@ export function SelectField({
       } else {
         openMenu();
       }
-    } else if (e.key === "Escape") {
+    } else if (e.key === "Escape" && open) {
+      // Swallowed while the menu is open, so a dialog around the field
+      // (useModalBehavior skips a defaultPrevented Escape) stays open.
+      e.preventDefault();
+      e.stopPropagation();
       closeMenu();
     }
   };
@@ -301,7 +384,7 @@ export function SelectField({
           onBlur={closeMenu}
           className={`${RING} flex cursor-pointer items-center justify-between gap-2 text-left ${
             error ? RING_ERROR : ""
-          } ${open ? "border-brand [box-shadow:inset_0_0_0_1px_var(--color-brand)]" : ""}`}
+          } ${open && !error ? "border-brand [box-shadow:inset_0_0_0_1px_var(--color-brand)]" : ""}`}
         >
           <span className={`min-w-0 flex-1 truncate ${filled ? "" : "text-transparent"}`}>
             {current?.label ?? label}
@@ -318,11 +401,13 @@ export function SelectField({
           // still empty select keeps the label resting inside the brand ring,
           // as the masters with the delivery / payment menus open draw it
           // (4329:41045, 4329:41086).
+          // In error the resting caption stays grey like the text fields'
+          // (State=Error, Has Value=no); a floated one turns #d32f2f.
           className={`${LABEL_SHELL} ${
             filled
-              ? `${LABEL_FLOAT} ${open ? "text-brand" : "text-black/60"}`
+              ? `${LABEL_FLOAT} ${error ? ERROR_TEXT : open ? "text-brand" : "text-black/60"}`
               : LABEL_REST
-          } ${error ? "text-negative" : ""}`}
+          }`}
         >
           {label}
         </span>
@@ -421,13 +506,17 @@ export function AutocompleteField({
               onChange(matches[active >= 0 ? active : 0]);
               setOpen(false);
             } else if (e.key === "Escape") {
+              // Only reached while the menu shows (see the guard above):
+              // closes the menu, not a dialog around the field.
+              e.preventDefault();
+              e.stopPropagation();
               setOpen(false);
             }
           }}
           placeholder=" "
           className={`${RING} pr-14 ${error ? RING_ERROR : ""}`}
         />
-        <span className={`${LABEL} ${error ? LABEL_ERROR : ""}`}>{label}</span>
+        <span className={error ? LABEL_ERROR : LABEL}>{label}</span>
         <MagnifierIcon className="pointer-events-none absolute right-6 top-1/2 size-6 -translate-y-1/2 text-neutral-900" />
         <Menu id={`${id}-menu`} open={showMenu}>
           {matches.map((o, i) => (

@@ -68,7 +68,12 @@ const DIVIDER =
   "bg-[linear-gradient(var(--color-stroke-subtle),var(--color-stroke-subtle))] bg-[length:calc(100%-32px)_0.5px] bg-[position:16px_0] bg-no-repeat";
 
 export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
-  const { setQty, remove } = useCart();
+  const { setQty, remove, priceMode, unitPrice } = useCart();
+  // A retail line that sold out keeps its quantity frozen; a partner's
+  // unavailable line is «Під замовлення» and stays editable (as in the
+  // drawer's CartRow).
+  const locked = (entry: CartEntry) =>
+    priceMode !== "partner" && !entry.product.available;
 
   return (
     <div className="overflow-clip rounded-3xl bg-bg-subtle">
@@ -122,15 +127,15 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
                 <QtyStepper
                   qty={entry.line.qty}
                   onQty={(next) => setQty(entry.product.id, next)}
-                  disabled={!entry.product.available}
+                  disabled={locked(entry)}
                   size="sm"
                 />
               </td>
               <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-                {formatPrice(entry.product.price)}
+                {formatPrice(unitPrice(entry.product))}
               </td>
               <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-                {formatPrice(lineTotal(entry))}
+                {formatPrice(lineTotal(entry, priceMode))}
               </td>
               <td className="py-6 pl-4 pr-8 text-right align-middle">
                 <button
@@ -159,7 +164,7 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
               <div className="min-w-0 flex-1">
                 <Name entry={entry} />
                 <p className="mt-1 text-[14px] font-medium leading-6 text-neutral-500">
-                  {formatPrice(entry.product.price)} за од.
+                  {formatPrice(unitPrice(entry.product))} за од.
                 </p>
               </div>
               <button
@@ -175,11 +180,11 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
               <QtyStepper
                 qty={entry.line.qty}
                 onQty={(next) => setQty(entry.product.id, next)}
-                disabled={!entry.product.available}
+                disabled={locked(entry)}
                 size="sm"
               />
               <span className="text-[16px] font-semibold leading-6 text-neutral-900">
-                {formatPrice(lineTotal(entry))}
+                {formatPrice(lineTotal(entry, priceMode))}
               </span>
             </div>
           </li>

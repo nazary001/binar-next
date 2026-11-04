@@ -1,0 +1,137 @@
+"use client";
+
+import { useId, useState, type KeyboardEvent } from "react";
+import { DropdownIcon } from "./icons";
+
+// «<Select>» (master 4098:29949 «State=Default, Has value=True») as the
+// cabinet pages draw it: the dashboard counterparty select 5052:32124
+// (234 x 46, transparent on the #f5f5f5 surface) and the orders / returns
+// filter row 4573:37262.. (364 / 234 / 234, white fill = `bg="white"`).
+// 46 tall, 1-px #d2d2d2 ring INSIDE the box (CSS pads 23 so the value
+// starts 24 px in, as the master), r24, value 16/24 Medium +0.15
+// #1d1d1f, the 24-px dropdown glyph flush with the 24-px right padding.
+// Unlike checkout/fields.tsx SelectField this master draws no floating
+// caption, so the accessible name comes from `label` (aria-label).
+// `display` replaces the chosen option's name on the field only (the
+// orders period select shows its date range, «24.04.2026 — 24.05.2026»,
+// while the menu keeps the period names). Keyboard model and menu chrome
+// follow SelectField: arrows move the highlight (opening the menu), Home /
+// End jump, Enter / Space pick, Escape / blur close (Escape is swallowed
+// while the menu is open, so a dialog around it stays); the white r24
+// menu with the 0/2/6 shadow sits 4.5 px under the field, 16/22 rows
+// padded 16 / 12 with 0.5-px dividers, the chosen row in brand.
+export function Select<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  display,
+  bg = "transparent",
+  className = "",
+}: {
+  label: string;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (v: T) => void;
+  display?: string;
+  bg?: "transparent" | "white";
+  className?: string;
+}) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const currentIndex = options.findIndex((o) => o.value === value);
+  const current = options[currentIndex];
+
+  const openMenu = () => {
+    setActive(currentIndex);
+    setOpen(true);
+  };
+  const closeMenu = () => {
+    setActive(-1);
+    setOpen(false);
+  };
+  const pick = (i: number) => {
+    onChange(options[i].value);
+    closeMenu();
+  };
+
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        openMenu();
+        return;
+      }
+      setActive((i) => {
+        const next = e.key === "ArrowDown" ? i + 1 : i - 1;
+        return Math.max(0, Math.min(options.length - 1, next));
+      });
+    } else if (open && (e.key === "Home" || e.key === "End")) {
+      e.preventDefault();
+      setActive(e.key === "Home" ? 0 : options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (open && active >= 0) pick(active);
+      else if (open) closeMenu();
+      else openMenu();
+    } else if (e.key === "Escape" && open) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenu();
+    }
+  };
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        role="combobox"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={`${id}-menu`}
+        aria-activedescendant={open && active >= 0 ? `${id}-opt-${active}` : undefined}
+        onClick={() => (open ? closeMenu() : openMenu())}
+        onKeyDown={onKey}
+        onBlur={closeMenu}
+        className={`flex h-[46px] w-full cursor-pointer items-center justify-between gap-2 rounded-3xl border px-[23px] text-left text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none transition-[border-color,box-shadow] duration-200 focus-visible:border-brand focus-visible:[box-shadow:inset_0_0_0_1px_var(--color-brand)] ${
+          bg === "white" ? "bg-white" : "bg-transparent"
+        } ${open ? "border-brand [box-shadow:inset_0_0_0_1px_var(--color-brand)]" : "border-stroke-subtle hover:border-neutral-400"}`}
+      >
+        <span className="min-w-0 flex-1 truncate">{display ?? current?.label ?? label}</span>
+        <DropdownIcon
+          className={`size-6 shrink-0 text-neutral-900 transition-[rotate] duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <ul
+          id={`${id}-menu`}
+          role="listbox"
+          aria-label={label}
+          className="absolute left-0 top-[calc(100%+4.5px)] z-20 max-h-[250px] w-full min-w-max overflow-y-auto overscroll-contain rounded-3xl bg-white shadow-[0px_2px_6px_0px_rgba(29,29,31,0.1)]"
+        >
+          {options.map((o, i) => (
+            <li
+              key={o.value}
+              id={`${id}-opt-${i}`}
+              role="option"
+              aria-selected={o.value === value}
+              onMouseDown={(e) => {
+                // mousedown, not click: the button's blur would close the menu first.
+                e.preventDefault();
+                pick(i);
+              }}
+              onMouseEnter={() => setActive(i)}
+              className={`cursor-pointer whitespace-nowrap px-4 py-3 text-button-md transition-colors duration-150 [&+&]:shadow-[inset_0_0.5px_0_var(--color-stroke-subtle)] ${
+                i === active ? "bg-bg-subtle" : ""
+              } ${o.value === value ? "text-brand" : "text-neutral-900"}`}
+            >
+              {o.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

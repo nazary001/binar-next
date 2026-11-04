@@ -77,3 +77,20 @@ export function updateLines(updater: (prev: CartLine[]) => CartLine[]) {
   writeStorage(lines);
   emit();
 }
+
+// Bulk add (the «Мій асортимент» selection bar): merges several lines
+// into the cart in one write — quantities add up for products already
+// in the cart. The caller opens the drawer through useCart().openCart.
+export function addMany(add: CartLine[]) {
+  const valid = add.filter((l) => Number.isInteger(l.qty) && l.qty > 0);
+  if (valid.length === 0) return;
+  updateLines((prev) => {
+    const next = prev.map((l) => ({ ...l }));
+    valid.forEach(({ id, qty }) => {
+      const existing = next.find((l) => l.id === id);
+      if (existing) existing.qty += qty;
+      else next.push({ id, qty });
+    });
+    return next;
+  });
+}

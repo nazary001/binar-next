@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ArrowBack } from "@/components/catalog/icons";
+import { BackCrumb, Slash } from "@/components/ui/Breadcrumb";
+import { FIGMA_TEXT_BOX } from "@/components/catalog/textBox";
 import {
   directionCatalogHref,
   type CatalogDirection,
@@ -37,51 +38,31 @@ const crumb =
 // alone at a line edge.
 const pair = "inline-flex items-start gap-4";
 
-function Slash() {
-  return (
-    <span aria-hidden className="text-[18px] font-semibold leading-[22px] text-stroke-subtle">
-      /
-    </span>
-  );
-}
-
-function BackCrumb({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="group flex items-center gap-4">
-      <span className="flex size-[40px] shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white">
-        <ArrowBack className="w-[20px]" />
-      </span>
-      <span className="text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-800 transition-colors duration-300 group-hover:text-brand lg:text-[18px] lg:tracking-[0.18px]">
-        {label}
-      </span>
-    </Link>
-  );
-}
-
 function PublicView({ dir, card, product, details }: Props) {
   return (
     <>
       <div className="px-6 sm:px-10 lg-shop-pad-x">
         <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
-          {/* Breadcrumb (4329:51342): the shared Back-button recipe, three
-              neutral intermediate crumbs and the orange current product. */}
+          {/* Breadcrumb (4329:51342): the shared Back-button recipe, the
+              neutral intermediate crumbs and the orange current product.
+              The direction (4329:51347 «Усе для готелів») is a plain text
+              layer in the master, not a «Text button» like its
+              neighbours, so it renders as text without a link. */}
           <nav aria-label="Навігація" className="flex flex-wrap items-center gap-4">
             <BackCrumb href="/" label="Головна" />
             <span className={pair}>
               <Slash />
-              <Link href="/catalog" className={crumb}>
+              <Link href="/catalog" className={crumb} style={FIGMA_TEXT_BOX}>
                 Каталог
               </Link>
             </span>
             <span className={pair}>
               <Slash />
-              <Link href={directionCatalogHref(dir)} className={crumb}>
-                {dir.title}
-              </Link>
+              <span className="text-button-md text-neutral-700" style={FIGMA_TEXT_BOX}>{dir.title}</span>
             </span>
             <span className={pair}>
               <Slash />
-              <Link href={`/catalog/${dir.slug}/${card.slug}`} className={crumb}>
+              <Link href={`/catalog/${dir.slug}/${card.slug}`} className={crumb} style={FIGMA_TEXT_BOX}>
                 {card.label}
               </Link>
             </span>
@@ -135,13 +116,13 @@ function PlatformView({ dir, card, product, details }: Props) {
           <BackCrumb href="/catalog" label="До каталогу" />
           <span className={pair}>
             <Slash />
-            <Link href={directionCatalogHref(dir)} className={crumb}>
+            <Link href={directionCatalogHref(dir)} className={crumb} style={FIGMA_TEXT_BOX}>
               {dir.title}
             </Link>
           </span>
           <span className={pair}>
             <Slash />
-            <Link href={`/catalog/${dir.slug}/${card.slug}`} className={crumb}>
+            <Link href={`/catalog/${dir.slug}/${card.slug}`} className={crumb} style={FIGMA_TEXT_BOX}>
               {card.label}
             </Link>
           </span>
@@ -179,6 +160,7 @@ function PlatformView({ dir, card, product, details }: Props) {
             cta={{ label: "Перейти в каталог", href: directionCatalogHref(dir) }}
             products={details.series}
             mode="b2b"
+            card="b2c"
             className="relative -mt-[52px] rounded-t-[32px] bg-white sm:-mt-[72px] sm:rounded-t-[48px] lg:rounded-t-[68px]"
           />
         </>

@@ -15,22 +15,26 @@ import {
   type CatalogDirection,
 } from "./data";
 
-// Figma «Frame 1010106880» (3603:11684): three 260-px photo banners —
+// Figma «Frame 1010106880» (4329:39196): three 495.33 x 260 banners —
 // instances of the SAME zones-card component set the hotels ZonesGrid
 // uses (1127:5789 «Property 1=Default/Hover, Fill=yes»). Each is a
 // p-40 / rounded-40 photo card with the white Button/Large label and
 // the outlined arrow button bottom-aligned, plus the blurred #151511
 // blob keeping the label legible. Hover (per the Figma hover variant
-// AND the «Каталог :: ховер на напрям» frame 3677:41427): 6-px brand
+// AND the «Каталог :: ховер на напрям» frame 4329:39250): 6-px brand
 // ring, photo desaturation, orange arrow + «ДЕТАЛІ» ring — and the
-// shared dark items panel (Figma 3677:42133) opens beside the banner
-// with the direction's product-type chips (each deep-links into the
-// filtered catalog) and a white-outlined «Переглянути все» CTA.
+// shared dark items panel (Figma 4329:39318, 587 x 478) opens flush on
+// the banner's right edge, top-aligned, with the direction's category
+// chips (each opens its «Категорія» page) and a white-outlined
+// «Переглянути все» CTA.
 const BANNER_IMAGES: Record<string, string> = {
   "/hotels": "/figma-export/catalog/banner-hotels.png",
   "/protect": "/figma-export/catalog/banner-protect.png",
   "/cleaning": "/figma-export/catalog/banner-cleaning.png",
 };
+
+// The popover touches its banner (no card gap), see computePos.
+const FLUSH = { cardGap: 0 };
 
 // Logical (pre-zoom) height of the panel's rendered content — lets
 // computePos clamp against the REAL height instead of the 624-px cap,
@@ -71,7 +75,7 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
       setLast(dir);
       activeCardElRef.current = e.currentTarget;
       setPopupPos(
-        computePos(e.currentTarget, measurePanelH(panelRef.current)),
+        computePos(e.currentTarget, measurePanelH(panelRef.current), FLUSH),
       );
     },
     [suppressed],
@@ -110,7 +114,7 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
     const id = requestAnimationFrame(() => {
       const el = activeCardElRef.current;
       const h = measurePanelH(panelRef.current);
-      if (el && h) setPopupPos(computePos(el, h));
+      if (el && h) setPopupPos(computePos(el, h, FLUSH));
     });
     return () => cancelAnimationFrame(id);
   }, [active]);
@@ -161,7 +165,7 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
         ticking = false;
         const el = activeCardElRef.current;
         if (!el) return;
-        setPopupPos(computePos(el, measurePanelH(panelRef.current)));
+        setPopupPos(computePos(el, measurePanelH(panelRef.current), FLUSH));
       });
     };
     window.addEventListener("scroll", recalc, { passive: true });
@@ -193,10 +197,13 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
       {/* Hover items panel — the shared fixed-position window (same as
           the hotels ZonesGrid / Coverage popups). Fades/scales in
           beside the hovered banner and animates between banners via
-          the left/top/width/height transition. lg-only. */}
+          the left/top/width/height transition. lg-only. inert while
+          closed: the faded panel keeps its last direction's links, which
+          must leave the tab order along with the accessibility tree. */}
       <div
         ref={panelRef}
         aria-hidden={!active}
+        inert={!active}
         className={`fixed z-50 hidden transition-[opacity,translate,scale,left,top,width,height] duration-300 ease-out lg:block ${
           active
             ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
@@ -216,13 +223,11 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
             title={last.title}
             items={last.panelItems}
             itemHref={(item) => {
-              // Panel chips mirror the carousel taxonomy, so every item
-              // resolves to its «Категорія» page; ?sub= stays as the
-              // fallback should the lists ever diverge.
+              // Panel chips are the direction's categories, so every
+              // item resolves to its «Категорія» page (the direction
+              // page if the lists ever diverge).
               const card = last.carousel.find((c) => c.label === item);
-              return card
-                ? categoryHref(last, card)
-                : `${directionCatalogHref(last)}?sub=${encodeURIComponent(item)}`;
+              return card ? categoryHref(last, card) : directionCatalogHref(last);
             }}
             onItemClick={dismiss}
             cta={{

@@ -28,6 +28,11 @@ export const FILE_TYPE_LABELS: { value: FileType; label: string }[] = [
 export type MaterialCategory = {
   slug: string;
   title: string;
+  // B2B only: the folder's note under the H2 of the partner folder page
+  // (Figma «Превʼю + коментар» 4825:60565 draws a 14/24 #777779 line 8 px
+  // under «Каталоги»; the plain folder frame 4377:61576 has none). The
+  // public page ignores it.
+  tagline?: string;
 };
 
 export type MaterialFile = {
@@ -41,6 +46,11 @@ export type MaterialFile = {
   directions: Direction[];
   // «Завантажити після авторизації.» — the download needs an account.
   locked?: boolean;
+  // B2B only: the partner's agreement does not cover this file, so the
+  // signed-in partner gets the padlock of the B2B file card
+  // (4378:63098, download=false -> «Lock» 4399:6262) instead of the
+  // download. Placeholder until the CRM sends per-partner access.
+  partnerLocked?: boolean;
   // Download target (a placeholder document until the real files land);
   // `url` files open their link instead.
   href: string;
@@ -52,7 +62,11 @@ export const CATEGORIES: MaterialCategory[] = [
   { slug: "presentations", title: "Презентації" },
   { slug: "tech-cards", title: "Технічні карти" },
   { slug: "instructions", title: "Інструкції" },
-  { slug: "price-lists", title: "Прайс-листи" },
+  {
+    slug: "price-lists",
+    title: "Прайс-листи",
+    tagline: "Ціни для партнерів оновлюються щомісяця.",
+  },
   { slug: "brand", title: "Брендбук та логотипи" },
 ];
 
@@ -70,7 +84,7 @@ function file(
   type: FileType,
   directions: Direction[],
   description: string,
-  extra: Partial<Pick<MaterialFile, "size" | "locked" | "href">> = {},
+  extra: Partial<Pick<MaterialFile, "size" | "locked" | "href" | "partnerLocked">> = {},
 ): MaterialFile {
   return {
     id,
@@ -81,6 +95,7 @@ function file(
     description,
     size: extra.size ?? "14 MB",
     locked: extra.locked,
+    ...(extra.partnerLocked ? { partnerLocked: true } : {}),
     href:
       extra.href ??
       (type === "url"
@@ -154,7 +169,7 @@ export const FILES: MaterialFile[] = [
   file("price-2", "price-lists", "Прайс-лист: ЗІЗ 2026.pdf", "pdf", [PROTECT],
     "Актуальний прайс-лист на засоби індивідуального захисту.", { locked: true }),
   file("price-3", "price-lists", "Прайс-лист: клінінг 2026.pdf", "pdf", [CLEANING],
-    "Актуальний прайс-лист на засоби та інвентар для прибирання.", { locked: true }),
+    "Актуальний прайс-лист на засоби та інвентар для прибирання.", { locked: true, partnerLocked: true }),
 
   file("brand-1", "brand", "Брендбук Binar 2000.pdf", "pdf", [HOTELS, PROTECT, CLEANING],
     "Брендбук Binar 2000: логотип, кольори, типографіка та правила використання фірмового стилю."),
@@ -191,8 +206,6 @@ export type MaterialsFilters = {
   types: FileType[];
 };
 
-export const EMPTY_FILTERS: MaterialsFilters = { directions: [], types: [] };
-
 export function matchesFilters(f: MaterialFile, filters: MaterialsFilters): boolean {
   if (filters.directions.length && !filters.directions.some((d) => f.directions.includes(d))) {
     return false;
@@ -204,4 +217,34 @@ export function matchesFilters(f: MaterialFile, filters: MaterialsFilters): bool
 export function matchesQuery(text: string, query: string): boolean {
   const q = query.trim().toLowerCase();
   return !q || text.toLowerCase().includes(q);
+}
+
+// The landing's folder cards: every category with the number of files
+// that pass the filters and the search (a query matching the category
+// name keeps all its files, otherwise it matches file names); empty
+// folders drop out. Shared by the public and the partner landing.
+export function categoryCards(
+  filters: MaterialsFilters,
+  query: string,
+): { category: MaterialCategory; count: number }[] {
+  return CATEGORIES.map((category) => {
+    const files = FILES.filter((f) => f.category === category.slug && matchesFilters(f, filters));
+    const byName = matchesQuery(category.title, query);
+    const matching = byName ? files : files.filter((f) => matchesQuery(f.name, query));
+    return { category, count: matching.length };
+  }).filter((c) => c.count > 0);
+}
+
+// The files of one folder that pass the filters and match the name.
+export function folderFiles(
+  slug: string,
+  filters: MaterialsFilters,
+  query: string,
+): MaterialFile[] {
+  return filesOf(slug).filter((f) => matchesFilters(f, filters) && matchesQuery(f.name, query));
+}
+
+// Checkbox toggle for the filter lists.
+export function toggleValue<T>(list: T[], value: T): T[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }

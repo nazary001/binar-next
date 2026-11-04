@@ -16,7 +16,7 @@ export const metadata = {
 
 export default function SpivpratsyaPage() {
   return (
-    <main className="flex w-full flex-1 flex-col">
+    <div className="flex w-full flex-1 flex-col">
       <SpivpratsyaHero />
       <Audiences />
       <Coverage />
@@ -29,6 +29,6 @@ export default function SpivpratsyaPage() {
           "Показати більше" pill; desktop has none. moreButtonMobileOnly
           shows it only below lg. */}
       <Faq showMoreButton moreButtonMobileOnly />
-    </main>
+    </div>
   );
 }

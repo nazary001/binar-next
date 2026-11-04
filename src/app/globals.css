@@ -113,6 +113,12 @@
      and transparent cut-out PNGs land on the same gray as the rest of
      the grid. */
   --color-bg-product: #d5d5d5;
+  /* The B2B cabinet content surface right of the side rail (Figma
+     «Frame 1010106576» in 4868:30962 / 5192:79072 / 4396:11388:
+     #f5f5f5 with a 48-px top-left corner). */
+  --color-bg-cabinet: #f5f5f5;
+  /* Button/Disabled - the pending document tile behind its glyph. */
+  --color-button-disabled: #e8e8e9;
   --color-stroke-subtle: #d2d2d2;
   /* Figma's `Stroke/Default` token — same hue as neutral-400 but
      promoted to its own semantic name so `border-stroke-default` (used
@@ -154,12 +160,15 @@
   --text-title-lg--letter-spacing: -0.02em;
   --text-title-lg--font-weight: 600;
 
-  /* Title/Medium (Figma 22/28 SemiBold, -2 %): the product page's
-     «Артикул», «Переваги:» and delivery-table headings. */
+  /* Title/Medium = Manrope Bold 700 22/28 -2 % (get_variable_defs on
+     4329:40391 stock-modal «3 з 3» and 4329:51920 PDP «Варіанти
+     доставки», and every saved cabinet context): the product page's
+     «Артикул», «Переваги:» and delivery-table headings, the stock
+     modal counter, the cart drawer product title. */
   --text-title-md: 22px;
   --text-title-md--line-height: 28px;
   --text-title-md--letter-spacing: -0.02em;
-  --text-title-md--font-weight: 600;
+  --text-title-md--font-weight: 700;
 
   --text-title-sm: 16px;
   --text-title-sm--line-height: 22px;

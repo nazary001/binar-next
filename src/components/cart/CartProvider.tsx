@@ -9,24 +9,44 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import type { Product } from "@/components/catalog/data";
+import * as authStore from "@/components/auth/store";
 import {
   cartCount,
   cartSubtotal,
   checkStock,
   resolveLines,
+  unitPrice,
   type CartEntry,
   type CartLine,
+  type PriceMode,
   type StockIssue,
 } from "./data";
 import { getServerSnapshot, getSnapshot, subscribe, updateLines } from "./store";
 import { CartDrawer } from "./CartDrawer";
 import { StockModal } from "./StockModal";
 
+// The provider sits OUTSIDE AuthProvider (app/layout.tsx), so the
+// account type is read straight from the auth store: a signed-in B2B
+// partner is billed the partner price. Server snapshot = signed out.
+function accountTypeSnapshot(): "b2b" | "b2c" | null {
+  return authStore.currentAccount(authStore.getSnapshot())?.type ?? null;
+}
+
+function usePriceMode(): PriceMode {
+  const type = useSyncExternalStore(authStore.subscribe, accountTypeSnapshot, () => null);
+  return type === "b2b" ? "partner" : "retail";
+}
+
 type CartContextValue = {
   lines: CartLine[];
   entries: CartEntry[];
   count: number;
   subtotal: number;
+  // «partner» while a B2B account is signed in; every price the cart
+  // shows (rows, totals, the stock modal, checkout) goes through it.
+  priceMode: PriceMode;
+  unitPrice: (product: Product) => number;
   open: boolean;
   openCart: () => void;
   closeCart: () => void;
@@ -40,14 +60,18 @@ type CartContextValue = {
   // cart is clean (the caller navigates to /checkout); sold-out lines
   // open the «Деякі товари закінчилися» modal instead and return false.
   checkout: () => boolean;
+  // PDP «Купити зараз»: adds the line without opening the drawer and
+  // runs the same stock check on the updated cart. True = go to
+  // /checkout; false = the stock modal took over.
+  buyNow: (id: string, qty?: number) => boolean;
   issues: StockIssue[] | null;
   resolveIssue: (lineId: string) => void;
   resolveAll: () => void;
   setIssueQty: (lineId: string, qty: number) => void;
+  // Closes the stock modal: the close button, the scrim, «Повернутись до
+  // каталогу» and, once everything is resolved, «Оформити замовлення»
+  // (the caller then navigates to /checkout).
   dismissIssues: () => void;
-  // Modal «Оформити замовлення» once everything is resolved: closes the
-  // modal (the caller navigates to /checkout).
-  finishIssues: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -66,9 +90,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [issues, setIssues] = useState<StockIssue[] | null>(null);
 
+  const priceMode = usePriceMode();
   const entries = useMemo(() => resolveLines(lines), [lines]);
   const count = useMemo(() => cartCount(lines), [lines]);
-  const subtotal = useMemo(() => cartSubtotal(entries), [entries]);
+  const subtotal = useMemo(() => cartSubtotal(entries, priceMode), [entries, priceMode]);
+  const priceOf = useCallback((p: Product) => unitPrice(p, priceMode), [priceMode]);
 
   const openCart = useCallback(() => setOpen(true), []);
   const closeCart = useCallback(() => setOpen(false), []);
@@ -83,6 +109,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
     if (show) setOpen(true);
   }, []);
+
+  const buyNow = useCallback(
+    (id: string, qty = 1) => {
+      add(id, qty, false);
+      // The store is synchronous, so its snapshot already holds the new
+      // line (the `lines` of this render do not yet).
+      const found = checkStock(resolveLines(getSnapshot()), priceMode);
+      setOpen(false);
+      if (found.length === 0) return true;
+      setIssues(found);
+      return false;
+    },
+    [add, priceMode],
+  );
 
   const setQty = useCallback((id: string, qty: number) => {
     updateLines((prev) =>
@@ -99,15 +139,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clear = useCallback(() => updateLines(() => []), []);
 
   const checkout = useCallback(() => {
-    const found = checkStock(resolveLines(lines));
-    if (found.length === 0) {
-      setOpen(false);
-      return true;
-    }
+    const found = checkStock(resolveLines(lines), priceMode);
     setOpen(false);
+    if (found.length === 0) return true;
     setIssues(found);
     return false;
-  }, [lines]);
+  }, [lines, priceMode]);
 
   // Replacing swaps the sold-out line for the alternative at the chosen
   // quantity (merging if the alternative is already in the cart); with
@@ -153,14 +190,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const dismissIssues = useCallback(() => setIssues(null), []);
 
-  const finishIssues = useCallback(() => setIssues(null), []);
-
   const value = useMemo<CartContextValue>(
     () => ({
       lines,
       entries,
       count,
       subtotal,
+      priceMode,
+      unitPrice: priceOf,
       open,
       openCart,
       closeCart,
@@ -169,18 +206,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove,
       clear,
       checkout,
+      buyNow,
       issues,
       resolveIssue,
       resolveAll,
       setIssueQty,
       dismissIssues,
-      finishIssues,
     }),
     [
       lines,
       entries,
       count,
       subtotal,
+      priceMode,
+      priceOf,
       open,
       openCart,
       closeCart,
@@ -189,12 +228,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove,
       clear,
       checkout,
+      buyNow,
       issues,
       resolveIssue,
       resolveAll,
       setIssueQty,
       dismissIssues,
-      finishIssues,
     ],
   );
 

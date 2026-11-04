@@ -1,31 +1,36 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
-  CATEGORIES,
-  DIRECTIONS,
-  FILES,
-  filesCount,
-  matchesFilters,
-  matchesQuery,
+  categoryCards,
+  toggleValue,
   type Direction,
   type MaterialsFilters,
 } from "./data";
-import { MaterialsFiltersDrawer } from "./FiltersDrawer";
+import { DIRECTIONS_GROUP, MaterialsFiltersDrawer } from "./FiltersDrawer";
+import { FolderCard } from "./FolderCard";
 import { MaterialsHero } from "./Hero";
-import { FolderIcon } from "./icons";
+import { PartnerMaterialsHome } from "./PartnerMaterials";
+
+// The /materials page: a signed-in partner (B2B account) gets the
+// cabinet skin of Figma «Матеріали B2B» (PartnerMaterials.tsx), every
+// other visitor the public library below. The session lives in
+// localStorage, so the server renders the public view and the client
+// switches right after hydration (same as the catalog pages).
+export function MaterialsHome() {
+  const { user } = useAuth();
+  return user?.type === "b2b" ? <PartnerMaterialsHome /> : <PublicMaterialsHome />;
+}
 
 // «Матеріали» landing — Figma 4634:63597: the head block with its
 // tagline, the search row, then the category cards in four columns
 // (363.5 x 162 at 1710, 32-px gutters both ways, 80 px above the
-// footer). A card (4634:64377) is a #f8f8f8 r24 tile padded 24: the
-// 48-px folder, then 16 px lower the Title/Small ExtraBold name over
-// the «9 файлів» count in 16/24 #777779. The landing's filter sheet
+// footer). A card is FolderCard (4634:64377). The landing's filter sheet
 // (4635:32986) offers the directions only; a direction narrows every
 // count to the files tagged with it, the search matches category and
 // file names.
-export function MaterialsHome() {
+function PublicMaterialsHome() {
   const [query, setQuery] = useState("");
   const [directions, setDirections] = useState<Direction[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -33,24 +38,10 @@ export function MaterialsHome() {
 
   const filters: MaterialsFilters = useMemo(() => ({ directions, types: [] }), [directions]);
 
-  const cards = useMemo(
-    () =>
-      CATEGORIES.map((category) => {
-        const files = FILES.filter(
-          (f) => f.category === category.slug && matchesFilters(f, filters),
-        );
-        const byName = matchesQuery(category.title, query);
-        const matching = byName ? files : files.filter((f) => matchesQuery(f.name, query));
-        return { category, count: matching.length };
-      }).filter((c) => c.count > 0),
-    [filters, query],
-  );
+  const cards = useMemo(() => categoryCards(filters, query), [filters, query]);
 
   const toggle = (_key: string, value: string) => {
-    const dir = value as Direction;
-    setDirections((list) =>
-      list.includes(dir) ? list.filter((d) => d !== dir) : [...list, dir],
-    );
+    setDirections((list) => toggleValue(list, value as Direction));
   };
 
   return (
@@ -75,18 +66,7 @@ export function MaterialsHome() {
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
             {cards.map(({ category, count }) => (
               <li key={category.slug}>
-                <Link
-                  href={`/materials/${category.slug}`}
-                  className="group flex h-full flex-col gap-4 rounded-3xl bg-bg-subtle p-6"
-                >
-                  <FolderIcon className="size-12 shrink-0 text-neutral-900" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-[18px] font-extrabold leading-6 tracking-[-0.36px] text-neutral-900 transition-colors duration-200 group-hover:text-brand">
-                      {category.title}
-                    </span>
-                    <span className="text-body-sm text-neutral-500">{filesCount(count)}</span>
-                  </span>
-                </Link>
+                <FolderCard category={category} count={count} />
               </li>
             ))}
           </ul>
@@ -96,13 +76,7 @@ export function MaterialsHome() {
       <MaterialsFiltersDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        groups={[
-          {
-            key: "directions",
-            title: "Напрямки",
-            options: DIRECTIONS.map((d) => ({ value: d, label: d })),
-          },
-        ]}
+        groups={[DIRECTIONS_GROUP]}
         active={{ directions }}
         onToggle={toggle}
       />

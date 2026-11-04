@@ -48,8 +48,12 @@ const readZoom = () => {
 
 // Same size + corner anchor for both fixed layers so they stay concentric and
 // dock onto the footer slot (which reserves the identical 88/110/130 footprint).
+// z-[35]: above the page's own popups (catalog sort menu z-30) but under every
+// z-40 overlay (cart / auth / filter drawers, the materials preview panel).
+// At an equal z-40 the dock, mounted after the page, painted over them.
+// Used by the desktop flight layers and the touch CornerFab alike.
 const LAYER_BOX =
-  "fixed bottom-5 right-5 z-40 size-[100px] sm:bottom-8 sm:right-8 sm:size-[110px] lg:size-[130px]";
+  "fixed bottom-5 right-5 z-[35] size-[100px] sm:bottom-8 sm:right-8 sm:size-[110px] lg:size-[130px]";
 
 // prefers-reduced-motion, tracked live and mirrored into a ref by callers that
 // need it inside a rAF loop without re-subscribing.
