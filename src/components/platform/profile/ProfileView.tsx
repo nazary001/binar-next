@@ -1,9 +1,12 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { CabinetPage, CabinetPageHead, SignInPrompt, useHydrated } from "@/components/platform/ui";
+import { ChipTabs, chipTabPanelProps } from "@/components/ui/ChipTabs";
+import { showToast } from "@/components/ui/Toast";
+import { usePhone } from "@/components/ui/useMediaQuery";
 import { CompanyBlock, SecurityBlock, YouCard } from "./AccountForms";
 import { CounterpartiesPanel } from "./CounterpartiesPanel";
 import { COPY } from "./data";
@@ -31,13 +34,34 @@ import { useProfile } from "./store";
 // ArrowLeft / ArrowRight / Home / End move to and select a tab, and
 // aria-controls is set on the selected tab only (the other panel is not
 // rendered).
+//
+// Phones (< 640, profile spec 2.0-2.5; the Figma Platform page has no phone
+// frame): a separate tree (usePhone; the view renders nothing until
+// hydrated, so there is no flash) - the cabinet head with three chip tabs
+// in its actions slot, "Дані" / "Контрагенти" / "Співробітники", and only
+// the selected group under it: "Дані" = four white r32 cards 24 apart
+// (logo, "Ваші дані", "Дані компанії", "Безпека"), the other two = the
+// phone layouts of the panels. `/profile` opens "Дані" on a phone and
+// "Контрагенти" on desktop (same URL, ?tab= for the other two groups).
+// Desktop renders the tree below verbatim.
 
 type Tab = "counterparties" | "employees";
+type PhoneTab = "account" | Tab;
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "counterparties", label: COPY.tabs.counterparties },
   { key: "employees", label: COPY.tabs.employees },
 ];
+
+const PHONE_TABS: { key: PhoneTab; label: string }[] = [
+  { key: "account", label: COPY.tabs.account },
+  { key: "counterparties", label: COPY.tabs.counterparties },
+  { key: "employees", label: COPY.tabs.employees },
+];
+
+// Autosave feedback on phones: one "Збережено" toast 800 ms after the
+// last real save (a run of Enter / blur saves gives one toast).
+const SAVED_TOAST_MS = 800;
 
 export function ProfileView() {
   const hydrated = useHydrated();
@@ -48,6 +72,9 @@ export function ProfileView() {
   const pathname = usePathname();
   const tab: Tab = params.get("tab") === "employees" ? "employees" : "counterparties";
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+  const phone = usePhone();
+  const phoneTab: PhoneTab =
+    params.get("tab") === "employees" ? "employees" : params.get("tab") === "counterparties" ? "counterparties" : "account";
 
   const selectTab = (next: Tab) => {
     const q = new URLSearchParams(params.toString());
@@ -55,6 +82,29 @@ export function ProfileView() {
     else q.set("tab", next);
     const s = q.toString();
     router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+  };
+
+  const selectPhoneTab = (next: PhoneTab) => {
+    const q = new URLSearchParams(params.toString());
+    if (next === "account") q.delete("tab");
+    else q.set("tab", next);
+    const s = q.toString();
+    router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+  };
+
+  const savedTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (savedTimer.current !== null) window.clearTimeout(savedTimer.current);
+    },
+    [],
+  );
+  const notifySaved = () => {
+    if (savedTimer.current !== null) window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => {
+      savedTimer.current = null;
+      showToast(COPY.toast.saved);
+    }, SAVED_TOAST_MS);
   };
 
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -82,6 +132,56 @@ export function ProfileView() {
   // Visitors and retail customers: the profile is the partner cabinet.
   if (user?.type !== "b2b") {
     return <SignInPrompt title={COPY.title} text="Профіль компанії доступний в особистому кабінеті бізнес-клієнта." />;
+  }
+
+  if (phone) {
+    return (
+      <CabinetPage>
+        <CabinetPageHead
+          title={COPY.title}
+          subtitle={COPY.tagline}
+          actions={
+            <ChipTabs
+              label="Розділи профілю"
+              idPrefix="profile"
+              value={phoneTab}
+              onChange={selectPhoneTab}
+              items={PHONE_TABS}
+            />
+          }
+        />
+        <div
+          data-profile="phone-body"
+          {...chipTabPanelProps("profile", phoneTab)}
+          className="flex flex-col gap-6 px-6 [--field-surface:#fff]"
+        >
+          {phoneTab === "account" ? (
+            <>
+              <LogoCard logo={user.logo} variant="account" onUploaded={() => showToast(COPY.toast.logo)} />
+              <YouCard account={user} variant="account" onSaved={notifySaved} />
+              <div data-profile="company-card" className="overflow-clip rounded-[32px] bg-white">
+                <CompanyBlock account={user} onSaved={notifySaved} />
+              </div>
+              <div data-profile="security-card" className="overflow-clip rounded-[32px] bg-white">
+                <SecurityBlock account={user} onNotice={(message) => showToast(message)} />
+              </div>
+            </>
+          ) : (
+            profile &&
+            (phoneTab === "counterparties" ? (
+              <CounterpartiesPanel layout="phone" accountId={user.id} list={profile.counterparties} />
+            ) : (
+              <EmployeesPanel
+                layout="phone"
+                accountId={user.id}
+                list={profile.employees}
+                inviteToken={profile.inviteToken}
+              />
+            ))
+          )}
+        </div>
+      </CabinetPage>
+    );
   }
 
   return (

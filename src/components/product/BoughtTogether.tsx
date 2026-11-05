@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import {
+  CARD_TITLE_LINK,
   CartButton,
   ChipsRow,
   PriceAndQty,
+  QtyStepper,
   StatusLine,
 } from "@/components/catalog/ProductCard";
 import { productHref, type Product } from "@/components/catalog/data";
@@ -13,7 +15,9 @@ import {
   B2BCartButton,
   B2BPriceAndQty,
   B2BStatusLine,
+  B2BYourPrice,
 } from "@/components/catalog/B2BProductCard";
+import { DotList, PhonePrice, SplitTitle } from "./phoneParts";
 
 // «Купують разом» band (Frame 1010106720, 4329:51391): a #343435 section
 // with 68-px top corners, 80-px gutters, 80 above the H2, 80 between the
@@ -35,15 +39,19 @@ export function BoughtTogether({
   mode?: "b2c" | "b2b";
 }) {
   const b2b = mode === "b2b";
+  if (items.length === 0) return null;
+  // Phones (pdp 2.9): pt 60, the H2 in Light + Bold, 48 to the cards, 40 /
+  // 1-px #616162 / 40 between them, pb 120 (48 visible + the 72 the white
+  // series section overlaps).
   return (
     <section
       aria-labelledby="bought-together-title"
-      className={`relative rounded-t-[32px] bg-neutral-800 px-6 pb-[112px] pt-[60px] sm:rounded-t-[48px] sm:px-10 sm:pb-[132px] lg:rounded-t-[68px] ${
+      className={`relative rounded-t-[32px] bg-neutral-800 px-6 pb-[120px] pt-[60px] sm:rounded-t-[48px] sm:px-10 sm:pb-[132px] lg:rounded-t-[68px] ${
         b2b ? "lg:pb-[136px] lg:pl-10 lg:pr-8 lg:pt-16" : "lg-shop-pad-x lg:pb-[152px] lg:pt-20"
       }`}
     >
       <h2 id="bought-together-title" className="text-h2 text-white">
-        Купують разом
+        <SplitTitle light="Купують " bold="разом" />
       </h2>
       <div
         className={`mt-12 flex flex-col gap-10 lg:flex-row lg:items-stretch lg:gap-[39.5px] ${
@@ -55,7 +63,7 @@ export function BoughtTogether({
             {i > 0 && (
               <div
                 aria-hidden
-                className="h-px w-full shrink-0 bg-neutral-400 lg:h-auto lg:w-px lg:self-stretch"
+                className="h-px w-full shrink-0 bg-neutral-400 max-lg:bg-neutral-600 lg:h-auto lg:w-px lg:self-stretch"
               />
             )}
             <WideCard product={item.product} benefits={item.benefits} b2b={b2b} />
@@ -96,14 +104,16 @@ function WideCard({
         // and the percentage only on narrower ones. self-start keeps the
         // photo square when the content column is the taller one (the
         // B2B price row is 56 tall, the stretched photo was 324 x 328).
-        className="relative block aspect-square w-full shrink-0 self-start overflow-clip rounded-[32px] bg-white sm:w-[240px] lg:w-[min(328px,45.2%)] lg:rounded-[40px]"
+        // Phones: the D3 card photo, 206 tall at the full width, the photo
+        // contained on the #d5d5d5 studio box (never cropped).
+        className="relative block aspect-square w-full shrink-0 self-start overflow-clip rounded-[32px] bg-white max-lg:aspect-auto max-lg:h-[206px] max-lg:bg-bg-product sm:w-[240px] lg:w-[min(328px,45.2%)] lg:rounded-[40px]"
       >
         <img
           src={product.image}
           alt={product.title}
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 size-full object-cover ${out ? "grayscale" : ""}`}
+          className={`absolute inset-0 size-full object-cover max-lg:object-contain ${out ? "grayscale" : ""}`}
         />
       </Link>
 
@@ -111,7 +121,7 @@ function WideCard({
           is 375 wide on the 1710 master but ~300 in the 1440 layout,
           where the stepper gaps drop to 12 so price · stepper · cart
           still share one line. */}
-      <div className="@container flex min-w-0 flex-1 flex-col gap-8 text-white">
+      <div className="@container flex min-w-0 flex-1 flex-col gap-8 text-white max-lg:gap-6">
         <div className="flex flex-col gap-4">
           {b2b ? (
             <B2BStatusLine product={product} tone="light" />
@@ -119,18 +129,16 @@ function WideCard({
             <StatusLine out={out} tone="light" />
           )}
           <h3 className="text-title-lg text-white">
-            <Link href={href}>{product.title}</Link>
+            <Link href={href} className={CARD_TITLE_LINK}>
+              {product.title}
+            </Link>
           </h3>
           <ChipsRow product={product} tone="light" />
         </div>
 
-        <ul className="flex list-disc flex-col gap-2 ps-6 text-body-sm text-white">
-          {benefits.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
+        <DotList items={benefits} className="flex list-disc flex-col gap-2 ps-6 text-body-sm text-white" />
 
-        <div className="flex flex-wrap items-center justify-between gap-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-y-3 max-lg:hidden">
           {/* 300-px column at 1440: price 126 + 24·2 + hairline + stepper
               76 + cart 52 = 303, so the gaps drop to 12 below 340. */}
           {b2b ? (
@@ -157,6 +165,27 @@ function WideCard({
               <CartButton product={product} out={out} tone="light" qty={qty} />
             </>
           )}
+        </div>
+
+        {/* Phones (D3 card anatomy): the price on its own line, then the
+            action row - stepper left, the 52 cart disc right (justify-
+            between: far more than 12 px from the plus glyph at 320). The
+            disc takes the brand fill of the phone cards (touch shows the
+            desktop hover look). */}
+        <div className="flex flex-col gap-4 lg:hidden">
+          {b2b ? (
+            <B2BYourPrice product={product} tone="light" size="stat" />
+          ) : (
+            <PhonePrice product={product} tone="light" size="card" caption={false} />
+          )}
+          <div className="flex items-center justify-between gap-4 [&>button:enabled]:border-brand [&>button:enabled]:bg-brand">
+            <QtyStepper qty={qty} onQty={setQty} tone="light" disabled={!b2b && out} editable={b2b} />
+            {b2b ? (
+              <B2BCartButton product={product} qty={qty} tone="light" />
+            ) : (
+              <CartButton product={product} out={out} tone="light" qty={qty} />
+            )}
+          </div>
         </div>
       </div>
     </article>

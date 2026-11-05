@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCart } from "@/components/cart/CartProvider";
 import { PriceAndQty, SaleChip, StatusLine } from "@/components/catalog/ProductCard";
@@ -10,6 +10,13 @@ import { discountPercent, type Product } from "@/components/catalog/data";
 import type { ProductDetails } from "./data";
 import { SpecTable } from "./SpecTable";
 import { NoteBaseIcon, NoteMiddleIcon, NoteTopIcon } from "./icons";
+import { DotList } from "./phoneParts";
+import { PhoneBuyBlock } from "./PhoneBuyBlock";
+import { StickyBuyBar } from "./StickyBuyBar";
+
+const COPY = {
+  photo: "фото",
+} as const;
 
 // Figma «Сторінка товару» product block (Frame 1010107020, 4329:51357):
 // a 627-px photo column and an 843-px info column 80 px apart inside
@@ -61,24 +68,39 @@ function Gallery({
 }) {
   const [active, setActive] = useState(0);
   const multi = images.length > 1;
-  const thumbs = images
-    .map((src, i) => ({ src, i }))
-    .filter(({ i }) => i !== active);
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Desktop: the tapped thumb leaves the row (its photo is now on the
+  // stage), so focus moves to the thumb that took the previous photo
+  // instead of falling to <body>. Phones keep every thumb: focus stays.
+  const select = (i: number, from: HTMLButtonElement) => {
+    const prev = active;
+    setActive(i);
+    if (document.activeElement !== from) return;
+    requestAnimationFrame(() => {
+      if (from.offsetParent === null) thumbRefs.current[prev]?.focus({ preventScroll: true });
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Phones (pdp 2.4, TR-30): one static stage switched by the thumbs,
+          capped at 342 tall (272 square at 320, 382 x 342 at 430), the
+          square studio photo contained on the #d5d5d5 box (never cropped). */}
       <div
         className={`relative isolate w-full overflow-clip rounded-[32px] bg-bg-product lg:rounded-[40px] ${
-          multi ? "aspect-[627/413]" : "aspect-square"
+          multi
+            ? "aspect-[627/413] max-lg:aspect-square max-lg:max-h-[342px]"
+            : "aspect-square max-h-[342px] lg:max-h-none"
         }`}
       >
         <img
           key={images[active]}
           src={images[active]}
-          alt={product.title}
+          alt={active === 0 ? product.title : `${product.title}, ${COPY.photo} ${active + 1}`}
           fetchPriority="high"
           decoding="async"
-          className="absolute inset-0 size-full object-cover"
+          className="absolute inset-0 size-full object-cover max-lg:object-contain"
         />
         {out && <Veil />}
         {/* Sale chip (4329:51644): brand pill 24 px from the top-right
@@ -88,15 +110,24 @@ function Gallery({
         {!b2b && <SaleChip product={product} />}
       </div>
 
+      {/* Thumbs: desktop shows the three photos NOT on the stage (the
+          active one is lg:hidden); phones show all four as 64-px r16 tiles
+          (62 at 320), the current one ringed (1-px #1d1d1f, 2-px offset). */}
       {multi && (
-        <div className="grid grid-cols-3 gap-4">
-          {thumbs.map(({ src, i }) => (
+        <div className="flex flex-wrap gap-2 lg:grid lg:grid-cols-3 lg:gap-4">
+          {images.map((src, i) => (
             <button
               key={src}
+              ref={(el) => {
+                thumbRefs.current[i] = el;
+              }}
               type="button"
               aria-label={`Показати фото ${i + 1}`}
-              onClick={() => setActive(i)}
-              className="relative isolate aspect-square cursor-pointer overflow-clip rounded-[24px] bg-bg-product transition-opacity duration-200 hover:opacity-80 lg:rounded-[40px]"
+              aria-current={i === active ? "true" : undefined}
+              onClick={(e) => select(i, e.currentTarget)}
+              className={`relative isolate aspect-square w-[calc((100%-24px)/4)] max-w-16 cursor-pointer overflow-clip rounded-2xl bg-bg-product transition-opacity duration-200 hover:opacity-80 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 lg:w-auto lg:max-w-none lg:rounded-[40px] ${
+                i === active ? "ring-1 ring-neutral-900 ring-offset-2 lg:hidden" : ""
+              }`}
             >
               <img
                 src={src}
@@ -118,29 +149,61 @@ function Gallery({
 // a 1-px #d2d2d2 rule under the whole row and a 2-px brand underline
 // on the active tab sitting on that rule. Below lg the strip scrolls
 // sideways instead of wrapping.
+// Phones (pdp 2.7, TR-13): the same tablist as wrapping chips (the blog
+// filter chips 3176:5478): 36 tall r60, 14/20 Medium, 8 apart, the active
+// one brand-filled, the rest on a #8e8e8f ring; a 44-px hit area from the
+// `after:` box. Keyboard (all widths, behaviour only): roving tabindex,
+// arrows / Home / End move focus and select.
+const TAB_PHONE =
+  "max-lg:relative max-lg:inline-flex max-lg:h-9 max-lg:items-center max-lg:rounded-[60px] max-lg:border max-lg:px-[15px] max-lg:py-0 max-lg:text-[14px] max-lg:leading-5 max-lg:after:absolute max-lg:after:inset-x-0 max-lg:after:-inset-y-1 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2";
+
 function Tabs({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const at = TABS.findIndex((t) => t.id === active);
+    const last = TABS.length - 1;
+    const next =
+      e.key === "ArrowRight"
+        ? (at + 1) % TABS.length
+        : e.key === "ArrowLeft"
+          ? (at + last) % TABS.length
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? last
+              : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    onChange(TABS[next].id);
+    refs.current[next]?.focus({ preventScroll: true });
+  };
   return (
-    <div className="relative mt-12 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-stroke-subtle">
+    <div className="relative mt-12 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-stroke-subtle max-lg:after:hidden">
       <div
         role="tablist"
         aria-label="Інформація про товар"
-        className="relative z-[1] flex overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onKeyDown={onKeyDown}
+        className="relative z-[1] flex overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-lg:flex-wrap max-lg:gap-2 max-lg:overflow-visible"
       >
-        {TABS.map((t) => {
+        {TABS.map((t, i) => {
           const selected = t.id === active;
           return (
             <button
               key={t.id}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
               type="button"
               role="tab"
               id={`product-tab-${t.id}`}
               aria-selected={selected}
               aria-controls={`product-panel-${t.id}`}
+              tabIndex={selected ? 0 : -1}
               onClick={() => onChange(t.id)}
-              className={`shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-4 pb-[14px] pt-4 text-button-md transition-colors duration-200 ${
+              className={`shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-4 pb-[14px] pt-4 text-button-md transition-colors duration-200 ${TAB_PHONE} ${
                 selected
-                  ? "border-brand text-brand"
-                  : "border-transparent text-neutral-800 hover:text-brand"
+                  ? "border-brand text-brand max-lg:bg-brand max-lg:text-white"
+                  : "border-transparent text-neutral-800 hover:text-brand max-lg:border-stroke-default"
               }`}
             >
               {t.label}
@@ -159,14 +222,11 @@ function Tabs({ active, onChange }: { active: TabId; onChange: (t: TabId) => voi
 function DescriptionPanel({ details, sku }: { details: ProductDetails; sku: boolean }) {
   return (
     <div className="flex flex-col gap-6 text-neutral-800">
-      {sku && <p className="text-title-md">Артикул: {details.sku}</p>}
+      {/* Phones show the SKU as the caption under the H1 (pdp 2.2). */}
+      {sku && <p className="text-title-md max-lg:hidden">Артикул: {details.sku}</p>}
       <p className="text-body-sm">{details.description}</p>
-      <p className="text-title-md">Переваги:</p>
-      <ul className="list-disc ps-6 text-body-sm">
-        {details.benefits.map((b) => (
-          <li key={b}>{b}</li>
-        ))}
-      </ul>
+      <p className="text-title-lg lg:text-title-md">Переваги:</p>
+      <DotList items={details.benefits} className="list-disc ps-6 text-body-sm" />
     </div>
   );
 }
@@ -225,8 +285,8 @@ function ScentPanel({ details }: { details: ProductDetails }) {
         rows={levels.map(({ key, label, Icon, value }) => ({
           key,
           label: (
-            <span className="flex items-center gap-3">
-              <Icon className="size-6 shrink-0 text-brand" />
+            <span className="flex items-center gap-3 max-lg:gap-2">
+              <Icon className="size-6 shrink-0 text-brand max-lg:size-5" />
               {label}
             </span>
           ),
@@ -245,10 +305,10 @@ function DeliveryPanel({ details }: { details: ProductDetails }) {
     { title: "Варіанти доставки", rows: details.delivery },
   ];
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-10 max-lg:gap-12">
       {groups.map((g) => (
         <div key={g.title} className="flex flex-col gap-6">
-          <p className="text-title-md text-neutral-800">{g.title}</p>
+          <p className="text-title-lg text-neutral-800 lg:text-title-md">{g.title}</p>
           <SpecTable
             labelWeight="font-semibold"
             valueWeight="font-normal"
@@ -280,13 +340,20 @@ export function ProductView({
   const out = b2b ? Boolean(product.preorder) || !product.available : !product.available;
   const { add, buyNow } = useCart();
   const router = useRouter();
+  // The in-flow phone CTA stack; the sticky buy bar observes it.
+  const ctaRef = useRef<HTMLDivElement>(null);
   // The B2C promo frame (4329:51621) drops the «Артикул» line; the B2B
   // frames keep it for the same product (4329:57598).
   const showSku = b2b || discountPercent(product) === null;
+  const onBuyNow = () => {
+    if (buyNow(product.id, qty)) router.push("/checkout");
+  };
+  const onAdd = () => add(product.id, qty);
 
+  // Phones: photo -> status 32 (gap-8; lg:gap-20 unchanged).
   return (
     <div
-      className={`grid gap-10 pb-[60px] lg:gap-20 ${
+      className={`grid gap-8 pb-[60px] lg:gap-20 ${
         b2b ? "lg:grid-cols-[627fr_827fr] lg:pb-16" : "lg:grid-cols-[627fr_843fr] lg:pb-20"
       }`}
     >
@@ -298,7 +365,17 @@ export function ProductView({
       />
 
       <div className="@container flex min-w-0 flex-col">
-        <div className="flex flex-col gap-6">
+        <PhoneBuyBlock
+          product={product}
+          mode={mode}
+          out={out}
+          qty={qty}
+          onQty={setQty}
+          onBuyNow={onBuyNow}
+          onAdd={onAdd}
+          ctaRef={ctaRef}
+        />
+        <div className="flex flex-col gap-6 max-lg:hidden">
           {b2b ? <B2BStatusLine product={product} /> : <StatusLine out={out} />}
           {/* Price row (4329:51368): price · hairline · stepper on the
               left, the CTA pair on the right. Out of stock (4329:51795)
@@ -337,16 +414,10 @@ export function ProductView({
                     opens the drawer; «Купити зараз» adds it silently and
                     goes to /checkout through the cart's stock check (a
                     sold-out line opens the stock modal instead). */}
-                <Button
-                  variant="outlinedDark"
-                  size="responsive"
-                  onClick={() => {
-                    if (buyNow(product.id, qty)) router.push("/checkout");
-                  }}
-                >
+                <Button variant="outlinedDark" size="responsive" onClick={onBuyNow}>
                   Купити зараз
                 </Button>
-                <Button size="responsive" onClick={() => add(product.id, qty)}>
+                <Button size="responsive" onClick={onAdd}>
                   Додати у кошик
                 </Button>
               </div>
@@ -374,6 +445,8 @@ export function ProductView({
           </div>
         ))}
       </div>
+
+      {!out && <StickyBuyBar product={product} mode={mode} qty={qty} onAdd={onAdd} ctaRef={ctaRef} />}
     </div>
   );
 }

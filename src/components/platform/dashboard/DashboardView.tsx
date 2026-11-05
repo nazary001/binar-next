@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { isDemoAccount } from "@/components/auth/demo";
 import { Button } from "@/components/ui/Button";
+import { FitText } from "@/components/ui/FitText";
 import type { Order } from "../orders/data";
 import { ROW_ICON_BUTTON } from "../orders/listParts";
 import { paymentKind } from "../orders/payment";
@@ -25,6 +26,7 @@ import {
   TitleLight,
   useHydrated,
 } from "../ui";
+import { CABINET_SECTION_TITLE } from "../ui/CabinetPageHead";
 import { AttentionTileIcon, CoinIcon, PaymentChevronIcon, PersonFilledIcon, WalletIcon } from "./icons";
 import {
   ALL,
@@ -40,10 +42,19 @@ import {
   kpisFor,
   paymentCaption,
   paymentsFor,
+  readStoredFilter,
   recentOrders,
+  storeFilter,
   type CounterpartyFilter,
   type UpcomingPayment,
 } from "./data";
+import {
+  AllOrdersPhoneLink,
+  ManagerCardPhone,
+  PaymentsPhone,
+  RecentOrdersPhoneEmpty,
+  RecentOrdersPhoneList,
+} from "./phoneParts";
 
 // «Dashboard» — Figma 5052:32106 (1710 x 1157) inside the platform shell.
 // The content surface (CabinetPage: #f5f5f5, r48 top-left, pb-40 here)
@@ -66,7 +77,16 @@ import {
 //     «Ваш менеджер» (title row 60, white r24 card: avatar row 108,
 //     contacts row 56 between 0.5-px dividers, Button/Small row 86).
 
-const H2 = "text-[22px] font-bold leading-7 tracking-[-0.44px] text-neutral-900";
+// Phones (< 640, dashboard spec 2.1 - 2.11): one column, sections 48
+// apart, Title Large section titles 24 above their panels, r32 tiles and
+// panels; the phone-only trees (orders / payments panels, load-more,
+// manager card, empty panels) live in phoneParts.tsx next to the
+// untouched desktop trees (`max-lg:hidden`).
+const H2 = CABINET_SECTION_TITLE;
+
+const COPY = {
+  noLimit: "Ліміт не встановлено",
+} as const;
 
 // The master's 0.5-px #d2d2d2 dividers («Divider» 3712:17841) render in
 // Figma as one #e8e8e8 pixel row. Chrome snaps background tiles to whole
@@ -99,15 +119,25 @@ function KpiTile({
   // content box) the gap tightens to 16 and the value to 28 px to keep
   // «500 000 ₴» inside.
   return (
-    <div className="@container flex min-w-0 flex-1 overflow-clip rounded-3xl bg-neutral-900 p-6">
-      <div className="flex min-w-0 flex-1 items-start gap-6 @max-[250px]:gap-4">
+    <div className="@container flex min-w-0 flex-1 overflow-clip rounded-[32px] bg-neutral-900 p-6 lg:rounded-3xl">
+      <div className="flex min-w-0 flex-1 items-start gap-4 lg:gap-6 lg:@max-[250px]:gap-4">
         <span className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-neutral-800 text-white">
           {icon}
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-8">
-          <div className="flex flex-col items-start gap-3 whitespace-nowrap text-white">
-            <p className="text-[18px] font-medium leading-6 tracking-[-0.36px]">{label}</p>
-            <p className="text-[32px] font-bold leading-7 tracking-[-0.64px] @max-[250px]:text-[28px]">{value}</p>
+        <div className="flex min-w-0 flex-1 flex-col gap-6 lg:gap-8">
+          {/* Phones: label 14/20 Medium #8e8e8f, 8, value Stat 30/36 that
+              shrinks to fit (>= 24) instead of running into the padding. */}
+          <div className="flex flex-col items-start gap-2 whitespace-nowrap text-white lg:gap-3">
+            <p className="text-[14px] font-medium leading-5 tracking-normal text-neutral-400 lg:text-[18px] lg:leading-6 lg:tracking-[-0.36px] lg:text-white">
+              {label}
+            </p>
+            <FitText
+              as="p"
+              min={24}
+              className="text-[30px] font-bold leading-9 tracking-[-0.6px] max-lg:self-stretch lg:text-[32px] lg:leading-7 lg:tracking-[-0.64px] lg:@max-[250px]:text-[28px]"
+            >
+              {value}
+            </FitText>
           </div>
           {children}
         </div>
@@ -119,7 +149,10 @@ function KpiTile({
 function CreditUsage({ limit, used }: { limit: number; used: number }) {
   const share = limit > 0 ? Math.min(1, Math.max(0, used / limit)) : 0;
   return (
-    <div className="flex flex-col items-start gap-3">
+    // Phones: the bar spans the whole tile content (-68 = icon 52 + gap
+    // 16); a zero limit shows "Ліміт не встановлено" instead of an empty
+    // bar and "Доступно: 0".
+    <div className="flex flex-col items-start gap-3 max-lg:-ml-[68px]">
       <div
         role="progressbar"
         aria-label="Використано кредитного ліміту"
@@ -127,13 +160,18 @@ function CreditUsage({ limit, used }: { limit: number; used: number }) {
         aria-valuemax={limit}
         aria-valuenow={used}
         aria-valuetext={`${formatSum(used)} із ${formatSum(limit)}`}
-        className="h-[6px] w-full overflow-hidden rounded-lg bg-[rgba(241,241,242,0.63)]"
+        className={`h-[6px] w-full overflow-hidden rounded-lg bg-[rgba(241,241,242,0.63)]${limit === 0 ? " max-lg:hidden" : ""}`}
       >
         <div className="h-full rounded-lg bg-brand" style={{ width: `${share * 100}%` }} />
       </div>
-      <p className="whitespace-nowrap text-[14px] font-medium capitalize leading-6 text-neutral-500">
+      <p
+        className={`whitespace-nowrap text-[14px] font-medium capitalize leading-5 text-neutral-400 lg:leading-6 lg:text-neutral-500${
+          limit === 0 ? " max-lg:hidden" : ""
+        }`}
+      >
         Доступно: {formatSum(Math.max(0, limit - used))}
       </p>
+      {limit === 0 && <p className="text-[14px] font-medium leading-5 text-neutral-400 lg:hidden">{COPY.noLimit}</p>}
     </div>
   );
 }
@@ -275,7 +313,7 @@ function RecentOrdersTable({ orders }: { orders: Order[] }) {
 // name, so screen readers hear the sum and both statuses too.
 function RecentOrdersList({ orders }: { orders: Order[] }) {
   return (
-    <ul className="flex flex-col rounded-3xl bg-white px-4 @min-[1012px]:hidden">
+    <ul className="flex flex-col rounded-3xl bg-white px-4 max-lg:hidden @min-[1012px]:hidden">
       {orders.map((order, i) => (
         <li key={order.id} style={i > 0 ? { background: hairline(0) } : undefined}>
           <Link href={`/orders/${order.id}`} className="flex items-start gap-3 py-4">
@@ -369,6 +407,8 @@ function Payments({ payments }: { payments: UpcomingPayment[] }) {
   // «Показати ще 5»: each press reveals up to five more cards.
   const [count, setCount] = useState(PAYMENTS_VISIBLE);
   const links = useRef<(HTMLAnchorElement | null)[]>([]);
+  // The phone rows (PaymentsPhone): LoadMore focuses the first new one.
+  const phoneLinks = useRef<(HTMLAnchorElement | null)[]>([]);
   // The first card a press revealed takes the focus once it is rendered,
   // so keyboard and screen-reader users stay in the list (the button
   // unmounts with the last reveal, which would drop the focus to <body>).
@@ -383,12 +423,12 @@ function Payments({ payments }: { payments: UpcomingPayment[] }) {
   const more = Math.min(PAYMENTS_STEP, payments.length - shown.length);
   return (
     <section aria-labelledby="dashboard-payments" className="flex flex-col">
-      <div className="flex items-start py-4">
+      <div className="flex items-start pb-6 lg:py-4">
         <h2 id="dashboard-payments" className={H2}>
           Найближчі платежі
         </h2>
       </div>
-      <div className="flex flex-col rounded-3xl bg-white p-4 lg:p-6">
+      <div className="flex flex-col rounded-3xl bg-white p-4 max-lg:hidden lg:p-6">
         {payments.length === 0 ? (
           <p className="py-4 text-[16px] leading-6 text-neutral-500">Найближчих платежів немає.</p>
         ) : (
@@ -420,6 +460,14 @@ function Payments({ payments }: { payments: UpcomingPayment[] }) {
           </div>
         )}
       </div>
+      <PaymentsPhone
+        payments={payments}
+        shown={count}
+        firstBatch={PAYMENTS_VISIBLE}
+        onMore={() => setCount((c) => c + PAYMENTS_STEP)}
+        onLess={() => setCount(PAYMENTS_VISIBLE)}
+        links={phoneLinks}
+      />
     </section>
   );
 }
@@ -429,12 +477,12 @@ function Payments({ payments }: { payments: UpcomingPayment[] }) {
 function ManagerCard() {
   return (
     <section aria-labelledby="dashboard-manager" className="flex flex-col">
-      <div className="flex items-start py-4">
+      <div className="flex items-start pb-6 lg:py-4">
         <h2 id="dashboard-manager" className={H2}>
           Ваш менеджер
         </h2>
       </div>
-      <div className="flex flex-col rounded-3xl bg-white">
+      <div className="flex flex-col rounded-3xl bg-white max-lg:hidden">
         <div className="flex items-center gap-4 p-6">
           <span className="flex size-[60px] shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white">
             <PersonFilledIcon className="size-11" />
@@ -472,6 +520,7 @@ function ManagerCard() {
           </Button>
         </div>
       </div>
+      <ManagerCardPhone />
     </section>
   );
 }
@@ -481,7 +530,9 @@ function ManagerCard() {
 export function DashboardView() {
   const hydrated = useHydrated();
   const { user } = useAuth();
-  const [counterparty, setCounterparty] = useState<CounterpartyFilter>(ALL);
+  // Restored from the tab's sessionStorage (nothing renders before
+  // `hydrated`, so the server pass never depends on it).
+  const [counterparty, setCounterparty] = useState<CounterpartyFilter>(readStoredFilter);
   const allOrders = useOrders();
   const partner = user?.type === "b2b" ? user : null;
   // The placeholder history (orders, payments, balances) belongs to the
@@ -531,7 +582,9 @@ export function DashboardView() {
         title={
           company ? (
             <>
-              <TitleLight>Вітаю,</TitleLight> {company}
+              {/* Phones: the company on its own line(s) under "Вітаю,",
+                  clamped to two; desktop: the same inline run as before. */}
+              <TitleLight>Вітаю,</TitleLight> <span className="max-lg:line-clamp-2">{company}</span>
             </>
           ) : (
             <TitleLight>Вітаю!</TitleLight>
@@ -550,19 +603,24 @@ export function DashboardView() {
         }
       />
 
-      <div className="flex flex-col gap-10 px-6 lg:grid lg:grid-cols-[minmax(0,1013fr)_minmax(0,495fr)] lg:items-start lg:gap-[26px] lg:px-9">
-        <div className="flex min-w-0 flex-col gap-10">
+      <div className="flex flex-col gap-12 px-6 lg:grid lg:grid-cols-[minmax(0,1013fr)_minmax(0,495fr)] lg:items-start lg:gap-[26px] lg:px-9">
+        <div className="flex min-w-0 flex-col gap-12 lg:gap-10">
           <div className="flex flex-col">
-            <div className="pb-4">
+            {/* Phones: shown only with something to choose (2+ counterparties),
+                white on the slab. */}
+            <div className={`${names.length < 2 ? "max-lg:hidden " : ""}pb-4`}>
               <Select
                 label="Контрагент"
                 value={filter}
                 options={options}
-                onChange={setCounterparty}
-                className="w-full lg:w-[234px]"
+                onChange={(v) => {
+                  setCounterparty(v);
+                  storeFilter(v);
+                }}
+                className="w-full lg:w-[234px] max-lg:[&>button]:bg-white"
               />
             </div>
-            <div className="flex flex-col gap-4 lg:flex-row lg:gap-[26px]">
+            <div className="flex flex-col gap-6 lg:flex-row lg:gap-[26px]">
               <KpiTile icon={<WalletIcon className="size-6" />} label="Поточний баланс" value={formatSum(kpis.balance)} />
               <KpiTile icon={<AttentionTileIcon className="size-7" />} label="Прострочена ДЗ" value={formatSum(kpis.overdue)} />
               <KpiTile icon={<CoinIcon className="size-6" />} label="Кредитний ліміт" value={formatSum(kpis.creditLimit)}>
@@ -572,28 +630,33 @@ export function DashboardView() {
           </div>
 
           <section aria-labelledby="dashboard-orders" className="@container flex min-w-0 flex-col">
-            <div className="flex items-center justify-between gap-4 py-4">
+            <div className="flex items-center justify-between gap-4 pb-6 lg:py-4">
               <h2 id="dashboard-orders" className={H2}>
                 Останні замовлення
               </h2>
-              <Button href="/orders" size="small" variant="outlinedDark">
+              <Button href="/orders" size="small" variant="outlinedDark" className="max-lg:hidden">
                 Усі замовлення
               </Button>
             </div>
             {orders.length === 0 ? (
-              <p className="rounded-3xl bg-white px-6 py-10 text-[16px] leading-6 text-neutral-500">
-                {filter === ALL ? "Замовлень ще немає." : "Замовлень цього контрагента ще немає."}
-              </p>
+              <>
+                <p className="rounded-3xl bg-white px-6 py-10 text-[16px] leading-6 text-neutral-500 max-lg:hidden">
+                  {filter === ALL ? "Замовлень ще немає." : "Замовлень цього контрагента ще немає."}
+                </p>
+                <RecentOrdersPhoneEmpty filtered={filter !== ALL} />
+              </>
             ) : (
               <>
                 <RecentOrdersTable orders={orders} />
                 <RecentOrdersList orders={orders} />
+                <RecentOrdersPhoneList orders={orders} />
+                <AllOrdersPhoneLink />
               </>
             )}
           </section>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-12 lg:gap-6">
           {/* Remount per counterparty so «Показати ще» collapses again. */}
           <Payments key={filter} payments={payments} />
           <ManagerCard />

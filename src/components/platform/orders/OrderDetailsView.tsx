@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
+import { usePhone } from "@/components/ui/useMediaQuery";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { isDemoAccount } from "@/components/auth/demo";
 import { useCart } from "@/components/cart/CartProvider";
@@ -10,14 +12,19 @@ import {
   CabinetPageHead,
   OrderStatusBadge,
   PaymentBadge,
+  PaymentCaptionLine,
   SignInPrompt,
   TitleLight,
 } from "@/components/platform/ui";
 import { CancelOrderModal } from "./CancelOrderModal";
 import {
   DETAILS_PROMPT_TEXT,
+  daysPlural,
   formatDate,
   formatMoney,
+  formatQty,
+  formatSum,
+  lineSum,
   orderAction,
   MANAGER_MAILTO,
   type Order,
@@ -38,9 +45,44 @@ import {
   TotalCard,
 } from "./detailParts";
 import { openDocument } from "./DocumentsModal";
+import { OrderNotFound } from "./OrderNotFound";
 import { paymentKind } from "./payment";
 import { ReturnWizardModal } from "./ReturnWizardModal";
 import { useCancelRequest, useOrder, useReturnableItems } from "./store";
+
+const COPY = {
+  items: "Товари",
+  unitPrice: (price: string) => `${price} за од.`,
+  due: (date: string) => `до ${date}`,
+  requestSent: "Запит на скасування надіслано, очікує підтвердження менеджера",
+  toastCancelled: "Замовлення скасовано",
+  toastRequest: "Запит на скасування надіслано",
+  overdue: (days: number) => `Прострочено на ${days} ${daysPlural(days)}`,
+  remainder: (sum: string) => `Залишок ${sum} прострочено`,
+  paidLate: "Оплачено із простроченням",
+} as const;
+
+// Phones (order-detail spec 2.1, A21 / A28): the overdue / paid-late
+// caption of the payment badge on its own line under the badge row (the
+// grey notes - due date, paid ratio - are in the summary card below).
+// The digit groups keep a no-break space so «2 400,00» never splits.
+const NBSP = String.fromCharCode(160);
+function attentionCaption(order: Order): string | null {
+  const p = order.payment;
+  const cancelled = order.status === "cancelled";
+  switch (p.kind) {
+    case "overdue":
+      return cancelled ? null : COPY.overdue(p.days);
+    case "partial":
+      return p.overdue === undefined || cancelled
+        ? null
+        : COPY.remainder(formatSum(p.overdue).replace(/(\d) (?=\d)/g, `$1${NBSP}`));
+    case "paid":
+      return p.late ? COPY.paidLate : null;
+    default:
+      return null;
+  }
+}
 
 // «Деталі замовлення» - Figma 5052:56810 (status Нове, «Скасувати
 // замовлення») and 5192:77948 (status Отримано, «Оформити повернення»),
@@ -67,22 +109,28 @@ import { useCancelRequest, useOrder, useReturnableItems } from "./store";
 // The placeholder history belongs to the demo partner (as on the list):
 // any other partner gets «Замовлення не знайдено» for these ids.
 
+// Phones show the hint and the sent request as the status line under the
+// badges instead (a disabled pill reads as broken), so the head keeps one
+// hugging action there.
 function StatusAction({
   order,
   action,
   onCancel,
   onReturn,
+  phone,
 }: {
   order: Order;
   action: OrderAction;
   onCancel: () => void;
   onReturn: () => void;
+  phone: boolean;
 }) {
   const pending = useCancelRequest(order.id);
   switch (action.kind) {
     case "cancel":
+      if (pending && phone) return null;
       return pending ? (
-        <Button variant="outlinedDark" disabled>
+        <Button variant="outlinedDark" disabled className="max-lg:hidden">
           Запит на скасування надіслано
         </Button>
       ) : (
@@ -106,7 +154,8 @@ function StatusAction({
         </Button>
       );
     case "hint":
-      return <p className="text-[14px] leading-6 text-neutral-500 lg:whitespace-nowrap">{action.text}</p>;
+      if (phone) return null;
+      return <p className="text-[14px] leading-6 text-neutral-500 max-lg:hidden lg:whitespace-nowrap">{action.text}</p>;
     default:
       return null;
   }
@@ -119,15 +168,12 @@ export function OrderDetailsView({ id }: { id: string }) {
   const returnable = useReturnableItems(order);
   const cart = useCart();
   const [modal, setModal] = useState<"cancel" | "return" | null>(null);
+  const phone = usePhone();
+  const pending = useCancelRequest(id);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   if (user?.type !== "b2b") return <SignInPrompt title="Деталі замовлення" text={DETAILS_PROMPT_TEXT} />;
-  if (!order) {
-    return (
-      <CabinetPage>
-        <CabinetPageHead back={{ label: "До замовлень", href: "/orders" }} title="Замовлення не знайдено" />
-      </CabinetPage>
-    );
-  }
+  if (!order) return <OrderNotFound />;
 
   const action = orderAction(order, returnable);
   const cancelled = order.status === "cancelled";
@@ -139,19 +185,37 @@ export function OrderDetailsView({ id }: { id: string }) {
     cart.openCart();
   };
 
+  // Phone head extras (lg:hidden): the attention caption and the status
+  // line (the desktop hint / disabled request pill, 16 under the badges).
+  const attention = attentionCaption(order);
+  const statusLine = action.kind === "hint" ? action.text : action.kind === "cancel" && pending ? COPY.requestSent : null;
+
+  // After a cancel (or a cancel request) the opener is gone or disabled:
+  // the focus goes to the page title, and phones get the toast (queued
+  // until the sheet has closed).
+  const cancelDone = (request: boolean) => {
+    showToast(request ? COPY.toastRequest : COPY.toastCancelled);
+    requestAnimationFrame(() => titleRef.current?.focus({ preventScroll: true }));
+  };
+
   return (
     <CabinetPage>
       <CabinetPageHead
         back={{ label: "До замовлень", href: "/orders" }}
+        titleRef={titleRef}
         title={
           <>
-            Замовлення <TitleLight>№{order.number}</TitleLight>
+            Замовлення <TitleLight line>№{order.number}</TitleLight>
           </>
         }
         meta={
           <>
             <OrderStatusBadge status={order.status} />
             <PaymentBadge kind={paymentKind(order)} />
+            {attention && <PaymentCaptionLine tone="attention" text={attention} className="basis-full lg:hidden" />}
+            {statusLine && (
+              <p className="mt-2 basis-full text-[14px] leading-5 text-neutral-600 lg:hidden">{statusLine}</p>
+            )}
           </>
         }
         actions={
@@ -161,6 +225,7 @@ export function OrderDetailsView({ id }: { id: string }) {
               action={action}
               onCancel={() => setModal("cancel")}
               onReturn={() => setModal("return")}
+              phone={phone}
             />
             <Button onClick={repeat}>Повторити замовлення</Button>
           </>
@@ -170,7 +235,17 @@ export function OrderDetailsView({ id }: { id: string }) {
       <DetailsBody
         left={
           <>
-            <ItemsTable items={order.items} columns={[QTY_COLUMN, PRICE_COLUMN, SUM_COLUMN]} />
+            <ItemsTable
+              items={order.items}
+              columns={[QTY_COLUMN, PRICE_COLUMN, SUM_COLUMN]}
+              phone={{
+                title: COPY.items,
+                line: (it) => ({
+                  parts: [formatQty(it.qty, it.unit), COPY.unitPrice(formatMoney(it.price))],
+                  amount: formatMoney(lineSum(it)),
+                }),
+              }}
+            />
             <InfoCard
               title="Інформація про доставку"
               fields={[
@@ -186,6 +261,15 @@ export function OrderDetailsView({ id }: { id: string }) {
           <>
             <SummaryCard
               title="Підсумок замовлення"
+              compact={[
+                { id: "date", label: "Дата замовлення", value: formatDate(order.date) },
+                { id: "author", label: "Створив замовлення", value: order.createdBy },
+                { id: "counterparty", label: "Контрагент", value: order.counterparty },
+                { id: "payment-type", label: "Тип оплати", value: order.paymentType },
+                ...(cancelled
+                  ? []
+                  : [{ id: "due", label: "Термін оплати", value: COPY.due(formatDate(order.paymentDue)) }]),
+              ]}
               groups={[
                 <>
                   <SummaryRow label="Статус замовлення" info>
@@ -238,6 +322,7 @@ export function OrderDetailsView({ id }: { id: string }) {
           open={modal === "cancel"}
           onClose={() => setModal(null)}
           request={action.request}
+          onDone={cancelDone}
         />
       )}
       {action.kind === "return" && (

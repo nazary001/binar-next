@@ -13,6 +13,10 @@ import { UploadIcon } from "./icons";
 // Button/Large «Обрати файл» (164 x 52, #343435 stroke) over «PNG,JPG до
 // 5МБ» (Regular 14/24 #777779). CSS dashes approximate Figma's dash
 // pattern. Drag-over (not drawn): brand stroke + #f8f8f8 fill.
+// Phones (< 640, TR-26 / system spec A17): the zone hugs its content
+// (min 206), the icon tile is 52 r12, the Button is the 42 Button/Small
+// (D8) and the caption 12/16; `phoneText` / `phoneHint` replace the drag
+// wording below 640 (no drag on touch). Desktop strings unchanged.
 export type DropzoneProps = {
   onFiles: (files: File[]) => void;
   // input accept list, e.g. ".pdf,.png,.jpg".
@@ -24,6 +28,9 @@ export type DropzoneProps = {
   text?: string;
   buttonLabel?: string;
   hint?: string;
+  // Phone-only text / hint (rendered below 640 instead of text / hint).
+  phoneText?: string;
+  phoneHint?: string;
   disabled?: boolean;
   // Forces the drag-over look (a parent that tracks a page-wide drag, or
   // the gallery).
@@ -56,6 +63,8 @@ export function Dropzone({
   text = "Перетягніть файл сюди або",
   buttonLabel = "Обрати файл",
   hint = "PNG,JPG до 5МБ",
+  phoneText,
+  phoneHint,
   disabled = false,
   active = false,
   className = "",
@@ -102,17 +111,18 @@ export function Dropzone({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       data-state={over ? "over" : undefined}
-      className={`flex h-[270px] min-w-0 flex-col items-center justify-center rounded-[24px] border border-dashed px-6 py-6 text-center transition-colors duration-200 ${
+      className={`flex min-h-[206px] min-w-0 flex-col items-center justify-center rounded-[24px] border border-dashed px-6 py-6 text-center transition-colors duration-200 lg:h-[270px] ${
         over ? "border-brand bg-bg-subtle" : "border-neutral-800"
       } ${disabled ? "opacity-50" : ""} ${className}`}
     >
       <span
         aria-hidden
-        className="relative flex size-[60px] shrink-0 items-center justify-center rounded-[19.286px] bg-neutral-900 text-white"
+        className="relative flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white lg:size-[60px] lg:rounded-[19.286px]"
       >
         <UploadIcon className="size-6" />
       </span>
-      <p className="mt-4 text-[16px] leading-6 text-neutral-500">{text}</p>
+      <p className={`mt-4 text-[16px] leading-6 text-neutral-500 ${phoneText ? "max-lg:hidden" : ""}`}>{text}</p>
+      {phoneText && <p className="mt-4 text-[16px] leading-6 text-neutral-500 lg:hidden">{phoneText}</p>}
       <Button
         variant="outlinedDark"
         className="mt-8"
@@ -122,8 +132,15 @@ export function Dropzone({
       >
         {buttonLabel}
       </Button>
-      <p id={hintId} className="mt-3 text-[14px] leading-6 text-neutral-500">
-        {hint}
+      <p id={hintId} className="mt-3 text-[12px] leading-4 text-neutral-500 lg:text-[14px] lg:leading-6">
+        {phoneHint ? (
+          <>
+            <span className="max-lg:hidden">{hint}</span>
+            <span className="lg:hidden">{phoneHint}</span>
+          </>
+        ) : (
+          hint
+        )}
       </p>
       <input
         ref={inputRef}

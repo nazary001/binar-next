@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
+import { usePhone } from "@/components/ui/useMediaQuery";
 import { SelectField } from "@/components/checkout/fields";
 import { CheckboxOffIcon, CheckboxOnIcon } from "@/components/catalog/icons";
 import { Modal718, ModalActions, ModalMeta } from "@/components/platform/ui";
@@ -18,7 +20,12 @@ import {
   type OrderItem,
 } from "./data";
 import { ProductCell } from "./detailParts";
+import { ReturnWizardSheet } from "./ReturnWizardSheet";
 import { createReturn } from "./store";
+
+const COPY = {
+  created: "Запит на повернення створено",
+} as const;
 
 // «Оформити повернення» - section 5192:81117, six 1286 x 1148 frames of
 // one card on the Modal718 shell (r48, 1-px #8e8e8f, py-60, rows px-60,
@@ -46,6 +53,10 @@ import { createReturn } from "./store";
 // every ticked row has a reason and both step-2 selects are set; a press
 // before that flags what is missing and focuses it. A complete request
 // is created («Створено») and the returns tab opens.
+// Phones (< 640, order-detail spec 2.10, template T5e): the same answers
+// drive ReturnWizardSheet (full-screen sheet, three Quizz Card steps with
+// ChoiceRow checkboxes / radios). The state lives here, so crossing 640
+// while the wizard is open swaps the shell and keeps the answers.
 
 function Stepper({ n, children }: { n: number; children: ReactNode }) {
   return (
@@ -95,18 +106,8 @@ function Checkbox({
 const ROW_DIVIDER =
   "[background:linear-gradient(var(--color-stroke-subtle),var(--color-stroke-subtle))_16px_0/calc(100%-32px)_0.5px_no-repeat] [&>td]:pt-[24.5px]";
 
-export function ReturnWizardModal({
-  order,
-  items,
-  open,
-  onClose,
-}: {
-  order: Order;
-  items: OrderItem[];
-  open: boolean;
-  onClose: () => void;
-}) {
-  const router = useRouter();
+// The wizard's answers, shared by the desktop modal and the phone sheet.
+export function useReturnWizardState(items: OrderItem[]) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [solution, setSolution] = useState("");
@@ -116,16 +117,6 @@ export function ReturnWizardModal({
   const allSelected = items.length > 0 && items.every((it) => selected.has(it.id));
   const valid =
     selected.size > 0 && [...selected].every((id) => Boolean(reasons[id])) && solution !== "" && delivery !== "";
-
-  // After a premature press: the ticked rows without a reason (or the
-  // first row when nothing is ticked yet) and the empty step-2 selects.
-  const reasonMissing = (id: string) =>
-    selected.size === 0 ? id === items[0]?.id : selected.has(id) && !reasons[id];
-  const missingNames = [
-    ...items.filter((it) => reasonMissing(it.id)).map((it) => `return-reason-${it.id}`),
-    ...(solution === "" ? ["return-solution"] : []),
-    ...(delivery === "" ? ["return-delivery"] : []),
-  ];
 
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => {
@@ -143,17 +134,73 @@ export function ReturnWizardModal({
     setAttempted(false);
   };
 
+  return {
+    selected,
+    setSelected,
+    reasons,
+    setReasons,
+    solution,
+    setSolution,
+    delivery,
+    setDelivery,
+    attempted,
+    setAttempted,
+    allSelected,
+    valid,
+    toggle,
+    reset,
+  };
+}
+
+export type ReturnWizardState = ReturnType<typeof useReturnWizardState>;
+
+export function ReturnWizardModal({
+  order,
+  items,
+  open,
+  onClose,
+}: {
+  order: Order;
+  items: OrderItem[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const phone = usePhone();
+  const state = useReturnWizardState(items);
+  const {
+    selected,
+    setSelected,
+    reasons,
+    setReasons,
+    solution,
+    setSolution,
+    delivery,
+    setDelivery,
+    attempted,
+    setAttempted,
+    allSelected,
+    valid,
+    toggle,
+    reset,
+  } = state;
+
+  // After a premature press: the ticked rows without a reason (or the
+  // first row when nothing is ticked yet) and the empty step-2 selects.
+  const reasonMissing = (id: string) =>
+    selected.size === 0 ? id === items[0]?.id : selected.has(id) && !reasons[id];
+  const missingNames = [
+    ...items.filter((it) => reasonMissing(it.id)).map((it) => `return-reason-${it.id}`),
+    ...(solution === "" ? ["return-solution"] : []),
+    ...(delivery === "" ? ["return-delivery"] : []),
+  ];
+
   const close = () => {
     reset();
     onClose();
   };
 
-  const submit = () => {
-    if (!valid) {
-      setAttempted(true);
-      document.querySelector<HTMLElement>(`[role=dialog] [name="${missingNames[0]}"]`)?.focus();
-      return;
-    }
+  const send = () => {
     createReturn({
       orderId: order.id,
       lines: items
@@ -166,6 +213,32 @@ export function ReturnWizardModal({
     onClose();
     router.push("/orders?tab=returns");
   };
+
+  const submit = () => {
+    if (!valid) {
+      setAttempted(true);
+      document.querySelector<HTMLElement>(`[role=dialog] [name="${missingNames[0]}"]`)?.focus();
+      return;
+    }
+    send();
+  };
+
+  if (phone) {
+    return (
+      <ReturnWizardSheet
+        order={order}
+        items={items}
+        open={open}
+        state={state}
+        onClose={close}
+        onSubmit={() => {
+          // Queued until the sheet has closed; survives the route change.
+          showToast({ message: COPY.created, keepOnNavigate: true });
+          send();
+        }}
+      />
+    );
+  }
 
   const head = "p-0 pt-2 text-left font-normal";
   const headLabel = "flex items-center whitespace-nowrap p-4 text-[14px] font-semibold leading-6 text-white";

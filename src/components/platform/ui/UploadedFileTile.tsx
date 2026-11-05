@@ -9,6 +9,8 @@ import { ClearIcon, DocumentGlyph } from "./icons";
 // edge, centred). Styles confirmed by ctx/4868-31339.md (tile 4868:31363):
 // #f8f8f8 r24 p-24 gap 27, #343435 tile, Bold 16/24 #1d1d1f name,
 // 14/24 #777779 status line.
+// Phones (< 640, profile SN-21): p 16 gap 16, the 48 tile r12, the name
+// 16/22 on up to two lines, the note 14/20 wrapping, the cross in a 44 box.
 export type UploadedFileTileProps = {
   name: string;
   note?: string;
@@ -27,14 +29,14 @@ export function UploadedFileTile({
   className = "",
 }: UploadedFileTileProps) {
   return (
-    <div className={`flex min-w-0 items-center gap-[27px] overflow-clip rounded-[24px] bg-bg-subtle p-6 ${className}`}>
+    <div className={`flex min-w-0 items-center gap-4 overflow-clip rounded-[24px] bg-bg-subtle p-4 lg:gap-[27px] lg:p-6 ${className}`}>
       <div className="flex min-w-0 flex-1 items-center gap-4">
-        <span aria-hidden className="relative size-[52px] shrink-0 overflow-clip rounded-xl bg-neutral-800 text-white">
-          <DocumentGlyph className="absolute left-[14px] top-[14px] size-6" />
+        <span aria-hidden className="relative size-12 shrink-0 overflow-clip rounded-xl bg-neutral-800 text-white lg:size-[52px]">
+          <DocumentGlyph className="absolute left-3 top-3 size-6 lg:left-[14px] lg:top-[14px]" />
         </span>
         <div className="flex min-w-0 flex-col justify-center gap-1">
-          <p className="truncate text-[16px] font-bold leading-6 text-neutral-900">{name}</p>
-          {note && <p className="truncate text-[14px] leading-6 text-neutral-500">{note}</p>}
+          <p className="text-[16px] font-bold leading-[22px] text-neutral-900 max-lg:line-clamp-2 lg:truncate lg:leading-6">{name}</p>
+          {note && <p className="text-[14px] leading-5 text-neutral-500 lg:truncate lg:leading-6">{note}</p>}
         </div>
       </div>
       {onRemove && (
@@ -42,7 +44,7 @@ export function UploadedFileTile({
           type="button"
           onClick={onRemove}
           aria-label={removeLabel ?? `Видалити файл ${name}`}
-          className="relative flex size-6 shrink-0 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 before:absolute before:-inset-2 before:content-[''] hover:text-brand"
+          className="relative flex size-6 shrink-0 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 before:absolute before:-inset-2.5 before:content-[''] hover:text-brand lg:before:-inset-2"
         >
           <ClearIcon className="size-6" />
         </button>

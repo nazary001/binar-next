@@ -136,3 +136,24 @@ export function rowsTotal(rows: AssortmentRow[]): number {
 // file is ignored.
 export const EXCEL_ACCEPT =
   ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+// Phones (mobile pass, D4): the list grows by load-more batches of 10
+// instead of the desktop pager, and the desktop «Сума» head sort becomes
+// the sort menu of the list meta line (same wording as the orders sort).
+export const PHONE_STEP = 10;
+
+export type AssortmentSort = "desc" | "asc" | null;
+
+export const ASSORTMENT_SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "none", label: "Без сортування" },
+  { value: "desc", label: "Сума: від більшої" },
+  { value: "asc", label: "Сума: від меншої" },
+];
+
+export function sortValue(sort: AssortmentSort): string {
+  return sort ?? "none";
+}
+
+export function sortFromValue(value: string): AssortmentSort {
+  return value === "desc" || value === "asc" ? value : null;
+}

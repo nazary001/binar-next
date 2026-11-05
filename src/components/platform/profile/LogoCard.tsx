@@ -21,6 +21,9 @@ import { PersonFilledIcon } from "./icons";
 // PNG / JPG up to 5 MB, centre-cropped and downscaled to a 288-px square
 // before it goes into the account (auth/api.ts saveLogo), so the header
 // chip shows it too.
+// Phones (variant "account", the "Дані" group): one fixed card for every
+// group - white r32 p-24, the 120-px avatar (r16, never rounder than the
+// desktop r19.3), 24 to the Button/Small, 16 to the 12/16 caption = 266.
 function shrinkImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -58,8 +61,17 @@ function shrinkImage(file: File): Promise<string> {
   });
 }
 
-export function LogoCard({ logo, variant }: { logo?: string; variant: "counterparties" | "employees" }) {
+export function LogoCard({
+  logo,
+  variant,
+  onUploaded,
+}: {
+  logo?: string;
+  variant: "counterparties" | "employees" | "account";
+  onUploaded?: () => void;
+}) {
   const tall = variant === "counterparties";
+  const phone = variant === "account";
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,6 +90,7 @@ export function LogoCard({ logo, variant }: { logo?: string; variant: "counterpa
     setBusy(true);
     try {
       saveLogo(await shrinkImage(file));
+      onUploaded?.();
     } catch {
       setError(COPY.logo.errorRead);
     } finally {
@@ -89,24 +102,40 @@ export function LogoCard({ logo, variant }: { logo?: string; variant: "counterpa
     <section
       aria-label="Лого компанії"
       data-profile="logo-card"
-      className={`flex items-center justify-center overflow-clip rounded-3xl bg-white ${tall ? "h-[310px] px-6 py-[30px]" : "p-6"}`}
+      className={
+        phone
+          ? "flex items-center justify-center overflow-clip rounded-[32px] bg-white p-6"
+          : `flex items-center justify-center overflow-clip rounded-3xl bg-white ${tall ? "h-[310px] px-6 py-[30px]" : "p-6"}`
+      }
     >
-      <div className={`flex w-[189px] flex-col items-center ${tall ? "gap-[27.352px]" : "gap-8"}`}>
+      <div
+        className={
+          phone ? "flex w-full flex-col items-center gap-6" : `flex w-[189px] flex-col items-center ${tall ? "gap-[27.352px]" : "gap-8"}`
+        }
+      >
         <div
           data-profile="avatar"
-          className={`relative shrink-0 overflow-hidden rounded-[19.286px] bg-neutral-900 text-white ${
-            tall ? "size-[144.648px]" : "size-[140px]"
-          }`}
+          className={
+            phone
+              ? "relative size-[120px] shrink-0 overflow-hidden rounded-2xl bg-neutral-900 text-white"
+              : `relative shrink-0 overflow-hidden rounded-[19.286px] bg-neutral-900 text-white ${
+                  tall ? "size-[144.648px]" : "size-[140px]"
+                }`
+          }
         >
           {logo ? (
             <img src={logo} alt="Лого компанії" className="absolute inset-0 size-full object-cover" />
           ) : (
             <PersonFilledIcon
-              className={`absolute left-[19.29px] top-[19.29px] ${tall ? "size-[106.068px]" : "size-[101.07px]"}`}
+              className={
+                phone
+                  ? "absolute left-[16.5px] top-[16.5px] size-[86.6px]"
+                  : `absolute left-[19.29px] top-[19.29px] ${tall ? "size-[106.068px]" : "size-[101.07px]"}`
+              }
             />
           )}
         </div>
-        <div className="flex w-full flex-col items-center gap-3">
+        <div className={`flex w-full flex-col items-center ${phone ? "gap-4" : "gap-3"}`}>
           <input
             ref={fileRef}
             type="file"
@@ -129,7 +158,7 @@ export function LogoCard({ logo, variant }: { logo?: string; variant: "counterpa
           </Button>
           <p
             role={error ? "alert" : undefined}
-            className={`w-full text-center text-[14px] leading-6 ${error ? "text-negative" : "text-neutral-500"}`}
+            className={`w-full text-center ${phone ? "text-[12px] leading-4" : "text-[14px] leading-6"} ${error ? "text-negative" : "text-neutral-500"}`}
           >
             {error ?? COPY.logo.hint}
           </p>

@@ -18,7 +18,7 @@ import {
 import { formatPrice, productHref, productsPlural } from "@/components/catalog/data";
 import { SortIcon } from "@/components/platform/orderIcons";
 import { PAGE_SIZES } from "@/components/platform/orders/data";
-import { SearchField, useDismiss } from "@/components/platform/orders/listParts";
+import { useDismiss } from "@/components/platform/orders/listParts";
 import {
   CabinetPage,
   CabinetPageHead,
@@ -28,14 +28,30 @@ import {
   StatusPill,
   TableEmptyState,
 } from "@/components/platform/ui";
-import { AVAILABILITY, EXCEL_ACCEPT, resolveRows, rowsTotal, type AssortmentRow } from "./data";
+import { SearchField } from "@/components/ui/SearchField";
+import { showToast } from "@/components/ui/Toast";
+import {
+  AVAILABILITY,
+  EXCEL_ACCEPT,
+  PHONE_STEP,
+  resolveRows,
+  rowsTotal,
+  sortFromValue,
+  sortValue,
+  type AssortmentRow,
+} from "./data";
 import { CheckboxMixedIcon, RemoveIcon, TrashIcon } from "./icons";
+import { ExcelNoticeMessage, isPhoneNow, PHONE_COPY } from "./parts";
+import { PhoneList } from "./PhoneList";
+import { PhoneSelectionBar } from "./PhoneSelectionBar";
 import {
   assortmentOwner,
   removeLines,
   setLineQty,
   setSelected,
+  useAddedKey,
   useAssortmentState,
+  writeAddedKey,
 } from "./store";
 
 // «Мій асортимент» — Figma 4202:36108 (1710 x 1714) inside the platform
@@ -56,6 +72,11 @@ import {
 //   pager row 100 + 32 bottom padding.
 // Empty (4929:65033): head + the 250-px row «Ваш асортимент ще не
 // сформовано» with «Завантажити з Excel» / «Переглянути каталог», no pager.
+// Phones (< 640, mobile pass): the toolbar keeps only the search, the
+// table / pager / in-flow selection bar are max-lg:hidden and the phone
+// tree (PhoneList: meta line, list panel of rows, load-more; the sticky
+// PhoneSelectionBar) renders lg:hidden; the Excel notice and the bulk add
+// feedback use the shared toast host below 640.
 
 type Sort = "desc" | "asc" | null;
 
@@ -84,7 +105,13 @@ function useExcelPicker() {
       onChange={(e) => {
         const file = e.currentTarget.files?.[0];
         e.currentTarget.value = "";
-        if (file) setNotice({ name: file.name, at: Date.now() });
+        if (!file) return;
+        setNotice({ name: file.name, at: Date.now() });
+        // Phones: the shared toast host (A23) shows the notice; the local
+        // desktop toast below is max-lg:hidden.
+        if (isPhoneNow()) {
+          showToast({ message: <ExcelNoticeMessage name={file.name} />, dismissible: true, durationMs: 8000 });
+        }
       }}
     />
   );
@@ -100,7 +127,7 @@ function ExcelNoticeToast({ notice, onClose }: { notice: ExcelNotice | null; onC
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 max-lg:hidden"
     >
       {notice && (
         <div className="pointer-events-auto flex max-w-[560px] items-center gap-3 rounded-3xl bg-neutral-900 py-3 pl-5 pr-3 text-[14px] leading-6 text-white shadow-[0px_2px_6px_0px_rgba(29,29,31,0.1)]">
@@ -397,7 +424,7 @@ function EmptyRow(props: Parameters<typeof TableEmptyState>[0]) {
   return (
     <tr>
       <td colSpan={11} className="p-0" data-block="empty">
-        <div className="max-lg:sticky max-lg:left-0 max-lg:w-[100cqw]">
+        <div>
           <TableEmptyState {...props} />
         </div>
       </td>
@@ -430,7 +457,7 @@ function SelectionBar({
   onRemove: () => void;
 }) {
   return (
-    <div data-block="selection-bar" className="flex flex-wrap items-center gap-x-8 gap-y-4">
+    <div data-block="selection-bar" className="flex flex-wrap items-center gap-x-8 gap-y-4 max-lg:hidden">
       <div className="flex items-center gap-6" aria-live="polite">
         <p className="flex items-center gap-2 whitespace-nowrap text-neutral-900">
           <span className="text-[16px] leading-6">Обрано:</span>
@@ -476,11 +503,15 @@ export function AssortmentView() {
   const { lines, selected } = useAssortmentState(owner);
   const excel = useExcelPicker();
   const tableRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>(null);
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
   const [page, setPage] = useState(1);
+  // Phones: rows shown by the load-more batches (back to 10 on a search /
+  // sort change; the desktop pager keeps `page`).
+  const [shownCount, setShownCount] = useState(PHONE_STEP);
   const [sizeOpen, setSizeOpen] = useState(false);
   // The rows the confirmation modal asks about; kept after closing so
   // the copy does not change while the modal fades out.
@@ -492,8 +523,9 @@ export function AssortmentView() {
   };
   // Snapshot of the selection (ids + quantities) the last bulk add sent
   // to the cart: while the selection still equals it the page shows the
-  // «Додано у кошик» state; any change brings the trash back.
-  const [addedKey, setAddedKey] = useState<string | null>(null);
+  // «Додано у кошик» state; any change brings the trash back. Kept for
+  // the tab session (store.ts), so a reload does not re-arm a second add.
+  const addedKey = useAddedKey(owner ? owner.id : null);
   const sizeRef = useRef<HTMLDivElement | null>(null);
   useDismiss(sizeOpen, sizeRef, () => setSizeOpen(false));
 
@@ -521,6 +553,8 @@ export function AssortmentView() {
   const numbers = Array.from({ length: Math.min(5, pages) }, (_, i) => windowStart + i);
 
   const pageIds = paged.map((r) => r.id);
+  const shown = filtered.slice(0, shownCount);
+  const shownIds = shown.map((r) => r.id);
   const pageChecked = pageIds.filter((id) => selectedSet.has(id)).length;
   const allChecked = pageIds.length > 0 && pageChecked === pageIds.length;
 
@@ -543,10 +577,38 @@ export function AssortmentView() {
       allChecked ? selected.filter((id) => !pageIds.includes(id)) : [...selected, ...pageIds],
     );
 
+  // Phones toggle every shown row (on / mixed / off like the desktop head
+  // checkbox over the page).
+  const toggleShown = () => {
+    const allShown = shownIds.length > 0 && shownIds.every((id) => selectedSet.has(id));
+    setSelected(owner, allShown ? selected.filter((id) => !shownIds.includes(id)) : [...selected, ...shownIds]);
+  };
+
+  // Desktop opens the cart drawer as today; phones keep the page and show
+  // the «Додано у кошик» toast with «Кошик» (DECISIONS O-11), the bar
+  // flips to «Відкрити кошик».
   const addSelected = () => {
     addMany(selectedRows.map((r) => ({ id: r.id, qty: r.qty })));
-    setAddedKey(selectionKey);
-    openCart();
+    writeAddedKey(owner.id, selectionKey);
+    if (isPhoneNow()) {
+      showToast({
+        message: PHONE_COPY.added,
+        action: { label: PHONE_COPY.cart, onClick: openCart },
+        dismissible: true,
+        durationMs: 5000,
+      });
+    } else {
+      openCart();
+    }
+  };
+
+  const filteredIds = new Set(filtered.map((r) => r.id));
+  const hiddenBySearch = query.trim() ? selectedRows.filter((r) => !filteredIds.has(r.id)).length : 0;
+
+  const changeQuery = (v: string) => {
+    setQuery(v);
+    setPage(1);
+    setShownCount(PHONE_STEP);
   };
 
   // The opener of the confirmation (a row «×» or the bar's trash) leaves
@@ -555,6 +617,10 @@ export function AssortmentView() {
   // removed row's place (the new last row at the end of a page), else to
   // the empty state's first button, else to the search.
   const confirmRemoval = () => {
+    if (isPhoneNow()) {
+      confirmRemovalPhone();
+      return;
+    }
     const at = pending.ids.map((id) => pageIds.indexOf(id)).filter((i) => i >= 0);
     const index = at.length > 0 ? Math.min(...at) : 0;
     removeLines(owner, pending.ids);
@@ -568,6 +634,40 @@ export function AssortmentView() {
         root.querySelector<HTMLElement>('[data-block="empty"] button, [data-block="empty"] a') ??
         root.closest("main")?.querySelector<HTMLElement>('input[type="search"]');
       target?.focus();
+    });
+  };
+
+  // Phones: the same hand-off in the visible list, without scrolling: a
+  // single removal focuses the remove disc of the row that slides into
+  // the removed row's place, a bulk removal the checkbox of the first
+  // remaining row at the smallest removed index; nothing left -> the
+  // empty panel's link, no match left -> the search.
+  const confirmRemovalPhone = () => {
+    const at = pending.ids.map((id) => shownIds.indexOf(id)).filter((i) => i >= 0);
+    const index = at.length > 0 ? Math.min(...at) : 0;
+    const single = pending.ids.length === 1 && Boolean(pending.name);
+    removeLines(owner, pending.ids);
+    writeAddedKey(owner.id, null);
+    setRemovalOpen(false);
+    requestAnimationFrame(() => {
+      const root = listRef.current;
+      if (!root) return;
+      const items = [
+        ...root.querySelectorAll<HTMLElement>(
+          single ? 'li button[data-action="remove"]' : 'li button[role="checkbox"]',
+        ),
+      ];
+      const item = items[Math.min(index, items.length - 1)];
+      const target =
+        item ??
+        root.querySelector<HTMLElement>('[data-block="empty"] a') ??
+        root.closest("main")?.querySelector<HTMLElement>('input[type="search"]');
+      if (!target) return;
+      target.focus({ preventScroll: true });
+      if (item) {
+        const r = item.getBoundingClientRect();
+        if (r.top < 66 || r.bottom > window.innerHeight) (item.closest("li") ?? item).scrollIntoView({ block: "nearest" });
+      }
     });
   };
 
@@ -599,23 +699,21 @@ export function AssortmentView() {
       {/* Toolbar 4204:54196 (78 = 46 + 32). */}
       <div
         data-block="toolbar"
-        className="flex flex-col gap-4 px-6 pb-6 lg:min-h-[46px] lg:flex-row lg:items-center lg:justify-between lg:pb-8 lg:pl-10 lg:pr-8"
+        className={`flex flex-col gap-4 px-6 lg:min-h-[46px] lg:flex-row lg:items-center lg:justify-between lg:pb-8 lg:pl-10 lg:pr-8 ${empty ? "max-lg:hidden" : ""}`}
       >
         <div className="flex flex-wrap items-center gap-6">
           <SearchField
             value={query}
-            onChange={(v) => {
-              setQuery(v);
-              setPage(1);
-            }}
+            onChange={changeQuery}
             label="Пошук товарів в асортименті"
+            className="w-full lg:w-[364px]"
           />
           {added && (
             <button
               type="button"
               data-block="reset-selection"
               onClick={() => setSelected(owner, [])}
-              className="cursor-pointer whitespace-nowrap text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
+              className="cursor-pointer whitespace-nowrap text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand max-lg:hidden"
             >
               Скинути виділення
             </button>
@@ -632,12 +730,8 @@ export function AssortmentView() {
         )}
       </div>
 
-      <div className="px-6 lg:pl-10 lg:pr-8">
-        <div
-          ref={tableRef}
-          data-block="table"
-          className="overflow-x-auto rounded-3xl bg-white max-lg:[container-type:inline-size]"
-        >
+      <div className="px-6 max-lg:hidden lg:pl-10 lg:pr-8">
+        <div ref={tableRef} data-block="table" className="overflow-x-auto rounded-3xl bg-white">
           <table className="w-full min-w-[1400px] table-fixed border-separate border-spacing-0">
             <TableHeadRow
               allChecked={allChecked}
@@ -647,6 +741,7 @@ export function AssortmentView() {
               onSort={() => {
                 setSort((s) => (s === null ? "desc" : s === "desc" ? "asc" : null));
                 setPage(1);
+                setShownCount(PHONE_STEP);
               }}
               disabled={paged.length === 0}
             />
@@ -692,7 +787,7 @@ export function AssortmentView() {
       {!empty && filtered.length > 0 && (
         <div
           data-block="pager"
-          className="flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between lg:h-[100px] lg:py-0 lg:pl-10 lg:pr-8"
+          className="flex flex-col gap-4 px-6 py-6 max-lg:hidden sm:flex-row sm:items-center sm:justify-between lg:h-[100px] lg:py-0 lg:pl-10 lg:pr-8"
         >
           <div className="flex flex-wrap items-center gap-4">
             <span className="text-[16px] font-semibold leading-[22px] text-neutral-800">
@@ -778,6 +873,38 @@ export function AssortmentView() {
         </div>
       )}
 
+      <PhoneList
+        rootRef={listRef}
+        empty={empty}
+        query={query}
+        shown={shown}
+        total={filtered.length}
+        selected={selectedSet}
+        sort={sortValue(sort)}
+        onSort={(v) => {
+          setSort(sortFromValue(v));
+          setPage(1);
+          setShownCount(PHONE_STEP);
+        }}
+        onToggle={toggle}
+        onToggleShown={toggleShown}
+        onQty={(id, n) => setLineQty(owner, id, n)}
+        onRemove={(row) => askRemoval({ ids: [row.id], name: row.name })}
+        onMore={() => setShownCount(shown.length + PHONE_STEP)}
+        onResetSearch={() => {
+          changeQuery("");
+          requestAnimationFrame(() =>
+            listRef.current
+              ?.closest("main")
+              ?.querySelector<HTMLElement>('input[type="search"]')
+              ?.focus({ preventScroll: true }),
+          );
+        }}
+        focusAfterMore={() =>
+          listRef.current?.querySelectorAll<HTMLElement>('li button[role="checkbox"]')[shown.length] ?? null
+        }
+      />
+
       <ConfirmModal
         open={removalOpen}
         onClose={() => setRemovalOpen(false)}
@@ -785,6 +912,22 @@ export function AssortmentView() {
         title={removalTitle}
         body={removalBody}
       />
+
+      {selectedRows.length > 0 && (
+        <PhoneSelectionBar
+          count={selectedRows.length}
+          total={rowsTotal(selectedRows)}
+          hiddenBySearch={hiddenBySearch}
+          added={added}
+          onAdd={addSelected}
+          onOpenCart={openCart}
+          onRemove={() => askRemoval({ ids: selectedRows.map((r) => r.id) })}
+          onReset={() => {
+            setSelected(owner, []);
+            writeAddedKey(owner.id, null);
+          }}
+        />
+      )}
     </CabinetPage>
   );
 }

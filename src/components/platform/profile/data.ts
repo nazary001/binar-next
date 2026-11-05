@@ -148,8 +148,27 @@ export const COPY = {
     change: "Змінити пароль",
   },
   tabs: {
+    // Phone chip of the account group (no Figma: the phone shows one
+    // group at a time, "Дані" = "Ваші дані" + "Дані компанії" + "Безпека").
+    account: "Дані",
     counterparties: "Контрагенти",
     employees: "Співробітники",
+  },
+  // Phone toasts (no Figma; the desktop shows none).
+  toast: {
+    saved: "Збережено",
+    logo: "Лого оновлено",
+    counterpartyAdded: "Контрагента додано",
+    contractAdded: "Договір додано",
+    inviteSent: "Запрошення надіслано",
+    inviteResent: "Запрошення надіслано повторно",
+    employeeSaved: "Зміни збережено",
+  },
+  errors: {
+    name: "Вкажіть юридичну назву",
+    signatory: "Вкажіть підписанта",
+    email: "Вкажіть коректну електронну пошту",
+    fullName: "Введіть ПІБ",
   },
   counterparties: {
     title: "Контрагенти",
@@ -193,10 +212,13 @@ export const COPY = {
   dropzone: {
     hint: "PNG,JPG до 5МБ",
     pending: "Визначаємо номер і дату договору...",
+    // Phones (no drag on touch): the zone's text and hint below 640.
+    phoneText: "Оберіть файл договору",
+    phoneHint: "PDF, PNG, JPG до 5 МБ",
   },
   invite: {
     title: "Запросити співробітника",
-    text: "Оберіть спосіб запрошення — надішліть посилання самі або вкажіть email, і ми зробимо це за вас.",
+    text: "Оберіть спосіб запрошення\u00a0— надішліть посилання самі або вкажіть email, і ми зробимо це за вас.",
     link: "Посилання-запрошення",
     copy: "Копіювати",
     // Not in Figma: the button's confirmation for two seconds.

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { CABINET_SECTION_TITLE } from "@/components/platform/ui/CabinetPageHead";
 import { Button } from "@/components/ui/Button";
 
 // Pill widths: ui/Button pads every size 23 px + its 1-px border = the
@@ -19,15 +20,19 @@ export function SubmitButton({
   variant = "accent",
   onClick,
   type = "button",
+  form,
 }: {
   children: ReactNode;
   disabled?: boolean;
   variant?: "accent" | "solid";
   onClick?: () => void;
   type?: "button" | "submit";
+  // The id of the form it submits when it renders outside of it (the
+  // phone sheet footer of "Додати контрагента").
+  form?: string;
 }) {
   return (
-    <Button type={type} variant={variant} fullWidth disabled={disabled} disabledStyle="solid" onClick={onClick}>
+    <Button type={type} form={form} variant={variant} fullWidth disabled={disabled} disabledStyle="solid" onClick={onClick}>
       {children}
     </Button>
   );
@@ -35,11 +40,11 @@ export function SubmitButton({
 
 // Section head inside the 1144 card: Title/Medium 22/28 Bold -2 % at
 // h-80 pt-24 pb-16 px-24 («Дані компанії» 4868:30989, «Безпека»
-// 4868:30999).
+// 4868:30999). Phones: Title Large 22/28 SemiBold, 24 to the first field.
 export function CardTitle({ children, id }: { children: ReactNode; id?: string }) {
   return (
-    <div className="flex items-center px-6 pb-4 pt-6 lg:h-20">
-      <h2 id={id} className="text-[22px] font-bold leading-7 tracking-[-0.44px] text-neutral-900">
+    <div className="flex items-center px-6 pb-6 pt-6 lg:h-20 lg:pb-4">
+      <h2 id={id} className={CABINET_SECTION_TITLE}>
         {children}
       </h2>
     </div>

@@ -98,7 +98,7 @@ export function PaymentCaptions({ order }: { order: Order }) {
   }
 }
 
-// The wrapping phone captions must not break «1 500» between its digit
+// The wrapping phone captions must not break "1 500" between its digit
 // groups: the thousands separator becomes a no-break space here (data.ts
 // formatAmount stays as is, the desktop cells read it).
 const NBSP = String.fromCharCode(160);

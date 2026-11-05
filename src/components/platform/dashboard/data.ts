@@ -222,3 +222,29 @@ export const MANAGER: Manager = {
 export function formatAmount(value: number): string {
   return formatSum(value).replace(/ ₴$/, "");
 }
+
+// ------------------------------------------------------ Filter memory
+
+// The chosen counterparty survives a Back from an order / payment (spec
+// 2.11, DB-18): kept for the tab in sessionStorage. DashboardView checks
+// the stored name against its options, so another account in the same
+// tab falls back to "Усі контрагенти".
+export const DASHBOARD_FILTER_KEY = "binar.dashboard.counterparty.v1";
+
+export function readStoredFilter(): CounterpartyFilter {
+  if (typeof window === "undefined") return ALL;
+  try {
+    return window.sessionStorage.getItem(DASHBOARD_FILTER_KEY) || ALL;
+  } catch {
+    return ALL;
+  }
+}
+
+export function storeFilter(filter: CounterpartyFilter): void {
+  try {
+    if (filter === ALL) window.sessionStorage.removeItem(DASHBOARD_FILTER_KEY);
+    else window.sessionStorage.setItem(DASHBOARD_FILTER_KEY, filter);
+  } catch {
+    // Storage blocked (private mode): the filter just resets on Back.
+  }
+}

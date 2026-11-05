@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { isValidEmail, phoneDigits } from "@/components/auth/data";
 import { TextField } from "@/components/checkout/fields";
 import {
   ConfirmModal,
   KebabMenu,
+  ListPanel,
   MailIcon,
   Modal718,
   ModalActions,
@@ -14,6 +15,8 @@ import {
   TableEmptyState,
 } from "@/components/platform/ui";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { showToast } from "@/components/ui/Toast";
 import { inviteEmployee, removeEmployee, resendInvite, updateEmployee } from "./actions";
 import {
   COPY,
@@ -25,6 +28,8 @@ import {
   nationalPhone,
   type Employee,
 } from "./data";
+import { PersonFilledIcon } from "./icons";
+import { EmployeeRow } from "./phoneParts";
 import { SubmitButton } from "./shared";
 
 // «Співробітники» tab - Figma 4868:31433 inside the 1144 card: py-24;
@@ -33,6 +38,11 @@ import { SubmitButton } from "./shared";
 // px-24): 536 x 163 #f8f8f8 r24 cards of the set 4262:39231 (Default =
 // active) / 4628:6563 (Variant2 = invited). Empty: the 200-px row
 // 4990:72320 «Співробітників ще не запрошено» + Button 243 x 42.
+// Phones (layout "phone", profile spec 2.5): a hug Button/Small "Запросити
+// співробітника" over a ListPanel of EmployeeRow (phoneParts), or the
+// EmptyState panel with the only CTA; the invite / edit / remove overlays
+// are centred cards. New invitations are focused and announced with a
+// toast; after a removal the focus goes to the add button (or the CTA).
 
 // A minute clock for «Запрошення дійсне N год» (server snapshot 0 =
 // nothing time-based in the server HTML).
@@ -169,6 +179,7 @@ function InviteModal({
       onClose={onClose}
       title={COPY.invite.title}
       description={COPY.invite.text}
+      align="top"
       className="[--field-surface:#fff]"
     >
       {open && <InviteForm token={token} taken={taken} onInvite={onInvite} />}
@@ -186,6 +197,7 @@ function InviteForm({
   onInvite: (email: string) => void;
 }) {
   const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [copied, setCopied] = useState(false);
   const link = inviteUrl(token);
   useEffect(() => {
@@ -198,58 +210,82 @@ function InviteForm({
       await navigator.clipboard.writeText(`https://${link}`);
       setCopied(true);
     } catch {
-      // No clipboard permission: select the text so Ctrl+C works.
+      // No clipboard permission: select the text so Ctrl+C works (phones:
+      // the wrapping text line, the read-only input is desktop-only).
       const input = document.getElementById("profile-invite-link");
-      if (input instanceof HTMLInputElement) input.select();
+      if (input instanceof HTMLInputElement && input.offsetParent) {
+        input.select();
+        return;
+      }
+      const text = document.getElementById("profile-invite-link-text");
+      if (text) window.getSelection()?.selectAllChildren(text);
     }
   };
   const exists = taken.includes(email.trim().toLowerCase());
   const valid = isValidEmail(email) && !exists;
+  const emailError = exists
+    ? EMAIL_EXISTS_ERROR
+    : emailTouched && email.trim() && !isValidEmail(email)
+      ? COPY.errors.email
+      : undefined;
   return (
     <form
-      className="flex flex-col gap-10"
+      className="flex flex-col gap-6 lg:gap-10"
       onSubmit={(e) => {
         e.preventDefault();
         if (valid) onInvite(email);
       }}
     >
-      <div data-profile="invite-card" className="flex flex-col overflow-clip rounded-3xl bg-bg-subtle">
-        <div className="flex h-[72px] items-start p-6">
-          <p className="text-[18px] font-extrabold leading-6 tracking-[-0.36px] text-neutral-900">{COPY.invite.link}</p>
+      <div
+        data-profile="invite-card"
+        className="flex flex-col gap-3 overflow-clip rounded-3xl bg-bg-subtle p-4 lg:gap-0 lg:p-0"
+      >
+        <div className="flex items-start lg:h-[72px] lg:p-6">
+          <p className="text-[16px] font-bold leading-[22px] tracking-[0.16px] text-neutral-900 lg:text-[18px] lg:font-extrabold lg:leading-6 lg:tracking-[-0.36px]">
+            {COPY.invite.link}
+          </p>
         </div>
-        <div aria-hidden className="h-[0.5px]" />
-        <div className="flex flex-col gap-4 px-6 pb-6 sm:flex-row sm:items-start sm:gap-6">
+        <div aria-hidden className="h-[0.5px] max-lg:hidden" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-6 sm:px-6 sm:pb-6">
+          <p
+            id="profile-invite-link-text"
+            className="select-all rounded-3xl border border-stroke-subtle bg-white px-4 py-3 text-[14px] font-medium leading-5 text-neutral-900 lg:hidden"
+          >
+            {link}
+          </p>
           <input
             id="profile-invite-link"
             readOnly
             value={link}
             aria-label={COPY.invite.link}
             onFocus={(e) => e.currentTarget.select()}
-            className="h-[46px] w-full min-w-0 rounded-3xl sm:w-auto sm:flex-1 border border-stroke-subtle bg-white/70 px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none focus:border-brand"
+            className="h-[46px] w-full min-w-0 rounded-3xl sm:w-auto sm:flex-1 border border-stroke-subtle bg-white/70 px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none focus:border-brand max-lg:hidden"
           />
           <Button
             type="button"
             size="small"
             variant="outlinedDark"
             onClick={() => void copy()}
-            className="self-start"
+            className="self-start max-lg:w-full max-lg:[&>span]:flex-1"
             aria-live="polite"
           >
             {copied ? COPY.invite.copied : COPY.invite.copy}
           </Button>
         </div>
-        <div aria-hidden className="h-[0.5px]" />
+        <div aria-hidden className="h-[0.5px] max-lg:hidden" />
       </div>
       <div className="flex flex-col gap-6">
-        <p className="text-center text-[16px] leading-6 text-neutral-500">{COPY.invite.or}</p>
+        <p className="text-center text-[14px] leading-5 text-neutral-500 lg:text-[16px] lg:leading-6">{COPY.invite.or}</p>
         <TextField
           label={COPY.invite.email}
           value={email}
           onChange={setEmail}
+          onBlur={() => setEmailTouched(true)}
           type="email"
           inputMode="email"
           autoComplete="email"
-          error={exists ? EMAIL_EXISTS_ERROR : undefined}
+          enterKeyHint="send"
+          error={emailError}
           muiHelper
         />
       </div>
@@ -276,6 +312,7 @@ function EditEmployeeModal({
       open={Boolean(employee)}
       onClose={onClose}
       title="Редагувати співробітника"
+      align="top"
       className="[--field-surface:#fff]"
     >
       {employee && <EditEmployeeForm key={employee.id} employee={employee} onSave={onSave} />}
@@ -296,6 +333,8 @@ function EditEmployeeForm({
   const [phone, setPhone] = useState(employee.phone ? formatEmployeePhone(employee.phone) : "");
   const [email, setEmail] = useState(employee.email);
   const [phoneTouched, setPhoneTouched] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
   // An empty phone is allowed (the card then shows the e-mail only); any
   // other entry must be a full UA number, checked on the raw digits.
   const digits = nationalPhone(phone);
@@ -303,7 +342,7 @@ function EditEmployeeForm({
   const ready = isValidEmail(email) && (invited || (fullName.trim() !== "" && phoneOk));
   return (
     <form
-      className="flex flex-col gap-10"
+      className="flex flex-col gap-6 lg:gap-10"
       onSubmit={(e) => {
         e.preventDefault();
         if (!ready) return;
@@ -322,7 +361,15 @@ function EditEmployeeForm({
       <div className="flex flex-col gap-6">
         {!invited && (
           <>
-            <TextField label={COPY.you.fullName} value={fullName} onChange={setFullName} autoComplete="off" />
+            <TextField
+              label={COPY.you.fullName}
+              value={fullName}
+              onChange={setFullName}
+              onBlur={() => setNameTouched(true)}
+              autoComplete="off"
+              error={nameTouched && !fullName.trim() ? COPY.errors.fullName : undefined}
+              muiHelper
+            />
             <TextField label={COPY.you.position} value={position} onChange={setPosition} autoComplete="off" />
             <TextField
               label={COPY.you.phone}
@@ -337,7 +384,17 @@ function EditEmployeeForm({
             />
           </>
         )}
-        <TextField label={COPY.you.email} value={email} onChange={setEmail} type="email" inputMode="email" autoComplete="off" />
+        <TextField
+          label={COPY.you.email}
+          value={email}
+          onChange={setEmail}
+          onBlur={() => setEmailTouched(true)}
+          type="email"
+          inputMode="email"
+          autoComplete="off"
+          error={emailTouched && !isValidEmail(email) ? COPY.errors.email : undefined}
+          muiHelper
+        />
       </div>
       <ModalActions>
         <SubmitButton type="submit" disabled={!ready} variant="solid">
@@ -358,20 +415,120 @@ export function EmployeesPanel({
   accountId,
   list,
   inviteToken,
+  layout = "desktop",
 }: {
   accountId: string;
   list: Employee[];
   inviteToken: string;
+  layout?: "desktop" | "phone";
 }) {
+  const phone = layout === "phone";
   const [modal, setModal] = useState<ModalState>(null);
   const now = useNow();
   const target = modal && "id" in modal ? list.find((e) => e.id === modal.id) : undefined;
   const close = () => setModal(null);
+  const openInvite = () => setModal({ kind: "invite" });
+
+  // Phones: what to focus once the overlay is closed (the new invitation's
+  // row, or after a removal the add button / the empty state's CTA); a
+  // frame after useModalBehavior returned the focus to the opener.
+  const focusAfter = useRef<string | null>(null);
+  useEffect(() => {
+    if (modal || !focusAfter.current) return;
+    const selector = focusAfter.current;
+    focusAfter.current = null;
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(selector)?.focus());
+  }, [modal, list]);
+  const toast = (message: string) => {
+    if (phone) showToast(message);
+  };
   const inviteButton = (
     <Button type="button" size="small" onClick={() => setModal({ kind: "invite" })}>
       {COPY.employees.invite}
     </Button>
   );
+  const modals = (
+    <>
+      <InviteModal
+        open={modal?.kind === "invite"}
+        token={inviteToken}
+        taken={list.map((e) => e.email.toLowerCase())}
+        onClose={close}
+        onInvite={(email) => {
+          const added = inviteEmployee(accountId, email);
+          if (phone) focusAfter.current = `[data-row-id="${added.id}"]`;
+          close();
+          toast(COPY.toast.inviteSent);
+        }}
+      />
+      <EditEmployeeModal
+        employee={modal?.kind === "edit" ? target : undefined}
+        onClose={close}
+        onSave={(patch) => {
+          if (target) updateEmployee(accountId, target.id, patch);
+          close();
+          toast(COPY.toast.employeeSaved);
+        }}
+      />
+      <ConfirmModal
+        open={modal?.kind === "remove" && Boolean(target)}
+        onClose={close}
+        onConfirm={() => {
+          if (target) removeEmployee(accountId, target.id);
+          if (phone) focusAfter.current = '[data-profile="emp-add"], [data-profile="emp-empty-cta"]';
+          close();
+        }}
+        title="Видалити співробітника?"
+        body={`Ви впевнені, що хочете видалити ${
+          target?.status === "invited" ? `запрошення для ${target.email}` : `співробітника ${target?.fullName ?? ""}`
+        }? Цю дію неможливо скасувати.`}
+      />
+    </>
+  );
+
+  if (phone) {
+    return (
+      <div data-profile="emp-group" className="flex flex-col items-start gap-6">
+        {list.length > 0 ? (
+          <>
+            <Button type="button" size="small" data-profile="emp-add" onClick={openInvite}>
+              {COPY.employees.invite}
+            </Button>
+            <ListPanel label={COPY.employees.title} className="w-full">
+              {list.map((e) => (
+                <EmployeeRow
+                  key={e.id}
+                  employee={e}
+                  now={now}
+                  onEdit={() => setModal({ kind: "edit", id: e.id })}
+                  onRemove={() => setModal({ kind: "remove", id: e.id })}
+                  onResend={() => {
+                    resendInvite(accountId, e.id);
+                    toast(COPY.toast.inviteResent);
+                  }}
+                />
+              ))}
+            </ListPanel>
+          </>
+        ) : (
+          <EmptyState
+            surface="panel"
+            className="w-full"
+            icon={<PersonFilledIcon className="size-6" />}
+            title={COPY.employees.emptyTitle}
+            text={COPY.employees.emptyText}
+            action={
+              <Button type="button" size="small" data-profile="emp-empty-cta" onClick={openInvite}>
+                {COPY.employees.invite}
+              </Button>
+            }
+          />
+        )}
+        {modals}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col py-6">
       <div className="flex flex-wrap items-center justify-between gap-4 p-6">
@@ -403,36 +560,7 @@ export function EmployeesPanel({
         </div>
       )}
 
-      <InviteModal
-        open={modal?.kind === "invite"}
-        token={inviteToken}
-        taken={list.map((e) => e.email.toLowerCase())}
-        onClose={close}
-        onInvite={(email) => {
-          inviteEmployee(accountId, email);
-          close();
-        }}
-      />
-      <EditEmployeeModal
-        employee={modal?.kind === "edit" ? target : undefined}
-        onClose={close}
-        onSave={(patch) => {
-          if (target) updateEmployee(accountId, target.id, patch);
-          close();
-        }}
-      />
-      <ConfirmModal
-        open={modal?.kind === "remove" && Boolean(target)}
-        onClose={close}
-        onConfirm={() => {
-          if (target) removeEmployee(accountId, target.id);
-          close();
-        }}
-        title="Видалити співробітника?"
-        body={`Ви впевнені, що хочете видалити ${
-          target?.status === "invited" ? `запрошення для ${target.email}` : `співробітника ${target?.fullName ?? ""}`
-        }? Цю дію неможливо скасувати.`}
-      />
+      {modals}
     </div>
   );
 }

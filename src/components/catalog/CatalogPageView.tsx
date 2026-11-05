@@ -113,6 +113,11 @@ function CategoryHero({ card }: { card: SubcategoryCard }) {
   );
 }
 
+// The listing reads useSearchParams, so a production build renders it on
+// the client: phones reserve one screen for it meanwhile (catalog-b2c
+// 2.18), so the footer does not jump up for a frame. Desktop: no box.
+const LISTING_FALLBACK = <div aria-busy="true" className="max-lg:min-h-dvh" />;
+
 // ---------------------------------------------------------------- B2C
 
 function PublicView({ page }: { page: PageKind }) {
@@ -169,7 +174,7 @@ function PublicView({ page }: { page: PageKind }) {
       )}
 
       <section className="mt-12 lg:mt-[148px]">
-        <Suspense>
+        <Suspense fallback={LISTING_FALLBACK}>
           <CatalogClient direction={dir} fixedSubcategory={card?.label} />
         </Suspense>
       </section>
@@ -292,7 +297,7 @@ function PlatformView({ page }: { page: PageKind }) {
       )}
 
       <section className="px-6 py-12 lg:py-8 lg:pl-10 lg:pr-8">
-        <Suspense>
+        <Suspense fallback={LISTING_FALLBACK}>
           <CatalogClient direction={dir} fixedSubcategory={card?.label} mode="b2b" />
         </Suspense>
       </section>

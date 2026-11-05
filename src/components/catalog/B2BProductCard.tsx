@@ -226,18 +226,21 @@ export function B2BPriceAndQty({
 // Phones: the dark-tone disc shows the hover look as its default (brand
 // fill, white glyph; D3 "52 brand cart disc"); `feedback="toast"` (the
 // catalog cards and rows) adds without opening the cart sheet below 640
-// and shows the «Додано у кошик» toast (DECISIONS O-11). The light tone of
-// the «Купують разом» band is untouched.
+// and shows the «Додано у кошик» toast (DECISIONS O-11); `onAdded` then
+// runs (the card / row resets its stepper, as the B2C card does). The
+// light tone of the «Купують разом» band is untouched.
 export function B2BCartButton({
   product,
   qty,
   tone = "dark",
   feedback = "drawer",
+  onAdded,
 }: {
   product: Product;
   qty: number;
   tone?: B2BTone;
   feedback?: "drawer" | "toast";
+  onAdded?: () => void;
 }) {
   const { add } = useCart();
   const catalogAdd = useCatalogAdd();
@@ -251,8 +254,9 @@ export function B2BCartButton({
           : `Додати «${product.title}» в кошик`
       }
       onClick={() => {
-        if (feedback === "toast") catalogAdd(product.id, qty);
-        else add(product.id, qty);
+        if (feedback === "toast") {
+          if (catalogAdd(product.id, qty)) onAdded?.();
+        } else add(product.id, qty);
       }}
       className={`flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${
         tone === "light"
@@ -317,7 +321,7 @@ export function B2BProductCard({ product }: { product: Product }) {
           <B2BYourPrice product={product} size="stat" />
           <div className="flex items-center justify-between gap-4">
             <QtyStepper qty={qty} onQty={setQty} editable />
-            <B2BCartButton product={product} qty={qty} feedback="toast" />
+            <B2BCartButton product={product} qty={qty} feedback="toast" onAdded={() => setQty(1)} />
           </div>
         </div>
       </div>
@@ -382,7 +386,7 @@ export function B2BProductRow({ product }: { product: Product }) {
           <B2BYourPrice product={product} size="amount" />
           <div className="ml-auto flex items-center gap-4">
             <QtyStepper qty={qty} onQty={setQty} editable />
-            <B2BCartButton product={product} qty={qty} feedback="toast" />
+            <B2BCartButton product={product} qty={qty} feedback="toast" onAdded={() => setQty(1)} />
           </div>
         </div>
       </div>

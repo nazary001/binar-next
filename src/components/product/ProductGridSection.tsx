@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { ProductCard } from "@/components/catalog/ProductCard";
 import { B2BProductCard } from "@/components/catalog/B2BProductCard";
@@ -35,17 +35,21 @@ export function ProductGridSection({
   mode = "b2c",
   card,
   headGap = "md",
+  phoneLimit = 4,
 }: {
   id?: string;
-  title: string;
+  title: ReactNode;
   cta: { label: string; href: string };
   products: Product[];
   className?: string;
   mode?: "b2c" | "b2b";
   card?: "b2c" | "b2b";
   headGap?: "md" | "lg";
+  // Phones list this many cards (one desktop row) and close with the CTA.
+  phoneLimit?: number;
 }) {
   const b2b = mode === "b2b";
+  if (products.length === 0) return null;
   const b2bCards = (card ?? mode) === "b2b";
   const pinPhoto = b2b && !b2bCards;
   const rows: Product[][] = [];
@@ -59,8 +63,10 @@ export function ProductGridSection({
       // header; the global unlayered `[id] { scroll-margin-top: 96px }`
       // rule would add a second 96 on top (and beats any layered
       // utility), so the «Схожі товари» jump zeroes the margin inline.
-      style={{ scrollMarginTop: 0 }}
-      className={`px-6 py-[60px] sm:px-10 ${
+      // Phones: -30 px, so the jump puts the section top on the 66-px bar
+      // (96 scroll padding - 30); the variable is unset from 640 (0px).
+      style={{ scrollMarginTop: "var(--pdp-anchor-offset, 0px)" }}
+      className={`px-6 py-[60px] max-lg:[--pdp-anchor-offset:-30px] sm:px-10 ${
         b2b ? "lg:py-16 lg:pl-10 lg:pr-8" : "lg-shop-pad-x lg:py-20"
       } ${className}`}
     >
@@ -68,13 +74,13 @@ export function ProductGridSection({
         <h2 id={`${id ?? "grid"}-title`} className="text-h2 text-neutral-900">
           {title}
         </h2>
-        <Button href={cta.href} arrow size="responsive" className="shrink-0">
+        <Button href={cta.href} arrow size="responsive" className="shrink-0 max-lg:hidden">
           {cta.label}
         </Button>
       </div>
 
       <div
-        className={`mt-12 flex flex-col gap-12 ${
+        className={`mt-12 flex flex-col gap-12 max-lg:hidden ${
           b2b ? (headGap === "lg" ? "lg:mt-20" : "lg:mt-16") + " lg:gap-16" : "lg:mt-20 lg:gap-20"
         }`}
       >
@@ -113,6 +119,22 @@ export function ProductGridSection({
               ))}
           </div>
         ))}
+      </div>
+
+      {/* Phones (pdp 2.10, D3): one column of the catalog phone cards, 24
+          apart, then the CTA centred 48 below the list (the heading-row
+          CTA never sits under the H2 on phones). */}
+      <ul role="list" className="mt-12 flex flex-col gap-6 lg:hidden">
+        {products.slice(0, phoneLimit).map((product) => (
+          <li key={product.id}>
+            {b2bCards ? <B2BProductCard product={product} /> : <ProductCard product={product} />}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-12 flex justify-center lg:hidden">
+        <Button href={cta.href} arrow size="small">
+          {cta.label}
+        </Button>
       </div>
     </section>
   );

@@ -3,28 +3,54 @@
 /* eslint-disable @next/next/no-img-element */
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
-import { InfoHeadIcon } from "../ui";
+import { KeyValueList, type KeyValueRow } from "@/components/ui/KeyValueList";
+import { PRODUCT_LINE_LIST, PRODUCT_LINE_TOTAL, ProductLine } from "@/components/ui/ProductLine";
+import { DocumentRowList, DotIcon, InfoHeadIcon } from "../ui";
 import { formatMoney, formatQty, lineSum, type OrderDocument, type OrderItem } from "./data";
-import { OrderDocumentTile, downloadAll } from "./DocumentsModal";
+import { OrderDocumentRow, OrderDocumentTile, downloadAll } from "./DocumentsModal";
+
+const COPY = {
+  article: (article: string) => `Артикул: ${article}`,
+  // Phones: the long desktop label does not fit the 224-px card at 320
+  // (the DocumentsModal pill uses the same short label).
+  downloadAllShort: "Завантажити все",
+} as const;
+
+// «1 позиція», «3 позиції», «5 позицій» (11-14 take «позицій»).
+export function positionsLabel(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} позиція`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} позиції`;
+  return `${n} позицій`;
+}
 
 // Blocks of the two details pages - «Деталі замовлення» 5052:56810 /
 // 5192:77948 (ctx/5052-56828.md, ctx/5052-57003.md) and «Деталі
 // повернення» 5192:79067 (ctx/5192-79072.md). Body = pl-40 pr-32 pt-16,
 // a flexible left column (1014 at 1710) and the 494 right column, 26
 // apart; every card is white r24.
+// Phones (< 640, order-detail spec 2.2-2.6 / returns 2.2, template T3):
+// one column, blocks 24 apart, the summary + total column FIRST (the sum
+// and the pay action no longer sit at the page bottom), every card r32
+// p 24, card titles 22/28 SemiBold; the head's pb 48 is the head -> first
+// block distance, so the body has no top padding.
 
 export function DetailsBody({ left, right }: { left: ReactNode; right: ReactNode }) {
   return (
-    <div className="flex flex-col gap-[26px] px-6 pt-4 lg:flex-row lg:items-start lg:pl-10 lg:pr-8">
-      <div className="flex min-w-0 flex-1 flex-col gap-[26px]">{left}</div>
-      <div className="flex w-full shrink-0 flex-col overflow-clip rounded-3xl lg:w-[494px]">{right}</div>
+    <div className="flex flex-col gap-6 px-6 pt-0 lg:flex-row lg:items-start lg:gap-[26px] lg:pl-10 lg:pr-8 lg:pt-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-6 lg:gap-[26px]">{left}</div>
+      <div className="flex w-full shrink-0 flex-col overflow-clip rounded-[32px] max-lg:order-first lg:w-[494px] lg:rounded-3xl">
+        {right}
+      </div>
     </div>
   );
 }
 
-// «Title/Medium» card heading: Manrope Bold 22/28 -2 %.
-const CARD_TITLE = "text-[22px] font-bold leading-7 tracking-[-0.44px] text-neutral-900";
-const CARD = "flex flex-col gap-8 overflow-clip rounded-3xl bg-white p-6 lg:p-8";
+// «Title/Medium» card heading: Manrope Bold 22/28 -2 % (phones: Title
+// Large 22/28 SemiBold = CABINET_SECTION_TITLE).
+const CARD_TITLE = "text-[22px] font-semibold leading-7 tracking-[-0.44px] text-neutral-900 lg:font-bold";
+const CARD = "flex flex-col gap-6 overflow-clip rounded-[32px] bg-white p-6 lg:gap-8 lg:rounded-3xl lg:p-8";
 
 // 0.5-px #d2d2d2 hairline between table rows, 16 px in from the row
 // edges (divider-row.svg). Figma draws it as its own 0.5-px row, so the
@@ -84,11 +110,70 @@ export const SUM_COLUMN: ItemColumn = {
   render: (item) => <span className="whitespace-nowrap font-semibold">{formatMoney(lineSum(item))}</span>,
 };
 
-// The products table (5052:56829: head row #343435 pt-8 px-16, heads p-16
-// 14/24 SemiBold white; rows px-16, cells px-16 py-24, 108 tall).
-export function ItemsTable({ items, columns }: { items: OrderItem[]; columns: ItemColumn[] }) {
+// Phone twin of the table (TR-07 / TR-08, system spec A8): a white r32
+// panel, title + count, then one ProductLine per line (64 photo, name up
+// to 3 lines, the article) with the read-only bottom row: the qty / price
+// parts left, the line total 22/28 right (its own line at 320), plus an
+// optional extra line (the return reason).
+export type ItemsPhone = {
+  title: string;
+  line: (item: OrderItem) => { parts: ReactNode[]; amount: ReactNode; extra?: ReactNode };
+};
+
+function ItemsList({ items, title, line }: { items: OrderItem[] } & ItemsPhone) {
   return (
-    <div className="overflow-x-auto rounded-3xl bg-white">
+    <section className="flex flex-col rounded-[32px] bg-white px-6 pt-6 lg:hidden">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="min-w-0 text-title-lg text-neutral-900">{title}</h2>
+        <p className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">{positionsLabel(items.length)}</p>
+      </div>
+      <ul role="list" className={PRODUCT_LINE_LIST}>
+        {items.map((item) => {
+          const l = line(item);
+          return (
+            <ProductLine
+              key={item.id}
+              image={item.image}
+              title={item.name}
+              titleLines={3}
+              meta={<span className="whitespace-nowrap">{COPY.article(item.article)}</span>}
+              bottom={
+                <>
+                  <span className="flex flex-wrap items-center gap-x-1 text-[14px] leading-5 text-neutral-500">
+                    {l.parts.map((part, i) => (
+                      <span key={i} className="flex items-center gap-1 whitespace-nowrap">
+                        {part}
+                        {i < l.parts.length - 1 && <DotIcon className="size-[14px] shrink-0" />}
+                      </span>
+                    ))}
+                  </span>
+                  <span className={PRODUCT_LINE_TOTAL}>{l.amount}</span>
+                  {l.extra && <p className="basis-full text-[14px] leading-5 text-neutral-500">{l.extra}</p>}
+                </>
+              }
+            />
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+// The products table (5052:56829: head row #343435 pt-8 px-16, heads p-16
+// 14/24 SemiBold white; rows px-16, cells px-16 py-24, 108 tall). With
+// `phone` the table is desktop-only and the ItemsList stands in below 640.
+export function ItemsTable({
+  items,
+  columns,
+  phone,
+}: {
+  items: OrderItem[];
+  columns: ItemColumn[];
+  phone?: ItemsPhone;
+}) {
+  return (
+    <>
+    <div className={phone ? "overflow-x-auto rounded-3xl bg-white max-lg:hidden" : "overflow-x-auto rounded-3xl bg-white"}>
       <table className="w-full min-w-[720px] table-fixed border-separate border-spacing-0">
         <colgroup>
           <col className="w-4" />
@@ -132,6 +217,8 @@ export function ItemsTable({ items, columns }: { items: OrderItem[]; columns: It
         </tbody>
       </table>
     </div>
+    {phone && <ItemsList items={items} {...phone} />}
+    </>
   );
 }
 
@@ -163,7 +250,9 @@ function InfoCircle24({ className }: { className?: string }) {
 
 // «Інформація про доставку» (5052:56949, 1014 x 260) and «Деталі
 // повернення» (5192:79156, 1014 x 180): title, two fields 24 apart and
-// an optional info line (24-px #a5a5a5 glyph + 14/24 #343435).
+// an optional info line (24-px #a5a5a5 glyph + 14/24 #343435). Phones:
+// the read-only fields become key / value rows (values wrap, nothing
+// truncates at 320) and the note is 14/20.
 export function InfoCard({
   title,
   fields,
@@ -176,15 +265,19 @@ export function InfoCard({
   return (
     <section className={CARD}>
       <h2 className={CARD_TITLE}>{title}</h2>
-      <div className="flex flex-col gap-6 sm:flex-row">
+      <div className="flex flex-col gap-6 max-lg:hidden sm:flex-row">
         {fields.map((f) => (
           <ReadField key={f.label} label={f.label} value={f.value} />
         ))}
       </div>
+      <KeyValueList
+        className="lg:hidden"
+        rows={fields.map((f) => ({ id: f.label, label: f.label, value: f.value }))}
+      />
       {note && (
         <div className="flex items-start gap-2">
           <InfoCircle24 className="size-6 shrink-0 text-neutral-300" />
-          <p className="min-w-0 flex-1 text-[14px] leading-6 text-neutral-800">{note}</p>
+          <p className="min-w-0 flex-1 text-[14px] leading-5 text-neutral-800 lg:leading-6">{note}</p>
         </div>
       )}
     </section>
@@ -212,6 +305,9 @@ function Download16({ className }: { className?: string }) {
 // 2 x 400 + 24 = 824 wide (950 at 1710); the 0.7-zoom band from 1024 to
 // ~1200 px and tablets get one full-width column instead of 340-px tiles
 // with clipped names.
+// Phones (TR-25, system spec A16): DocumentRow lines instead of the tiles
+// and a full-width outlined «Завантажити все» under them instead of the
+// title-row text button.
 export function DocumentsCard({ title, documents }: { title: string; documents: OrderDocument[] }) {
   const anyReady = documents.some((d) => d.ready);
   return (
@@ -222,17 +318,31 @@ export function DocumentsCard({ title, documents }: { title: string; documents: 
           type="button"
           disabled={!anyReady}
           onClick={() => downloadAll(documents)}
-          className="inline-flex cursor-pointer items-center gap-[2px] whitespace-nowrap text-[16px] font-medium leading-[22px] text-[#4a4a4c] transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:opacity-50"
+          className="inline-flex cursor-pointer items-center gap-[2px] whitespace-nowrap text-[16px] font-medium leading-[22px] text-[#4a4a4c] transition-colors duration-200 hover:text-brand disabled:cursor-default disabled:opacity-50 max-lg:hidden"
         >
           Завантажити усі документи
           <Download16 className="size-4 shrink-0" />
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-6 @min-[824px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 max-lg:hidden @min-[824px]:grid-cols-2">
         {documents.map((doc) => (
           <OrderDocumentTile key={doc.id} doc={doc} />
         ))}
       </div>
+      <DocumentRowList label={title} className="lg:hidden">
+        {documents.map((doc) => (
+          <OrderDocumentRow key={doc.id} doc={doc} />
+        ))}
+      </DocumentRowList>
+      <Button
+        variant="outlinedDark"
+        fullWidth
+        disabled={!anyReady}
+        onClick={() => downloadAll(documents)}
+        className="lg:hidden"
+      >
+        {COPY.downloadAllShort}
+      </Button>
     </section>
   );
 }
@@ -279,11 +389,22 @@ export function SummaryLink({ children, clip }: { children: string; clip?: boole
 
 // «Підсумок замовлення» (5052:57004, 494 x 508): p-32 gap-32, rows in
 // groups (gap 8) separated by the 0.5-px full-width hairline (gap 16).
-export function SummaryCard({ title, groups }: { title: string; groups: ReactNode[] }) {
+// `compact` = the phone rows (TR-27 key / value list, 1-px lines): the
+// desktop groups then stay desktop-only (they repeat the head's badges).
+export function SummaryCard({
+  title,
+  groups,
+  compact,
+}: {
+  title: string;
+  groups: ReactNode[];
+  compact?: KeyValueRow[];
+}) {
   return (
-    <section className="flex flex-col gap-8 bg-white p-6 lg:p-8">
+    <section className="flex flex-col gap-6 bg-white p-6 lg:gap-8 lg:p-8">
       <h2 className={CARD_TITLE}>{title}</h2>
-      <div className="flex flex-col gap-4">
+      {compact && <KeyValueList className="lg:hidden" rows={compact} />}
+      <div className={compact ? "flex flex-col gap-4 max-lg:hidden" : "flex flex-col gap-4"}>
         {groups.map((g, i) => (
           <div key={i} className="contents">
             {i > 0 && <div aria-hidden className="h-[0.5px] w-full shrink-0 bg-stroke-subtle" />}
@@ -297,7 +418,9 @@ export function SummaryCard({ title, groups }: { title: string; groups: ReactNod
 
 // The black total block (5052:57038, 494 x 176 / 5192:79242, 494 x 92):
 // «Сума замовлення» 20/28 + the sum 24/28 SemiBold -2 %, white, and the
-// optional full-width accent Button/Large.
+// optional full-width accent Button/Large. Phones: the dark summary
+// anatomy (label 14/20 Medium #8e8e8f over the amount 22/28 SemiBold,
+// always stacked, so no amount makes the row wrap), 24 to the button.
 export function TotalCard({
   label,
   value,
@@ -308,10 +431,14 @@ export function TotalCard({
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <section className="flex flex-col gap-8 bg-[#1d1d1f] p-6 lg:p-8">
-      <div className="flex items-center justify-between gap-4 text-white max-sm:flex-wrap max-sm:gap-y-1">
-        <p className="whitespace-nowrap text-[20px] leading-7">{label}</p>
-        <p className="whitespace-nowrap text-[24px] font-semibold leading-7 tracking-[-0.48px]">{value}</p>
+    <section className="flex flex-col gap-6 bg-[#1d1d1f] p-6 lg:gap-8 lg:p-8">
+      <div className="flex flex-col items-start gap-2 text-white lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <p className="whitespace-nowrap text-[14px] leading-5 max-lg:font-medium max-lg:text-neutral-400 lg:text-[20px] lg:leading-7">
+          {label}
+        </p>
+        <p className="whitespace-nowrap text-[22px] font-semibold leading-7 tracking-[-0.44px] lg:text-[24px] lg:tracking-[-0.48px]">
+          {value}
+        </p>
       </div>
       {action && (
         <Button variant="accent" fullWidth onClick={action.onClick}>

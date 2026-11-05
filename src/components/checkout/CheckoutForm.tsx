@@ -326,9 +326,15 @@ export function CheckoutForm({
               onChange={(v) => set("comment", v)}
             />
             <CheckboxField
+              // Desktop keeps the original single text run (a span boundary
+              // inside it moves the glyphs by a subpixel at the zoomed
+              // 640..1709 canvas); phones keep the compound word whole.
               label={
                 <>
-                  {COPY.invoiceLead} <span className="whitespace-nowrap">{COPY.invoiceWord}</span>
+                  <span className="max-lg:hidden">Потрібен рахунок-фактура</span>
+                  <span className="lg:hidden">
+                    {COPY.invoiceLead} <span className="whitespace-nowrap">{COPY.invoiceWord}</span>
+                  </span>
                 </>
               }
               name="invoice"

@@ -34,7 +34,41 @@ export type KebabMenuProps = {
   menuClassName?: string;
   // The 0.5-px hairline under the last row (default: drawn, as 4868:31444).
   lastDivider?: boolean;
+  // Phones (< 640, profile SN-19 / TR-07 row action): the trigger is a
+  // 40-px outlined disc (#1d1d1f ring, 20 glyph, 44-px hit box; brand
+  // ring + glyph while open). From 640 it is today's 24-px glyph.
+  phoneDisc?: boolean;
 };
+
+// Phones: the menu opens above its trigger when the room below it (to the
+// viewport bottom, or to the pinned footer / bottom edge of the dialog it
+// sits in) is shorter than the menu.
+const PHONE_QUERY = "(max-width: 639.98px)";
+const ROW_H = 46;
+
+function shouldFlip(trigger: HTMLElement | null, count: number): boolean {
+  if (!trigger || !window.matchMedia(PHONE_QUERY).matches) return false;
+  const rect = trigger.getBoundingClientRect();
+  const need = count * ROW_H + 6;
+  let bottom = window.innerHeight;
+  let top = 66;
+  const dialog = trigger.closest('[role="dialog"]');
+  if (dialog) {
+    const box = dialog.getBoundingClientRect();
+    bottom = Math.min(bottom, box.bottom);
+    top = Math.max(0, box.top);
+    const last = dialog.firstElementChild?.lastElementChild;
+    if (last instanceof HTMLElement && getComputedStyle(last).position === "sticky" && !last.contains(trigger)) {
+      bottom = Math.min(bottom, last.getBoundingClientRect().top);
+    }
+  }
+  return bottom - rect.bottom < need && rect.top - top >= need;
+}
+
+const DISC =
+  "relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors duration-200 motion-reduce:transition-none before:absolute before:-inset-0.5 before:content-[''] max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand lg:size-6 lg:rounded-none lg:border-0 lg:before:-inset-2";
+const DISC_CLOSED = "border-neutral-900 text-neutral-900 lg:text-neutral-500 lg:hover:text-neutral-900";
+const DISC_OPEN = "border-brand text-brand";
 
 export function KebabMenu({
   items = [],
@@ -44,8 +78,10 @@ export function KebabMenu({
   className = "",
   menuClassName = "",
   lastDivider = true,
+  phoneDisc = false,
 }: KebabMenuProps) {
   const [openState, setOpenState] = useState(false);
+  const [flip, setFlip] = useState(false);
   const open = openProp ?? openState;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -83,6 +119,7 @@ export function KebabMenu({
       if (open) {
         focusItem(target);
       } else {
+        setFlip(shouldFlip(triggerRef.current, items.length));
         setOpen(true);
         requestAnimationFrame(() => focusItem(target));
       }
@@ -131,13 +168,16 @@ export function KebabMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open) setFlip(shouldFlip(triggerRef.current, items.length));
+          setOpen(!open);
+        }}
         onKeyDown={onTriggerKey}
-        className={`relative flex size-6 shrink-0 cursor-pointer items-center justify-center transition-colors duration-200 before:absolute before:-inset-2 before:content-[''] ${
+        className={phoneDisc ? `${DISC} ${open ? DISC_OPEN : DISC_CLOSED}` : `relative flex size-6 shrink-0 cursor-pointer items-center justify-center transition-colors duration-200 before:absolute before:-inset-2 before:content-[''] ${
           open ? "text-brand" : "text-neutral-500 hover:text-neutral-900"
         }`}
       >
-        <MoreIcon className="size-6" />
+        <MoreIcon className={phoneDisc ? "size-5 lg:size-6" : "size-6"} />
       </button>
       {open && (
         <div
@@ -145,7 +185,9 @@ export function KebabMenu({
           role="menu"
           aria-label={label}
           onKeyDown={onMenuKey}
-          className={`absolute right-0 top-[calc(100%+6px)] z-20 flex max-h-[250px] w-[220px] flex-col overflow-y-auto overflow-x-clip rounded-[24px] bg-white shadow-[0_2px_6px_0_rgba(29,29,31,0.1)] ${menuClassName}`}
+          className={`absolute right-0 z-20 flex max-h-[250px] w-[220px] flex-col overflow-y-auto overflow-x-clip rounded-[24px] bg-white shadow-[0_2px_6px_0_rgba(29,29,31,0.1)] ${
+            flip ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"
+          } ${flip ? "" : menuClassName}`}
         >
           {items.map((item, i) => (
             <button
@@ -157,10 +199,13 @@ export function KebabMenu({
               role="menuitem"
               disabled={item.disabled}
               onClick={() => {
+                // The trigger takes the focus first, so a dialog the item
+                // opens returns the focus to a live element (not <body>).
                 setOpen(false);
+                triggerRef.current?.focus({ preventScroll: true });
                 item.onSelect();
               }}
-              className={`relative flex w-full shrink-0 cursor-pointer items-center px-4 py-3 text-left text-[16px] font-medium leading-[22px] text-neutral-900 outline-none transition-colors duration-150 after:absolute after:inset-x-0 after:bottom-0 after:h-[0.5px] after:bg-stroke-subtle after:content-[''] hover:bg-bg-subtle focus-visible:bg-bg-subtle disabled:cursor-not-allowed disabled:text-neutral-300 ${
+              className={`relative flex w-full shrink-0 cursor-pointer items-center px-4 py-3 text-left text-[16px] font-medium leading-[22px] text-neutral-900 outline-none transition-colors duration-150 after:absolute after:inset-x-0 after:bottom-0 after:h-[0.5px] after:bg-stroke-subtle after:content-[''] max-lg:after:h-px hover:bg-bg-subtle focus-visible:bg-bg-subtle disabled:cursor-not-allowed disabled:text-neutral-300 ${
                 !lastDivider && i === items.length - 1 ? "after:hidden" : ""
               }`}
             >

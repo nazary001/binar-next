@@ -606,8 +606,10 @@ export function CatalogClient({
       {/* Phones: the T2 meta line 16 under the search row (or the chips),
           44 tall: the count 14/20 #777779 left (not announced while the
           sheet is open: its own status line speaks), the SortMenu right
-          (anchored to this relative row). No per-page control (D4). */}
-      <div className="relative mt-4 flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2 lg:hidden">
+          (anchored to this relative row). No per-page control (D4).
+          gap-x-2: at 320 a 1-2 digit count (129 px) + the trigger (132)
+          share the 272 row; a 3-digit count wraps the trigger right. */}
+      <div className="relative mt-4 flex min-h-11 flex-wrap items-center justify-between gap-x-2 gap-y-2 lg:hidden">
         <p aria-live={drawerOpen ? "off" : "polite"} className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">
           {COPY.found(filtered.length)}
         </p>
@@ -740,11 +742,14 @@ export function CatalogClient({
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-12 lg:gap-20">
+          // The server / hydration pass of a phone renders this desktop
+          // slice before usePhone() resolves: its phone gaps equal the
+          // phone list's 24 (catalog-b2c 2.11), so nothing jumps.
+          <div className="flex flex-col gap-6 lg:gap-20">
           {rows.map((row, ri) => (
             <div
               key={`${current}-${ri}`}
-              className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:flex lg:gap-[39.5px]"
+              className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:flex lg:gap-[39.5px]"
             >
               {row.map((product: Product, ci) => (
                 <Fragment key={`${product.id}-${ci}`}>

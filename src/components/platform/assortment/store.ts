@@ -154,6 +154,54 @@ export function setSelected(owner: AssortmentOwner, ids: string[]) {
   update(owner, (s) => ({ ...s, selected: [...new Set(ids)] }));
 }
 
+// The «added to the cart» marker: the selection key (ids + quantities)
+// the last bulk «Додати у кошик» sent to the cart. Kept in sessionStorage
+// for the tab session (mobile pass, assortment spec 2.9), so a reload does
+// not re-arm a silent second add of the same selection. Server snapshot:
+// null (nothing added).
+const ADDED_PREFIX = "binar.assortment.added.v1";
+const addedListeners = new Set<() => void>();
+const addedCache = new Map<string, string | null>();
+
+function addedStorageKey(ownerId: string): string {
+  return `${ADDED_PREFIX}:${ownerId}`;
+}
+
+function readAddedKey(ownerId: string): string | null {
+  if (addedCache.has(ownerId)) return addedCache.get(ownerId) ?? null;
+  let value: string | null = null;
+  try {
+    value = window.sessionStorage.getItem(addedStorageKey(ownerId));
+  } catch {
+    value = null;
+  }
+  addedCache.set(ownerId, value);
+  return value;
+}
+
+export function writeAddedKey(ownerId: string, key: string | null) {
+  addedCache.set(ownerId, key);
+  try {
+    if (key === null) window.sessionStorage.removeItem(addedStorageKey(ownerId));
+    else window.sessionStorage.setItem(addedStorageKey(ownerId), key);
+  } catch {
+    // Session storage may be unavailable; the marker lives in memory.
+  }
+  addedListeners.forEach((l) => l());
+}
+
+function subscribeAdded(listener: () => void): () => void {
+  addedListeners.add(listener);
+  return () => {
+    addedListeners.delete(listener);
+  };
+}
+
+export function useAddedKey(ownerId: string | null): string | null {
+  const getSnapshot = useCallback(() => (ownerId === null ? null : readAddedKey(ownerId)), [ownerId]);
+  return useSyncExternalStore(subscribeAdded, getSnapshot, () => null);
+}
+
 // Removes lines from the assortment (row «×» and the bulk trash of the
 // selection bar); they leave the selection too.
 export function removeLines(owner: AssortmentOwner, ids: string[]) {
