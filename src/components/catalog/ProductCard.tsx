@@ -9,6 +9,7 @@ import { TagIcon } from "@/components/product/icons";
 import { discountPercent, formatPrice, productHref, type Product } from "./data";
 import { useCart } from "@/components/cart/CartProvider";
 import { useCatalogAdd } from "./phoneParts";
+import { CART_DISC_IN_CART, CartDiscBody, cartDiscLabel, useCartDisc } from "./CartDisc";
 
 // The two B2C product-card layouts share every content atom:
 //
@@ -202,24 +203,32 @@ export function CartButton({
 }) {
   const { add } = useCart();
   const catalogAdd = useCatalogAdd();
+  // In the cart already (and purchasable): brand fill + check + count
+  // bubble on every width; the tap pops the disc (CartDisc.tsx).
+  const { inCart: held, ref, pop } = useCartDisc(product.id);
+  const inCart = out ? 0 : held;
   const look = out
     ? "cursor-default border-transparent bg-[#e8e8e9] text-neutral-900"
-    : tone === "light"
-      ? "border-white text-white group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white"
-      : "border-neutral-900 text-neutral-900 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:border-brand max-lg:bg-brand max-lg:text-white";
+    : inCart > 0
+      ? CART_DISC_IN_CART
+      : tone === "light"
+        ? "border-white text-white group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white"
+        : "border-neutral-900 text-neutral-900 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:border-brand max-lg:bg-brand max-lg:text-white";
   return (
     <button
+      ref={ref}
       type="button"
-      aria-label={`Додати «${product.title}» в кошик`}
+      aria-label={cartDiscLabel(product.title, inCart)}
       disabled={out}
       onClick={() => {
         if (feedback === "toast") {
           if (catalogAdd(product.id, qty)) onAdded?.();
         } else add(product.id, qty);
+        pop();
       }}
-      className={`flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${look}`}
+      className={`relative flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${look}`}
     >
-      <CartIcon className="size-6" />
+      <CartDiscBody inCart={inCart} tone={tone} idle={<CartIcon className="size-6" />} />
     </button>
   );
 }

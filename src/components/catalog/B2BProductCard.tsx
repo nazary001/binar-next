@@ -8,6 +8,7 @@ import { CartIcon, InfoCircleIcon } from "./icons";
 import { CARD_TITLE_LINK, ChipsRow, QtyStepper, ROW_TITLE_LINK } from "./ProductCard";
 import { b2bPrices, formatPrice, productHref, type Product } from "./data";
 import { useCatalogAdd } from "./phoneParts";
+import { CART_DISC_IN_CART, CartDiscBody, cartDiscLabel, useCartDisc } from "./CartDisc";
 
 const COPY = {
   wholesale: "Оптова ціна",
@@ -245,26 +246,33 @@ export function B2BCartButton({
   const { add } = useCart();
   const catalogAdd = useCatalogAdd();
   const preorder = product.preorder || !product.available;
+  // In the cart already: brand fill + check + count bubble on every
+  // width; the tap pops the disc (CartDisc.tsx).
+  const { inCart, ref, pop } = useCartDisc(product.id);
   return (
     <button
+      ref={ref}
       type="button"
-      aria-label={
-        preorder
-          ? `Замовити «${product.title}» під замовлення`
-          : `Додати «${product.title}» в кошик`
-      }
+      aria-label={cartDiscLabel(product.title, inCart, preorder)}
       onClick={() => {
         if (feedback === "toast") {
           if (catalogAdd(product.id, qty)) onAdded?.();
         } else add(product.id, qty);
+        pop();
       }}
-      className={`flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${
-        tone === "light"
-          ? "border-white text-white"
-          : "border-neutral-900 text-neutral-900 max-lg:border-brand max-lg:bg-brand max-lg:text-white"
+      className={`relative flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${
+        inCart > 0
+          ? CART_DISC_IN_CART
+          : tone === "light"
+            ? "border-white text-white"
+            : "border-neutral-900 text-neutral-900 max-lg:border-brand max-lg:bg-brand max-lg:text-white"
       }`}
     >
-      {preorder ? <PreorderIcon className="size-6" /> : <CartIcon className="size-6" />}
+      <CartDiscBody
+        inCart={inCart}
+        tone={tone === "light" ? "light" : "dark"}
+        idle={preorder ? <PreorderIcon className="size-6" /> : <CartIcon className="size-6" />}
+      />
     </button>
   );
 }
