@@ -205,6 +205,41 @@ export const COPY = {
     lastName: "Введіть прізвище",
   },
   google: "Незабаром",
+  // The signed-in summary (no master; kept from the first build).
+  account: {
+    title: "Особистий кабінет",
+    signedInAs: "Ви увійшли як",
+    logoAlt: "Лого компанії",
+    profile: "Перейти в профіль",
+    signOut: "Вийти",
+    company: "Компанія",
+    edrpou: "ЄДРПОУ",
+    region: "Регіон",
+    role: "Роль",
+    phone: "Телефон",
+    email: "Електронна пошта",
+  },
+  // Phone sheet bar (auth spec 2.1, DECISIONS D7 / O-12): one title line,
+  // so the two titles wider than 228 px at 320 show a short form below
+  // 375; the crosses carry specific names.
+  sheet: {
+    signinShort: "Вхід",
+    setPasswordShort: "Новий пароль",
+    close: "Закрити вікно входу",
+    closeAccount: "Закрити особистий кабінет",
+  },
+} as const;
+
+// The dialog's accessible name per screen (auth spec 2.1, F15). The full
+// names, spelled correctly; the visible sign-in title keeps the Figma
+// spelling (DECISIONS O-5).
+export const DIALOG_LABEL = {
+  signin: "Вхід до особистого кабінету",
+  forgot: "Відновлення паролю",
+  linkSent: "Відновлення паролю",
+  setPassword: "Створіть новий пароль",
+  signup: "Реєстрація",
+  account: "Особистий кабінет",
 } as const;
 
 // --- phone / login -----------------------------------------------------

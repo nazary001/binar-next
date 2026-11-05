@@ -5,8 +5,12 @@
    CSS-variable patterns (e.g. `text-[var(--text/medium,#343435)]`) — these
    are not valid Tailwind utilities and produce CSS the parser cannot read,
    crashing the dev server with `Unexpected token Delim('/')`. Exclude the
-   audit folder from the content scan. */
+   audit folder from the content scan. The docs/ folder (design specs in
+   Markdown) quotes class strings the same way, e.g.
+   `pb-[max(24px,env(...))]`, which emits `env(...)` and fails the parse:
+   excluded too. */
 @source not "../../audit/**";
+@source not "../../docs/**";
 
 /* === Desktop scaling ===
    Two page families, two Figma canvases, each fitted to the window WIDTH
@@ -1616,3 +1620,22 @@ label {
 /* Cart drawer + stock modal on short desktop viewports: the masters fill
    a 1117-px screen, so the panels are zoomed to fit the window height
    (see src/components/cart/useFitZoom.ts) rather than re-spaced here. */
+
+/* === Shop / cabinet phones (mobile pass, system spec A26 / A13) ===
+   Scoped to the shop canvases ([data-canvas="shop"], set by the shop and
+   cabinet route layouts) below 640, so the landing pages and every desktop
+   render stay untouched. */
+@media (max-width: 639.98px) {
+  /* Anchors: the global 96-px scroll-margin-top doubled html's 96-px
+     scroll-padding-top (targets landed 192 below the top under the 66-px
+     bar); keep only the padding. */
+  :root:has([data-canvas="shop"]) :where(h1, h2, h3, h4, [id]) {
+    scroll-margin-top: 0;
+  }
+  /* Focus not obscured (WCAG 2.4.11): a pinned StickyBar publishes its
+     height as --phone-bottom-bar (ui/StickyBar.tsx), so focus scrolling and
+     scrollIntoView keep the focused control above the bar. */
+  :root:has([data-canvas="shop"]) {
+    scroll-padding-bottom: var(--phone-bottom-bar, 0px);
+  }
+}

@@ -2,17 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CatalogMenu } from "./CatalogMenu";
 import { Logo } from "./Logo";
+import {
+  Burger,
+  isShopOrCabinetRoute,
+  PhoneMenuCtaDock,
+  PhoneMenuDivider,
+  PhoneMenuGroup,
+  PhoneMenuLabel,
+  PhoneMenuRow,
+  PhoneMenuSheet,
+} from "./PhoneMenu";
 import { Button } from "./ui/Button";
 import { useCart } from "./cart/CartProvider";
 import { useAuth } from "./auth/AuthProvider";
 import { useFitZoom } from "./cart/useFitZoom";
 
-// Phone menu stack height in the master (3117:13841): py-60 x 2 + label
-// group + links + button = 706 px under the 66-px bar of an 844 screen.
-// Shorter phones get the stack zoomed to fit instead of a scrolling menu.
+// Landing routes only: the phone menu stack height in the master
+// (3117:13841): py-60 x 2 + label group + links + button = 706 px under
+// the 66-px bar of an 844 screen. Shorter phones get the stack zoomed to
+// fit. Shop / cabinet routes use the natural-scroll menu with the docked
+// CTA instead (PhoneMenu.tsx).
 const MOBILE_MENU_DESIGN_H = 706;
 const MOBILE_HEADER_H = 66;
 
@@ -46,8 +58,13 @@ const MOBILE_LINKS: NavLink[] = [
   { href: "/spivpratsya", label: "Співпраця" },
   { href: "/blog", label: "Блог" },
   { href: "/materials", label: "Матеріали" },
-  { href: "/#contacts", label: "Контакти" },
+  CONTACTS_LINK,
 ];
+
+// On shop / cabinet routes the menu "Контакти" row scrolls to the page's
+// own footer (every public page renders footer#contacts) instead of
+// leaving the shop for "/"; the landing routes keep "/#contacts".
+const SHOP_CONTACTS_HREF = "#contacts";
 
 // A top-level route link is "active" when the current path is inside it.
 // Anchor links (/#...) never highlight — only real routes like /blog or
@@ -129,61 +146,8 @@ export function CartTrigger({ count, onOpen }: { count: number; onOpen: () => vo
   );
 }
 
-// heroicons-outline/arrow-up-right — the trailing glyph on every mobile
-// menu row (Figma 3117:14194 etc.). Inherits the row's text colour via
-// currentColor so it tracks the hover -> brand transition.
-function ArrowUpRight({ className }: { className?: string }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className={className}
-    >
-      <path
-        d="M4.5 19.5 19.5 4.5m0 0H8.25m11.25 0v11.25"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// Burger → X morph: three absolutely positioned bars that animate via
-// `transform` + `opacity` (both GPU-composed) instead of swapping
-// between two SVG path strings. Closed state shows the three bars;
-// open state slides the top bar down + rotates 45°, fades the middle,
-// and slides the bottom bar up + rotates −45°, meeting at the centre
-// to form an X. The eased curve keeps the morph fluid on either
-// direction (open ↔ close) so it never feels like an abrupt swap.
-// Bar geometry mirrors the Figma "menu" icon (3084:3674): three 17.85-px
-// lines (x 3.07 → 20.93) of 1.5-px stroke with round caps, centred on
-// y = 7.79 / 12 / 16.21 inside the 24-px box.
-function Burger({ open }: { open: boolean }) {
-  return (
-    <span aria-hidden className="relative block size-6">
-      <span
-        className={`absolute inset-x-[2.3px] top-[7.04px] block h-[1.5px] rounded-full bg-current transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          open ? "translate-y-[4.21px] rotate-45" : ""
-        }`}
-      />
-      <span
-        className={`absolute inset-x-[2.3px] top-[11.25px] block h-[1.5px] rounded-full bg-current transition-opacity duration-200 ${
-          open ? "opacity-0" : "opacity-100"
-        }`}
-      />
-      <span
-        className={`absolute inset-x-[2.3px] top-[15.46px] block h-[1.5px] rounded-full bg-current transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          open ? "-translate-y-[4.21px] -rotate-45" : ""
-        }`}
-      />
-    </span>
-  );
-}
+// The burger glyph and the menu rows' arrow-up-right live in PhoneMenu.tsx
+// (shared with the cabinet menu).
 
 // Publishes the header's fixed height as `--site-header-h` on <html> so
 // any sticky element below (e.g. the Cases card stack) can pin EXACTLY at
@@ -213,30 +177,52 @@ export function usePublishHeaderHeight() {
 export function Header() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Stable: PhoneMenuSheet and the rows call it; the logo wrapper too.
+  const closeMenu = useCallback(() => setMobileOpen(false), []);
   const menuFit = useFitZoom(MOBILE_MENU_DESIGN_H, MOBILE_HEADER_H, "(max-width: 639px)");
-  const { count: cartCount, openCart } = useCart();
-  const { user, openAuth } = useAuth();
+  const { count: cartCount, open: cartOpen, openCart } = useCart();
+  const { user, open: authOpen, welcomeOpen, openAuth } = useAuth();
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement | null>(null);
+  // Focus target when the phone menu closes, and the auth sheet's opener
+  // when the menu's account row opens it.
+  const burgerRef = useRef<HTMLButtonElement | null>(null);
+  // Shop / cabinet routes get the natural-scroll phone menu (docked CTA,
+  // active rows, in-page "Контакти"); landing routes keep the frozen one.
+  const shop = isShopOrCabinetRoute(pathname);
 
-  // Safety net: a client-side navigation (logo, keyboard nav link, any
-  // route change) always dismisses the mega-menu even when no close
-  // handler fired. Render-phase adjustment (the React-endorsed
-  // "derive state from a changed prop" pattern) instead of an effect,
-  // so the closed state paints in the same commit as the new page.
+  // Safety net: a client-side navigation (logo, a menu row, Back, any
+  // route change) always dismisses the mega-menu and the phone menu even
+  // when no close handler fired. Render-phase adjustment (the
+  // React-endorsed "derive state from a changed prop" pattern) instead of
+  // an effect, so the closed state paints in the same commit as the new
+  // page.
   const [menuPathname, setMenuPathname] = useState(pathname);
   if (menuPathname !== pathname) {
     setMenuPathname(pathname);
     setCatalogOpen(false);
+    setMobileOpen(false);
   }
-  // True when the mobile menu is being closed BECAUSE the user clicked
-  // a navigation link (vs. dismissing the menu with Escape / outside-
-  // click / close button). When true, the body-lock cleanup below skips
-  // its `window.scrollTo(0, scrollY)` step — restoring the previous
-  // scroll on the OLD page would leak that position onto the NEW page
-  // before Next.js's own scroll-to-top kicks in, leaving mobile users
-  // dropped halfway down the new page. Reset to false after each cycle.
-  const navigatingRef = useRef(false);
+  // An overlay opening while the phone menu is open (the cart from a
+  // toast action, the auth sheet, the welcome modal) closes the menu in
+  // the same commit, so the overlay never opens under the z-45 sheet and
+  // never takes the open menu's `inert` as its own.
+  if (mobileOpen && (cartOpen || authOpen || welcomeOpen)) {
+    setMobileOpen(false);
+  }
+
+  // The phone bar's cart disc closes the menu before the cart opens.
+  const openCartFromBar = () => {
+    setMobileOpen(false);
+    openCart();
+  };
+  // The menu's account row: focus the burger first (the auth sheet's
+  // opener, so closing the sheet refocuses it), close, then open.
+  const openAuthFromMenu = () => {
+    burgerRef.current?.focus({ preventScroll: true });
+    setMobileOpen(false);
+    openAuth();
+  };
 
   // Close the «Каталог» mega-menu on outside pointerdown OR Escape.
   // The outside test is against the whole <header> because the sheet
@@ -264,56 +250,9 @@ export function Header() {
 
   usePublishHeaderHeight();
 
-  // Close mobile nav on Escape; lock body scroll while open. We also
-  // pin the body to its current scroll offset (position:fixed + top:
-  // -scrollY) so iOS Safari doesn't rubber-band when the user drags
-  // inside the overlay — that bug was the reason previous attempts at
-  // "overflow:hidden" felt unresponsive on touch. Scroll position is
-  // restored when the menu closes.
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    const scrollY = window.scrollY;
-    const prevPosition = document.body.style.position;
-    const prevTop = document.body.style.top;
-    const prevWidth = document.body.style.width;
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.position = prevPosition;
-      document.body.style.top = prevTop;
-      document.body.style.width = prevWidth;
-      // Only restore the pre-lock scroll position if the menu was
-      // dismissed without navigation. When the user followed a nav
-      // link, restoring the old scroll leaks it onto the new page
-      // (`y=620` from `/spivpratsya` would land mid-page on `/hotels`)
-      // — let Next.js's own scroll-to-top handle the new page instead.
-      if (navigatingRef.current) {
-        navigatingRef.current = false;
-      } else {
-        window.scrollTo(0, scrollY);
-      }
-    };
-  }, [mobileOpen]);
-
-  // Auto-close the mobile menu when the viewport crosses the lg
-  // breakpoint — otherwise rotating a phone to landscape or resizing
-  // a desktop window past 1024 px leaves the menu "open" in state but
-  // hidden by `lg:hidden`, and a return to mobile width would reveal
-  // it unexpectedly.
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 640px)");
-    const onChange = (e: MediaQueryListEvent) => {
-      if (e.matches) setMobileOpen(false);
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  // The phone menu's page lock (html overflow, no body pinning), inert
+  // page, Escape, focus return and the close on crossing into the desktop
+  // canvas live in PhoneMenuSheet.
 
   return (
     // <> fragment so the mobile menu can sit OUTSIDE the <header>
@@ -341,7 +280,12 @@ export function Header() {
           frames (logo x=80, nav right edge at vw-80), i.e. the bar is fluid
           with no max-width cap. */}
       <div className="flex h-[66px] w-full items-center justify-between px-6 sm:px-10 lg:h-auto lg:px-20 lg:py-[22px]">
-        <Logo />
+        {/* A logo tap also closes the phone menu (on "/" it only scrolls
+            to the top, so no route change would close it). display:
+            contents keeps the logo the bar's flex item. */}
+        <span className="contents" onClickCapture={closeMenu}>
+          <Logo />
+        </span>
 
         <nav
           aria-label="Головна навігація"
@@ -458,8 +402,9 @@ export function Header() {
             master 3082:3661 predates the shop; the same 42-px orange disc
             keeps the cart reachable on phones). */}
         <div className="flex items-center gap-2 lg:hidden">
-          <CartTrigger count={cartCount} onOpen={openCart} />
+          <CartTrigger count={cartCount} onOpen={openCartFromBar} />
           <button
+            ref={burgerRef}
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
             aria-expanded={mobileOpen}
@@ -482,162 +427,85 @@ export function Header() {
       />
     </header>
 
-      {/* === Mobile overlay menu ===
-          Sits BELOW the sticky header (top anchored to `--site-header-h`
-          — published by the scroll-state effect above) and stretches to
-          the viewport bottom. Lives OUTSIDE the <header> element on
-          purpose: the header uses `backdrop-blur-md`, and any element
-          with backdrop-filter becomes a containing block for
-          `position: fixed` descendants, which would clamp this overlay
-          to the header's 84-px box.
-
-          Animates via `transform` + `opacity` only (both GPU-composed),
-          so the open/close transition stays at 60 fps on phones — the
-          previous `max-height` animation was CPU-bound layout work and
-          stuttered on iOS Safari. The `backdrop-blur-2xl` gives the
-          overlay a frosted-glass feel against the page behind. */}
-      <div
+      {/* === Phone menu (Figma 3117:13578 / 3117:13841) ===
+          Sits BELOW the sticky header (top anchored to `--site-header-h`)
+          and stretches to the viewport bottom. Lives OUTSIDE the <header>
+          element on purpose: a filter / transform on the header would
+          become the containing block of `position: fixed` descendants and
+          clamp the overlay to the bar. px-24 py-60, gap-48 between the
+          label group / divider / link group / divider / full-width button;
+          Manrope Medium 14/20 rows (#4a4a4c) with a trailing arrow. On
+          landing routes the stack keeps its fit zoom; on shop / cabinet
+          routes it scrolls with the CTA docked at the bottom. */}
+      <PhoneMenuSheet
         id="mobile-nav"
-        aria-hidden={!mobileOpen}
-        inert={!mobileOpen}
-        style={{
-          top: "var(--site-header-h, 92px)",
-        }}
-        className={`fixed inset-x-0 bottom-0 z-[45] overflow-y-auto overscroll-contain bg-white transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
-          mobileOpen
-            ? "pointer-events-auto translate-y-0 opacity-100"
-            : "pointer-events-none -translate-y-3 opacity-0"
-        }`}
+        open={mobileOpen}
+        onClose={closeMenu}
+        label="Мобільна навігація"
+        returnFocus={burgerRef}
+        landingZoom={shop ? undefined : menuFit}
       >
-        {/* Figma 3117:13841 — px-24 py-60, gap-48 between the label
-            group / divider / link group / divider / full-width button.
-            The rendered master TOP-ALIGNS the stack right under the
-            header (label at 60px below the bar), leaving free space at
-            the bottom on tall screens. Each row is a Manrope Medium
-            14/20 link (#4a4a4c) with a trailing arrow-up-right glyph. */}
-        <nav
-          aria-label="Мобільна навігація"
-          className="mx-auto flex min-h-full w-full max-w-[480px] flex-col gap-12 px-6 py-[60px] sm:px-10"
-          style={menuFit < 1 ? { zoom: menuFit } : undefined}
-        >
-          <div className="flex flex-col gap-8">
-            <p
-              style={{ transitionDelay: mobileOpen ? "80ms" : "0ms" }}
-              className={`text-body-sm font-medium text-neutral-500 transition-[opacity,transform] duration-300 ${
-                mobileOpen ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-              }`}
+        <PhoneMenuGroup>
+          <PhoneMenuLabel open={mobileOpen} delay={80}>
+            Напрями
+          </PhoneMenuLabel>
+          {MOBILE_DIRECTIONS.map((s, i) => (
+            <PhoneMenuRow
+              key={s.href}
+              href={s.href}
+              open={mobileOpen}
+              delay={120 + i * 50}
+              active={shop && isActiveRoute(s.href, pathname)}
+              stayOnCurrent={shop}
+              onClick={closeMenu}
             >
-              Напрями
-            </p>
-            {MOBILE_DIRECTIONS.map((s, i) => (
-              <Link
-                key={s.href}
-                href={s.href}
-                onClick={() => {
-                  navigatingRef.current = true;
-                  setMobileOpen(false);
-                }}
-                style={{
-                  transitionDelay: mobileOpen ? `${120 + i * 50}ms` : "0ms",
-                }}
-                className={`group/link flex cursor-pointer items-center justify-between gap-4 text-body-sm font-medium text-neutral-700 transition-[color,opacity,transform] duration-300 hover:text-brand active:opacity-70 ${
-                  mobileOpen
-                    ? "translate-y-0 opacity-100"
-                    : "translate-y-3 opacity-0"
-                }`}
-              >
-                <span>{s.label}</span>
-                <ArrowUpRight className="size-4 shrink-0" />
-              </Link>
-            ))}
-          </div>
+              {s.label}
+            </PhoneMenuRow>
+          ))}
+        </PhoneMenuGroup>
 
-          <div
-            style={{ transitionDelay: mobileOpen ? "280ms" : "0ms" }}
-            className={`h-px w-full -mb-px bg-stroke-subtle transition-opacity duration-300 ${
-              mobileOpen ? "opacity-100" : "opacity-0"
-            }`}
-          />
+        <PhoneMenuDivider open={mobileOpen} delay={280} />
 
-          <div className="flex flex-col gap-8">
-            {MOBILE_LINKS.map((link, i) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => {
-                  navigatingRef.current = true;
-                  setMobileOpen(false);
-                }}
-                style={{
-                  transitionDelay: mobileOpen ? `${320 + i * 50}ms` : "0ms",
-                }}
-                className={`group/link flex cursor-pointer items-center justify-between gap-4 text-body-sm font-medium text-neutral-700 transition-[color,opacity,transform] duration-300 hover:text-brand active:opacity-70 ${
-                  mobileOpen
-                    ? "translate-y-0 opacity-100"
-                    : "translate-y-3 opacity-0"
-                }`}
-              >
-                <span>{link.label}</span>
-                <ArrowUpRight className="size-4 shrink-0" />
-              </Link>
-            ))}
-            {/* The account entry (the mobile menu master 3117:13841
-                predates the account area; the row keeps the link
-                styling). Closes the menu, then opens the drawer. */}
-            <button
-              type="button"
-              onClick={() => {
-                setMobileOpen(false);
-                openAuth();
-              }}
-              style={{
-                transitionDelay: mobileOpen ? `${320 + MOBILE_LINKS.length * 50}ms` : "0ms",
-              }}
-              className={`group/link flex w-full cursor-pointer items-center justify-between gap-4 text-body-sm font-medium text-neutral-700 transition-[color,opacity,transform] duration-300 hover:text-brand active:opacity-70 ${
-                mobileOpen
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-3 opacity-0"
-              }`}
+        <PhoneMenuGroup>
+          {MOBILE_LINKS.map((link, i) => (
+            <PhoneMenuRow
+              key={link.href}
+              href={shop && link === CONTACTS_LINK ? SHOP_CONTACTS_HREF : link.href}
+              open={mobileOpen}
+              delay={320 + i * 50}
+              active={shop && isActiveRoute(link.href, pathname)}
+              stayOnCurrent={shop}
+              onClick={closeMenu}
             >
-              <span>{user ? "Особистий кабінет" : "Увійти"}</span>
-              <ArrowUpRight className="size-4 shrink-0" />
-            </button>
-          </div>
-
-          <div
-            style={{ transitionDelay: mobileOpen ? "520ms" : "0ms" }}
-            className={`h-px w-full -mb-px bg-stroke-subtle transition-opacity duration-300 ${
-              mobileOpen ? "opacity-100" : "opacity-0"
-            }`}
-          />
-
-          <div
-            style={{
-              transitionProperty: "opacity, transform",
-              transitionDuration: "300ms",
-              transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-              transitionDelay: mobileOpen ? "560ms" : "0ms",
-            }}
-            className={`${
-              mobileOpen
-                ? "translate-y-0 opacity-100"
-                : "translate-y-3 opacity-0"
-            }`}
+              {link.label}
+            </PhoneMenuRow>
+          ))}
+          {/* The account entry (the mobile menu master 3117:13841
+              predates the account area; the row keeps the link
+              styling). Closes the menu, then opens the sheet. */}
+          <PhoneMenuRow
+            open={mobileOpen}
+            delay={320 + MOBILE_LINKS.length * 50}
+            ariaHaspopup="dialog"
+            onClick={openAuthFromMenu}
           >
-            <Button
-              href="/#contact-form"
-              size="small"
-              onClick={() => {
-                navigatingRef.current = true;
-                setMobileOpen(false);
-              }}
-              className="w-full [&>span]:flex-1"
-            >
-              Отримати пропозицію
-            </Button>
-          </div>
-        </nav>
-      </div>
+            {user ? "Особистий кабінет" : "Увійти"}
+          </PhoneMenuRow>
+        </PhoneMenuGroup>
+
+        <PhoneMenuDivider open={mobileOpen} delay={520} />
+
+        <PhoneMenuCtaDock open={mobileOpen} delay={560} sticky={shop}>
+          <Button
+            href="/#contact-form"
+            size="small"
+            onClick={closeMenu}
+            className="w-full [&>span]:flex-1"
+          >
+            Отримати пропозицію
+          </Button>
+        </PhoneMenuCtaDock>
+      </PhoneMenuSheet>
     </>
   );
 }

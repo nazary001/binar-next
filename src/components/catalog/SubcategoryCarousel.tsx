@@ -74,7 +74,12 @@ export function SubcategoryCarousel({
         ref={trackRef}
         onScroll={updateArrows}
         aria-label={`Підкатегорії: ${direction.title}`}
-        className={`flex snap-x snap-mandatory gap-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] lg:gap-8 [&::-webkit-scrollbar]:hidden ${
+        // Phones (TR-29): the track bleeds to the screen edges (-mx-6 px-6)
+        // and snaps tile starts to the 24-px gutter, 16 apart, so the next
+        // tile always peeks (70 px at 390, 32 at 320); overscroll-x
+        // contain keeps a swipe at the start from turning into a browser
+        // back gesture. Desktop keeps its clipped 32-px-gap row.
+        className={`flex snap-x snap-mandatory gap-4 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] max-lg:-mx-6 max-lg:scroll-px-6 max-lg:overscroll-x-contain max-lg:px-6 lg:gap-8 [&::-webkit-scrollbar]:hidden ${
           inline ? "min-w-0 flex-1" : ""
         }`}
       >
@@ -86,7 +91,8 @@ export function SubcategoryCarousel({
             image={card.image}
             crop={card.crop}
             bg={card.bg}
-            className="h-[220px] w-[320px] shrink-0 snap-start lg:h-[260px] lg:w-[393px]"
+            phonePad="compact"
+            className="h-[206px] w-[min(280px,calc(100vw-72px))] shrink-0 snap-start lg:h-[260px] lg:w-[393px]"
           />
         ))}
       </div>

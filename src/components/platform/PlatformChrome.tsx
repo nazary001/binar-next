@@ -47,7 +47,11 @@ export function isPlatformRoute(pathname: string): boolean {
 // effect after hydration - by then the auth store has switched to the
 // session and the platform shell is in the DOM. Visitors and B2C
 // customers never get the style; a 4-s timeout un-hides the page if the
-// app never hydrates.
+// app never hydrates. Phones (< 640) keep the server's header visible
+// during the gate: the public and the platform phone bars are the same
+// pixels (66 tall, logo, cart disc, burger; no badge before hydration),
+// so the bar does not blink. Any phone-only change to one of the two
+// bars must be mirrored in the other or this exception removed.
 // The <script> exists only in the server HTML: React warns when it has
 // to create a script element on the client (it never runs there), which
 // happened whenever a notFound() boundary re-rendered the root tree on
@@ -61,9 +65,12 @@ const GATE_SCRIPT = `(function(){try{if(!new RegExp(${JSON.stringify(
   PLATFORM_ROUTE.source,
 )}).test(location.pathname))return;var raw=localStorage.getItem(${JSON.stringify(
   AUTH_STORAGE_KEY,
-)});if(!raw)return;var s=JSON.parse(raw);if(!s||typeof s.sessionId!=="string"||!Array.isArray(s.accounts))return;var a=null;for(var i=0;i<s.accounts.length;i++){var x=s.accounts[i];if(x&&typeof x==="object"&&x.id===s.sessionId&&typeof x.phone==="string"&&typeof x.login==="string"&&typeof x.passwordHash==="string"&&x.company&&typeof x.company==="object"&&x.person&&typeof x.person==="object"){a=x;break;}}if(!a||a.type==="b2c")return;var st=document.createElement("style");st.id="${GATE_STYLE_ID}";st.textContent="#${GATE_ID}~*{visibility:hidden!important}";document.head.appendChild(st);setTimeout(function(){st.remove();},4000);}catch(e){}})();`;
+)});if(!raw)return;var s=JSON.parse(raw);if(!s||typeof s.sessionId!=="string"||!Array.isArray(s.accounts))return;var a=null;for(var i=0;i<s.accounts.length;i++){var x=s.accounts[i];if(x&&typeof x==="object"&&x.id===s.sessionId&&typeof x.phone==="string"&&typeof x.login==="string"&&typeof x.passwordHash==="string"&&x.company&&typeof x.company==="object"&&x.person&&typeof x.person==="object"){a=x;break;}}if(!a||a.type==="b2c")return;var st=document.createElement("style");st.id="${GATE_STYLE_ID}";st.textContent="#${GATE_ID}~:not(header){visibility:hidden!important}@media (min-width:640px){#${GATE_ID}~header{visibility:hidden!important}}";document.head.appendChild(st);setTimeout(function(){st.remove();},4000);}catch(e){}})();`;
 
 const noopSubscribe = () => () => {};
+
+const PUBLIC_MAIN = "flex flex-1 flex-col";
+const PLATFORM_PUBLIC_MAIN = "flex flex-1 flex-col max-lg:min-h-[calc(100dvh-var(--site-header-h,66px))]";
 
 function PlatformGate() {
   const fromServer = useSyncExternalStore(
@@ -110,8 +117,10 @@ export function PlatformChrome({
         {header}
         {/* The only <main> landmark on public routes: pages render a plain
             <div> root, so it exists in the server HTML for visitors and
-            B2C customers too. */}
-        <main className="flex flex-1 flex-col">{children}</main>
+            B2C customers too. On the platform routes (signed-out prompt)
+            phones reserve the first screen, so the footer does not jump
+            down when the client-only SignInPrompt mounts. */}
+        <main className={isPlatformRoute(pathname) ? PLATFORM_PUBLIC_MAIN : PUBLIC_MAIN}>{children}</main>
         {footer}
       </>
     );
@@ -121,7 +130,8 @@ export function PlatformChrome({
     <>
       <PlatformGate />
       <PlatformHeader />
-      <div className="flex flex-1 flex-col lg:flex-row lg:items-stretch">
+      {/* data-cabinet-behind: inert while the phone cabinet menu is open. */}
+      <div data-cabinet-behind className="flex flex-1 flex-col lg:flex-row lg:items-stretch">
         <SideMenu />
         <main className="flex min-w-0 flex-1 flex-col">{children}</main>
       </div>

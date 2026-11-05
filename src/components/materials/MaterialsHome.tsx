@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import {
-  categoryCards,
-  toggleValue,
-  type Direction,
-  type MaterialsFilters,
-} from "./data";
+import { AppliedChips } from "@/components/ui/AppliedChips";
+import { categoriesCount, categoryCards } from "./data";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer } from "./FiltersDrawer";
 import { FolderCard } from "./FolderCard";
 import { MaterialsHero } from "./Hero";
 import { PartnerMaterialsHome } from "./PartnerMaterials";
+import { MaterialsEmpty } from "./phoneParts";
+import { useMaterialsState } from "./useMaterialsUrlState";
+
+const COPY = {
+  title: "Матеріали",
+  tagline:
+    "Усі необхідні матеріали в одному місці: переглядайте каталоги, технічні карти та інші файли.",
+  section: "Категорії матеріалів",
+  empty: "За вашим запитом нічого не знайдено.",
+  found: (n: number) => `Знайдено ${categoriesCount(n)}`,
+} as const;
 
 // The /materials page: a signed-in partner (B2B account) gets the
 // cabinet skin of Figma «Матеріали B2B» (PartnerMaterials.tsx), every
@@ -30,40 +37,34 @@ export function MaterialsHome() {
 // (4635:32986) offers the directions only; a direction narrows every
 // count to the files tagged with it, the search matches category and
 // file names.
+// Phones (template T1): one column of row cards 24 apart, 24 under the
+// search row (or the applied chips), 60 above the footer.
 function PublicMaterialsHome() {
-  const [query, setQuery] = useState("");
-  const [directions, setDirections] = useState<Direction[]>([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-
-  const filters: MaterialsFilters = useMemo(() => ({ directions, types: [] }), [directions]);
-
-  const cards = useMemo(() => categoryCards(filters, query), [filters, query]);
-
-  const toggle = (_key: string, value: string) => {
-    setDirections((list) => toggleValue(list, value as Direction));
-  };
+  const s = useMaterialsState();
+  const cards = useMemo(() => categoryCards(s.filters, s.query), [s.filters, s.query]);
 
   return (
     <div className="px-6 pb-[60px] sm:px-10 lg-shop-pad-x lg:pb-20">
       <MaterialsHero
-        crumbs={[{ label: "Матеріали" }]}
-        title="Матеріали"
-        tagline="Усі необхідні матеріали в одному місці: переглядайте каталоги, технічні карти та інші файли."
-        query={query}
-        onQuery={setQuery}
-        onOpenFilters={() => setDrawerOpen(true)}
-        filtersOpen={drawerOpen}
-        filtersCount={directions.length}
+        crumbs={[{ label: COPY.title }]}
+        title={COPY.title}
+        tagline={COPY.tagline}
+        query={s.query}
+        onQuery={s.setQuery}
+        onOpenFilters={s.openDrawer}
+        filtersOpen={s.drawerOpen}
+        filtersCount={s.filtersCount}
+        below={<AppliedChips chips={s.chips} onReset={s.resetFilters} className="mt-4 lg:hidden" />}
       />
 
-      <section aria-label="Категорії матеріалів" className="mt-10 lg:mt-16">
+      <section aria-label={COPY.section} className="mt-6 lg:mt-16">
         {cards.length === 0 ? (
-          <p className="text-body-md text-neutral-500">
-            За вашим запитом нічого не знайдено.
-          </p>
+          <>
+            <p className="text-body-md text-neutral-500 max-lg:hidden">{COPY.empty}</p>
+            <MaterialsEmpty onReset={s.resetAll} />
+          </>
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          <ul role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 max-lg:gap-6">
             {cards.map(({ category, count }) => (
               <li key={category.slug}>
                 <FolderCard category={category} count={count} />
@@ -74,11 +75,14 @@ function PublicMaterialsHome() {
       </section>
 
       <MaterialsFiltersDrawer
-        open={drawerOpen}
-        onClose={closeDrawer}
+        open={s.drawerOpen}
+        onClose={s.closeDrawer}
         groups={[DIRECTIONS_GROUP]}
-        active={{ directions }}
-        onToggle={toggle}
+        active={{ directions: s.directions }}
+        onToggle={s.toggle}
+        resultLabel={COPY.found(cards.length)}
+        activeCount={s.filtersCount}
+        onReset={s.resetFilters}
       />
     </div>
   );

@@ -8,11 +8,9 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { isDemoAccount } from "@/components/auth/demo";
 import { ChevronSideIcon } from "@/components/catalog/icons";
 import {
-  AttentionSmallIcon,
   CabinetPage,
   CabinetPageHead,
   OrderStatusBadge,
-  PaymentBadge,
   ReturnStatusBadge,
   Select,
   SignInPrompt,
@@ -27,8 +25,6 @@ import {
   PERIODS,
   RETURN_STATUS_KEYS,
   RETURN_STATUS_META,
-  daysPlural,
-  formatAmount,
   formatDate,
   formatRange,
   formatSum,
@@ -37,13 +33,15 @@ import {
   returnTotal,
   type Order,
   type OrderStatus,
-  type PeriodValue,
   type ReturnRequest,
   type ReturnStatus,
 } from "./data";
 import { DocumentsModal } from "./DocumentsModal";
 import { CELL, DIVIDER, Head, Pager, ROW_ICON_BUTTON, SearchField, type Sort } from "./listParts";
-import { paymentKind } from "./payment";
+import { OrderRecordRow, PhoneList, PhoneToolbar } from "./listPhone";
+import { inPeriod, sortRows, useListState, type Filters } from "./listState";
+import { PaymentCell } from "./PaymentCell";
+import { ReturnRecordRow, type ReturnRow } from "./ReturnRows";
 import { useOrders, useReturns } from "./store";
 
 // «Мої замовлення» - Figma 4573:37244 (1710 x 1804) and «Мої повернення»
@@ -80,6 +78,13 @@ const TABS: readonly (readonly [Tab, string])[] = [
   ["returns", "Повернення"],
 ];
 const TAB_ID = "orders-tab";
+// Tab chips: the A10 CHIP_TAB phone strings (ui/ChipTabs.tsx) with their
+// focus ring scoped to phones, and the lg: restores of the desktop pill
+// item (px-16 py-12, 16/22 Medium, no ring, no hit pseudo).
+const TAB =
+  "relative cursor-pointer whitespace-nowrap rounded-[60px] border px-[15px] py-[7px] text-[14px] font-medium leading-5 transition-colors duration-200 motion-reduce:transition-none after:absolute after:-inset-x-px after:-inset-y-[5px] after:content-[''] max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 lg:static lg:border-0 lg:px-4 lg:py-3 lg:text-button-md lg:leading-[22px] lg:after:hidden";
+const TAB_ON = "border-transparent bg-brand text-white";
+const TAB_OFF = "border-stroke-default text-neutral-800 hover:text-brand max-lg:active:border-brand max-lg:active:text-brand";
 const PANEL_ID = "orders-tabpanel";
 
 // Figma puts a 0.5-px «Divider» above every body row (under the head
@@ -109,57 +114,29 @@ const RETURNS_TAIL = "lg:pb-[4px]";
 
 const SELECTS = "grid gap-4 sm:grid-cols-3 lg:flex lg:items-center";
 
-// «with caption» (4573:37308 / dashboard 5052:32197): the «Badge /
-// Payment Status» chip (175 «Очікується оплата», 182 «Частково
-// оплачено», 118 «Оплачено» in the list frame) over a 12/22 Medium py-2
-// «Chip» caption (PaymentBadge caption / captionTone): grey notes («до
-// 24.07.2026», «Оплачено вчасно», «1 500 із 3 900 ₴» - only the total
-// carries the sign, 5052:32112), the 16-px attention glyph in #f26164
-// for overdue sums and for «Оплачено із простроченням» (4573:37586). The
-// three-line variant (4573:37441) puts a bare 22-px ratio line between
-// the chip and the overdue remainder: 38 + 22 + 26 = 86 (row 134). A
-// cancelled order asks for nothing: no due date, no overdue alert.
-function PaymentCell({ order }: { order: Order }) {
-  const p = order.payment;
-  const kind = paymentKind(order);
-  const cancelled = order.status === "cancelled";
-  switch (p.kind) {
-    case "awaiting":
-      return <PaymentBadge kind={kind} caption={cancelled ? undefined : `до ${formatDate(order.paymentDue)}`} />;
-    case "overdue":
-      return cancelled ? (
-        <PaymentBadge kind={kind} />
-      ) : (
-        <PaymentBadge kind={kind} caption={`Прострочено на ${p.days} ${daysPlural(p.days)}`} captionTone="attention" />
-      );
-    case "paid":
-      return p.late ? (
-        <PaymentBadge kind={kind} caption="Оплачено із простроченням" captionTone="attention" />
-      ) : (
-        <PaymentBadge kind={kind} caption="Оплачено вчасно" />
-      );
-    case "partial": {
-      const ratio = `${formatAmount(p.paid)} із ${formatSum(order.total)}`;
-      if (p.overdue === undefined || cancelled) return <PaymentBadge kind={kind} caption={ratio} />;
-      return (
-        <div className="flex flex-col items-start">
-          <PaymentBadge kind={kind} />
-          <span className="whitespace-nowrap text-[12px] font-medium leading-[22px] text-neutral-500">{ratio}</span>
-          <span className="inline-flex items-center gap-1 whitespace-nowrap py-[2px] text-[12px] font-medium leading-[22px] text-[#f26164]">
-            <AttentionSmallIcon className="size-4 shrink-0" />
-            Залишок {formatSum(p.overdue)} прострочено
-          </span>
-        </div>
-      );
-    }
-  }
+// Phone layer (< 640, orders-list spec 2.3 - 2.9): listPhone.tsx (search
+// row, filter sheet, sort, RecordRow list, empty states, load-more) and
+// ReturnRows.tsx render `lg:hidden` next to the untouched desktop filter
+// row / table / pager, which get `max-lg:hidden`. PaymentCell (the desktop
+// payment cell) and the list state moved to PaymentCell.tsx / listState.ts.
+
+const ORDER_STATUS_OPTIONS = ORDER_STATUS_KEYS.map((k) => ({ value: k, label: ORDER_STATUS_META[k].label }));
+const RETURN_STATUS_OPTIONS = RETURN_STATUS_KEYS.map((k) => ({ value: k, label: RETURN_STATUS_META[k].label }));
+
+function matchOrder(o: Order, q: string, f: Filters<OrderStatus>): boolean {
+  if (!inPeriod(o.date, f.period)) return false;
+  if (f.counterparty !== "all" && o.counterparty !== f.counterparty) return false;
+  if (f.status !== "all" && o.status !== f.status) return false;
+  if (q && !`${o.number} ${o.counterparty}`.toLowerCase().includes(q)) return false;
+  return true;
 }
 
-function sortRows<T>(list: T[], sort: Sort, date: (t: T) => string, total: (t: T) => number): T[] {
-  return [...list].sort((a, b) => {
-    const v = sort.key === "date" ? date(a).localeCompare(date(b)) : total(a) - total(b);
-    return sort.dir === "asc" ? v : -v;
-  });
+function matchReturn({ ret, order }: ReturnRow, q: string, f: Filters<ReturnStatus>): boolean {
+  if (!inPeriod(ret.date, f.period)) return false;
+  if (f.counterparty !== "all" && order?.counterparty !== f.counterparty) return false;
+  if (f.status !== "all" && ret.status !== f.status) return false;
+  if (q && !`${order?.number ?? ""} ${order?.counterparty ?? ""}`.toLowerCase().includes(q)) return false;
+  return true;
 }
 
 function OrdersTable({
@@ -258,8 +235,6 @@ function OrdersTable({
   );
 }
 
-type ReturnRow = { ret: ReturnRequest; order: Order | undefined; total: number };
-
 function ReturnsTable({
   rows,
   sort,
@@ -356,64 +331,20 @@ function ReturnsTable({
   );
 }
 
-// Filters + table + pager of one tab. The state of each tab resets when
-// the tab changes (keyed by the parent).
-function useListState() {
-  const [query, setQuery] = useState("");
-  const [period, setPeriod] = useState<PeriodValue>("30");
-  const [counterparty, setCounterparty] = useState("all");
-  const [sort, setSort] = useState<Sort>({ key: "date", dir: "desc" });
-  const [pageSize, setPageSize] = useState(10);
-  const [page, setPage] = useState(1);
-  const reset = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
-    setPage(1);
-  };
-  return {
-    query,
-    setQuery: reset(setQuery),
-    period,
-    setPeriod: reset(setPeriod),
-    counterparty,
-    setCounterparty: reset(setCounterparty),
-    sort,
-    toggleSort: (key: Sort["key"]) => {
-      setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" }));
-      setPage(1);
-    },
-    pageSize,
-    setPageSize: reset(setPageSize),
-    page,
-    setPage,
-  };
-}
-
-// The range the filter label names, both ends: «24.04.2026 — 24.05.2026»
-// (or «до 24.05.2026» for «Увесь час»).
-function inPeriod(dateIso: string, period: PeriodValue): boolean {
-  const date = new Date(dateIso);
-  const start = periodStart(period, ORDERS_TODAY);
-  return date <= ORDERS_TODAY && (!start || date >= start);
-}
-
+// The state of each tab (listState.ts) resets when the tab changes (keyed
+// by the parent).
 const PERIOD_OPTIONS = PERIODS.map((p) => ({ value: p.value, label: p.label }));
 
 function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolean }) {
-  const s = useListState();
-  const [status, setStatus] = useState<"all" | OrderStatus>("all");
+  const s = useListState<OrderStatus>();
   const [docsOf, setDocsOf] = useState<Order | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = s.query.trim().toLowerCase();
-    const list = orders.filter((o) => {
-      if (!inPeriod(o.date, s.period)) return false;
-      if (s.counterparty !== "all" && o.counterparty !== s.counterparty) return false;
-      if (status !== "all" && o.status !== status) return false;
-      if (q && !`${o.number} ${o.counterparty}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    return sortRows(list, s.sort, (o) => o.date, (o) => o.total);
-  }, [orders, s.query, s.period, s.counterparty, status, s.sort]);
+  const q = s.query.trim().toLowerCase();
+  const filtered = useMemo(
+    () => sortRows(orders.filter((o) => matchOrder(o, q, s.filters)), s.sort, (o) => o.date, (o) => o.total),
+    [orders, q, s.filters, s.sort],
+  );
+  const countFor = (f: Filters<OrderStatus>) => orders.filter((o) => matchOrder(o, q, f)).length;
 
   const pages = Math.max(1, Math.ceil(filtered.length / s.pageSize));
   const current = Math.min(s.page, pages);
@@ -422,7 +353,7 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
 
   return (
     <>
-      <div className="flex flex-col gap-4 px-6 pb-6 lg:flex-row lg:items-center lg:justify-between lg:pb-8 lg:pl-10 lg:pr-8">
+      <div className="max-lg:hidden flex flex-col gap-4 px-6 pb-6 lg:flex-row lg:items-center lg:justify-between lg:pb-8 lg:pl-10 lg:pr-8">
         <SearchField value={s.query} onChange={s.setQuery} label="Пошук замовлень" />
         <div className={SELECTS}>
           <Select
@@ -445,21 +376,28 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
           <Select
             bg="white"
             label="Статус замовлення"
-            value={status}
+            value={s.status}
             options={[
               { value: "all" as const, label: "Усі статуси" },
               ...ORDER_STATUS_KEYS.map((k) => ({ value: k, label: ORDER_STATUS_META[k].label })),
             ]}
-            onChange={(v) => {
-              setStatus(v);
-              s.setPage(1);
-            }}
+            onChange={s.setStatus}
             className="lg:w-[234px]"
           />
         </div>
       </div>
 
-      <div className="px-6 lg:pl-10 lg:pr-8">
+      {hasHistory && (
+        <PhoneToolbar
+          tab="orders"
+          state={s}
+          statusOptions={ORDER_STATUS_OPTIONS}
+          countFor={countFor}
+          searchLabel="Пошук замовлень"
+        />
+      )}
+
+      <div className="max-lg:hidden px-6 lg:pl-10 lg:pr-8">
         <OrdersTable
           orders={paged}
           sort={s.sort}
@@ -469,8 +407,21 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
         />
       </div>
 
+      <PhoneList
+        tab="orders"
+        empty={!hasHistory ? "fresh" : filtered.length === 0 ? "noMatches" : "none"}
+        total={filtered.length}
+        shown={s.shown}
+        onMore={s.showMore}
+        onReset={s.resetAll}
+      >
+        {filtered.slice(0, s.shown).map((order) => (
+          <OrderRecordRow key={order.id} order={order} onDocuments={setDocsOf} />
+        ))}
+      </PhoneList>
+
       {hasHistory && (
-        <div className={ORDERS_TAIL}>
+        <div className={`max-lg:hidden ${ORDERS_TAIL}`}>
           <Pager
             total={filtered.length}
             page={current}
@@ -494,8 +445,7 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
 }
 
 function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns: ReturnRequest[]; hasHistory: boolean }) {
-  const s = useListState();
-  const [status, setStatus] = useState<"all" | ReturnStatus>("all");
+  const s = useListState<ReturnStatus>();
   const [docsOf, setDocsOf] = useState<ReturnRow | null>(null);
 
   const rows = useMemo<ReturnRow[]>(
@@ -507,17 +457,12 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
     [orders, returns],
   );
 
-  const filtered = useMemo(() => {
-    const q = s.query.trim().toLowerCase();
-    const list = rows.filter(({ ret, order }) => {
-      if (!inPeriod(ret.date, s.period)) return false;
-      if (s.counterparty !== "all" && order?.counterparty !== s.counterparty) return false;
-      if (status !== "all" && ret.status !== status) return false;
-      if (q && !`${order?.number ?? ""} ${order?.counterparty ?? ""}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    return sortRows(list, s.sort, (r) => r.ret.date, (r) => r.total);
-  }, [rows, s.query, s.period, s.counterparty, status, s.sort]);
+  const q = s.query.trim().toLowerCase();
+  const filtered = useMemo(
+    () => sortRows(rows.filter((r) => matchReturn(r, q, s.filters)), s.sort, (r) => r.ret.date, (r) => r.total),
+    [rows, q, s.filters, s.sort],
+  );
+  const countFor = (f: Filters<ReturnStatus>) => rows.filter((r) => matchReturn(r, q, f)).length;
 
   const pages = Math.max(1, Math.ceil(filtered.length / s.pageSize));
   const current = Math.min(s.page, pages);
@@ -526,7 +471,7 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
 
   return (
     <>
-      <div className="flex flex-col gap-4 px-6 pb-6 lg:flex-row lg:items-center lg:justify-between lg:pb-8 lg:pl-10 lg:pr-8">
+      <div className="max-lg:hidden flex flex-col gap-4 px-6 pb-6 lg:flex-row lg:items-center lg:justify-between lg:pb-8 lg:pl-10 lg:pr-8">
         <SearchField value={s.query} onChange={s.setQuery} label="Пошук повернень" />
         <div className={SELECTS}>
           <Select
@@ -549,21 +494,28 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
           <Select
             bg="white"
             label="Статус повернення"
-            value={status}
+            value={s.status}
             options={[
               { value: "all" as const, label: "Усі статуси" },
               ...RETURN_STATUS_KEYS.map((k) => ({ value: k, label: RETURN_STATUS_META[k].label })),
             ]}
-            onChange={(v) => {
-              setStatus(v);
-              s.setPage(1);
-            }}
+            onChange={s.setStatus}
             className="lg:w-[234px]"
           />
         </div>
       </div>
 
-      <div className="px-6 lg:pl-10 lg:pr-8">
+      {hasHistory && (
+        <PhoneToolbar
+          tab="returns"
+          state={s}
+          statusOptions={RETURN_STATUS_OPTIONS}
+          countFor={countFor}
+          searchLabel="Пошук повернень"
+        />
+      )}
+
+      <div className="max-lg:hidden px-6 lg:pl-10 lg:pr-8">
         <ReturnsTable
           rows={paged}
           sort={s.sort}
@@ -573,8 +525,21 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
         />
       </div>
 
+      <PhoneList
+        tab="returns"
+        empty={!hasHistory ? "fresh" : filtered.length === 0 ? "noMatches" : "none"}
+        total={filtered.length}
+        shown={s.shown}
+        onMore={s.showMore}
+        onReset={s.resetAll}
+      >
+        {filtered.slice(0, s.shown).map((row) => (
+          <ReturnRecordRow key={row.ret.id} row={row} onDocuments={setDocsOf} />
+        ))}
+      </PhoneList>
+
       {hasHistory && (
-        <div className={RETURNS_TAIL}>
+        <div className={`max-lg:hidden ${RETURNS_TAIL}`}>
           <Pager
             total={filtered.length}
             page={current}
@@ -643,18 +608,25 @@ export function OrdersView({ tab }: { tab: Tab }) {
         title="Мої замовлення"
         subtitle="Переглядайте статуси та деталі ваших замовлень"
         actions={
-          tab === "orders" ? (
-            <Button href="/catalog" size="responsive" className="shrink-0">
-              Зробити замовлення
-            </Button>
-          ) : undefined
+          // Phones show the CTA on both tabs, so the chip row never moves
+          // under the finger (OL-09); the returns frame has none from 640
+          // (its empty actions wrapper is zero-width there).
+          <Button href="/catalog" size="responsive" className={tab === "orders" ? "shrink-0" : "shrink-0 lg:hidden"}>
+            Зробити замовлення
+          </Button>
         }
       />
 
       {/* Tabs (4573:37258): the #e8e8e9 r40 pill, 8-px gap, px-16 py-12
-          16/22 Medium items; the active one fills brand. */}
+          16/22 Medium items; the active one fills brand. Phones: the blog
+          chip row (TR-13, system spec A10): 36-px r60 chips, 14/20 Medium,
+          brand fill / 1-px #8e8e8f ring, 8 apart, wrapping, 44-px hit. */}
       <div className="px-6 pb-6 lg:px-10 lg:pb-[30px] lg:pt-[14px]">
-        <div role="tablist" aria-label="Розділи замовлень" className="inline-flex items-center gap-2 rounded-[40px] bg-[#e8e8e9]">
+        <div
+          role="tablist"
+          aria-label="Розділи замовлень"
+          className="flex flex-wrap items-center gap-2 rounded-[40px] lg:inline-flex lg:flex-nowrap lg:bg-[#e8e8e9]"
+        >
           {TABS.map(([key, label]) => (
             <button
               key={key}
@@ -666,9 +638,7 @@ export function OrdersView({ tab }: { tab: Tab }) {
               tabIndex={tab === key ? 0 : -1}
               onClick={() => switchTab(key)}
               onKeyDown={onTabKey}
-              className={`cursor-pointer whitespace-nowrap rounded-[60px] px-4 py-3 text-button-md transition-colors duration-200 ${
-                tab === key ? "bg-brand text-white" : "text-neutral-800 hover:text-brand"
-              }`}
+              className={`${TAB} ${tab === key ? TAB_ON : TAB_OFF}`}
             >
               {label}
             </button>

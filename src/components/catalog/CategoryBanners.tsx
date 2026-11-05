@@ -179,7 +179,10 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
   return (
     <div
       ref={rowRef}
-      className={`relative flex flex-col gap-6 lg:flex-row ${
+      // Phones: the master photo tiles TOUCH (ZonesGrid 3117:14393, tiles
+      // 342 x 206 at a 206 pitch): no gap, the 1-px rings of neighbours
+      // overlap into one seam (-mt-px from the second tile on).
+      className={`relative flex flex-col lg:flex-row ${
         gap === "b2b" ? "lg:gap-[26px]" : "lg:gap-8"
       }`}
     >
@@ -190,7 +193,7 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
           label={dir.title}
           image={BANNER_IMAGES[dir.href]}
           onMouseEnter={handleHover(dir)}
-          className="h-[220px] w-full lg:h-[260px] lg:flex-1"
+          className="h-[206px] w-full max-lg:[&+&]:-mt-px lg:h-[260px] lg:flex-1"
         />
       ))}
 

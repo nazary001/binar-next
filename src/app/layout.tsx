@@ -6,6 +6,7 @@ import { ScrollUpDock } from "@/components/ScrollUpDock";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { PlatformChrome } from "@/components/platform/PlatformChrome";
+import { ToastHost } from "@/components/ui/Toast";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -123,6 +124,9 @@ export default function RootLayout({
             >
               {children}
             </PlatformChrome>
+            {/* The one toast host (ui/Toast.tsx): renders nothing visible
+                until showToast() fires; phone-only toasts by default. */}
+            <ToastHost />
           </AuthProvider>
         </CartProvider>
       </body>

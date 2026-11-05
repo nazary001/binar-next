@@ -16,8 +16,12 @@ export type ConfirmModalProps = {
   onConfirm: () => void;
   title: ReactNode;
   body?: ReactNode;
-  cancelLabel?: string;
-  confirmLabel?: string;
+  // ReactNode so a caller can pass a phone / desktop label pair when the
+  // desktop label does not fit a 320 card (224 px of content, about 178 px
+  // of 16/22 Medium text): <span className="lg:hidden">short</span>
+  // <span className="max-lg:hidden">full</span>.
+  cancelLabel?: ReactNode;
+  confirmLabel?: ReactNode;
   // The cancel-order modal 4994:79346 uses the accent fill for its
   // destructive action; the confirmation master uses black.
   confirmVariant?: "solid" | "accent";

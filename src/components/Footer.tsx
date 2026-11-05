@@ -86,8 +86,12 @@ export function Footer() {
                 the 130-px scroll-up circle. items-end at lg pins the 46-px
                 social buttons to the bottom edge of the row so they sit on
                 the same baseline as the orange up-arrow. */}
-            <div className="flex flex-1 items-center justify-between gap-4 sm:gap-6 md:items-end">
-              <ul className="flex items-center gap-[19px] lg:px-4">
+            {/* Shop canvases below 340 px: 3 x 46 socials + 2 x 19 + 16 +
+                the 100 ring slot = 292 > 272, so the slot ran 20 px into
+                the gutter and the ring was clipped. There the gaps
+                tighten to 12 / 8 (270 <= 272); the landing keeps its row. */}
+            <div className="flex flex-1 items-center justify-between gap-4 sm:gap-6 md:items-end max-[339.98px]:[:root:has([data-canvas=shop])_&]:gap-2">
+              <ul className="flex items-center gap-[19px] lg:px-4 max-[339.98px]:[:root:has([data-canvas=shop])_&]:gap-3">
                 {SOCIALS.map((s) => (
                   <li key={s.label}>
                     <SocialButton

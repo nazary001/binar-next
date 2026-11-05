@@ -1,7 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useModalBehavior } from "@/components/cart/useModalBehavior";
+import { Button } from "@/components/ui/Button";
+import { OptionRow, Sheet, SheetDivider, SheetGroup } from "@/components/ui/Sheet";
+import { productsPlural } from "./data";
 import {
   CheckboxOffIcon,
   CheckboxOnIcon,
@@ -161,11 +164,13 @@ export function FiltersDrawer({
     inertSelector: "header",
   });
 
+  // Below 640 the phone sheet (FiltersSheet) takes over; this desktop
+  // drawer is never opened there and draws nothing (max-lg:hidden).
   return (
     <div
       aria-hidden={!open}
       inert={!open}
-      className={`fixed inset-0 z-40 ${open ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-40 max-lg:hidden ${open ? "" : "pointer-events-none"}`}
     >
       {/* Scrim — Figma overlay 3685:53423: #343435 at 50 % with a
           background blur. Click dismisses. */}
@@ -225,5 +230,167 @@ export function FiltersDrawer({
         ))}
       </aside>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- phone
+
+const SHEET_COPY = {
+  title: "Фільтри",
+  close: "Закрити фільтри",
+  more: "Показати більше",
+  reset: "Скинути",
+  show: "Показати",
+  found: (n: number) => `Знайдено ${n} ${productsPlural(n)}`,
+} as const;
+
+export type FilterState = Record<FilterParam, string[]>;
+
+const EMPTY: FilterState = { zone: [], type: [], brand: [] };
+
+function sameFilters(a: FilterState, b: FilterState) {
+  return (["zone", "type", "brand"] as const).every(
+    (k) => a[k].length === b[k].length && a[k].every((v) => b[k].includes(v)),
+  );
+}
+
+// One collapsible group of the phone sheet: the A5 SheetGroup (44-px head,
+// Title Large + 24 chevron, 24 to the options) with 44-px checkbox rows
+// (OptionRow) and the brand «Показати більше» text button (44 hit) after
+// the tenth option, as on desktop.
+function SheetSection({
+  section,
+  checked,
+  onToggle,
+}: {
+  section: FilterSection;
+  checked: string[];
+  onToggle: (value: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const options = showAll ? section.options : section.options.slice(0, VISIBLE_LIMIT);
+  const id = `catalog-filter-${section.param}`;
+  return (
+    <SheetGroup id={id} title={section.title} collapsible>
+      <ul role="list" aria-labelledby={`${id}-title`}>
+        {options.map((option) => (
+          <li key={option}>
+            <OptionRow type="checkbox" checked={checked.includes(option)} onSelect={() => onToggle(option)}>
+              {option}
+            </OptionRow>
+          </li>
+        ))}
+      </ul>
+      {!showAll && section.options.length > VISIBLE_LIMIT && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="flex min-h-11 cursor-pointer items-center gap-[2px] text-button-md text-brand focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          {SHEET_COPY.more}
+          <PlusIcon className="size-4 shrink-0" />
+        </button>
+      )}
+    </SheetGroup>
+  );
+}
+
+// The phone filters sheet (system spec A5 / T5a, catalog-b2c 2.15): the
+// full-screen Sheet over the header with the 66-px bar «Фільтри», the
+// groups split by 48 / 1-px #d2d2d2 / 48, and the footer = the result
+// status for the DRAFT + «Скинути» / «Показати». Taps edit a draft seeded
+// from the applied filters on every open; ANY close (Показати, the cross,
+// Escape, a route change) commits it once (onSettled), so the page list
+// does not re-render under the sheet on every tick. «Показати» also asks
+// the page to bring the toolbar back under the header (`onShow`).
+export function FiltersSheet({
+  open,
+  onClose,
+  sections,
+  active,
+  onApply,
+  countFor,
+  onShow,
+}: {
+  open: boolean;
+  onClose: () => void;
+  sections: FilterSection[];
+  active: FilterState;
+  onApply: (next: FilterState) => void;
+  countFor: (draft: FilterState) => number;
+  onShow?: () => void;
+}) {
+  const [draft, setDraft] = useState<FilterState>(active);
+  // Re-seed the draft when the sheet opens (render-phase adjustment).
+  const [seededOpen, setSeededOpen] = useState(open);
+  if (seededOpen !== open) {
+    setSeededOpen(open);
+    if (open) setDraft(active);
+  }
+  const showRequested = useRef(false);
+
+  const toggle = (param: FilterParam, value: string) =>
+    setDraft((d) => ({
+      ...d,
+      [param]: d[param].includes(value) ? d[param].filter((v) => v !== value) : [...d[param], value],
+    }));
+  const hasDraft = draft.zone.length + draft.type.length + draft.brand.length > 0;
+  const count = countFor(draft);
+
+  const settle = () => {
+    if (!sameFilters(draft, active)) onApply(draft);
+    if (showRequested.current) {
+      showRequested.current = false;
+      onShow?.();
+    }
+  };
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      onSettled={settle}
+      title={SHEET_COPY.title}
+      closeLabel={SHEET_COPY.close}
+      footer={
+        <>
+          <p role="status" aria-live="polite" className="text-body-sm text-neutral-500">
+            {SHEET_COPY.found(count)}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="small"
+              variant="outlinedDark"
+              fullWidth
+              disabled={!hasDraft}
+              onClick={() => setDraft(EMPTY)}
+            >
+              {SHEET_COPY.reset}
+            </Button>
+            <Button
+              size="small"
+              fullWidth
+              onClick={() => {
+                showRequested.current = true;
+                onClose();
+              }}
+            >
+              {SHEET_COPY.show}
+            </Button>
+          </div>
+        </>
+      }
+    >
+      {sections.map((section, i) => (
+        <Fragment key={`${section.param}-${section.title}`}>
+          {i > 0 && <SheetDivider />}
+          <SheetSection
+            section={section}
+            checked={draft[section.param]}
+            onToggle={(value) => toggle(section.param, value)}
+          />
+        </Fragment>
+      ))}
+    </Sheet>
   );
 }

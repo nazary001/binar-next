@@ -1,5 +1,5 @@
 // Cart domain helpers — Figma «Кошик» section (4329:39830).
-import { b2bPrices, type Product } from "@/components/catalog/data";
+import { b2bPrices, productsPlural, type Product } from "@/components/catalog/data";
 import { ALL_PRODUCTS, findProduct } from "@/components/product/data";
 
 // A cart line: product id + quantity. Prices come from the product
@@ -112,4 +112,17 @@ export function soldOutPhrase(n: number): string {
     return `${n} товари закінчилися`;
   }
   return `${n} товарів закінчилося`;
+}
+
+// "6 товарів" - the phone cart sheet's head-row count (units, the same
+// number as the header badge): 1 товар / 2-4 товари / 5+ товарів, 11-14
+// товарів.
+export function itemsPhrase(n: number): string {
+  return `${n} ${productsPlural(n)}`;
+}
+
+// The phone line meta: the card chips as one wrapping text line, "40 мл,
+// ALDA hotel cosmetics" (a nowrap chip does not fit a 320 row).
+export function lineMeta(product: Product): string {
+  return (product.chips ?? [product.volume, product.brand]).join(", ");
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckoutClient } from "@/components/checkout/CheckoutClient";
-import { BackCrumb, Slash } from "@/components/ui/Breadcrumb";
+import { BackCrumb, ShopCrumbs, Slash } from "@/components/ui/Breadcrumb";
 import { FIGMA_TEXT_BOX } from "@/components/catalog/textBox";
 
 export const metadata: Metadata = {
@@ -14,11 +14,14 @@ export const metadata: Metadata = {
 // the three-level breadcrumb (Головна / Каталог / Оформити замовлення),
 // the H1, then the order table + form panel. Rhythm: 72 header ->
 // breadcrumb, 48 to the H1, 104 to the two columns, 148 to the footer.
+// Phones (checkout spec 2.0-2.2, template T1): header -> crumb 48, the
+// one-line back crumb to the parent "Каталог" (system spec A19; the trail
+// is the desktop half of the same nav), crumb -> H1 48, H1 -> lines 48.
 export default function CheckoutPage() {
   return (
     <div className="px-6 pb-[60px] sm:px-10 lg-shop-pad-x lg:pb-[148px]">
-      <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
-        <nav aria-label="Навігація" className="flex flex-wrap items-center gap-4">
+      <section className="flex flex-col gap-12 pt-12 lg:gap-12 lg:pt-[72px]">
+        <ShopCrumbs back={{ href: "/catalog", label: "Каталог" }}>
           <BackCrumb href="/" label="Головна" />
           <Slash />
           <Link
@@ -32,7 +35,7 @@ export default function CheckoutPage() {
           <span className="text-button-md text-brand" aria-current="page">
             Оформити замовлення
           </span>
-        </nav>
+        </ShopCrumbs>
 
         <h1 className="text-h1 text-neutral-900">Оформити замовлення</h1>
       </section>

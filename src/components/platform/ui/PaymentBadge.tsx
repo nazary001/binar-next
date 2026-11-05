@@ -70,3 +70,29 @@ export function PaymentBadge({
     </span>
   );
 }
+
+// Phone payment caption (TR-14, system spec A28): the caption of the
+// "with caption" badge on its own line, 8 under the badge row, in list
+// rows and detail heads - 12/16 Medium, #777779 for notes, the 16-px
+// attention glyph + #f26164 for overdue ones. Wraps (never 12/22 on
+// phones); the PaymentBadge render above stays the desktop atom.
+export function PaymentCaptionLine({
+  text,
+  tone,
+  className = "",
+}: {
+  text: ReactNode;
+  tone: "subtle" | "attention";
+  className?: string;
+}) {
+  return (
+    <p
+      className={`flex items-start gap-1 text-[12px] font-medium leading-4 ${
+        tone === "attention" ? "text-[#f26164]" : "text-neutral-500"
+      } ${className}`}
+    >
+      {tone === "attention" && <AttentionSmallIcon className="size-4 shrink-0" />}
+      <span className="min-w-0">{text}</span>
+    </p>
+  );
+}

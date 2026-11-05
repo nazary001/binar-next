@@ -1,22 +1,24 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, type ReactNode } from "react";
 import { CabinetPage, CabinetPageHead } from "@/components/platform/ui";
+import { AppliedChips } from "@/components/ui/AppliedChips";
+import { FilterButton } from "@/components/ui/FilterButton";
+import { SearchField } from "@/components/ui/SearchField";
 import {
+  categoriesCount,
   categoryCards,
+  filesCount,
   folderFiles,
-  toggleValue,
-  type Direction,
-  type FileType,
   type MaterialCategory,
-  type MaterialFile,
-  type MaterialsFilters,
 } from "./data";
 import { FileCard } from "./FileCard";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer, TYPES_GROUP } from "./FiltersDrawer";
 import { FolderCard } from "./FolderCard";
-import { MaterialsFiltersButton, MaterialsSearchField } from "./Hero";
+import { MATERIALS_SEARCH_WIDTH } from "./Hero";
+import { MaterialsEmpty, MaterialsFileList } from "./phoneParts";
 import { PreviewPanel } from "./PreviewPanel";
+import { useMaterialsState } from "./useMaterialsUrlState";
 
 // «Матеріали B2B» (Figma section 4593:59619) - the partner skin of the
 // materials library, rendered for a signed-in B2B account inside the
@@ -38,15 +40,34 @@ import { PreviewPanel } from "./PreviewPanel";
 //             ways (the master's 8th card is an opacity-0 filler, i.e.
 //             only the four-column track); folder = white file cards
 //             495.33 x 82 in three columns, 24 both ways.
+// Phones (template T2, D1): the cabinet head on the #f5f5f5 slab, the
+// search row (transparent pill + 8 + disc) with the applied chips 16
+// under it, 24 to the content: white r32 folder row cards 24 apart, or
+// ONE white r32 panel of file rows between 1-px #d2d2d2 lines; the empty
+// result is a white r32 panel too; 48 to the legal bar (slab pb).
 
 const GUTTERS = "px-6 lg:pl-10 lg:pr-8";
 
-const ROOT_TAGLINE =
-  "Усі необхідні матеріали в одному місці: переглядайте каталоги, технічні карти та інші файли.";
+const COPY = {
+  title: "Матеріали",
+  tagline:
+    "Усі необхідні матеріали в одному місці: переглядайте каталоги, технічні карти та інші файли.",
+  // Tooltip / caption of the partner padlock (no B2B master draws one;
+  // same chip as the visitor's «Завантажити після авторизації.»).
+  lockHint: "Файл доступний за запитом.",
+  back: "До матеріалів",
+  search: (title: string) => `Пошук: ${title}`,
+  section: "Категорії матеріалів",
+  files: (title: string) => `Файли: ${title}`,
+  empty: "За вашим запитом нічого не знайдено.",
+  foundCategories: (n: number) => `Знайдено ${categoriesCount(n)}`,
+  foundFiles: (n: number) => `Знайдено ${filesCount(n)}`,
+} as const;
 
-// Tooltip of the partner padlock (no B2B master draws one; same chip as
-// the visitor's «Завантажити після авторизації.»).
-const PARTNER_LOCK_HINT = "Файл доступний за запитом.";
+// Partner file panel: three columns of white cards from 640; phones draw
+// one white r32 panel (px 24, py 8) of open rows between 1-px lines.
+const PARTNER_FILES =
+  "grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6 max-lg:gap-0 max-lg:divide-y max-lg:divide-stroke-subtle max-lg:rounded-[32px] max-lg:bg-white max-lg:px-6 max-lg:py-2";
 
 function Toolbar({
   label,
@@ -55,6 +76,7 @@ function Toolbar({
   filtersCount,
   filtersOpen,
   onOpenFilters,
+  below,
 }: {
   label: string;
   query: string;
@@ -62,49 +84,60 @@ function Toolbar({
   filtersCount: number;
   filtersOpen: boolean;
   onOpenFilters: () => void;
+  below?: ReactNode;
 }) {
   return (
-    <div className={`flex items-center justify-between gap-4 pb-6 lg:pb-8 ${GUTTERS}`}>
-      <MaterialsSearchField value={query} onChange={onQuery} label={label} surface="none" />
-      <MaterialsFiltersButton count={filtersCount} expanded={filtersOpen} onClick={onOpenFilters} />
+    <div className={`pb-6 lg:pb-8 ${GUTTERS}`}>
+      <div className="flex items-center justify-between gap-2 lg:gap-4">
+        <SearchField
+          value={query}
+          onChange={onQuery}
+          label={label}
+          surface="none"
+          className={MATERIALS_SEARCH_WIDTH}
+        />
+        <FilterButton count={filtersCount} expanded={filtersOpen} onClick={onOpenFilters} badgeDesktop />
+      </div>
+      {below}
     </div>
   );
 }
 
-function Empty() {
-  return <p className="text-body-sm text-neutral-500">За вашим запитом нічого не знайдено.</p>;
+function Empty({ onReset }: { onReset: () => void }) {
+  return (
+    <>
+      <p className="text-body-sm text-neutral-500 max-lg:hidden">{COPY.empty}</p>
+      <MaterialsEmpty onReset={onReset} surface="panel" />
+    </>
+  );
 }
 
 // Root «Матеріали» (4396:11383): title + subtitle, toolbar, folder cards
 // (FolderCard surface="white" = component 4396:11870). The sheet offers
 // the directions only (4378:63140).
 export function PartnerMaterialsHome() {
-  const [query, setQuery] = useState("");
-  const [directions, setDirections] = useState<Direction[]>([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-
-  const filters: MaterialsFilters = useMemo(() => ({ directions, types: [] }), [directions]);
-  const cards = useMemo(() => categoryCards(filters, query), [filters, query]);
+  const s = useMaterialsState();
+  const cards = useMemo(() => categoryCards(s.filters, s.query), [s.filters, s.query]);
 
   return (
     <CabinetPage>
-      <CabinetPageHead title="Матеріали" subtitle={ROOT_TAGLINE} />
+      <CabinetPageHead title={COPY.title} subtitle={COPY.tagline} />
 
       <Toolbar
-        label="Пошук: Матеріали"
-        query={query}
-        onQuery={setQuery}
-        filtersCount={directions.length}
-        filtersOpen={drawerOpen}
-        onOpenFilters={() => setDrawerOpen(true)}
+        label={COPY.search(COPY.title)}
+        query={s.query}
+        onQuery={s.setQuery}
+        filtersCount={s.filtersCount}
+        filtersOpen={s.drawerOpen}
+        onOpenFilters={s.openDrawer}
+        below={<AppliedChips chips={s.chips} onReset={s.resetFilters} className="mt-4 lg:hidden" />}
       />
 
-      <section aria-label="Категорії матеріалів" className={GUTTERS}>
+      <section aria-label={COPY.section} className={GUTTERS}>
         {cards.length === 0 ? (
-          <Empty />
+          <Empty onReset={s.resetAll} />
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+          <ul role="list" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6 max-lg:gap-6">
             {cards.map(({ category, count }) => (
               <li key={category.slug}>
                 <FolderCard category={category} count={count} surface="white" />
@@ -115,11 +148,14 @@ export function PartnerMaterialsHome() {
       </section>
 
       <MaterialsFiltersDrawer
-        open={drawerOpen}
-        onClose={closeDrawer}
+        open={s.drawerOpen}
+        onClose={s.closeDrawer}
         groups={[DIRECTIONS_GROUP]}
-        active={{ directions }}
-        onToggle={(_key, value) => setDirections((list) => toggleValue(list, value as Direction))}
+        active={{ directions: s.directions }}
+        onToggle={s.toggle}
+        resultLabel={COPY.foundCategories(cards.length)}
+        activeCount={s.filtersCount}
+        onReset={s.resetFilters}
       />
     </CabinetPage>
   );
@@ -131,24 +167,12 @@ export function PartnerMaterialsHome() {
 // groups (4396:11930) and the preview sheet (4825:60620 = the public
 // 1103-px panel; its «коментар» is the file description).
 export function PartnerMaterialsCategory({ category }: { category: MaterialCategory }) {
-  const [query, setQuery] = useState("");
-  const [directions, setDirections] = useState<Direction[]>([]);
-  const [types, setTypes] = useState<FileType[]>([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [preview, setPreview] = useState<MaterialFile | null>(null);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  const closePreview = useCallback(() => setPreview(null), []);
-
-  const filters: MaterialsFilters = useMemo(() => ({ directions, types }), [directions, types]);
+  const s = useMaterialsState();
+  const { openPreview, closePreview } = s;
   const files = useMemo(
-    () => folderFiles(category.slug, filters, query),
-    [category.slug, filters, query],
+    () => folderFiles(category.slug, s.filters, s.query),
+    [category.slug, s.filters, s.query],
   );
-
-  const toggle = (key: string, value: string) => {
-    if (key === "directions") setDirections((list) => toggleValue(list, value as Direction));
-    else setTypes((list) => toggleValue(list, value as FileType));
-  };
 
   return (
     <CabinetPage>
@@ -156,51 +180,56 @@ export function PartnerMaterialsCategory({ category }: { category: MaterialCateg
       <CabinetPageHead
         title={category.title}
         subtitle={category.tagline}
-        back={{ label: "До матеріалів", href: "/materials" }}
+        back={{ label: COPY.back, href: "/materials" }}
       />
 
       <Toolbar
-        label={`Пошук: ${category.title}`}
-        query={query}
-        onQuery={setQuery}
-        filtersCount={directions.length + types.length}
-        filtersOpen={drawerOpen}
-        onOpenFilters={() => setDrawerOpen(true)}
+        label={COPY.search(category.title)}
+        query={s.query}
+        onQuery={s.setQuery}
+        filtersCount={s.filtersCount}
+        filtersOpen={s.drawerOpen}
+        onOpenFilters={s.openDrawer}
+        below={<AppliedChips chips={s.chips} onReset={s.resetFilters} className="mt-4 lg:hidden" />}
       />
 
-      <section aria-label={`Файли: ${category.title}`} className={GUTTERS}>
+      <section aria-label={COPY.files(category.title)} className={GUTTERS}>
         {files.length === 0 ? (
-          <Empty />
+          <Empty onReset={s.resetAll} />
         ) : (
-          <ul className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-            {files.map((file) => (
-              <li key={file.id}>
-                <FileCard
-                  file={file}
-                  canDownload={!file.partnerLocked}
-                  onOpen={setPreview}
-                  lockedHint={PARTNER_LOCK_HINT}
-                  surface="white"
-                />
-              </li>
-            ))}
-          </ul>
+          <MaterialsFileList
+            files={files}
+            listKey={`${s.query}|${s.directions.join()}|${s.types.join()}`}
+            className={PARTNER_FILES}
+            renderFile={(file) => (
+              <FileCard
+                file={file}
+                canDownload={!file.partnerLocked}
+                onOpen={openPreview}
+                lockedHint={COPY.lockHint}
+                surface="white"
+              />
+            )}
+          />
         )}
       </section>
 
       <MaterialsFiltersDrawer
-        open={drawerOpen}
-        onClose={closeDrawer}
+        open={s.drawerOpen}
+        onClose={s.closeDrawer}
         groups={[DIRECTIONS_GROUP, TYPES_GROUP]}
-        active={{ directions, types }}
-        onToggle={toggle}
+        active={{ directions: s.directions, types: s.types }}
+        onToggle={s.toggle}
+        resultLabel={COPY.foundFiles(files.length)}
+        activeCount={s.filtersCount}
+        onReset={s.resetFilters}
       />
 
       <PreviewPanel
-        file={preview}
+        file={s.preview}
         onClose={closePreview}
-        canDownload={!preview?.partnerLocked}
-        lockedHint={PARTNER_LOCK_HINT}
+        canDownload={!s.preview?.partnerLocked}
+        lockedHint={COPY.lockHint}
       />
     </CabinetPage>
   );

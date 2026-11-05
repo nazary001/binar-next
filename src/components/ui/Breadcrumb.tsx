@@ -1,6 +1,12 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowBack } from "@/components/catalog/icons";
 import { FIGMA_TEXT_BOX } from "@/components/catalog/textBox";
+
+// Copy of the phone exports (PhoneBackCrumb / ShopCrumbs) only.
+const COPY = {
+  trail: "Навігаційний ланцюжок",
+} as const;
 
 // Breadcrumb pieces shared by the shop pages (catalog, PDP, checkout,
 // materials) and the cabinet title block (platform/ui CabinetPageHead).
@@ -48,5 +54,48 @@ export function Slash() {
     <span aria-hidden className="inline-block w-2 text-center text-[18px] font-semibold leading-[22px] tracking-[0.18px] text-stroke-subtle">
       /
     </span>
+  );
+}
+
+// Phone crumb (TR-05, system spec A19, shell-public 2.4): ONE line = the
+// master's Back button (3176:6559 "Назад до блогу"): the 40-px ring, 16,
+// the PARENT's label in 16/22 SemiBold +0.16 #343435, never "/ current"
+// (the H1 repeats it). The label truncates at vw - 104; the link gets a
+// 44-px hit box from the `before:` pseudo. Hidden from 640 (the desktop
+// trail takes over).
+export function PhoneBackCrumb({ href, label, className = "" }: { href: string; label: string; className?: string }) {
+  return (
+    <Link
+      href={href}
+      className={`group relative flex min-w-0 max-w-full items-center gap-4 self-start before:absolute before:inset-x-0 before:-inset-y-0.5 before:content-[''] lg:hidden ${className}`}
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 motion-reduce:transition-none group-hover:border-brand group-hover:bg-brand group-hover:text-white group-active:border-brand group-active:bg-brand group-active:text-white">
+        <ArrowBack className="w-[21px]" />
+      </span>
+      <span className="min-w-0 truncate text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-800 transition-colors duration-300 motion-reduce:transition-none group-hover:text-brand">
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+// One landmark for both trails: the phone crumb (parent only) and the
+// desktop trail, whose children are passed unchanged (the inner div is
+// the same `flex flex-wrap items-center gap-4` row the pages draw today,
+// shown from 640).
+export function ShopCrumbs({
+  back,
+  label = COPY.trail,
+  children,
+}: {
+  back: { href: string; label: string };
+  label?: string;
+  children: ReactNode;
+}) {
+  return (
+    <nav aria-label={label} className="flex min-w-0 flex-col">
+      <PhoneBackCrumb href={back.href} label={back.label} />
+      <div className="hidden flex-wrap items-center gap-4 lg:flex">{children}</div>
+    </nav>
   );
 }

@@ -27,12 +27,14 @@ export function Logo({ className }: LogoProps) {
     }
   };
 
+  // Phones: a transparent ::before grows the 33.45-px tall link to a 44-px
+  // tap target (5.3 px above and below) without moving a pixel.
   return (
     <Link
       href="/"
       aria-label="Binar — головна"
       onClick={handleClick}
-      className={`group relative block h-[33.448px] w-[100px] shrink-0 cursor-pointer lg:h-[40px] lg:w-[120px] ${className ?? ""}`}
+      className={`group relative block h-[33.448px] w-[100px] shrink-0 cursor-pointer lg:h-[40px] lg:w-[120px] max-lg:before:absolute max-lg:before:inset-x-0 max-lg:before:-inset-y-[5.3px] max-lg:before:content-[''] ${className ?? ""}`}
     >
       <div
         className="absolute"

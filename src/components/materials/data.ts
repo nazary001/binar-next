@@ -201,6 +201,21 @@ export function filesCount(n: number): string {
   return `${n} ${word}`;
 }
 
+// Accusative plural for «категорія» after «Знайдено» (the phone filters
+// sheet status): 1 категорію / 2-4 категорії / 5+ категорій (11-14 ->
+// категорій).
+export function categoriesCount(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  const word =
+    mod10 === 1 && mod100 !== 11
+      ? "категорію"
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? "категорії"
+        : "категорій";
+  return `${n} ${word}`;
+}
+
 export type MaterialsFilters = {
   directions: Direction[];
   types: FileType[];

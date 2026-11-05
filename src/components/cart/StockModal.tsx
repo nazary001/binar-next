@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, type Product } from "@/components/catalog/data";
 import { QtyStepper } from "@/components/catalog/ProductCard";
+import { usePhone } from "@/components/ui/useMediaQuery";
 import { useCart } from "./CartProvider";
 import { soldOutPhrase, type StockIssue } from "./data";
 import { CheckCircleIcon, InfoBadgeIcon } from "./icons";
+import { StockSheetPhone } from "./StockSheetPhone";
 import { useFitZoom } from "./useFitZoom";
 import { useModalBehavior } from "./useModalBehavior";
 
@@ -128,62 +130,7 @@ function IssueRow({ issue, first }: { issue: StockIssue; first: boolean }) {
   );
 }
 
-// Below lg (no 1440-zoom) the 1000-px table would scroll its columns off
-// the phone/tablet modal, so each issue collapses to a stacked card that
-// reuses the same atoms and tokens: the sold-out line, the in-stock
-// alternative (or the «Альтернативи немає» note), the stepper + price,
-// and a full-width action button that flips to the green «Замінено» /
-// «Видалено» once resolved. Same DIVIDER hairline between cards.
-function IssueCard({ issue, first }: { issue: StockIssue; first: boolean }) {
-  const { resolveIssue, setIssueQty, unitPrice } = useCart();
-  const alt = issue.replacement;
-  return (
-    <li className={`flex flex-col gap-4 p-4 ${first ? "" : DIVIDER}`}>
-      <MiniProduct product={issue.product} out />
-      {alt ? (
-        <>
-          <div className="flex flex-col gap-2">
-            <p className="text-[14px] font-medium uppercase leading-6 text-neutral-500">
-              Альтернатива
-            </p>
-            <MiniProduct product={alt} out={false} />
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <QtyStepper
-              size="sm"
-              slot="hug"
-              qty={issue.qty}
-              onQty={(next) => setIssueQty(issue.lineId, next)}
-              disabled={issue.resolved}
-            />
-            <span className="whitespace-nowrap text-[16px] font-semibold leading-6 text-neutral-900">
-              {formatPrice(Math.round(unitPrice(alt) * issue.qty * 100) / 100)}
-            </span>
-          </div>
-        </>
-      ) : (
-        <span className="text-body-sm text-neutral-500">Альтернативи немає</span>
-      )}
-      {issue.resolved ? (
-        <span className="inline-flex items-center gap-1 text-button-md text-positive">
-          <CheckCircleIcon className="size-4 shrink-0" />
-          {alt ? "Замінено" : "Видалено"}
-        </span>
-      ) : (
-        <Button
-          size="small"
-          variant="outlinedDark"
-          fullWidth
-          onClick={() => resolveIssue(issue.lineId)}
-        >
-          {alt ? "Замінити" : "Видалити"}
-        </Button>
-      )}
-    </li>
-  );
-}
-
-export function StockModal() {
+function StockDialog() {
   const { issues, dismissIssues, resolveAll, closeCart } = useCart();
   const router = useRouter();
   const open = issues !== null && issues.length > 0;
@@ -271,7 +218,7 @@ export function StockModal() {
                 master's columns: 356 / 356 / 140 / 130 / 152, the first
                 and last carrying the row's 16-px gutter (Figma pads the
                 row, then the cell) = 372 / auto (356) / 140 / 130 / 168.
-                Below lg the rows become stacked cards (IssueCard). */}
+                Phones get StockSheetPhone instead of this dialog. */}
             <table className="hidden w-full min-w-[1000px] table-fixed border-collapse lg:table">
               <colgroup>
                 <col className="w-[372px]" />
@@ -305,12 +252,6 @@ export function StockModal() {
                 ))}
               </tbody>
             </table>
-
-            <ul className="lg:hidden">
-              {issues.map((issue, i) => (
-                <IssueCard key={issue.lineId} issue={issue} first={i === 0} />
-              ))}
-            </ul>
           </div>
         </div>
 
@@ -341,4 +282,13 @@ export function StockModal() {
       </div>
     </div>
   );
+}
+
+// Desktop (>= 640): the 1286-px dialog above. Phones: the full-screen
+// stock sheet for every issue count (cart spec 2.4, A-9). The switch is
+// JS (the dialog mounts only while open, never during SSR); rotating
+// across 640 while open swaps the two, the issues live in CartProvider.
+export function StockModal() {
+  const phone = usePhone();
+  return phone ? <StockSheetPhone /> : <StockDialog />;
 }

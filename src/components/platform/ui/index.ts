@@ -10,6 +10,7 @@ export {
 } from "./CabinetPageHead";
 export { ConfirmModal, type ConfirmModalProps } from "./ConfirmModal";
 export { DOCUMENT_PENDING_NOTE, DocumentTile, type DocumentTileProps } from "./DocumentTile";
+export { DocumentRow, DocumentRowList, type DocumentRowProps } from "./DocumentRow";
 export { Dropzone, type DropzoneProps } from "./Dropzone";
 export { KebabMenu, type KebabMenuItem, type KebabMenuProps } from "./KebabMenu";
 export {
@@ -26,7 +27,14 @@ export {
   OrderStatusBadge,
   type OrderStatusKey,
 } from "./OrderStatusBadge";
-export { PAYMENT_LABELS, PaymentBadge, type PaymentBadgeProps, type PaymentKind } from "./PaymentBadge";
+export {
+  PAYMENT_LABELS,
+  PaymentBadge,
+  PaymentCaptionLine,
+  type PaymentBadgeProps,
+  type PaymentKind,
+} from "./PaymentBadge";
+export { KeyValueLine, LIST_ROW, ListPanel, ListRow, RecordRow, RowDisc } from "./RecordRow";
 export {
   RETURN_STATUS_KEYS,
   RETURN_STATUS_META,

@@ -3,7 +3,13 @@
 // verbatim from the masters; the city and branch lists are placeholders
 // until the Nova Poshta API is wired.
 
+import { isValidPhone } from "@/components/auth/data";
+
 export const RESERVE_MINUTES = 15;
+
+// sessionStorage key prefix of the form draft (useCheckoutDraft; the
+// account id or "guest" follows after a colon).
+export const DRAFT_KEY = "binar.checkout.draft.v1";
 
 export type DeliveryOption = "pickup" | "np-branch" | "np-locker" | "np-address";
 
@@ -69,6 +75,19 @@ export const LOCKERS = [
   "Поштомат №10233: бульв. Лесі Українки, 26",
 ];
 
+// Select options of the two lists. Desktop shows `label` (the full
+// string); phones show two lines, `primary` ("Поштомат N10233") over
+// `secondary` ("бульв. Лесі Українки, 26"), split at the first ": "
+// (checkout spec 2.6, fields.tsx SelectOption).
+function splitPlace(place: string): { value: string; label: string; primary?: string; secondary?: string } {
+  const at = place.indexOf(": ");
+  if (at < 0) return { value: place, label: place };
+  return { value: place, label: place, primary: place.slice(0, at), secondary: place.slice(at + 2) };
+}
+
+export const BRANCH_OPTIONS = BRANCHES.map(splitPlace);
+export const LOCKER_OPTIONS = LOCKERS.map(splitPlace);
+
 export type CheckoutValues = {
   name: string;
   email: string;
@@ -114,7 +133,6 @@ export const EMPTY_VALUES: CheckoutValues = {
 export type CheckoutErrors = Partial<Record<keyof CheckoutValues, string>>;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const PHONE = /^\+?[\d\s()-]{10,}$/;
 
 export function validate(v: CheckoutValues): CheckoutErrors {
   const e: CheckoutErrors = {};
@@ -122,7 +140,9 @@ export function validate(v: CheckoutValues): CheckoutErrors {
   if (!v.email.trim()) e.email = "Вкажіть email";
   else if (!EMAIL.test(v.email.trim())) e.email = "Перевірте формат email";
   if (!v.phone.trim()) e.phone = "Вкажіть номер телефону";
-  else if (!PHONE.test(v.phone.trim())) e.phone = "Перевірте номер телефону";
+  // 10 national digits 0[3-9]XXXXXXXX once "+38", spaces, brackets and
+  // dashes are stripped (the account forms' rule, auth/data.ts).
+  else if (!isValidPhone(v.phone)) e.phone = "Перевірте номер телефону";
   if (!v.city.trim()) e.city = "Оберіть місто";
   if (!v.delivery) e.delivery = "Оберіть спосіб доставки";
   if (v.delivery === "np-branch" && !v.branch) e.branch = "Оберіть відділення";
@@ -141,4 +161,24 @@ export function validate(v: CheckoutValues): CheckoutErrors {
     else if (!EMAIL.test(v.invoiceEmail.trim())) e.invoiceEmail = "Перевірте формат email";
   }
   return e;
+}
+
+// The payload keeps only what the chosen delivery method and the invoice
+// switch ask for: a branch / locker / address typed before the method was
+// changed, or company data with the invoice unticked, never travel with
+// the order (CO-34).
+export function pruneDelivery(v: CheckoutValues): CheckoutValues {
+  return {
+    ...v,
+    branch: v.delivery === "np-branch" ? v.branch : "",
+    locker: v.delivery === "np-locker" ? v.locker : "",
+    street: v.delivery === "np-address" ? v.street : "",
+    house: v.delivery === "np-address" ? v.house : "",
+    flat: v.delivery === "np-address" ? v.flat : "",
+    company: v.invoice ? v.company : "",
+    edrpou: v.invoice ? v.edrpou : "",
+    ipn: v.invoice ? v.ipn : "",
+    address: v.invoice ? v.address : "",
+    invoiceEmail: v.invoice ? v.invoiceEmail : "",
+  };
 }

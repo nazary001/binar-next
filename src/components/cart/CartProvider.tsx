@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { Product } from "@/components/catalog/data";
 import * as authStore from "@/components/auth/store";
 import {
@@ -38,6 +39,12 @@ function usePriceMode(): PriceMode {
   return type === "b2b" ? "partner" : "retail";
 }
 
+// Who opened the stock check (cart spec 2.6, S23): the phone stock sheet
+// closes differently for each - "cart" hands back to the cart sheet the
+// user was reviewing, "buyNow" (PDP) just dismisses, "checkout" (the
+// CheckoutClient gate) dismisses and focuses the checkout lines' title.
+export type IssuesFrom = "cart" | "buyNow" | "checkout";
+
 type CartContextValue = {
   lines: CartLine[];
   entries: CartEntry[];
@@ -56,15 +63,26 @@ type CartContextValue = {
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
   clear: () => void;
+  // The lines the last "Очистити" removed, until the cart closes, the
+  // route changes or something is added (the phone sheet's empty state
+  // then reads "Кошик очищено" and offers "Повернути товари").
+  lastCleared: CartLine[] | null;
+  restoreCleared: () => void;
+  // Puts a removed line back at its old index (the phone sheet's
+  // "Повернути" after a trash tap); a no-op when the id is already in.
+  restoreLine: (line: CartLine, index: number) => void;
   // «Оформити замовлення»: runs the stock check. Returns true when the
   // cart is clean (the caller navigates to /checkout); sold-out lines
   // open the «Деякі товари закінчилися» modal instead and return false.
-  checkout: () => boolean;
-  // PDP «Купити зараз»: adds the line without opening the drawer and
-  // runs the same stock check on the updated cart. True = go to
-  // /checkout; false = the stock modal took over.
+  // `from` = "checkout" when the checkout page's own gate calls it.
+  checkout: (from?: "cart" | "checkout") => boolean;
+  // PDP "Купити зараз": sets the line to exactly `qty` (adding it when
+  // absent) without opening the drawer and runs the same stock check on
+  // the updated cart. True = go to /checkout; false = the stock modal
+  // took over.
   buyNow: (id: string, qty?: number) => boolean;
   issues: StockIssue[] | null;
+  issuesFrom: IssuesFrom;
   resolveIssue: (lineId: string) => void;
   resolveAll: () => void;
   setIssueQty: (lineId: string, qty: number) => void;
@@ -89,6 +107,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const lines = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [open, setOpen] = useState(false);
   const [issues, setIssues] = useState<StockIssue[] | null>(null);
+  const [issuesFrom, setIssuesFrom] = useState<IssuesFrom>("cart");
+  const [lastCleared, setLastCleared] = useState<CartLine[] | null>(null);
+
+  // A route change closes the cart and the stock check (a row link, the
+  // CTA hand-off, Back): render-phase adjustment, the Header.tsx pattern,
+  // so the closed state paints in the same commit as the new page.
+  const pathname = usePathname();
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    setOpen(false);
+    setIssues(null);
+    setLastCleared(null);
+  }
 
   const priceMode = usePriceMode();
   const entries = useMemo(() => resolveLines(lines), [lines]);
@@ -97,7 +129,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const priceOf = useCallback((p: Product) => unitPrice(p, priceMode), [priceMode]);
 
   const openCart = useCallback(() => setOpen(true), []);
-  const closeCart = useCallback(() => setOpen(false), []);
+  const closeCart = useCallback(() => {
+    setOpen(false);
+    setLastCleared(null);
+  }, []);
 
   const add = useCallback((id: string, qty = 1, show = true) => {
     updateLines((prev) => {
@@ -107,21 +142,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { id, qty }];
     });
+    setLastCleared(null);
     if (show) setOpen(true);
   }, []);
 
   const buyNow = useCallback(
     (id: string, qty = 1) => {
-      add(id, qty, false);
+      updateLines((prev) =>
+        prev.some((l) => l.id === id)
+          ? prev.map((l) => (l.id === id ? { ...l, qty } : l))
+          : [...prev, { id, qty }],
+      );
+      setLastCleared(null);
       // The store is synchronous, so its snapshot already holds the new
       // line (the `lines` of this render do not yet).
       const found = checkStock(resolveLines(getSnapshot()), priceMode);
       setOpen(false);
       if (found.length === 0) return true;
+      setIssuesFrom("buyNow");
       setIssues(found);
       return false;
     },
-    [add, priceMode],
+    [priceMode],
   );
 
   const setQty = useCallback((id: string, qty: number) => {
@@ -136,15 +178,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
     updateLines((prev) => prev.filter((l) => l.id !== id));
   }, []);
 
-  const clear = useCallback(() => updateLines(() => []), []);
+  const clear = useCallback(() => {
+    const before = getSnapshot();
+    if (before.length > 0) setLastCleared(before);
+    updateLines(() => []);
+  }, []);
 
-  const checkout = useCallback(() => {
-    const found = checkStock(resolveLines(lines), priceMode);
-    setOpen(false);
-    if (found.length === 0) return true;
-    setIssues(found);
-    return false;
-  }, [lines, priceMode]);
+  const restoreCleared = useCallback(() => {
+    if (!lastCleared) return;
+    const back = lastCleared;
+    updateLines((prev) => [...back, ...prev.filter((l) => !back.some((b) => b.id === l.id))]);
+    setLastCleared(null);
+  }, [lastCleared]);
+
+  const restoreLine = useCallback((line: CartLine, index: number) => {
+    updateLines((prev) =>
+      prev.some((l) => l.id === line.id)
+        ? prev
+        : [...prev.slice(0, index), line, ...prev.slice(index)],
+    );
+  }, []);
+
+  const checkout = useCallback(
+    (from: "cart" | "checkout" = "cart") => {
+      const found = checkStock(resolveLines(lines), priceMode);
+      setOpen(false);
+      if (found.length === 0) return true;
+      setIssuesFrom(from);
+      setIssues(found);
+      return false;
+    },
+    [lines, priceMode],
+  );
 
   // Replacing swaps the sold-out line for the alternative at the chosen
   // quantity (merging if the alternative is already in the cart); with
@@ -205,9 +270,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQty,
       remove,
       clear,
+      lastCleared,
+      restoreCleared,
+      restoreLine,
       checkout,
       buyNow,
       issues,
+      issuesFrom,
       resolveIssue,
       resolveAll,
       setIssueQty,
@@ -227,9 +296,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQty,
       remove,
       clear,
+      lastCleared,
+      restoreCleared,
+      restoreLine,
       checkout,
       buyNow,
       issues,
+      issuesFrom,
       resolveIssue,
       resolveAll,
       setIssueQty,

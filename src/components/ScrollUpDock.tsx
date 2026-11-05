@@ -343,10 +343,15 @@ function CornerFab() {
   const fade = reduced ? "" : "transition-opacity duration-300 ease-out";
   const vis = show ? "opacity-100" : "pointer-events-none opacity-0";
 
+  // Shop canvases below 640 never show the FAB: no shop / cabinet phone
+  // layout has a floating button, and its 100-px box sat on the cards'
+  // cart discs, steppers, sort controls and sticky bars and swallowed
+  // their taps. The footer ring stays the way up there; the landing keeps
+  // the FAB.
   return (
     <div
       inert={!show}
-      className={`${LAYER_BOX} flex items-center justify-center pointer-events-none ${fade} ${vis}`}
+      className={`${LAYER_BOX} flex items-center justify-center pointer-events-none max-lg:[:root:has([data-canvas=shop])_&]:hidden ${fade} ${vis}`}
     >
       {/* Identical to the footer button - one scaled assembly (43px circle +
           ring), not the split blended layers the desktop flight uses. The ring

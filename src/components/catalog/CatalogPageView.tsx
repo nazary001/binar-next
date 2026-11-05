@@ -2,9 +2,13 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
-import { BackCrumb, Slash } from "@/components/ui/Breadcrumb";
+import { BackCrumb, ShopCrumbs, Slash } from "@/components/ui/Breadcrumb";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  CABINET_SUBTITLE_ON_WHITE,
+  CABINET_TITLE,
+} from "@/components/platform/ui/CabinetPageHead";
 import { CatalogClient } from "./CatalogClient";
 import { CategoryBanners } from "./CategoryBanners";
 import { SubcategoryCarousel } from "./SubcategoryCarousel";
@@ -14,6 +18,13 @@ import {
   type CatalogDirection,
   type SubcategoryCard,
 } from "./data";
+
+// Phone back-crumb labels (one level up, TR-05 / system spec A19).
+const COPY = {
+  home: "Головна",
+  catalog: "Каталог",
+  toCatalog: "До каталогу",
+} as const;
 
 // The three catalog pages in their two skins. The public (B2C) markup
 // is the one the server pages always rendered; the B2B skin (Figma
@@ -87,7 +98,8 @@ function CrumbSlash() {
 function CategoryHero({ card }: { card: SubcategoryCard }) {
   const image = card.hero?.image ?? card.fullImage;
   return (
-    <div className="relative h-[240px] w-full overflow-clip rounded-[32px] sm:h-[320px] lg:h-[640px] lg:rounded-[40px]">
+    // Phones: the article cover 342 x 206 r32 (TR-30, 3176:6105).
+    <div className="relative h-[206px] w-full overflow-clip rounded-[32px] lg:h-[640px] lg:rounded-[40px]">
       {!card.hero && card.bg && <span aria-hidden className="absolute inset-0" style={{ background: card.bg }} />}
       <img
         src={image}
@@ -107,11 +119,20 @@ function PublicView({ page }: { page: PageKind }) {
   const dir = page.kind === "root" ? undefined : page.dir;
   const card = page.kind === "category" ? page.card : undefined;
   const title = page.kind === "root" ? "Каталог" : page.kind === "direction" ? page.dir.title : page.card.label;
+  // Phones show ONE crumb = the parent (the H1 repeats the current page).
+  const back =
+    page.kind === "root"
+      ? { href: "/", label: COPY.home }
+      : page.kind === "direction"
+        ? { href: "/catalog", label: COPY.catalog }
+        : { href: directionCatalogHref(page.dir), label: page.dir.title };
 
   return (
     <div className="px-6 sm:px-10 lg-shop-pad-x">
-      <section className="flex flex-col gap-8 pt-12 lg:gap-12 lg:pt-[72px]">
-        <div className="flex flex-wrap items-center gap-4">
+      {/* Phones: header 48 / crumb 40 / 48 / H1 (T1, article 3176:6558);
+          desktop keeps its 48 crumb -> H1 (gap-12 = the old lg:gap-12). */}
+      <section className="flex flex-col gap-12 pt-12 lg:pt-[72px]">
+        <ShopCrumbs back={back}>
           <Back href="/" label="Головна" />
           <CrumbSlash />
           {page.kind === "root" ? <Current label="Каталог" /> : <Crumb href="/catalog" label="Каталог" />}
@@ -127,8 +148,8 @@ function PublicView({ page }: { page: PageKind }) {
               <Current label={card.label} />
             </>
           )}
-        </div>
-        <h1 className="text-h1 text-neutral-900">{title}</h1>
+        </ShopCrumbs>
+        <h1 className="text-h1 text-neutral-900 max-lg:text-balance">{title}</h1>
       </section>
 
       {page.kind === "root" && (
@@ -137,7 +158,7 @@ function PublicView({ page }: { page: PageKind }) {
         </section>
       )}
       {page.kind === "direction" && (
-        <section className="mt-8 lg:mt-12">
+        <section className="mt-12">
           <SubcategoryCarousel direction={page.dir} />
         </section>
       )}
@@ -147,7 +168,7 @@ function PublicView({ page }: { page: PageKind }) {
         </section>
       )}
 
-      <section className="mt-[60px] lg:mt-[148px]">
+      <section className="mt-12 lg:mt-[148px]">
         <Suspense>
           <CatalogClient direction={dir} fixedSubcategory={card?.label} />
         </Suspense>
@@ -158,29 +179,39 @@ function PublicView({ page }: { page: PageKind }) {
 
 // ---------------------------------------------------------------- B2B
 
+// Phones (catalog-b2b 2.2: the CabinetPageHead phone contract on the
+// WHITE page): pt 48 / [one back crumb 40 / 48] / H2 30/36 / 16 /
+// tagline 14/20 / 32 / the hug «Мій асортимент» pill / pb 48 (the 48 to
+// the next block lives in the head). The desktop values are restored by
+// the lg: twins (CABINET_TITLE = 44/48 -0.02em Bold from 640).
 function PlatformTitle({
   crumb,
+  back,
   title,
   tagline,
+  taglineOnPhone = true,
 }: {
   crumb: ReactNode | null;
+  back?: { href: string; label: string };
   title: string;
   tagline?: string;
+  taglineOnPhone?: boolean;
 }) {
   return (
-    <section className="flex flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:gap-[10px] lg:py-8 lg:pl-10 lg:pr-8">
-      <div className="flex min-w-0 flex-1 flex-col gap-6">
-        {crumb && <div className="flex flex-wrap items-center gap-4">{crumb}</div>}
-        <div className="flex flex-col gap-2">
-          <h1 className="text-[32px] font-bold leading-9 tracking-[-0.64px] text-neutral-900 lg:text-[44px] lg:leading-[48px] lg:tracking-[-0.88px]">
-            {title}
-          </h1>
-          {tagline && <p className="text-[14px] leading-6 text-neutral-500">{tagline}</p>}
+    <section className="flex flex-col gap-8 px-6 py-12 lg:flex-row lg:items-center lg:gap-[10px] lg:py-8 lg:pl-10 lg:pr-8">
+      <div className="flex min-w-0 flex-1 flex-col gap-12 lg:gap-6">
+        {crumb && back && <ShopCrumbs back={back}>{crumb}</ShopCrumbs>}
+        <div className="flex flex-col gap-4 lg:gap-2">
+          <h1 className={`${CABINET_TITLE} max-lg:text-pretty`}>{title}</h1>
+          {tagline && (
+            <p className={`${CABINET_SUBTITLE_ON_WHITE} ${taglineOnPhone ? "" : "max-lg:hidden"}`}>{tagline}</p>
+          )}
         </div>
       </div>
       {/* «Мій асортимент» (4329:56235) opens the assortment page
-          (Figma 4209:74148). */}
-      <Button href="/assortment" size="responsive" className="shrink-0">
+          (Figma 4209:74148). Phones: one hug pill at x 24 (self-start:
+          no invisible full-width tap strip beside it). */}
+      <Button href="/assortment" size="responsive" className="shrink-0 self-start lg:self-auto">
         Мій асортимент
       </Button>
     </section>
@@ -220,28 +251,47 @@ function PlatformView({ page }: { page: PageKind }) {
         ? page.dir.tagline
         : page.dir.title;
 
+  // Phone back crumb: the parent of the page (direction -> the catalog,
+  // category -> its direction); the root has none.
+  const back =
+    page.kind === "root"
+      ? undefined
+      : page.kind === "direction"
+        ? { href: "/catalog", label: COPY.toCatalog }
+        : { href: directionCatalogHref(page.dir), label: page.dir.title };
+
+  // Phones: the head carries the 48 above the first block, the blocks
+  // carry no padding of their own, the listing section opens with 48
+  // and keeps 48 to the legal bar (D10 cabinet rhythm). The category
+  // tagline (= the direction title) is the crumb label already.
   return (
     <div className="flex flex-col">
-      <PlatformTitle crumb={crumb} title={title} tagline={tagline} />
+      <PlatformTitle
+        crumb={crumb}
+        back={back}
+        title={title}
+        tagline={tagline}
+        taglineOnPhone={page.kind !== "category"}
+      />
 
       {page.kind === "root" && (
-        <section className="px-6 py-6 lg:py-8 lg:pl-10 lg:pr-8">
+        <section className="px-6 lg:py-8 lg:pl-10 lg:pr-8">
           <CategoryBanners gap="b2b" />
         </section>
       )}
       {page.kind === "direction" && (
-        <section className="px-6 py-6 lg:px-2 lg:py-8">
+        <section className="px-6 lg:px-2 lg:py-8">
           <SubcategoryCarousel direction={page.dir} pagers="inline" />
         </section>
       )}
       {page.kind === "category" && (
-        <section className="px-6 py-6 lg:py-8 lg:pl-10 lg:pr-8">
+        <section className="px-6 lg:py-8 lg:pl-10 lg:pr-8">
           {/* «Категорія» 4329:56334: the 1534 x 640 rounded-40 hero. */}
           <CategoryHero card={page.card} />
         </section>
       )}
 
-      <section className="px-6 py-6 lg:py-8 lg:pl-10 lg:pr-8">
+      <section className="px-6 py-12 lg:py-8 lg:pl-10 lg:pr-8">
         <Suspense>
           <CatalogClient direction={dir} fixedSubcategory={card?.label} mode="b2b" />
         </Suspense>

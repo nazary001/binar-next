@@ -75,10 +75,13 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 // compete for the same property, and Tailwind's sort order let it beat
 // the outlined variants' stroke.
 const labelSize = {
-  // Below sm the large pill is the site's own compact size (no Figma
-  // master), so only the sm+ (= Figma Button/Large) values are exact.
+  // Below 640 every pill is the Figma mobile Button/Small (42 tall, Manrope
+  // Medium 16/22 - the phone menu CTA 3117:13578, hero 3082:3250); from 640
+  // the sm: values are the Figma Button/Large. The landing renders no
+  // size="large" Button below 640 (all are max-lg:/max-sm:hidden there), so
+  // the phone half only reaches the shop / cabinet phone layouts.
   large:
-    "rounded-[25px] border px-5 py-3 text-[15px] whitespace-nowrap sm:rounded-[25px] sm:px-[23px] sm:py-[14px] sm:text-button-lg",
+    "rounded-[24px] border px-[23px] py-[9px] text-button-md whitespace-nowrap sm:rounded-[25px] sm:px-[23px] sm:py-[14px] sm:text-button-lg",
   small:
     "rounded-[24px] border px-[23px] py-[9px] text-button-md whitespace-nowrap",
   // Small below lg, large at lg (the lg overrides equal the `large`
@@ -91,7 +94,7 @@ const labelSize = {
 };
 
 const arrowWrap = {
-  large: "size-[44px] rounded-[22px] sm:size-[52px] sm:rounded-[26px]",
+  large: "size-[42px] rounded-[21px] sm:size-[52px] sm:rounded-[26px]",
   // Figma mobile compact button (e.g. 3082:3250): 42px arrow square.
   small: "size-[42px] rounded-[21px]",
   responsive: "size-[42px] rounded-[21px] lg:size-[52px] lg:rounded-[26px]",
@@ -105,7 +108,7 @@ const arrowWrap = {
 // fill the full container. We size the img to that visual measurement
 // (Tailwind arbitrary px values) so the rendered arrow matches Figma.
 const arrowIcon = {
-  large: "size-[14px] sm:size-[16.5px]",
+  large: "size-[11px] sm:size-[16.5px]",
   // Figma Button/Small (e.g. 3082:3250) puts the arrow in a 16-px icon
   // box whose asset has ~31% built-in padding — the visible glyph is
   // ~11 px. Our SVG is edge-to-edge, so size the img to the visible ink.
@@ -117,7 +120,7 @@ const arrowIcon = {
 // The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px
 // orange square - slightly larger in its box than the arrow glyph.
 const plusIcon = {
-  large: "size-[16px] sm:size-[18.75px]",
+  large: "size-[13px] sm:size-[18.75px]",
   small: "size-[13px]",
   responsive: "size-[16px] lg:size-[18.75px]",
   xsmall: "size-[13px]",

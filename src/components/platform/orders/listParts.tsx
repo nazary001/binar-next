@@ -1,137 +1,18 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import type { ReactNode } from "react";
 import { ChevronDown16, ChevronSideIcon, MagnifierIcon } from "@/components/catalog/icons";
 import { SortIcon } from "../orderIcons";
 import { InfoHeadIcon } from "../ui";
 import { PAGE_SIZES } from "./data";
+import { useDismiss, useListbox } from "@/components/ui/useListbox";
 
 // Pieces shared by the two list tables of «Мої замовлення» (4573:37244)
 // and «Мої повернення» (5192:78615): the search field, the dark table
 // head, the 0.5-px row hairline, the 42-px row icon buttons and the
 // pager row.
 
-export function useDismiss(open: boolean, ref: RefObject<HTMLElement | null>, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: PointerEvent) => {
-      const el = ref.current;
-      if (el && e.target instanceof Node && !el.contains(e.target)) close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("pointerdown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, ref, close]);
-}
-
-// Select-only combobox plumbing of the pager's page-size pill (the
-// pattern of checkout/fields.tsx SelectField; the filter selects are the
-// platform/ui Select):
-// focus stays on the trigger, the highlighted option is announced
-// through aria-activedescendant, ArrowDown / ArrowUp open the menu and
-// move, Home / End jump, Enter / Space pick (or toggle), Escape and Tab
-// close; options are the role=option <li>s themselves, picked on
-// mousedown so the trigger's blur does not close the menu first.
-function useListbox(count: number, selectedIndex: number, onPick: (index: number) => void) {
-  const id = useId();
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
-  const optionId = (i: number) => `${id}-option-${i}`;
-
-  const openMenu = () => {
-    setActive(selectedIndex);
-    setOpen(true);
-  };
-  const closeMenu = () => {
-    setActive(-1);
-    setOpen(false);
-  };
-  const pick = (i: number) => {
-    onPick(i);
-    closeMenu();
-  };
-
-  // Keep the highlighted option visible in a scrolling menu.
-  useEffect(() => {
-    if (open && active >= 0) document.getElementById(`${id}-option-${active}`)?.scrollIntoView({ block: "nearest" });
-  }, [open, active, id]);
-
-  const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
-    const last = count - 1;
-    switch (e.key) {
-      case "ArrowDown":
-      case "ArrowUp": {
-        e.preventDefault();
-        if (!open) {
-          openMenu();
-          return;
-        }
-        const step = e.key === "ArrowDown" ? 1 : -1;
-        setActive((i) => Math.max(0, Math.min(last, i + step)));
-        return;
-      }
-      case "Home":
-      case "End":
-        if (!open) return;
-        e.preventDefault();
-        setActive(e.key === "Home" ? 0 : last);
-        return;
-      case "Enter":
-      case " ":
-        e.preventDefault();
-        if (open && active >= 0) pick(active);
-        else if (open) closeMenu();
-        else openMenu();
-        return;
-      case "Escape":
-        if (!open) return;
-        e.preventDefault();
-        e.stopPropagation();
-        closeMenu();
-        return;
-      case "Tab":
-        if (open) closeMenu();
-        return;
-    }
-  };
-
-  const trigger = {
-    role: "combobox" as const,
-    "aria-haspopup": "listbox" as const,
-    "aria-expanded": open,
-    "aria-controls": `${id}-menu`,
-    "aria-activedescendant": open && active >= 0 ? optionId(active) : undefined,
-    onClick: () => (open ? closeMenu() : openMenu()),
-    onKeyDown,
-    onBlur: closeMenu,
-  };
-  const option = (i: number) => ({
-    id: optionId(i),
-    role: "option" as const,
-    "aria-selected": i === selectedIndex,
-    onMouseDown: (e: ReactMouseEvent) => {
-      e.preventDefault();
-      pick(i);
-    },
-    onMouseEnter: () => setActive(i),
-  });
-
-  return { open, active, menuId: `${id}-menu`, trigger, option };
-}
+export { useDismiss };
 
 // «Search» (4573:37262): 364 x 46 pill, 1-px #8e8e8f ring, magnifier.
 export function SearchField({

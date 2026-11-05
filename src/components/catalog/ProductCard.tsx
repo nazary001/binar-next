@@ -2,10 +2,13 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useState } from "react";
-import { CartIcon, InfoCircleIcon, MinusIcon, PlusIcon } from "./icons";
+import { CartIcon, InfoCircleIcon } from "./icons";
+import { QtyStepper } from "./QtyStepper";
+import { ChipsRow } from "./ChipsRow";
 import { TagIcon } from "@/components/product/icons";
 import { discountPercent, formatPrice, productHref, type Product } from "./data";
 import { useCart } from "@/components/cart/CartProvider";
+import { useCatalogAdd } from "./phoneParts";
 
 // The two B2C product-card layouts share every content atom:
 //
@@ -36,140 +39,65 @@ export type Tone = "dark" | "light";
 // positive-green (negative-red when out of stock), a 4-px dot
 // separator centred in a 12-px box, then the price-type note with the
 // info glyph (both #777779; white on the dark band).
+// Phones (system spec 3.1.1 / A27): the eyebrow 12/20 Medium uppercase,
+// the (i) glyph hidden (it explains nothing on touch). `noteOnPhone=
+// false` (the list row) keeps only the availability below 640: every
+// public price is retail, and the 160-px row column cannot hold the note
+// without an orphan dot.
+const STATUS_TEXT = "text-[12px] font-medium uppercase leading-5 lg:text-[14px] lg:leading-6";
+
 export function StatusLine({
   out,
   tone = "dark",
+  noteOnPhone = true,
 }: {
   out: boolean;
   tone?: Tone;
+  noteOnPhone?: boolean;
 }) {
   const muted = tone === "light" ? "text-white" : "text-neutral-500";
+  const dot = tone === "light" ? "bg-white" : "bg-neutral-500";
   // The row may wrap in the 260-px grid card (1440 layout) when the
   // longer «НЕМАЄ В НАЯВНОСТІ» label is on: the dot travels with the
   // label so a wrapped second line starts cleanly with the price note.
+  // Phones: no orphan dot either way - the dot LEADS each group there and
+  // the row is shifted 14 px left inside a clipping box, so the dot of
+  // whichever group starts a line falls outside it (the classic separator
+  // clip). The clip box is `display: contents` from 640 (no box: the
+  // desktop row renders exactly as before).
   return (
-    <div className="flex flex-wrap items-center gap-x-[2px]">
-      <span className="flex items-center gap-[2px] whitespace-nowrap">
-        <span
-          className={`text-[14px] font-medium uppercase leading-6 ${
-            out ? "text-negative" : "text-positive"
-          }`}
-        >
-          {out ? "Немає в наявності" : "В наявності"}
+    <div className="max-lg:overflow-hidden lg:contents">
+      <div className="flex flex-wrap items-center gap-x-[2px] max-lg:-ml-[14px]">
+        <span className="flex items-center gap-[2px] whitespace-nowrap">
+          <StatusDot gate="lg:hidden" colour={dot} />
+          <span className={`${STATUS_TEXT} ${out ? "text-negative" : "text-positive"}`}>
+            {out ? "Немає в наявності" : "В наявності"}
+          </span>
+          <StatusDot gate="max-lg:hidden" colour={dot} />
         </span>
-        <span
-          aria-hidden
-          className="flex size-3 shrink-0 items-center justify-center"
-        >
-          <span
-            className={`size-1 rounded-full ${
-              tone === "light" ? "bg-white" : "bg-neutral-500"
-            }`}
-          />
+        <span className={`flex items-center gap-1 whitespace-nowrap ${muted} ${noteOnPhone ? "" : "max-lg:hidden"}`}>
+          <StatusDot gate="-mr-0.5 lg:hidden" colour={dot} />
+          <span className={STATUS_TEXT}>роздрібна ціна</span>
+          <InfoCircleIcon className="size-4 shrink-0 max-lg:hidden" />
         </span>
-      </span>
-      <span className={`flex items-center gap-1 whitespace-nowrap ${muted}`}>
-        <span className="text-[14px] font-medium uppercase leading-6">
-          роздрібна ціна
-        </span>
-        <InfoCircleIcon className="size-4 shrink-0" />
-      </span>
+      </div>
     </div>
   );
 }
 
-// Chips — 36-px pills, stroke-default border; hover flips the border +
-// label to brand (Figma Chip State=Hover). On the dark band the chips
-// are white-outlined with white labels (4329:51408). px-15 + the 1-px
-// border = the master's px-16 with the stroke inside the box (text +
-// 32: «40 мл» = 76, «Botanica» = 99), same as the applied-filter and
-// popover chips.
-export function ChipsRow({
-  product,
-  tone = "dark",
-}: {
-  product: Product;
-  tone?: Tone;
-}) {
-  const chips = product.chips ?? [product.volume, product.brand];
-  const look =
-    tone === "light"
-      ? "border-white text-white"
-      : "border-stroke-default text-neutral-900";
+// The 4-px separator dot centred in its 12-px box; `gate` carries the
+// breakpoint gate (and the phone -mr), `colour` the dot fill.
+function StatusDot({ gate, colour }: { gate: string; colour: string }) {
   return (
-    <div className="flex flex-wrap content-center items-center gap-2">
-      {chips.map((chip) => (
-        <span
-          key={chip}
-          className={`flex h-9 items-center justify-center whitespace-nowrap rounded-[60px] border px-[15px] text-button-md transition-colors duration-200 hover:border-brand hover:text-brand ${look}`}
-        >
-          {chip}
-        </span>
-      ))}
-    </div>
+    <span aria-hidden className={`flex size-3 shrink-0 items-center justify-center ${gate}`}>
+      <span className={`size-1 rounded-full ${colour}`} />
+    </span>
   );
 }
 
-// Qty stepper — 16-px minus/plus glyph buttons around the count in
-// Title/Large, 8-px gaps (Figma Frame 1010106549).
-// `size="sm"` is the cart flavour (4329:39939): the count in 20/22 Bold.
-// `slot` drops the 2-px count padding of the catalog flavour for the
-// cart masters: "fixed" = the drawer row (4329:39939 / 4204:56952), the
-// count centred in a 28-px slot (76 for one or two digits); "hug" = the
-// stock-modal table (4329:40413), the count hugs its digits (60 for «2»).
-export function QtyStepper({
-  qty,
-  onQty,
-  disabled,
-  tone = "dark",
-  size = "md",
-  slot,
-}: {
-  qty: number;
-  onQty: (next: number) => void;
-  disabled?: boolean;
-  tone?: Tone;
-  size?: "md" | "sm";
-  slot?: "fixed" | "hug";
-}) {
-  const btn =
-    tone === "light"
-      ? "text-white hover:text-brand disabled:text-neutral-500"
-      : "text-neutral-900 hover:text-brand disabled:text-neutral-400";
-  const count = `${tone === "light" ? "text-white" : "text-neutral-900"} ${
-    size === "sm" ? "text-[20px] font-bold leading-[22px] tracking-[0.2px]" : "text-title-lg"
-  }`;
-  const countBox =
-    slot === "hug" ? "" : slot === "fixed" ? "min-w-7 text-center" : "min-w-7 px-0.5 text-center";
-  return (
-    <div className={`flex items-center gap-2 ${slot ? "w-fit" : ""}`}>
-      <button
-        type="button"
-        aria-label="Зменшити кількість"
-        disabled={disabled || qty <= 1}
-        onClick={() => onQty(Math.max(1, qty - 1))}
-        className={`cursor-pointer transition-colors duration-200 disabled:cursor-default ${btn}`}
-      >
-        <MinusIcon className="size-4" />
-      </button>
-      {/* min-w-7 keeps the master's 28-px slot for 1-2 digits and grows
-          for more; nowrap beats the site-wide mobile `overflow-wrap:
-          anywhere` on spans, which split «120» into two lines. */}
-      <span className={`shrink-0 whitespace-nowrap ${countBox} ${count}`}>
-        {qty}
-      </span>
-      <button
-        type="button"
-        aria-label="Збільшити кількість"
-        disabled={disabled}
-        onClick={() => onQty(qty + 1)}
-        className={`cursor-pointer transition-colors duration-200 disabled:cursor-default ${btn}`}
-      >
-        <PlusIcon className="size-4" />
-      </button>
-    </div>
-  );
-}
+// ChipsRow and QtyStepper live in ./ChipsRow and ./QtyStepper (moved for
+// the mobile pass); re-exported here so existing imports keep working.
+export { QtyStepper, ChipsRow };
 
 // Price — Caption/Large 32/28 Bold. A promotional price renders in
 // brand-orange with the regular price struck through beside it in
@@ -252,30 +180,44 @@ export function PriceAndQty({
 // fill, no border (Variant3). On the dark band the ring and glyph are
 // white («Icon button decorative», 4329:51423). Click adds `qty` of the
 // product to the cart and slides the drawer open.
+// Phones (D3 / A27): touch has no hover, so the dark-tone disc shows the
+// hover look as its default (brand fill, white glyph; not when out of
+// stock). `feedback="toast"` (the catalog cards and rows) adds without
+// opening the cart sheet below 640 and shows the «Додано у кошик» toast
+// (DECISIONS O-11); `onAdded` then runs (the card resets its stepper).
 export function CartButton({
   product,
   out,
   tone = "dark",
   qty = 1,
+  feedback = "drawer",
+  onAdded,
 }: {
   product: Product;
   out: boolean;
   tone?: Tone;
   qty?: number;
+  feedback?: "drawer" | "toast";
+  onAdded?: () => void;
 }) {
   const { add } = useCart();
+  const catalogAdd = useCatalogAdd();
   const look = out
     ? "cursor-default border-transparent bg-[#e8e8e9] text-neutral-900"
     : tone === "light"
       ? "border-white text-white group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white"
-      : "border-neutral-900 text-neutral-900 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white";
+      : "border-neutral-900 text-neutral-900 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:border-brand max-lg:bg-brand max-lg:text-white";
   return (
     <button
       type="button"
       aria-label={`Додати «${product.title}» в кошик`}
       disabled={out}
-      onClick={() => add(product.id, qty)}
-      className={`flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 ${look}`}
+      onClick={() => {
+        if (feedback === "toast") {
+          if (catalogAdd(product.id, qty)) onAdded?.();
+        } else add(product.id, qty);
+      }}
+      className={`flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${look}`}
     >
       <CartIcon className="size-6" />
     </button>
@@ -297,13 +239,46 @@ export function SaleChip({ product }: { product: Product }) {
 
 // Grid card — Figma «B2C :: Product card» (328×612). The photo and the
 // title link to the product page; the stepper and cart stay buttons.
+// Phones (D3 / TR-16, the Blog / Direction card shell 3176:5541): one
+// column, a 1-px #343435 ring r32, the photo 206 tall r32 sliding under
+// the top ring (object-contain on the #d5d5d5 studio backdrop: no bands,
+// no crop), content px / pb 24 incl. the ring (23 + 1), status / title
+// (Title Large, 2 lines) / chips 12 apart, then the price (Stat 30/36
+// SemiBold, O-15; the struck old price 14/20 beside it on a promo) and
+// the action row: stepper left, the 52 brand cart disc right.
+// The title link is a 40-px target on a 28-px line (6 + 28 + 6 with
+// negative margins: no layout change), clamped to 2 lines on phones.
+export const CARD_TITLE_LINK =
+  "max-lg:-my-[6px] max-lg:py-[6px] max-lg:line-clamp-2 max-lg:[text-wrap:pretty]";
+// The list-row flavour: 16/22 names, 9 + 22 + 9 = 40.
+export const ROW_TITLE_LINK =
+  "max-lg:-my-[9px] max-lg:py-[9px] max-lg:line-clamp-2 max-lg:[text-wrap:pretty]";
+
+export function PhonePrice({ product, size }: { product: Product; size: "stat" | "amount" }) {
+  const sale = discountPercent(product) !== null;
+  const type =
+    size === "stat"
+      ? "text-[30px] font-semibold leading-9 tracking-[-0.6px]"
+      : "text-[22px] font-semibold leading-7 tracking-[-0.44px]";
+  return (
+    <div className={size === "stat" ? "flex flex-wrap items-baseline gap-x-2" : "flex min-w-0 flex-col"}>
+      <span className={`whitespace-nowrap ${type} ${sale ? "text-brand" : "text-neutral-900"}`}>
+        {formatPrice(product.price)}
+      </span>
+      {sale && product.oldPrice !== undefined && (
+        <s className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">{formatPrice(product.oldPrice)}</s>
+      )}
+    </div>
+  );
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const [qty, setQty] = useState(1);
   const out = !product.available;
   const href = productHref(product);
 
   return (
-    <article className="group/card @container flex h-full flex-col gap-8 py-6">
+    <article className="group/card @container flex h-full flex-col rounded-[32px] border border-neutral-800 lg:gap-8 lg:rounded-none lg:border-0 lg:py-6">
       {/* bg-bg-product under the photo + object-contain on top: every
           card shares the same studio-gray backdrop, and product PNGs of
           any aspect (or with transparency) lay over it without cropping
@@ -315,7 +290,7 @@ export function ProductCard({ product }: { product: Product }) {
       <Link
         href={href}
         aria-label={product.title}
-        className="relative block h-[328px] w-full shrink-0 overflow-clip rounded-[40px] bg-bg-product lg:aspect-[655/656] lg:h-auto"
+        className="relative block h-[206px] w-full shrink-0 overflow-clip rounded-[32px] bg-bg-product max-lg:-mt-px lg:aspect-[655/656] lg:h-auto lg:rounded-[40px]"
       >
         <img
           src={product.image}
@@ -327,20 +302,31 @@ export function ProductCard({ product }: { product: Product }) {
         <SaleChip product={product} />
       </Link>
 
-      <div className="flex flex-1 flex-col gap-8">
-        <div className="flex flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-6 px-[23px] pb-[23px] pt-6 lg:gap-8 lg:p-0">
+        <div className="flex flex-col gap-3 lg:gap-4">
           <StatusLine out={out} />
           <h3 className="text-title-lg text-neutral-900">
-            <Link href={href}>{product.title}</Link>
+            <Link href={href} className={CARD_TITLE_LINK}>
+              {product.title}
+            </Link>
           </h3>
           <ChipsRow product={product} />
         </div>
 
         {/* Price row pinned to the card bottom (the master's Title+body
             block is flexible, so short titles leave the gap above). */}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-y-3">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-y-3 max-lg:hidden">
           <PriceAndQty product={product} qty={qty} onQty={setQty} out={out} compact />
-          <CartButton product={product} out={out} qty={qty} />
+          <CartButton product={product} out={out} qty={qty} feedback="toast" />
+        </div>
+
+        {/* Phones: price on its own line, the action row under it. */}
+        <div className="flex flex-col gap-4 lg:hidden">
+          <PhonePrice product={product} size="stat" />
+          <div className="flex items-center justify-between gap-4">
+            <QtyStepper qty={qty} onQty={setQty} disabled={out} />
+            <CartButton product={product} out={out} qty={qty} feedback="toast" onAdded={() => setQty(1)} />
+          </div>
         </div>
       </div>
     </article>
@@ -378,29 +364,41 @@ export function ProductRow({ product }: { product: Product }) {
           </Link>
 
           <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
-            <div className="flex min-w-0 flex-1 flex-col gap-4">
-              <StatusLine out={out} />
-              <h3 className="text-title-lg text-neutral-900">
-                <Link href={href}>{product.title}</Link>
+            {/* Phones (D3 compact row, TR-08): availability 12/20, the
+                name 16/22 Bold (2 lines), the chips as a 14/20 #777779
+                meta line (the pills are inert spans that looked tappable
+                and spilled out of the 160-px column at 320). */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2.5 lg:gap-4">
+              <StatusLine out={out} noteOnPhone={false} />
+              <h3 className="text-title-sm text-neutral-900 lg:text-title-lg">
+                <Link href={href} className={ROW_TITLE_LINK}>
+                  {product.title}
+                </Link>
               </h3>
-              <ChipsRow product={product} />
+              <ChipsRow product={product} className="max-lg:hidden" />
+              <p className="text-[14px] leading-5 text-neutral-500 lg:hidden">
+                {(product.chips ?? [product.volume, product.brand]).join(", ")}
+              </p>
             </div>
 
             {/* sm/lg keep the Figma price cluster nested beside the title;
                 phones get the full-width cluster below (see next block). */}
             <div className="hidden flex-wrap items-center gap-4 sm:flex lg:flex-nowrap lg:gap-8">
               <PriceAndQty product={product} qty={qty} onQty={setQty} out={out} />
-              <CartButton product={product} out={out} qty={qty} />
+              <CartButton product={product} out={out} qty={qty} feedback="toast" />
             </div>
           </div>
         </div>
 
-        {/* Phones: price/stepper/cart drop to their own full-width line so the
-            ~190-px details column beside the photo no longer clips the price
-            or pushes the cart off the viewport. */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 sm:hidden">
-          <PriceAndQty product={product} qty={qty} onQty={setQty} out={out} />
-          <CartButton product={product} out={out} qty={qty} />
+        {/* Phones: the price (22/28 SemiBold, the struck old price under
+            it on a promo) left, the stepper + the 52 brand disc right; the
+            disc always ends at the content edge (233.5 px at 320). */}
+        <div className="mt-4 flex items-center justify-between gap-4 sm:hidden">
+          <PhonePrice product={product} size="amount" />
+          <div className="flex shrink-0 items-center gap-4">
+            <QtyStepper qty={qty} onQty={setQty} disabled={out} />
+            <CartButton product={product} out={out} qty={qty} feedback="toast" onAdded={() => setQty(1)} />
+          </div>
         </div>
       </div>
       <div aria-hidden className="-mt-px h-px w-full bg-stroke-subtle" />

@@ -12,8 +12,10 @@ import {
 } from "react";
 import {
   FiltersDrawer,
+  FiltersSheet,
   type FilterParam,
   type FilterSection,
+  type FilterState,
 } from "./FiltersDrawer";
 import { ProductCard, ProductRow } from "./ProductCard";
 import { B2BProductCard, B2BProductRow } from "./B2BProductCard";
@@ -22,11 +24,17 @@ import {
   CardViewIcon,
   ChevronDown16,
   ChevronSideIcon,
-  FilterIcon,
   ListViewIcon,
-  MagnifierIcon,
   XMarkIcon,
 } from "./icons";
+import { usePhone } from "@/components/ui/useMediaQuery";
+import { SearchField } from "@/components/ui/SearchField";
+import { FilterButton } from "@/components/ui/FilterButton";
+import { AppliedChips } from "@/components/ui/AppliedChips";
+import { SortMenu } from "@/components/ui/SortMenu";
+import { LoadMore } from "@/components/ui/LoadMore";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/Button";
 import {
   BRANDS,
   CATALOG_DIRECTIONS,
@@ -41,6 +49,22 @@ import {
   type Product,
   type SortOption,
 } from "./data";
+
+// Phone copy (mobile pass, catalog-b2c 2.10 / 2.14, S20).
+const COPY = {
+  found: (n: number) => `Знайдено ${n} ${productsPlural(n)}`,
+  search: "Пошук по каталогу",
+  list: "Товари",
+  viewCards: "Вид картками",
+  viewList: "Вид списком",
+  emptyTitle: "За запитом нічого не знайдено.",
+  emptyText: "Спробуйте змінити пошук або фільтри.",
+  emptyReset: "Скинути пошук і фільтри",
+} as const;
+
+// Phones list 10 products per batch and append the next 10 in place
+// (D3 / D4); the desktop pager pages by the page-size pill as today.
+const PHONE_BATCH = 10;
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -275,6 +299,13 @@ export function CatalogClient({
   // render would re-run it on every checkbox tick and bounce focus).
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const gridTopRef = useRef<HTMLDivElement | null>(null);
+  // Phones (< 640): one-column list with load-more batches, the phone
+  // filters sheet. False on the server and in the hydration pass, so the
+  // first paint is the desktop slice (items 1-10 are the same in both).
+  const phone = usePhone();
+  const [shown, setShown] = useState(PHONE_BATCH);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const phoneListId = `${useId()}-products`;
 
   // The vocabulary each group accepts in this context; unknown values
   // in a hand-edited URL are dropped.
@@ -301,6 +332,7 @@ export function CatalogClient({
   if (prevParamsKey !== paramsKey) {
     setPrevParamsKey(paramsKey);
     setPage(1);
+    setShown(PHONE_BATCH);
   }
 
   const applyFilters = (next: Record<FilterParam, string[]>) => {
@@ -347,26 +379,37 @@ export function CatalogClient({
     applyFilters({ ...active, [param]: next });
   };
 
+  // The pool after the filters + the search (unsorted). Also counts the
+  // phone sheet's DRAFT for its «Знайдено N товарів» status.
+  const match = useCallback(
+    (f: FilterState) => {
+      const q = query.trim().toLowerCase();
+      let base = directionSubs
+        ? PRODUCTS.filter((p) => directionSubs.has(p.subcategory))
+        : PRODUCTS;
+      if (fixedSubcategory) {
+        base = base.filter((p) => p.subcategory === fixedSubcategory);
+      }
+      if (f.zone.length > 0) {
+        base = base.filter((p) => p.zone !== undefined && f.zone.includes(p.zone));
+      }
+      if (f.type.length > 0) {
+        base = base.filter(
+          (p) => p.productType !== undefined && f.type.includes(p.productType),
+        );
+      }
+      if (f.brand.length > 0) {
+        base = base.filter((p) => f.brand.includes(p.brand));
+      }
+      if (q) base = base.filter((p) => p.title.toLowerCase().includes(q));
+      return base;
+    },
+    [query, directionSubs, fixedSubcategory],
+  );
+  const countFor = useCallback((f: FilterState) => match(f).length, [match]);
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let base = directionSubs
-      ? PRODUCTS.filter((p) => directionSubs.has(p.subcategory))
-      : PRODUCTS;
-    if (fixedSubcategory) {
-      base = base.filter((p) => p.subcategory === fixedSubcategory);
-    }
-    if (active.zone.length > 0) {
-      base = base.filter((p) => p.zone !== undefined && active.zone.includes(p.zone));
-    }
-    if (active.type.length > 0) {
-      base = base.filter(
-        (p) => p.productType !== undefined && active.type.includes(p.productType),
-      );
-    }
-    if (active.brand.length > 0) {
-      base = base.filter((p) => active.brand.includes(p.brand));
-    }
-    if (q) base = base.filter((p) => p.title.toLowerCase().includes(q));
+    const base = match(active);
     if (sort === "за назвою") {
       return [...base].sort((a, b) => a.title.localeCompare(b.title, "uk"));
     }
@@ -374,7 +417,7 @@ export function CatalogClient({
       return [...base].sort((a, b) => a.price - b.price);
     }
     return base;
-  }, [query, sort, active, directionSubs, fixedSubcategory]);
+  }, [match, sort, active]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const current = Math.min(page, pages);
@@ -406,34 +449,58 @@ export function CatalogClient({
 
   const clearFilters = () => applyFilters({ zone: [], type: [], brand: [] });
 
+  // ---- phone helpers
+  const phoneItems = filtered.slice(0, shown);
+  const resetAll = () => {
+    setQuery("");
+    setShown(PHONE_BATCH);
+    if (hasFilters) clearFilters();
+  };
+  // After «Показати» (the sheet has closed and committed): bring the
+  // toolbar back under the 66-px bar when the list shrank under it.
+  const showToolbar = () => {
+    requestAnimationFrame(() => {
+      const el = toolbarRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      if (top >= 66) return;
+      window.scrollTo({ top: top + window.scrollY - 66 - 16, behavior: "instant" });
+    });
+  };
+  // LoadMore focus target: the title link of the first newly shown item
+  // (index = the count shown when the tap happened).
+  const firstNewLink = (from: number) => () =>
+    document.getElementById(phoneListId)?.children[from]?.querySelector<HTMLElement>("h3 a") ?? null;
+
   return (
     <>
       {/* === Search row (Figma 3677:39763): the field spans exactly one
           banner column; the icon controls sit at the right edge. === */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className={`relative w-full ${b2b ? "lg:w-[495px]" : "lg:w-[calc((100%-64px)/3)]"}`}>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Пошук"
-            aria-label="Пошук по каталогу"
-            className="h-[46px] w-full rounded-[50px] border border-stroke-default bg-white pl-4 pr-12 text-[16px] leading-6 text-neutral-900 outline-none transition-colors duration-200 placeholder:text-neutral-500 focus:border-neutral-800 [&::-webkit-search-cancel-button]:hidden"
-          />
-          <MagnifierIcon className="pointer-events-none absolute right-4 top-1/2 size-6 -translate-y-1/2 text-neutral-700" />
-        </div>
+      {/* Phones (C-47, TR-10): ONE row = the search field (flex-1) + the
+          52 view toggle disc + the 52 filter disc with its count badge,
+          gap 8 (152 / 222 px of search at 320 / 390). The SearchField
+          atom keeps today's input string; its phone clear button and the
+          role=search form are invisible changes on desktop. */}
+      <div ref={toolbarRef} className="flex items-center gap-2 lg:justify-between lg:gap-4">
+        <SearchField
+          value={query}
+          onChange={(v) => {
+            setQuery(v);
+            setPage(1);
+            setShown(PHONE_BATCH);
+          }}
+          label={COPY.search}
+          className={`min-w-0 flex-1 lg:min-w-auto lg:flex-initial ${b2b ? "lg:w-[495px]" : "lg:w-[calc((100%-64px)/3)]"}`}
+        />
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 lg:gap-4">
           {/* Card/list view switch — a black 32-px-radius pill holding two
               52-px icon buttons; the active one fills brand-orange. */}
           {/* The B2B «Switcher» (3917:35178) is the light #e8e8e9 pill
               with dark inactive glyphs; the B2C one is black with white
               glyphs. The active button fills brand in both. */}
           <div
-            className={`flex items-center rounded-[32px] ${
+            className={`flex items-center rounded-[32px] max-lg:hidden ${
               b2b ? "bg-[#e8e8e9]" : "bg-neutral-900"
             }`}
           >
@@ -469,18 +536,30 @@ export function CatalogClient({
             </button>
           </div>
 
+          {/* Phones: ONE outlined 52 disc (the master icon button
+              3117:12801) showing the OTHER view; its label names the
+              action, so no aria-pressed. After the desktop pill in the
+              DOM (scripts that take the first «Вид списком» get the
+              desktop one there). Hidden with no results. */}
+          {filtered.length > 0 && (
+            <button
+              type="button"
+              aria-label={view === "cards" ? COPY.viewList : COPY.viewCards}
+              onClick={() => setView(view === "cards" ? "list" : "cards")}
+              className="flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border border-neutral-900 bg-white text-neutral-900 transition-colors duration-200 active:bg-bg-subtle motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:hidden"
+            >
+              {view === "cards" ? <ListViewIcon className="size-6" /> : <CardViewIcon className="size-6" />}
+            </button>
+          )}
+
           {/* Filter button — opens the filters drawer (Figma «Фільтри ::
-              Готель», 3685:53426). */}
-          <button
-            type="button"
-            aria-label="Фільтри"
-            aria-expanded={drawerOpen}
-            aria-haspopup="dialog"
+              Готель», 3685:53426); on phones the full-screen sheet, with
+              the applied-filter count badge (A11). */}
+          <FilterButton
+            count={appliedChips.length}
+            expanded={drawerOpen}
             onClick={() => setDrawerOpen(true)}
-            className="flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] bg-neutral-900 text-white transition-opacity duration-200 hover:opacity-85"
-          >
-            <FilterIcon className="size-6" />
-          </button>
+          />
         </div>
       </div>
 
@@ -488,8 +567,19 @@ export function CatalogClient({
           48 px below the search row + «Скинути фільтрацію», gap-16
           (px-15 + the 1-px border = the master's px-16, stroke inside:
           «Allegrini» = 117). === */}
+      {/* Phones: the A11 chips 16 under the search row (14/20, one line
+          with an ellipsis inside a 44 hit box). */}
+      <AppliedChips
+        chips={appliedChips.map((chip) => ({
+          key: `${chip.kind}-${chip.value}`,
+          label: chip.value,
+          onRemove: () => removeChip(chip),
+        }))}
+        onReset={clearFilters}
+        className="mt-4 lg:hidden"
+      />
       {hasFilters && (
-        <div className="mt-8 flex flex-wrap items-center gap-4 lg:mt-12">
+        <div className="mt-8 flex flex-wrap items-center gap-4 max-lg:hidden lg:mt-12">
           {appliedChips.map((chip) => (
             <button
               key={`${chip.kind}-${chip.value}`}
@@ -513,8 +603,30 @@ export function CatalogClient({
         </div>
       )}
 
+      {/* Phones: the T2 meta line 16 under the search row (or the chips),
+          44 tall: the count 14/20 #777779 left (not announced while the
+          sheet is open: its own status line speaks), the SortMenu right
+          (anchored to this relative row). No per-page control (D4). */}
+      <div className="relative mt-4 flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2 lg:hidden">
+        <p aria-live={drawerOpen ? "off" : "polite"} className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">
+          {COPY.found(filtered.length)}
+        </p>
+        {filtered.length > 0 && (
+          <SortMenu
+            value={sort}
+            options={SORT_OPTIONS.map((o) => ({ value: o, label: o }))}
+            onChange={(v) => {
+              setSort(v as SortOption);
+              setPage(1);
+              setShown(PHONE_BATCH);
+            }}
+            className="ml-auto"
+          />
+        )}
+      </div>
+
       {/* === Results / sorting row (Figma 3677:39714), 48 px below. === */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 lg:mt-12">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 max-lg:hidden lg:mt-12">
         <p className="text-button-md text-neutral-900">
           Знайдено {filtered.length} {productsPlural(filtered.length)}
         </p>
@@ -560,7 +672,10 @@ export function CatalogClient({
           bottom). */}
       <div
         ref={gridTopRef}
-        className={`flex scroll-mt-[96px] flex-col gap-12 pt-12 lg:gap-20 ${
+        // Phones: the list starts 24 under the meta line; load-more 48
+        // under the list; 60 to the public footer (B2C) / the section's
+        // 48 to the legal bar (B2B). Every lg:pt-* / lg:pb-* is today's.
+        className={`flex scroll-mt-[96px] flex-col gap-12 pt-6 lg:gap-20 ${
           b2b
             ? view === "list"
               ? "pb-0 lg:pb-12 lg:pt-28"
@@ -569,9 +684,51 @@ export function CatalogClient({
         }`}
       >
         {paged.length === 0 ? (
-          <p className="text-body-md text-neutral-500">
-            За запитом нічого не знайдено. Спробуйте змінити пошук або фільтри.
-          </p>
+          <>
+            <p className="text-body-md text-neutral-500 max-lg:hidden">
+              За запитом нічого не знайдено. Спробуйте змінити пошук або фільтри.
+            </p>
+            {/* Phones: TR-24 empty state on the page, the in-place reset
+                solid (no other solid primary in view). */}
+            <EmptyState
+              title={COPY.emptyTitle}
+              text={COPY.emptyText}
+              action={
+                query.trim() || hasFilters ? (
+                  <Button size="small" onClick={resetAll}>
+                    {COPY.emptyReset}
+                  </Button>
+                ) : undefined
+              }
+              className="lg:hidden"
+            />
+          </>
+        ) : phone ? (
+          // Phones: ONE column of D3 cards 24 apart, or the compact rows
+          // between 1-px #d2d2d2 lines; keyed by product id, so a batch
+          // appends without remounting the items above.
+          <ul
+            id={phoneListId}
+            role="list"
+            aria-label={COPY.list}
+            className={view === "list" ? "flex flex-col border-t border-stroke-subtle" : "flex flex-col gap-6"}
+          >
+            {phoneItems.map((product) => (
+              <li key={product.id}>
+                {view === "list" ? (
+                  b2b ? (
+                    <B2BProductRow product={product} />
+                  ) : (
+                    <ProductRow product={product} />
+                  )
+                ) : b2b ? (
+                  <B2BProductCard product={product} />
+                ) : (
+                  <ProductCard product={product} />
+                )}
+              </li>
+            ))}
+          </ul>
         ) : view === "list" ? (
           <div className="flex flex-col">
             {paged.map((product: Product, i) =>
@@ -620,10 +777,23 @@ export function CatalogClient({
           </div>
         )}
 
+        {/* Phones: load-more instead of the pager (D4, blog 3176:5601):
+            the counter + «Показати більше», 48 under the list; gone once
+            everything is shown. */}
+        {phone && paged.length > 0 && (
+          <LoadMore
+            shown={phoneItems.length}
+            total={filtered.length}
+            onMore={() => setShown((n) => n + PHONE_BATCH)}
+            focusAfterLast={firstNewLink(phoneItems.length)}
+            className="lg:hidden"
+          />
+        )}
+
         {pages > 1 && (
           <nav
             aria-label="Сторінки каталогу"
-            className="flex flex-wrap items-center justify-center gap-1 self-center sm:gap-[10px]"
+            className="flex flex-wrap items-center justify-center gap-1 self-center max-lg:hidden sm:gap-[10px]"
           >
             <button
               type="button"
@@ -664,12 +834,22 @@ export function CatalogClient({
       </div>
 
       <FiltersDrawer
-        open={drawerOpen}
+        open={drawerOpen && !phone}
         onClose={closeDrawer}
         sections={filterSections}
         active={active}
         onToggle={toggleFilter}
         onReset={clearFilters}
+      />
+      {/* Phones: the full-screen sheet with the draft model (T5a). */}
+      <FiltersSheet
+        open={drawerOpen && phone}
+        onClose={closeDrawer}
+        sections={filterSections}
+        active={active}
+        onApply={applyFilters}
+        countFor={countFor}
+        onShow={showToolbar}
       />
     </>
   );

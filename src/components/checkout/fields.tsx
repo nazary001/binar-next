@@ -1,7 +1,16 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { CheckboxOffIcon, CheckboxOnIcon, MagnifierIcon } from "@/components/catalog/icons";
+import { PHONE_QUERY, placePanel } from "@/components/ui/useListbox";
 import { ChevronDown24 } from "./icons";
 
 // Form controls of the checkout panel — Figma «<TextField>» (4130:38608
@@ -18,9 +27,19 @@ import { ChevronDown24 } from "./icons";
 // Selects add a 24-px chevron (up while open) and drop a white r24 menu
 // with a 0/2/6 shadow 4.5 px under the field («<Menu>», 4329:41026):
 // 16/22 Medium rows padded 16/12 with 0.5-px dividers, 250 px max.
+//
+// Phones (D6 / TR-21, system spec A26): the same 46-px r24 field, 16-px
+// text (no iOS focus zoom), full width, pitch 70 by the callers' gap-6.
+// Below 640 only: a resting caption never runs out of the ring (it
+// truncates), an unfocused overflowing value shows an ellipsis, the
+// helper / error line sits 8 under the ring in Stroke/Negative #d92d20,
+// menu rows are split by 1-px lines, a select menu opens into view (flip
+// above or scroll the nearest scroller), branch-like options show two
+// lines (`primary` / `secondary`), and the autocomplete keeps its menu
+// above the keyboard. Desktop strings are untouched (lg: restores).
 
 const RING =
-  "peer h-[46px] w-full rounded-3xl border border-stroke-subtle bg-transparent px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none transition-[border-color,box-shadow] duration-200 placeholder-transparent focus:border-brand focus:[box-shadow:inset_0_0_0_1px_var(--color-brand)] disabled:cursor-default disabled:border-[#bbbbbc] disabled:text-neutral-300";
+  "peer h-[46px] w-full rounded-3xl border border-stroke-subtle bg-transparent px-6 text-[16px] font-medium leading-6 tracking-[0.15px] text-neutral-900 outline-none transition-[border-color,box-shadow] duration-200 placeholder-transparent focus:border-brand focus:[box-shadow:inset_0_0_0_1px_var(--color-brand)] disabled:cursor-default disabled:border-[#bbbbbc] disabled:text-neutral-300 max-lg:text-ellipsis";
 // «<TextField>» State=Error (4130:38611 / 4130:38612, ctx 5420-38180 /
 // 5420-38248) - the checkout, the account drawer and the cabinet forms
 // share it: a plain 1-px Stroke/Negative #d92d20 ring, no inset; focus
@@ -65,6 +84,20 @@ const LABEL = `${LABEL_GEOM} ${LABEL_TONE}`;
 const LABEL_ERROR = `${LABEL_GEOM} peer-focus:text-[#d32f2f] peer-[:not(:placeholder-shown)]:text-[#d32f2f]`;
 // Error/Main of the FormHelperText and the floated caption.
 const ERROR_TEXT = "text-[#d32f2f]";
+// Phones: a RESTING caption stops 24 px short of the ring's far edge and
+// truncates (48 = both 24-px insets; 80 when an adornment sits on the
+// right). Text inputs switch through the peer state, the select and a
+// disabled field through React state.
+const REST_FIT =
+  "max-lg:peer-[:placeholder-shown:not(:focus)]:max-w-[calc(100%-48px)] max-lg:peer-[:placeholder-shown:not(:focus)]:truncate";
+const REST_FIT_ADORNED =
+  "max-lg:peer-[:placeholder-shown:not(:focus)]:max-w-[calc(100%-80px)] max-lg:peer-[:placeholder-shown:not(:focus)]:truncate";
+const REST_FIT_STATIC = "max-lg:max-w-[calc(100%-48px)] max-lg:truncate";
+const REST_FIT_SELECT = "max-lg:max-w-[calc(100%-80px)] max-lg:truncate";
+
+const isPhone = () => window.matchMedia(PHONE_QUERY).matches;
+const motionBehavior = (): ScrollBehavior =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
 
 // «<FormHelperText>» — the 12/16 Medium line under a field, the exact
 // Figma box (4132:38988): pt-3 px-24, shown only while there is text, so
@@ -75,27 +108,34 @@ const ERROR_TEXT = "text-[#d32f2f]";
 // 5420:38169) never reserves it. A permanent `helper` (5258:43746 «Це
 // буде ваш логін...») is text/secondary rgba(0,0,0,.6); an error
 // replaces it in Error/Main #d32f2f.
+// Phones (D6): the line sits 8 under the ring and an error is
+// Stroke/Negative #d92d20 (the reserved zone grows to 24 with it).
+// `announce` false drops role=alert (a form that focuses its first
+// invalid field announces through aria-describedby instead).
 function Hint({
   id,
   error,
   helper,
   reserve,
   mui,
+  announce = true,
 }: {
   id: string;
   error?: string;
   helper?: string;
   reserve?: boolean;
   mui?: boolean;
+  announce?: boolean;
 }) {
   const text = error || helper;
   if (!text && !reserve) return null;
-  const box = reserve && !mui ? "min-h-[19px] pl-6 pt-[3px]" : "px-6 pt-[3px]";
-  const tone = error ? ERROR_TEXT : "text-black/60";
+  const box =
+    reserve && !mui ? "min-h-[19px] pl-6 pt-[3px] max-lg:min-h-6 max-lg:pt-2" : "px-6 pt-[3px] max-lg:pt-2";
+  const tone = error ? `${ERROR_TEXT} max-lg:text-negative` : "text-black/60";
   return (
     <p
       id={id}
-      role={error ? "alert" : undefined}
+      role={error && announce ? "alert" : undefined}
       className={`${box} text-[12px] font-medium leading-4 tracking-[0.15px] ${tone}`}
     >
       {text}
@@ -129,6 +169,12 @@ export function TextField({
   describedBy,
   trailing,
   className = "",
+  autoCapitalize,
+  autoCorrect,
+  spellCheck,
+  enterKeyHint,
+  onKeyDown,
+  announceError = true,
 }: {
   label: string;
   value: string;
@@ -162,14 +208,20 @@ export function TextField({
   // sits outside the <label> because a button may not live inside one.
   trailing?: ReactNode;
   className?: string;
+  // Keyboard / input hints passed to the <input> unchanged (no visual).
+  autoCapitalize?: string;
+  autoCorrect?: "on" | "off";
+  spellCheck?: boolean;
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+  onKeyDown?: (e: ReactKeyboardEvent<HTMLInputElement>) => void;
+  // role=alert on the error line (false: the form announces otherwise).
+  announceError?: boolean;
 }) {
   const id = useId();
   const isError = Boolean(error) || Boolean(invalid);
   const labelClass = disabled
-    ? `${LABEL_SHELL} ${value ? LABEL_FLOAT : LABEL_REST} ${LABEL_DISABLED}`
-    : isError
-      ? LABEL_ERROR
-      : LABEL;
+    ? `${LABEL_SHELL} ${value ? LABEL_FLOAT : `${LABEL_REST} ${REST_FIT_STATIC}`} ${LABEL_DISABLED}`
+    : `${isError ? LABEL_ERROR : LABEL} ${trailing ? REST_FIT_ADORNED : REST_FIT}`;
   const ringError = isError ? RING_ERROR : "";
   const hint = hintId ?? `${id}-hint`;
   const described =
@@ -190,6 +242,11 @@ export function TextField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onBlur={onBlur}
+            onKeyDown={onKeyDown}
+            autoCapitalize={autoCapitalize}
+            autoCorrect={autoCorrect}
+            spellCheck={spellCheck}
+            enterKeyHint={enterKeyHint}
             placeholder=" "
             aria-invalid={isError ? true : undefined}
             aria-describedby={described}
@@ -209,6 +266,7 @@ export function TextField({
         helper={helper}
         reserve={helperZone}
         mui={muiHelper}
+        announce={announceError}
       />
     </div>
   );
@@ -240,41 +298,52 @@ export function TextArea({
         rows={3}
         className={`${RING} block h-[120px] resize-none py-[11px]`}
       />
-      <span className={`${LABEL} top-[11px] translate-y-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2`}>
+      <span className={`${LABEL} ${REST_FIT} top-[11px] translate-y-0 peer-focus:top-0 peer-focus:-translate-y-1/2 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2`}>
         {label}
       </span>
     </label>
   );
 }
 
-// Shared dropdown chrome for the select and the autocomplete.
+// Shared dropdown chrome for the select and the autocomplete. `data-flip`
+// (set by placePanel on phones) anchors it above the field instead.
 function Menu({
   id,
   open,
   children,
+  menuRef,
+  className = "",
 }: {
   id: string;
   open: boolean;
   children: ReactNode;
+  menuRef?: Ref<HTMLUListElement>;
+  className?: string;
 }) {
   if (!open) return null;
   return (
     <ul
+      ref={menuRef}
       id={id}
       role="listbox"
-      className="absolute inset-x-0 top-[calc(100%+4.5px)] z-20 max-h-[250px] overflow-y-auto overscroll-contain rounded-3xl bg-white py-0 shadow-[0px_2px_6px_0px_rgba(29,29,31,0.1)]"
+      className={`absolute inset-x-0 top-[calc(100%+4.5px)] z-20 max-h-[250px] overflow-y-auto overscroll-contain rounded-3xl bg-white py-0 shadow-[0px_2px_6px_0px_rgba(29,29,31,0.1)] data-[flip]:bottom-[calc(100%+4.5px)] data-[flip]:top-auto ${className}`}
     >
       {children}
     </ul>
   );
 }
 
+// Phones (TR-11): the chosen row in brand - `max-lg:` because the base
+// `text-neutral-900` of the row out-ranks `text-brand` in the sheet order
+// (desktop keeps today's look).
 function MenuItem({
+  id,
   selected,
   active,
   onSelect,
   children,
 }: {
+  id: string;
   selected: boolean;
   active: boolean;
   onSelect: () => void;
@@ -282,6 +351,7 @@ function MenuItem({
 }) {
   return (
     <li
+      id={id}
       role="option"
       aria-selected={selected}
       onMouseDown={(e) => {
@@ -289,12 +359,32 @@ function MenuItem({
         e.preventDefault();
         onSelect();
       }}
-      className={`cursor-pointer px-4 py-3 text-button-md text-neutral-900 transition-colors duration-150 [&+&]:shadow-[inset_0_0.5px_0_var(--color-stroke-subtle)] ${
+      className={`cursor-pointer px-4 py-3 text-button-md text-neutral-900 transition-colors duration-150 [&+&]:shadow-[inset_0_1px_0_var(--color-stroke-subtle)] lg:[&+&]:shadow-[inset_0_0.5px_0_var(--color-stroke-subtle)] ${
         active ? "bg-bg-subtle" : "hover:bg-bg-subtle"
-      } ${selected ? "text-brand" : ""}`}
+      } ${selected ? "text-brand max-lg:text-brand" : ""}`}
     >
       {children}
     </li>
+  );
+}
+
+// An option may carry a two-line phone form: `primary` 16/22 Medium over
+// `secondary` 14/20 #777779 (Нова Пошта branches / lockers: «Поштомат
+// №10233» / «бульв. Лесі Українки, 26»); desktop always shows `label`.
+export type SelectOption = { value: string; label: string; primary?: string; secondary?: string };
+
+function OptionText({ option }: { option: SelectOption }) {
+  if (!option.primary) return <>{option.label}</>;
+  return (
+    <>
+      <span className="max-lg:hidden">{option.label}</span>
+      <span className="flex flex-col lg:hidden">
+        <span className="text-[16px] font-medium leading-[22px]">{option.primary}</span>
+        {option.secondary && (
+          <span className="text-[14px] font-normal leading-5 tracking-normal text-neutral-500">{option.secondary}</span>
+        )}
+      </span>
+    </>
   );
 }
 
@@ -306,21 +396,31 @@ export function SelectField({
   error,
   name,
   helperZone,
+  announceError = true,
 }: {
   label: string;
   value: string;
-  options: { value: string; label: string }[];
+  options: SelectOption[];
   onChange: (v: string) => void;
   error?: string;
   name?: string;
   helperZone?: boolean;
+  announceError?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const menuRef = useRef<HTMLUListElement>(null);
   const current = options.find((o) => o.value === value);
   const filled = Boolean(current);
+  const twoLine = Boolean(current?.primary);
   const currentIndex = options.findIndex((o) => o.value === value);
+
+  // Phones: the opened menu must be visible (flip above, or scroll the
+  // nearest scroller / the page just enough).
+  useLayoutEffect(() => {
+    if (open && menuRef.current && isPhone()) placePanel(menuRef.current);
+  }, [open]);
 
   // The highlight never survives a close: it restarts from the chosen
   // option (or nothing) every time the menu opens.
@@ -376,18 +476,21 @@ export function SelectField({
           aria-labelledby={`${id}-label`}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-controls={`${id}-menu`}
+          aria-controls={open ? `${id}-menu` : undefined}
+          aria-activedescendant={open && active >= 0 ? `${id}-opt-${active}` : undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-hint` : undefined}
           onClick={() => (open ? closeMenu() : openMenu())}
           onKeyDown={onKey}
           onBlur={closeMenu}
           className={`${RING} flex cursor-pointer items-center justify-between gap-2 text-left ${
-            error ? RING_ERROR : ""
-          } ${open && !error ? "border-brand [box-shadow:inset_0_0_0_1px_var(--color-brand)]" : ""}`}
+            twoLine ? "max-lg:h-auto max-lg:min-h-[46px] max-lg:py-[10px]" : ""
+          } ${error ? RING_ERROR : ""} ${open && !error ? "border-brand [box-shadow:inset_0_0_0_1px_var(--color-brand)]" : ""}`}
         >
-          <span className={`min-w-0 flex-1 truncate ${filled ? "" : "text-transparent"}`}>
-            {current?.label ?? label}
+          <span
+            className={`min-w-0 flex-1 truncate ${twoLine ? "max-lg:whitespace-normal" : ""} ${filled ? "" : "text-transparent"}`}
+          >
+            {current ? <OptionText option={current} /> : label}
           </span>
           <ChevronDown24
             className={`size-6 shrink-0 text-neutral-900 transition-[rotate] duration-200 ${
@@ -406,15 +509,16 @@ export function SelectField({
           className={`${LABEL_SHELL} ${
             filled
               ? `${LABEL_FLOAT} ${error ? ERROR_TEXT : open ? "text-brand" : "text-black/60"}`
-              : LABEL_REST
+              : `${LABEL_REST} ${REST_FIT_SELECT}`
           }`}
         >
           {label}
         </span>
-        <Menu id={`${id}-menu`} open={open}>
+        <Menu id={`${id}-menu`} open={open} menuRef={menuRef} className="max-lg:max-h-[232px]">
           {options.map((o, i) => (
             <MenuItem
               key={o.value}
+              id={`${id}-opt-${i}`}
               selected={o.value === value}
               active={i === active}
               onSelect={() => {
@@ -422,12 +526,12 @@ export function SelectField({
                 closeMenu();
               }}
             >
-              {o.label}
+              <OptionText option={o} />
             </MenuItem>
           ))}
         </Menu>
       </div>
-      <Hint id={`${id}-hint`} error={error} reserve={helperZone} />
+      <Hint id={`${id}-hint`} error={error} reserve={helperZone} announce={announceError} />
     </div>
   );
 }
@@ -444,6 +548,8 @@ export function AutocompleteField({
   name,
   autoComplete,
   helperZone,
+  enterKeyHint,
+  announceError = true,
 }: {
   label: string;
   value: string;
@@ -454,16 +560,41 @@ export function AutocompleteField({
   name?: string;
   autoComplete?: string;
   helperZone?: boolean;
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+  announceError?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const query = value.trim().toLowerCase();
   const matches = query
     ? options.filter((o) => o.toLowerCase().includes(query)).slice(0, 8)
     : options.slice(0, 8);
   const showMenu = open && matches.length > 0 && !(matches.length === 1 && matches[0] === value);
+
+  // Phones: the open menu never runs under the keyboard - its height is
+  // capped to the visible (visual viewport) space below it, 140 at least.
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!showMenu || !menu || !isPhone()) return;
+    const vv = window.visualViewport;
+    const cap = () => {
+      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const room = Math.floor(visibleBottom - menu.getBoundingClientRect().top - 8);
+      menu.style.maxHeight = `${Math.min(250, Math.max(140, room))}px`;
+    };
+    cap();
+    vv?.addEventListener("resize", cap);
+    vv?.addEventListener("scroll", cap);
+    window.addEventListener("scroll", cap, { passive: true });
+    return () => {
+      vv?.removeEventListener("resize", cap);
+      vv?.removeEventListener("scroll", cap);
+      window.removeEventListener("scroll", cap);
+    };
+  }, [showMenu]);
 
   return (
     <div>
@@ -478,16 +609,27 @@ export function AutocompleteField({
           aria-label={label}
           aria-autocomplete="list"
           aria-expanded={showMenu}
-          aria-controls={`${id}-menu`}
+          aria-controls={showMenu ? `${id}-menu` : undefined}
+          aria-activedescendant={showMenu && active >= 0 ? `${id}-opt-${active}` : undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-hint` : undefined}
+          enterKeyHint={enterKeyHint}
           value={value}
           onChange={(e) => {
             onChange(e.target.value);
             setActive(-1);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            // Phones: bring the field to the top so its suggestions have
+            // room above the keyboard (html scroll-padding keeps it under
+            // the header).
+            if (isPhone()) {
+              const behavior = motionBehavior();
+              requestAnimationFrame(() => inputRef.current?.scrollIntoView({ block: "start", behavior }));
+            }
+          }}
           onBlur={() => {
             setOpen(false);
             onBlur?.();
@@ -516,18 +658,21 @@ export function AutocompleteField({
           placeholder=" "
           className={`${RING} pr-14 ${error ? RING_ERROR : ""}`}
         />
-        <span className={error ? LABEL_ERROR : LABEL}>{label}</span>
+        <span className={`${error ? LABEL_ERROR : LABEL} ${REST_FIT_ADORNED}`}>{label}</span>
         <MagnifierIcon className="pointer-events-none absolute right-6 top-1/2 size-6 -translate-y-1/2 text-neutral-900" />
-        <Menu id={`${id}-menu`} open={showMenu}>
+        <Menu id={`${id}-menu`} open={showMenu} menuRef={menuRef}>
           {matches.map((o, i) => (
             <MenuItem
               key={o}
+              id={`${id}-opt-${i}`}
               selected={o === value}
               active={i === active}
               onSelect={() => {
                 onChange(o);
                 setOpen(false);
-                inputRef.current?.blur();
+                // Desktop closes the field; phones keep the focus (and
+                // the keyboard) for the next field.
+                if (!isPhone()) inputRef.current?.blur();
               }}
             >
               {o}
@@ -535,26 +680,27 @@ export function AutocompleteField({
           ))}
         </Menu>
       </div>
-      <Hint id={`${id}-hint`} error={error} reserve={helperZone} />
+      <Hint id={`${id}-hint`} error={error} reserve={helperZone} announce={announceError} />
     </div>
   );
 }
 
 // «Потрібен рахунок-фактура» — the 24-px checkbox glyphs of the filters
-// drawer with a 16/22 Medium #343435 label, 8-px gap.
+// drawer with a 16/22 Medium #343435 label, 8-px gap. Phones: a 44-px
+// row; the label may be nodes (a nowrap compound word).
 export function CheckboxField({
   label,
   checked,
   onChange,
   name,
 }: {
-  label: string;
+  label: ReactNode;
   checked: boolean;
   onChange: (v: boolean) => void;
   name?: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 self-start">
+    <label className="flex cursor-pointer items-center gap-2 self-start max-lg:min-h-11">
       <input
         type="checkbox"
         name={name}

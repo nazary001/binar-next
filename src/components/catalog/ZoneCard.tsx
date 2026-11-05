@@ -19,6 +19,7 @@ export function ZoneCard({
   bg,
   className,
   onMouseEnter,
+  phonePad = "tile",
 }: {
   href: string;
   label: string;
@@ -30,12 +31,22 @@ export function ZoneCard({
   bg?: string;
   className?: string;
   onMouseEnter?: MouseEventHandler<HTMLAnchorElement>;
+  // Phones (< 640): the master zone tile (3130:18944) carries a 1-px
+  // #8e8e8f ring inside its box; "tile" = the 342 x 206 banner with the
+  // master's 40 padding (24 below 360, so the label column keeps room for
+  // "індивідуального"), "compact" = the 280-px carousel tile with 24.
+  // The 1-px ring is inside the box, so the paddings are 39 / 23.
+  phonePad?: "tile" | "compact";
 }) {
+  const phone =
+    phonePad === "compact"
+      ? "max-lg:p-[23px]"
+      : "min-[360px]:max-lg:p-[39px] max-[359.98px]:p-[23px]";
   return (
     <Link
       href={href}
       onMouseEnter={onMouseEnter}
-      className={`group relative flex cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] p-10 ${className ?? ""}`}
+      className={`group relative flex cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] p-10 max-lg:border max-lg:border-stroke-default ${phone} ${className ?? ""}`}
     >
       {bg && (
         <span
@@ -90,7 +101,13 @@ export function ZoneCard({
         className="pointer-events-none absolute inset-0 rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100"
       />
       <span className="relative flex w-full items-center gap-6">
-        <span className="flex-1 text-button-lg text-white">{label}</span>
+        {/* overflowWrap inline: the unlayered phone rule `span {
+            overflow-wrap: anywhere }` (globals.css) beats any utility and
+            split "індивідуально|го"; labels break on word boundaries only.
+            The desktop default is `normal` already. */}
+        <span className="flex-1 text-button-lg text-white" style={{ overflowWrap: "normal" }}>
+          {label}
+        </span>
         <DetailsIconButton variant="light" ring={false} />
       </span>
     </Link>

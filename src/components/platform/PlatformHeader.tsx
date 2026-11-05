@@ -1,10 +1,19 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
+import { usePathname } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 import { CartTrigger, usePublishHeaderHeight } from "@/components/Header";
 import { Logo } from "@/components/Logo";
+import { Burger } from "@/components/PhoneMenu";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCart } from "@/components/cart/CartProvider";
 import { ChevronDown16 } from "@/components/catalog/icons";
+import { CabinetMenu, CompanyAvatar } from "./CabinetMenu";
+
+const COPY = {
+  account: "Особистий кабінет",
+  openMenu: "Відкрити меню",
+  closeMenu: "Закрити меню",
+} as const;
 
 // «Header :: B2B» — Figma 3888:26393 (1710 x 92): the signed-in shell
 // drops the marketing nav; px-32 py-22, the 120-px logo on the left and,
@@ -16,53 +25,93 @@ import { ChevronDown16 } from "@/components/catalog/icons";
 // #343435 name, then 16 px to the 16-px chevron. The chip opens the
 // account summary of the auth drawer («Перейти в профіль» -> /profile
 // and «Вийти»), like the public header's «Кабінет» pill, so a partner
-// can sign out from every cabinet page. On phones the bar keeps the
-// public header's 66-px height so the drawers hang from the same edge.
+// can sign out from every cabinet page.
+// Phones (< 640, D1): the public phone bar's exact pixels (66 tall, px 24,
+// logo left, cart disc + burger right; Figma 3082:3661); the chip is
+// hidden and the burger opens the cabinet menu sheet (CabinetMenu, its
+// account row replaces the chip).
 export function PlatformHeader() {
-  const { user, open: authOpen, entry: authEntry, openAuth } = useAuth();
-  const { count, openCart } = useCart();
+  const { user, open: authOpen, entry: authEntry, welcomeOpen, openAuth } = useAuth();
+  const { count, open: cartOpen, openCart } = useCart();
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Stable: PhoneMenuSheet's lock effect and the rows call it.
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // Focus target when the menu closes and the account sheet's opener.
+  const burgerRef = useRef<HTMLButtonElement | null>(null);
 
   // The drawers hang from `--site-header-h`; the public header that
   // publishes it is unmounted here, and this bar has the same 92 / 66.
   usePublishHeaderHeight();
+
+  // A route change (a row, the logo, Back) closes the menu in the same
+  // commit as the new page (render-phase adjustment, as in Header.tsx).
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setMenuOpen(false);
+  }
+  // An overlay opening while the menu is open (the toast "Кошик" action,
+  // the account sheet, the welcome modal) closes the menu in the same
+  // commit, so no overlay opens under the z-45 sheet.
+  if (menuOpen && (cartOpen || authOpen || welcomeOpen)) {
+    setMenuOpen(false);
+  }
+
+  // The bar's cart disc closes the menu before the cart opens (on desktop
+  // the menu is never open, so this is plain openCart there).
+  const openCartFromBar = () => {
+    setMenuOpen(false);
+    openCart();
+  };
+
   const company = user?.company.name ?? "";
-  const initials = company
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+  const trimmed = company.trim();
 
   return (
-    <header className="sticky top-0 z-50 bg-white">
-      <div className="flex h-[66px] items-center justify-between px-6 lg:h-[92px] lg:px-8">
-        <Logo />
-        <div className="flex items-center gap-2 lg:gap-4">
-          <button
-            type="button"
-            onClick={() => openAuth("account")}
-            aria-haspopup="dialog"
-            aria-expanded={authOpen && authEntry === "account"}
-            aria-label={`Особистий кабінет: ${company}`}
-            className="flex h-[42px] cursor-pointer items-center gap-2 rounded-[70px] border border-neutral-800 bg-white pl-[7px] pr-[11px] transition-colors duration-200 hover:bg-bg-subtle lg:gap-4 lg:pr-[15px]"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-900 text-[12px] font-bold leading-none text-white">
-                {user?.logo ? (
-                  <img src={user.logo} alt="" className="absolute inset-0 size-full object-cover" />
-                ) : (
-                  initials
-                )}
+    <>
+      <header className="sticky top-0 z-50 bg-white">
+        <div className="flex h-[66px] items-center justify-between px-6 lg:h-[92px] lg:px-8">
+          {/* A logo tap also closes the menu (display: contents keeps the
+              logo the bar's flex item). */}
+          <span className="contents" onClickCapture={closeMenu}>
+            <Logo />
+          </span>
+          <div className="flex items-center gap-2 lg:gap-4">
+            <button
+              type="button"
+              onClick={() => openAuth("account")}
+              aria-haspopup="dialog"
+              aria-expanded={authOpen && authEntry === "account"}
+              aria-label={trimmed ? `${COPY.account}: ${trimmed}` : COPY.account}
+              className="flex h-[42px] cursor-pointer items-center gap-2 rounded-[70px] border border-neutral-800 bg-white pl-[7px] pr-[11px] transition-colors duration-200 hover:bg-bg-subtle max-lg:hidden lg:gap-4 lg:pr-[15px]"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <CompanyAvatar user={user} />
+                <span className="hidden max-w-[220px] truncate text-[16px] font-semibold leading-6 text-neutral-800 sm:block">
+                  {company}
+                </span>
               </span>
-              <span className="hidden max-w-[220px] truncate text-[16px] font-semibold leading-6 text-neutral-800 sm:block">
-                {company}
-              </span>
-            </span>
-            <ChevronDown16 className="size-4 shrink-0 text-neutral-900" />
-          </button>
-          <CartTrigger count={count} onOpen={openCart} />
+              <ChevronDown16 className="size-4 shrink-0 text-neutral-900" />
+            </button>
+            <CartTrigger count={count} onOpen={openCartFromBar} />
+            <button
+              ref={burgerRef}
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+              aria-controls="cabinet-nav"
+              aria-label={menuOpen ? COPY.closeMenu : COPY.openMenu}
+              className="-mr-3 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-90 motion-reduce:transition-none lg:hidden"
+            >
+              <Burger open={menuOpen} />
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      {/* The menu sheet sits OUTSIDE the <header> (a body child, like the
+          public #mobile-nav), anchored under the bar by --site-header-h. */}
+      <CabinetMenu open={menuOpen} onClose={closeMenu} burgerRef={burgerRef} />
+    </>
   );
 }

@@ -17,8 +17,9 @@ import { CatalogueIcon, DashboardIcon, MaterialsIcon, SideMenuOrdersIcon } from 
 // асортимент» /assortment, opened from the catalog head), Замовлення
 // /orders (returns and detail pages live under it), Матеріали
 // /materials*; /profile (via the header chip's account summary) lights
-// none. Hover (not drawn in Figma): #f8f8f8 tile + #1d1d1f glyph. Below
-// lg the rail becomes a horizontal strip under the header.
+// none. Hover (not drawn in Figma): #f8f8f8 tile + #1d1d1f glyph. The
+// rail is desktop-only (>= 640); phones switch sections from the header
+// burger's cabinet menu sheet (CabinetMenu, DECISIONS D1).
 type Item = {
   key: string;
   label: string;
@@ -75,21 +76,13 @@ export function SideMenu() {
   });
 
   return (
-    <>
-      <aside className="hidden w-[104px] shrink-0 lg:block">
-        <nav
-          aria-label="Меню платформи"
-          className="sticky top-[var(--site-header-h,92px)] flex flex-col items-center gap-8 rounded-tr-[48px] px-4 py-8"
-        >
-          {items}
-        </nav>
-      </aside>
+    <aside className="hidden w-[104px] shrink-0 lg:block">
       <nav
         aria-label="Меню платформи"
-        className="scrollbar-hidden flex items-start gap-2 overflow-x-auto px-4 py-3 lg:hidden"
+        className="sticky top-[var(--site-header-h,92px)] flex flex-col items-center gap-8 rounded-tr-[48px] px-4 py-8"
       >
         {items}
       </nav>
-    </>
+    </aside>
   );
 }

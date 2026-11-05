@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipsRow, QtyStepper, StatusLine } from "@/components/catalog/ProductCard";
 import { B2BStatusLine } from "@/components/catalog/B2BProductCard";
@@ -10,9 +10,10 @@ import { InfoCircleIcon, XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, formatPriceWhole, productHref } from "@/components/catalog/data";
 import { useCart } from "./CartProvider";
 import { FREE_DELIVERY_THRESHOLD, lineTotal, type CartEntry } from "./data";
+import { CartSheetPhone } from "./CartSheetPhone";
 import { CheckCircleIcon, DeliveryIcon, TrashIcon } from "./icons";
 import { useFitZoom } from "./useFitZoom";
-import { useModalBehavior } from "./useModalBehavior";
+import { OVERLAY_INERT, useModalBehavior } from "./useModalBehavior";
 
 // Master geometry. Public (B2C) drawer, overlay 4329:39905 / 4329:40142 /
 // 4929:61873 and sheet 4329:39906 / 4329:40143 / 4929:61874: 576 x 1031
@@ -46,7 +47,7 @@ const B2B_DESIGN_H = 1025;
 // only the availability (the «роздрібна ціна» group is hidden there) -
 // the catalog's B2BStatusLine; a «Під замовлення» line stays orderable.
 function CartRow({ entry }: { entry: CartEntry }) {
-  const { setQty, remove, priceMode } = useCart();
+  const { setQty, remove, priceMode, closeCart } = useCart();
   const { product, line } = entry;
   const b2b = priceMode === "partner";
   const out = !b2b && !product.available;
@@ -61,6 +62,7 @@ function CartRow({ entry }: { entry: CartEntry }) {
       <article className="flex items-start gap-4 py-6 sm:gap-8">
         <Link
           href={href}
+          onClick={closeCart}
           aria-label={product.title}
           className="relative block size-16 shrink-0 overflow-clip rounded-2xl bg-bg-product sm:size-20"
         >
@@ -77,7 +79,9 @@ function CartRow({ entry }: { entry: CartEntry }) {
           <div className="flex flex-col gap-3">
             {b2b ? <B2BStatusLine product={product} /> : <StatusLine out={out} />}
             <h3 className="text-title-md text-neutral-900">
-              <Link href={href}>{product.title}</Link>
+              <Link href={href} onClick={closeCart}>
+                {product.title}
+              </Link>
             </h3>
           </div>
 
@@ -101,7 +105,23 @@ function CartRow({ entry }: { entry: CartEntry }) {
               </div>
               <button
                 type="button"
-                onClick={() => remove(product.id)}
+                data-cart-trash
+                onClick={(e) => {
+                  // Focus hand-off (behaviour only): the next row's trash,
+                  // else the previous one's, else the close button.
+                  const own = e.currentTarget;
+                  const aside = own.closest("aside");
+                  const all = aside
+                    ? [...aside.querySelectorAll<HTMLButtonElement>("button[data-cart-trash]")]
+                    : [];
+                  const i = all.indexOf(own);
+                  const next =
+                    all[i + 1] ??
+                    all[i - 1] ??
+                    aside?.querySelector<HTMLButtonElement>('button[aria-label="Закрити кошик"]');
+                  remove(product.id);
+                  requestAnimationFrame(() => next?.focus({ preventScroll: true }));
+                }}
                 aria-label={`Видалити «${product.title}» з кошика`}
                 className="ml-auto flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand"
               >
@@ -190,7 +210,7 @@ function Hairline() {
 // (436 x 52 at y 306). No summary footer in this state.
 function EmptyCart({ onBrowse }: { onBrowse: () => void }) {
   return (
-    <div className="flex flex-col gap-6 px-6 pt-8 pb-6 lg:gap-10 lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]">
+    <div className="max-lg:hidden flex flex-col gap-6 px-6 pt-8 pb-6 lg:gap-10 lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]">
       <div className="flex items-center pt-1">
         <h2 className="text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
           Кошик
@@ -223,6 +243,20 @@ export function CartDrawer() {
   const router = useRouter();
   const asideRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  // Phone sheet title (lg:hidden): the initial focus on coarse pointers
+  // (system spec A5 / 3.1.6: screen readers hear the title, no keyboard
+  // pops); the cross everywhere else (desktop parity).
+  const phoneTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const focusRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const title = phoneTitleRef.current;
+    focusRef.current =
+      title && title.getClientRects().length > 0 && window.matchMedia("(pointer: coarse)").matches
+        ? title
+        : closeRef.current;
+  }, [open]);
+  const focusClose = useCallback(() => closeRef.current?.focus({ preventScroll: true }), []);
   // The public header is overlapped by the B2C sheet; the partner's B2B
   // bar is not (see the master geometry above).
   const overlap = priceMode !== "partner";
@@ -243,20 +277,26 @@ export function CartDrawer() {
   // Escape / scroll lock / focus trap / focus restore. The sticky header
   // stays visible above the scrim's top edge (the sheet hangs from it, as
   // drawn), so it is made inert while the drawer is open - a truly modal
-  // drawer must not leave the nav clickable.
+  // drawer must not leave the nav clickable. Phones: the full-screen sheet
+  // covers the header and both phone menus (OVERLAY_INERT).
   useModalBehavior({
     open,
     onClose: closeCart,
     container: asideRef,
-    initial: closeRef,
-    inertSelector: "body > header",
+    initial: focusRef,
+    inertSelector: OVERLAY_INERT,
   });
 
+  // Phones (< 640, cart spec 2.1): a full-screen sheet over everything
+  // (z 60 > the z-50 header and the z-45 menus), no scrim, square, the
+  // menu-master motion (opacity + 12-px drop, 400 ms). Desktop: every lg:
+  // value below equals the pre-mobile-pass value (z 51 / 40, the 576-px
+  // drawer hanging from the header, r48, slide from the right).
   return (
     <div
       aria-hidden={!open}
       inert={!open}
-      className={`fixed inset-0 z-40 ${overlap ? "lg:z-[51]" : ""} ${open ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-[60] ${overlap ? "lg:z-[51]" : "lg:z-40"} ${open ? "" : "pointer-events-none"}`}
     >
       {/* The scrim starts at the header's bottom edge (--site-header-h:
           92 on desktop, 66 on phones); the header stays inert under it.
@@ -267,7 +307,7 @@ export function CartDrawer() {
       <div
         aria-hidden
         onClick={closeCart}
-        className={`absolute inset-x-0 bottom-0 top-[var(--site-header-h,92px)] bg-[#343435]/50 backdrop-blur-[4px] transition-opacity duration-300 ${
+        className={`max-lg:hidden absolute inset-x-0 bottom-0 top-[var(--site-header-h,92px)] bg-[#343435]/50 backdrop-blur-[4px] transition-opacity duration-300 ${
           overlap ? "lg:top-[calc(var(--site-header-h,92px)_-_5px)]" : ""
         } ${open ? "opacity-100" : "opacity-0"}`}
       />
@@ -281,9 +321,15 @@ export function CartDrawer() {
         style={
           fitted ? { width: DRAWER_W * fit, borderTopLeftRadius: 48 * fit } : undefined
         }
-        className={`absolute bottom-0 right-0 top-[var(--site-header-h,92px)] flex w-[576px] max-w-[92vw] flex-col overflow-hidden rounded-tl-[32px] bg-white transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:rounded-tl-[48px] ${
-          overlap ? "lg:-bottom-px lg:top-[calc(var(--site-header-h,92px)_-_5px)]" : ""
-        } ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute bottom-0 right-0 top-0 flex h-dvh w-full flex-col overflow-hidden bg-white transition-[translate,opacity] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] max-lg:motion-reduce:transition-none lg:h-auto lg:w-[576px] lg:max-w-[92vw] lg:rounded-tl-[48px] lg:transition-[translate] lg:will-change-[translate] ${
+          overlap
+            ? "lg:-bottom-px lg:top-[calc(var(--site-header-h,92px)_-_5px)]"
+            : "lg:top-[var(--site-header-h,92px)]"
+        } ${
+          open
+            ? "translate-y-0 opacity-100 lg:translate-x-0"
+            : "-translate-y-3 opacity-0 lg:translate-x-full lg:translate-y-0 lg:opacity-100"
+        }`}
       >
         {/* Everything inside lives in the master's px; on short windows the
             wrapper is the 576 x 1031 (B2C) / 576 x 1025 (partner) design
@@ -295,7 +341,7 @@ export function CartDrawer() {
             the master's minus 1 px (pl 59 / pr 79 / pt 59 / pb 39, close
             at 23 / 23). */}
         <div
-          className="relative flex min-h-0 flex-1 flex-col rounded-tl-[32px] border border-stroke-default lg:rounded-tl-[48px]"
+          className="relative flex min-h-0 flex-1 flex-col lg:rounded-tl-[48px] lg:border lg:border-stroke-default"
           style={fitted ? { zoom: fit, width: DRAWER_W, height: designH, flex: "none" } : undefined}
         >
         <button
@@ -303,16 +349,20 @@ export function CartDrawer() {
           type="button"
           onClick={closeCart}
           aria-label="Закрити кошик"
-          className="absolute right-4 top-4 z-[1] flex size-8 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand lg:right-[23px] lg:top-[23px]"
+          className="absolute right-3 top-[9px] z-[1] flex size-12 cursor-pointer items-center justify-center text-neutral-900 transition-colors duration-200 hover:text-brand max-lg:rounded-full max-lg:transition-[color,scale] max-lg:active:scale-90 max-lg:motion-reduce:transition-none max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand lg:right-[23px] lg:top-[23px] lg:size-8"
         >
-          <XMarkIcon className="size-8" />
+          <XMarkIcon className="size-6 lg:size-8" />
         </button>
+
+        {/* Phone content twin (lg:hidden); the desktop subtrees below are
+            max-lg:hidden. */}
+        <CartSheetPhone titleRef={phoneTitleRef} onFocusClose={focusClose} />
 
         {empty ? (
           <EmptyCart onBrowse={closeCart} />
         ) : (
         <>
-        <div className="flex min-h-0 flex-1 flex-col gap-6 px-6 pt-8 lg:gap-10 lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]">
+        <div className="max-lg:hidden flex min-h-0 flex-1 flex-col gap-6 px-6 pt-8 lg:gap-10 lg:pl-[59px] lg:pr-[79px] lg:pt-[59px]">
           <div className="flex items-center justify-between pt-1">
             <h2 className="text-[24px] font-bold leading-7 tracking-[-0.48px] text-neutral-900">
               Кошик
@@ -334,7 +384,7 @@ export function CartDrawer() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-6 bg-neutral-900 px-6 py-6 lg:gap-10 lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-10">
+        <div className="max-lg:hidden flex flex-col gap-6 bg-neutral-900 px-6 py-6 lg:gap-10 lg:pb-[39px] lg:pl-[59px] lg:pr-[79px] lg:pt-10">
           <div className="flex flex-col gap-8">
             <div className="flex items-center justify-between text-white">
               <span className="text-body-md">Сума замовлення</span>

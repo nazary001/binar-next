@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { markWelcomed, signOut as apiSignOut } from "./api";
 import { PROFILE_HREF, RESET_QUERY_PARAM, type Account } from "./data";
 import { currentAccount, getServerSnapshot, getSnapshot, subscribe } from "./store";
@@ -68,6 +68,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [entry, setEntry] = useState<AuthEntry>("auto");
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(null);
+
+  // A route change (a link inside the sheet, Back, the logo) closes the
+  // account sheet and the welcome card in the same commit as the new page
+  // (render-phase adjustment, as Header / PlatformHeader do for their
+  // menus); the welcome card is not marked as seen then.
+  const pathname = usePathname();
+  const [overlayPath, setOverlayPath] = useState(pathname);
+  if (overlayPath !== pathname) {
+    setOverlayPath(pathname);
+    setOpen(false);
+    setWelcomeOpen(false);
+  }
 
   const openAuth = useCallback((next: AuthEntry = "auto") => {
     setEntry(next);

@@ -6,6 +6,7 @@ import { formatPrice, productHref } from "@/components/catalog/data";
 import { useCart } from "@/components/cart/CartProvider";
 import { lineTotal, type CartEntry } from "@/components/cart/data";
 import { TrashIcon } from "@/components/cart/icons";
+import { CheckoutLines } from "./CheckoutLines";
 
 // The order table — Figma «Frame 1010107002» (4329:40714, 843 wide):
 // #f8f8f8 r24 container, a #343435 head row (pt-8, 14/24 SemiBold white
@@ -15,14 +16,19 @@ import { TrashIcon } from "@/components/cart/icons";
 // «title, volume, brand» (one line, ellipsis), the 20/22 Bold stepper,
 // two 16/24 SemiBold amounts («31,65 ₴», the sign stays on every cell as the
 // master draws it) and the 52-px trash button; 0.5-px #d2d2d2
-// hairlines between rows. Below md the same rows become stacked cards.
+// hairlines between rows. Below 640 the phone lines (CheckoutLines, the
+// ProductLine rows of the cart sheet) replace the table; the wrapper drops
+// its panel there (open rows on the white page, checkout spec 2.3).
 
+// The name is the row's one link (the photo is a pointer shortcut only,
+// out of the tab order and the AX tree).
 function Thumb({ entry }: { entry: CartEntry }) {
   const { product } = entry;
   return (
     <Link
       href={productHref(product)}
-      aria-label={product.title}
+      aria-hidden
+      tabIndex={-1}
       className="relative block size-[60px] shrink-0 overflow-clip rounded-xl bg-bg-product"
     >
       <img
@@ -67,7 +73,13 @@ function Name({ entry, truncate = false }: { entry: CartEntry; truncate?: boolea
 const DIVIDER =
   "bg-[linear-gradient(var(--color-stroke-subtle),var(--color-stroke-subtle))] bg-[length:calc(100%-32px)_0.5px] bg-[position:16px_0] bg-no-repeat";
 
-export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
+export function CheckoutItems({
+  entries,
+  onEmptied,
+}: {
+  entries: CartEntry[];
+  onEmptied?: () => void;
+}) {
   const { setQty, remove, priceMode, unitPrice } = useCart();
   // A retail line that sold out keeps its quantity frozen; a partner's
   // unavailable line is «Під замовлення» and stays editable (as in the
@@ -76,7 +88,7 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
     priceMode !== "partner" && !entry.product.available;
 
   return (
-    <div className="overflow-clip rounded-3xl bg-bg-subtle">
+    <div className="overflow-clip rounded-3xl bg-bg-subtle max-lg:overflow-visible max-lg:rounded-none max-lg:bg-transparent">
       {/* Desktop / tablet table */}
       <table className="hidden w-full table-fixed border-collapse md:table">
         <colgroup>
@@ -152,44 +164,8 @@ export function CheckoutItems({ entries }: { entries: CartEntry[] }) {
         </tbody>
       </table>
 
-      {/* Phone cards */}
-      <ul className="md:hidden">
-        {entries.map((entry, i) => (
-          <li
-            key={entry.line.id}
-            className={`flex flex-col gap-4 p-4 ${i === 0 ? "" : DIVIDER}`}
-          >
-            <div className="flex items-center gap-4">
-              <Thumb entry={entry} />
-              <div className="min-w-0 flex-1">
-                <Name entry={entry} />
-                <p className="mt-1 text-[14px] font-medium leading-6 text-neutral-500">
-                  {formatPrice(unitPrice(entry.product))} за од.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => remove(entry.product.id)}
-                aria-label={`Видалити «${entry.product.title}» із замовлення`}
-                className="-mr-3 inline-flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:text-brand"
-              >
-                <TrashIcon className="size-6" />
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <QtyStepper
-                qty={entry.line.qty}
-                onQty={(next) => setQty(entry.product.id, next)}
-                disabled={locked(entry)}
-                size="sm"
-              />
-              <span className="text-[16px] font-semibold leading-6 text-neutral-900">
-                {formatPrice(lineTotal(entry, priceMode))}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {/* Phone lines */}
+      <CheckoutLines entries={entries} onEmptied={onEmptied} className="md:hidden" />
     </div>
   );
 }
