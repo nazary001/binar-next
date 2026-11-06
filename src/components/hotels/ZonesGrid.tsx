@@ -340,9 +340,9 @@ function CompactCard({
 function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void }) {
   return (
     <Link
-      href="/#contact-form"
+      href="/catalog"
       // CTA has no zone items, so clicking it dismisses any open
-      // zone-details popup before scrolling to the contact form.
+      // zone-details popup before leaving for the catalog.
       onClick={onActivate}
       // Hover = Figma "Button catalog" Variant2 (2395:5450): an inverse of
       // the default - the dark fill drops to a 1px outline and the label

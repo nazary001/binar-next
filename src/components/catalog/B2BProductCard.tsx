@@ -229,7 +229,10 @@ export function B2BPriceAndQty({
 // catalog cards and rows) adds without opening the cart sheet below 640
 // and shows the «Додано у кошик» toast (DECISIONS O-11); `onAdded` then
 // runs (the card / row resets its stepper, as the B2C card does). The
-// light tone of the «Купують разом» band is untouched.
+// light tone of the «Купують разом» band is untouched; that band uses
+// `feedback="silent"`: the line is added without opening the cart on any
+// width (the disc's check + count bubble, plus the phone toast, are the
+// feedback).
 export function B2BCartButton({
   product,
   qty,
@@ -240,7 +243,7 @@ export function B2BCartButton({
   product: Product;
   qty: number;
   tone?: B2BTone;
-  feedback?: "drawer" | "toast";
+  feedback?: "drawer" | "toast" | "silent";
   onAdded?: () => void;
 }) {
   const { add } = useCart();
@@ -255,9 +258,8 @@ export function B2BCartButton({
       type="button"
       aria-label={cartDiscLabel(product.title, inCart, preorder)}
       onClick={() => {
-        if (feedback === "toast") {
-          if (catalogAdd(product.id, qty)) onAdded?.();
-        } else add(product.id, qty);
+        if (feedback === "drawer") add(product.id, qty);
+        else if (catalogAdd(product.id, qty, feedback === "silent")) onAdded?.();
         pop();
       }}
       className={`relative flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${

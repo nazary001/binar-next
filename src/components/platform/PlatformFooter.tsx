@@ -22,6 +22,10 @@ export function PlatformFooter() {
       className="flex flex-col items-start gap-6 bg-neutral-900 px-6 py-6 text-[14px] leading-[30px] text-white sm:flex-row sm:items-center sm:justify-between lg:gap-2 lg:px-8 lg:py-3 lg:text-[12px]"
       style={{ fontFamily: "var(--font-onest)" }}
     >
+      {/* Phones: a strip of the bar's colour pinned behind the page at the
+          viewport bottom, so the browser bar collapsing at the page end
+          shows no white canvas under the legal bar (see Footer.tsx). */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-48 bg-neutral-900 lg:hidden" />
       <div className="flex items-center gap-4 lg:gap-6">
         <Link
           href="/"

@@ -198,7 +198,11 @@ export function CartButton({
   out: boolean;
   tone?: Tone;
   qty?: number;
-  feedback?: "drawer" | "toast";
+  // "drawer" opens the cart (the PDP hero); "toast" = the catalog cards
+  // (the drawer from 640, the toast below); "silent" = the «Купують
+  // разом» band: adds without opening the cart anywhere, the disc's check
+  // + count bubble (and the phone toast) are the feedback.
+  feedback?: "drawer" | "toast" | "silent";
   onAdded?: () => void;
 }) {
   const { add } = useCart();
@@ -221,9 +225,8 @@ export function CartButton({
       aria-label={cartDiscLabel(product.title, inCart)}
       disabled={out}
       onClick={() => {
-        if (feedback === "toast") {
-          if (catalogAdd(product.id, qty)) onAdded?.();
-        } else add(product.id, qty);
+        if (feedback === "drawer") add(product.id, qty);
+        else if (catalogAdd(product.id, qty, feedback === "silent")) onAdded?.();
         pop();
       }}
       className={`relative flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${look}`}

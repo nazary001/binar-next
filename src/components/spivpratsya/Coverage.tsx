@@ -36,8 +36,10 @@ const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 // stacked cards (lg:-mt-px). Below lg the bento collapses to one stacked
 // column with a small gap.
 
-// All cards point at the same lead form the "Переглянути каталог" button uses.
+// The text / photo cards point at the lead form; the «Переглянути
+// каталог» button card (and its phone twin) leads to the catalog.
 const CARD_HREF = "#contact-form";
+const CATALOG_HREF = "/catalog";
 
 type TextCardData = { kind: "text"; title: string; items: string[] };
 type PhotoCardData = {
@@ -161,7 +163,7 @@ const COL_3: Card[] = [
       "Полички та гачки",
     ],
   },
-  { kind: "button", title: "Переглянути каталог", href: CARD_HREF },
+  { kind: "button", title: "Переглянути каталог", href: CATALOG_HREF },
 ];
 
 // 6-px brand border that fades in on card hover (the hotels/protect
@@ -465,7 +467,7 @@ function MobileItemCard({ item, first }: { item: MobileItem; first?: boolean }) 
   if (item.kind === "cta") {
     return (
       <Link
-        href={CARD_HREF}
+        href={CATALOG_HREF}
         // Figma 3167:4969: the label+disc cluster is centred as a group,
         // which lands the 140-wide 2-line label at x40 and the orange
         // disc at x248..300 — px-[40px] + justify-between reproduces both

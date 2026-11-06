@@ -15,9 +15,11 @@ import { STICKY_BAR_DARK, SUMMARY_AMOUNT, SUMMARY_LABEL } from "@/components/ui/
 import { QtyStepper } from "@/components/catalog/QtyStepper";
 import { CartIcon, XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, productHref, type Product } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { useCart } from "./CartProvider";
 import {
   FREE_DELIVERY_THRESHOLD,
+  METER_MOTION,
   itemsPhrase,
   lineMeta,
   lineTotal,
@@ -198,7 +200,11 @@ export function CartSheetPhone({
       ) : (
         <div ref={scrollerRef} className={`scrollbar-hidden ${SHEET_SCROLLER} pt-3`}>
           <div className="flex h-11 shrink-0 items-center justify-between gap-4 px-6">
-            <p className="whitespace-nowrap text-body-sm text-neutral-500">{itemsPhrase(count)}</p>
+            {/* The count rolls with the steppers, the noun cross-fades
+                («товари» -> «товарів»; ui/RollingNumber.tsx). */}
+            <p className="whitespace-nowrap text-body-sm text-neutral-500">
+              <RollingNumber value={count} format={itemsPhrase} />
+            </p>
             {/* One element for both labels, so focus survives the swap
                 when the undo times out. */}
             <button
@@ -230,7 +236,7 @@ export function CartSheetPhone({
                   if (el) trashRefs.current.set(entry.line.id, el);
                   else trashRefs.current.delete(entry.line.id);
                 }}
-                total={formatPrice(lineTotal(entry, priceMode))}
+                total={lineTotal(entry, priceMode)}
               />
             ))}
           </ul>
@@ -241,7 +247,7 @@ export function CartSheetPhone({
           >
             <div className="flex flex-col gap-2">
               <span className={SUMMARY_LABEL}>{COPY.sum}</span>
-              <span className={SUMMARY_AMOUNT}>{formatPrice(subtotal)}</span>
+              <RollingNumber value={subtotal} format={formatPrice} className={SUMMARY_AMOUNT} />
             </div>
             {reached ? (
               <p className="flex items-center gap-2 text-body-sm font-medium text-white">
@@ -252,7 +258,11 @@ export function CartSheetPhone({
               <div className="flex flex-col gap-2">
                 <p className="text-body-sm text-white/60">
                   {COPY.remaining}{" "}
-                  <span className="whitespace-nowrap font-medium text-white">{formatPrice(remaining)}</span>
+                  <RollingNumber
+                    value={remaining}
+                    format={formatPrice}
+                    className="whitespace-nowrap font-medium text-white"
+                  />
                 </p>
                 <PhoneMeter subtotal={subtotal} />
               </div>
@@ -305,7 +315,7 @@ function CartLinePhone({
 }: {
   entry: CartEntry;
   b2b: boolean;
-  total: string;
+  total: number;
   onQty: (next: number) => void;
   onRemove: () => void;
   onNavigate: () => void;
@@ -338,8 +348,9 @@ function CartLinePhone({
             onQty={onQty}
             disabled={out}
             editable={b2b}
+            animate
           />
-          <span className={PRODUCT_LINE_TOTAL}>{total}</span>
+          <RollingNumber value={total} format={formatPrice} className={PRODUCT_LINE_TOTAL} />
         </>
       }
     />
@@ -360,10 +371,10 @@ function PhoneMeter({ subtotal }: { subtotal: number }) {
       aria-valuenow={Math.min(subtotal, FREE_DELIVERY_THRESHOLD)}
       className="relative h-2 rounded-full bg-neutral-600"
     >
-      <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+      <div className={`h-full rounded-full bg-brand ${METER_MOTION}`} style={{ width: `${pct}%` }} />
       <span
         aria-hidden
-        className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white"
+        className={`absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white ${METER_MOTION}`}
         style={{ left: `clamp(8px, calc(${pct}% - 4px), calc(100% - 8px))` }}
       />
     </div>

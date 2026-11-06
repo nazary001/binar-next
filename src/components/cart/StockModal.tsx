@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, type Product } from "@/components/catalog/data";
 import { QtyStepper } from "@/components/catalog/ProductCard";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { usePhone } from "@/components/ui/useMediaQuery";
 import { useCart } from "./CartProvider";
 import { soldOutPhrase, type StockIssue } from "./data";
@@ -101,13 +102,18 @@ function IssueRow({ issue, first }: { issue: StockIssue; first: boolean }) {
             qty={issue.qty}
             onQty={(next) => setIssueQty(issue.lineId, next)}
             disabled={issue.resolved}
+            animate
           />
         )}
       </td>
       {/* «Component 2» (4329:40422): SemiBold 16/24 with the sign - the
           screenshot reads «65,79 ₴» (the head says «Ціна, ₴» too). */}
       <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-        {alt ? formatPrice(Math.round(unitPrice(alt) * issue.qty * 100) / 100) : "-"}
+        {alt ? (
+          <RollingNumber value={Math.round(unitPrice(alt) * issue.qty * 100) / 100} format={formatPrice} />
+        ) : (
+          "-"
+        )}
       </td>
       {/* Action cell 152 + the row's 16: the outlined «Замінити» (119)
           fills the padded box; the resolved «Замінено» (16-px check, 4,

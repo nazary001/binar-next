@@ -681,7 +681,7 @@ export function AssortmentView() {
     : "Ви впевнені, що хочете видалити обрані товари з асортименту? Цю дію неможливо скасувати.";
 
   return (
-    <CabinetPage>
+    <CabinetPage flushBottom={selectedRows.length > 0}>
       {excel.input}
       <ExcelNoticeToast notice={excel.notice} onClose={excel.dismiss} />
       <CabinetPageHead

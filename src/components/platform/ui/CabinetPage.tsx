@@ -11,10 +11,24 @@ import type { ReactNode } from "react";
 // lg:pb-* still win from 640). No overflow clipping here: phone sticky
 // bars live inside the slab. Wrap a cabinet page's blocks in it
 // (CabinetPageHead first).
-export function CabinetPage({ children, className = "" }: { children: ReactNode; className?: string }) {
+// `flushBottom`: a page whose last block is a phone StickyBar (the
+// assortment selection bar) drops the 48 under it, so once the page is
+// scrolled to its end the dark bar sits right on the dark legal bar
+// instead of floating 48 px of grey above it.
+export function CabinetPage({
+  children,
+  className = "",
+  flushBottom = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  flushBottom?: boolean;
+}) {
   return (
     <div
-      className={`flex min-w-0 flex-1 flex-col bg-bg-cabinet pb-8 max-lg:rounded-t-[32px] max-lg:pb-12 lg:rounded-tl-[48px] ${className}`}
+      className={`flex min-w-0 flex-1 flex-col bg-bg-cabinet pb-8 max-lg:rounded-t-[32px] lg:rounded-tl-[48px] ${
+        flushBottom ? "max-lg:pb-0" : "max-lg:pb-12"
+      } ${className}`}
     >
       {children}
     </div>

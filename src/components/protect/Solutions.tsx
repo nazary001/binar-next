@@ -225,7 +225,7 @@ function CtaCard({ label }: { label: string }) {
   // (justify-between) instead of the old centred pill+circle group.
   return (
     <Link
-      href="/#contact-form"
+      href="/catalog"
       className="group flex h-[100px] w-full cursor-pointer items-center justify-between rounded-[28px] border border-transparent bg-[#343435] px-6 transition-colors duration-300 hover:border-stroke-default hover:bg-white sm:h-[120px] sm:rounded-[36px] sm:px-8 lg:h-[131px] lg:rounded-[40px] lg:px-10"
     >
       <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
@@ -501,7 +501,7 @@ function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boo
     // arrow right, label/arrow vertically centred in the 131-px card.
     return (
       <Link
-        href="/#contact-form"
+        href="/catalog"
         className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-[#343435] px-[40px] py-[15px] sm:col-span-2"
       >
         {/* max-w forces the master's 2-line "Переглянути / каталог" */}

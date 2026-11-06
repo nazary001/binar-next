@@ -58,6 +58,15 @@ export function Footer() {
       className="relative w-full overflow-clip text-white"
       style={{ background: "#2d2d2f" }}
     >
+      {/* Phones: the browser bar collapsing while the page is at its end
+          (a short drag back up, then down again) reveals a strip of the
+          white canvas under the orange band until the finger lifts. This
+          brand strip is pinned to the viewport bottom BEHIND the page
+          (z -10: the body's white covers it everywhere the document
+          exists), so what shows there is the band's colour. The viewport
+          is its containing block, so the footer's overflow-clip does not
+          cut it; no layout, no hit-testing. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-48 bg-brand lg:hidden" />
       <div
         className="relative rounded-t-[32px] sm:rounded-t-[48px] lg:rounded-t-[60px]"
         style={{ background: "#2d2d2f" }}

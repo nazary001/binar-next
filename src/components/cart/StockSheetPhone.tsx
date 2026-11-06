@@ -7,6 +7,7 @@ import { PRODUCT_LINE_TOTAL, ProductLine } from "@/components/ui/ProductLine";
 import { Sheet } from "@/components/ui/Sheet";
 import { QtyStepper } from "@/components/catalog/QtyStepper";
 import { formatPrice } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { useCart } from "./CartProvider";
 import { lineMeta, soldOutPhrase, type StockIssue } from "./data";
 import { CheckCircleIcon } from "./icons";
@@ -165,8 +166,8 @@ export function StockSheetPhone() {
               issue={issue}
               total={
                 issue.replacement
-                  ? formatPrice(Math.round(unitPrice(issue.replacement) * issue.qty * 100) / 100)
-                  : ""
+                  ? Math.round(unitPrice(issue.replacement) * issue.qty * 100) / 100
+                  : null
               }
               onQty={(next) => setIssueQty(issue.lineId, next)}
               onResolve={() => {
@@ -197,7 +198,7 @@ function IssueRowPhone({
   actionRef,
 }: {
   issue: StockIssue;
-  total: string;
+  total: number | null;
   onQty: (next: number) => void;
   onResolve: () => void;
   actionRef: (el: HTMLDivElement | null) => void;
@@ -222,8 +223,10 @@ function IssueRowPhone({
             status={{ label: COPY.alternative, tone: "brand" }}
           />
           <div className="flex items-center justify-between gap-4">
-            <QtyStepper size="sm" slot="fixed" qty={issue.qty} onQty={onQty} disabled={issue.resolved} />
-            <span className={PRODUCT_LINE_TOTAL}>{total}</span>
+            <QtyStepper size="sm" slot="fixed" qty={issue.qty} onQty={onQty} disabled={issue.resolved} animate />
+            <span className={PRODUCT_LINE_TOTAL}>
+              {total !== null && <RollingNumber value={total} format={formatPrice} />}
+            </span>
           </div>
         </>
       ) : (

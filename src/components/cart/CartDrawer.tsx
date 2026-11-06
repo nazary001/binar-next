@@ -8,8 +8,9 @@ import { ChipsRow, QtyStepper, StatusLine } from "@/components/catalog/ProductCa
 import { B2BStatusLine } from "@/components/catalog/B2BProductCard";
 import { InfoCircleIcon, XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, formatPriceWhole, productHref } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { useCart } from "./CartProvider";
-import { FREE_DELIVERY_THRESHOLD, lineTotal, type CartEntry } from "./data";
+import { FREE_DELIVERY_THRESHOLD, METER_MOTION, lineTotal, type CartEntry } from "./data";
 import { CartSheetPhone } from "./CartSheetPhone";
 import { CheckCircleIcon, DeliveryIcon, TrashIcon } from "./icons";
 import { useFitZoom } from "./useFitZoom";
@@ -89,9 +90,13 @@ function CartRow({ entry }: { entry: CartEntry }) {
             <ChipsRow product={product} />
             <div className="flex flex-wrap items-center justify-between gap-y-3">
               <div className="flex items-center gap-6 @max-[300px]:gap-2">
-                <span className="whitespace-nowrap text-[20px] font-bold leading-[22px] tracking-[0.2px] text-neutral-900">
-                  {formatPrice(lineTotal(entry, priceMode))}
-                </span>
+                {/* Every sum in the cart rolls to its new value
+                    (ui/RollingNumber.tsx); the row total follows the stepper. */}
+                <RollingNumber
+                  value={lineTotal(entry, priceMode)}
+                  format={formatPrice}
+                  className="whitespace-nowrap text-[20px] font-bold leading-[22px] tracking-[0.2px] text-neutral-900"
+                />
                 {/* «Line 1» is a 0-wide box in the master (price + 24 + line +
                     24 = stepper), so the 1-px rule nets no width. */}
                 <span aria-hidden className="-mx-[0.5px] h-6 w-px shrink-0 bg-stroke-subtle" />
@@ -101,6 +106,7 @@ function CartRow({ entry }: { entry: CartEntry }) {
                   qty={line.qty}
                   onQty={(next) => setQty(product.id, next)}
                   disabled={out}
+                  animate
                 />
               </div>
               <button
@@ -157,11 +163,16 @@ function DeliveryMeter({ subtotal }: { subtotal: number }) {
 
   return (
     <div className="relative h-[52px] w-full">
+      {/* The chip, the knob and the fill glide to the new sum together
+          with the rolling digits (METER_MOTION). */}
       <span
-        className="absolute top-0 -translate-x-1/2 whitespace-nowrap rounded-xl bg-brand px-2 py-1 text-[14px] font-medium leading-6 text-white"
+        className={`absolute top-0 -translate-x-1/2 whitespace-nowrap rounded-xl bg-brand px-2 py-1 text-[14px] font-medium leading-6 text-white ${METER_MOTION}`}
         style={{ left: chipLeft }}
       >
-        {reached ? formatPriceWhole(FREE_DELIVERY_THRESHOLD) : formatPrice(subtotal)}
+        <RollingNumber
+          value={reached ? FREE_DELIVERY_THRESHOLD : subtotal}
+          format={reached ? formatPriceWhole : formatPrice}
+        />
       </span>
       <span className="absolute left-0 top-4 text-[14px] font-medium leading-6 text-neutral-300">
         {formatPriceWhole(0)}
@@ -180,10 +191,10 @@ function DeliveryMeter({ subtotal }: { subtotal: number }) {
         aria-valuenow={Math.min(subtotal, FREE_DELIVERY_THRESHOLD)}
         className="absolute inset-x-0 top-11 h-2 rounded-full bg-neutral-600"
       >
-        <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full bg-brand ${METER_MOTION}`} style={{ width: `${pct}%` }} />
         <span
           aria-hidden
-          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white"
+          className={`absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white ${METER_MOTION}`}
           style={{ left: knobCentre }}
         />
       </div>
@@ -388,7 +399,7 @@ export function CartDrawer() {
           <div className="flex flex-col gap-8">
             <div className="flex items-center justify-between text-white">
               <span className="text-body-md">Сума замовлення</span>
-              <span className="text-title-lg text-white">{formatPrice(subtotal)}</span>
+              <RollingNumber value={subtotal} format={formatPrice} className="text-title-lg text-white" />
             </div>
 
             <DeliveryMeter subtotal={subtotal} />
@@ -406,7 +417,7 @@ export function CartDrawer() {
                 <p className="text-[14px] leading-6">
                   <span className="text-white/60">До безкоштовної доставки залишилось:</span>
                   <br />
-                  <span className="font-medium text-white">{formatPrice(remaining)}</span>
+                  <RollingNumber value={remaining} format={formatPrice} className="font-medium text-white" />
                 </p>
               )}
             </div>

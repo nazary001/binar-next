@@ -16,6 +16,7 @@ import {
   PhoneMenuSheet,
 } from "./PhoneMenu";
 import { Button } from "./ui/Button";
+import { RollingNumber } from "./ui/RollingNumber";
 import { useCart } from "./cart/CartProvider";
 import { useAuth } from "./auth/AuthProvider";
 import { useFitZoom } from "./cart/useFitZoom";
@@ -124,8 +125,11 @@ function CartIcon() {
   );
 }
 
+const badgeCount = (n: number) => (n > 99 ? "99+" : String(n));
+
 // The header cart button: the 42-px brand disc inside a 48-px hit box
-// with the count badge (hidden while the cart is empty).
+// with the count badge (hidden while the cart is empty; the count rolls
+// with the cart's steppers, ui/RollingNumber.tsx).
 export function CartTrigger({ count, onOpen }: { count: number; onOpen: () => void }) {
   return (
     <button
@@ -139,7 +143,7 @@ export function CartTrigger({ count, onOpen }: { count: number; onOpen: () => vo
       </span>
       {count > 0 && (
         <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-[1.5px] border-white bg-neutral-900 px-1 text-[12px] font-bold leading-none text-white">
-          {count > 99 ? "99+" : count}
+          <RollingNumber value={count} format={badgeCount} />
         </span>
       )}
     </button>

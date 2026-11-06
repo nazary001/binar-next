@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { MinusIcon, PlusIcon } from "./icons";
 
 const COPY = {
@@ -31,6 +32,9 @@ const COPY = {
 // Name: the wrapper is `role="group"` named by `label` (aria-label,
 // default "Кількість"), or by a visible caption when `labelledBy` holds
 // its id (aria-labelledby, no aria-label then; the PDP qty row).
+// `animate` (the cart contexts: drawer rows, phone sheet lines, the stock
+// modal) rolls the count like an odometer on every change
+// (ui/RollingNumber.tsx); the catalog / PDP steppers keep the plain count.
 //
 // CONSUMER RULE (DECISIONS round 3; the hit boxes stay as they are): the
 // 40-px hit box reaches 12 px past each 16-px glyph, so on phones the
@@ -53,6 +57,7 @@ export function QtyStepper({
   labelledBy,
   editable = false,
   max = 99999,
+  animate = false,
 }: {
   qty: number;
   onQty: (next: number) => void;
@@ -64,6 +69,7 @@ export function QtyStepper({
   labelledBy?: string;
   editable?: boolean;
   max?: number;
+  animate?: boolean;
 }) {
   const btn =
     tone === "light"
@@ -100,7 +106,7 @@ export function QtyStepper({
         aria-atomic="true"
         className={`shrink-0 whitespace-nowrap ${countBox} ${count} ${editable ? "max-lg:hidden" : ""}`}
       >
-        {qty}
+        {animate ? <RollingNumber value={qty} /> : qty}
       </span>
       {editable && <QtyInput qty={qty} onQty={onQty} max={max} disabled={disabled} className={count} />}
       <button

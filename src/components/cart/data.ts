@@ -25,6 +25,13 @@ export const FREE_DELIVERY_THRESHOLD = 5000;
 
 export const CART_STORAGE_KEY = "binar-cart-v1";
 
+// The free-delivery meter's motion (drawer and phone sheet): the fill,
+// the knob and the sum chip glide to the new sum on the curve the digits
+// roll on (ui/RollingNumber.tsx), so the meter and the numbers move as
+// one.
+export const METER_MOTION =
+  "transition-[left,width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
+
 export function resolveLines(lines: CartLine[]): CartEntry[] {
   return lines.flatMap((line) => {
     const product = findProduct(line.id);

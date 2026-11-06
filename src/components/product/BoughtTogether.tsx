@@ -150,7 +150,7 @@ function WideCard({
                 tone="light"
                 className="@max-[340px]:gap-3"
               />
-              <B2BCartButton product={product} qty={qty} tone="light" />
+              <B2BCartButton product={product} qty={qty} tone="light" feedback="silent" />
             </>
           ) : (
             <>
@@ -162,7 +162,10 @@ function WideCard({
                 tone="light"
                 className="@max-[340px]:gap-3"
               />
-              <CartButton product={product} out={out} tone="light" qty={qty} />
+              {/* The discs add without opening the cart (feedback="silent"):
+                  the reader is still on the product page, the disc's check
+                  + count bubble and the header badge show the add. */}
+              <CartButton product={product} out={out} tone="light" qty={qty} feedback="silent" />
             </>
           )}
         </div>
@@ -181,9 +184,9 @@ function WideCard({
           <div className="flex items-center justify-between gap-4 [&>button:enabled]:border-brand [&>button:enabled]:bg-brand">
             <QtyStepper qty={qty} onQty={setQty} tone="light" disabled={!b2b && out} editable={b2b} />
             {b2b ? (
-              <B2BCartButton product={product} qty={qty} tone="light" />
+              <B2BCartButton product={product} qty={qty} tone="light" feedback="silent" />
             ) : (
-              <CartButton product={product} out={out} tone="light" qty={qty} />
+              <CartButton product={product} out={out} tone="light" qty={qty} feedback="silent" />
             )}
           </div>
         </div>
