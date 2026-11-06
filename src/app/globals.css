@@ -1464,6 +1464,28 @@ body {
   overflow-x: clip;
 }
 
+/* Phones: the canvas beyond the document's end. When the browser bar
+   collapses with the page already scrolled to its end (a short drag back
+   up, then down again), Chrome on Android shows a strip of the canvas
+   under the footer until the scroll is clamped - that strip is painted by
+   the compositor outside every page layer (no fixed element reaches it),
+   in the ROOT element's background colour. So the root carries the colour
+   of the footer's last band and the body stays white over the document
+   itself: the public pages end in the brand band of Footer.tsx, the
+   cabinet shell in the #1d1d1f legal bar of PlatformFooter.tsx
+   (`data-cabinet-behind`). Android has no top overscroll to show the
+   colour at; WebKit (iOS) blends html AND body colours for its overscroll,
+   so it stays white there and the bounce above the white header is
+   unchanged. Desktop (from 640): the document always fills the window. */
+@media (max-width: 639.98px) {
+  html {
+    background-color: var(--color-brand);
+  }
+  html:has(footer[data-cabinet-behind]) {
+    background-color: var(--color-neutral-900);
+  }
+}
+
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
