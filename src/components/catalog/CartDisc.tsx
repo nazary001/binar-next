@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useCart } from "@/components/cart/CartProvider";
+import { RollingNumber } from "@/components/ui/RollingNumber";
+
+const bubbleCount = (n: number) => (n > 99 ? "99+" : String(n));
 
 // Feedback of the 52-px cart discs on the catalog cards and rows (B2C
 // CartButton, B2B B2BCartButton):
@@ -129,7 +132,7 @@ export function CartDiscBody({
               : "border-white bg-neutral-900 text-white"
           }`}
         >
-          {inCart > 99 ? "99+" : inCart}
+          <RollingNumber value={inCart} format={bubbleCount} />
         </span>
       )}
     </>

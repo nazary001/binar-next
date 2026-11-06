@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { QtyStepper } from "@/components/catalog/QtyStepper";
 import { formatPrice, productHref, productsPlural } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { useCart } from "@/components/cart/CartProvider";
 import { lineTotal, type CartEntry } from "@/components/cart/data";
 import {
@@ -71,7 +72,7 @@ export function CheckoutLines({
           {COPY.title}
         </h2>
         <span className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">
-          {count} {productsPlural(count)}
+          <RollingNumber value={count} format={(n) => `${n} ${productsPlural(n)}`} />
         </span>
       </div>
 
@@ -135,7 +136,11 @@ export function CheckoutLines({
                     slot="fixed"
                     editable={partner}
                   />
-                  <span className={PRODUCT_LINE_TOTAL}>{formatPrice(lineTotal(entry, priceMode))}</span>
+                  <RollingNumber
+                    value={lineTotal(entry, priceMode)}
+                    format={formatPrice}
+                    className={PRODUCT_LINE_TOTAL}
+                  />
                 </>
               }
             />
@@ -145,9 +150,11 @@ export function CheckoutLines({
 
       <div className="flex flex-col gap-2 pt-6">
         <span className="text-[14px] font-medium leading-5 text-neutral-500">{COPY.subtotal}</span>
-        <span className="whitespace-nowrap text-[22px] font-semibold leading-7 tracking-[-0.44px] text-neutral-900">
-          {formatPrice(subtotal)}
-        </span>
+        <RollingNumber
+          value={subtotal}
+          format={formatPrice}
+          className="whitespace-nowrap text-[22px] font-semibold leading-7 tracking-[-0.44px] text-neutral-900"
+        />
       </div>
     </section>
   );

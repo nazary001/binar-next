@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { QtyStepper } from "@/components/catalog/ProductCard";
 import { formatPrice, productHref } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { useCart } from "@/components/cart/CartProvider";
 import { lineTotal, type CartEntry } from "@/components/cart/data";
 import { TrashIcon } from "@/components/cart/icons";
@@ -147,7 +148,7 @@ export function CheckoutItems({
                 {formatPrice(unitPrice(entry.product))}
               </td>
               <td className="whitespace-nowrap px-4 py-6 align-middle text-[16px] font-semibold leading-6 text-neutral-900">
-                {formatPrice(lineTotal(entry, priceMode))}
+                <RollingNumber value={lineTotal(entry, priceMode)} format={formatPrice} />
               </td>
               <td className="py-6 pl-4 pr-8 text-right align-middle">
                 <button

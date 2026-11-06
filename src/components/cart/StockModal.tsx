@@ -102,7 +102,6 @@ function IssueRow({ issue, first }: { issue: StockIssue; first: boolean }) {
             qty={issue.qty}
             onQty={(next) => setIssueQty(issue.lineId, next)}
             disabled={issue.resolved}
-            animate
           />
         )}
       </td>
@@ -210,7 +209,7 @@ function StockDialog() {
             <p className="flex items-center gap-2 text-body-md text-neutral-900">
               Залишилось вирішити:
               <span className="text-title-md">
-                {left} з {total}
+                <RollingNumber value={left} /> з {total}
               </span>
             </p>
             <Button size="small" onClick={resolveAll} disabled={left === 0}>

@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChoiceRow, RadioGroup } from "@/components/ui/ChoiceRow";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { Sheet, SheetDivider } from "@/components/ui/Sheet";
 import { DotIcon } from "@/components/platform/ui";
 import {
@@ -26,7 +27,9 @@ const COPY = {
   counter: (step: number) => `${step}/3`,
   hint: "Повертається вся доступна кількість товару.",
   selectAll: "Обрати всі товари",
-  chosen: (n: number, total: number) => `Обрано: ${n} з ${total}`,
+  // "Обрано: N з M" (the N rolls, ui/RollingNumber.tsx).
+  chosen: "Обрано:",
+  of: "з",
   next: "Далі",
   back: "Назад",
   send: "Надіслати запит",
@@ -163,7 +166,7 @@ export function ReturnWizardSheet({
     <div className="flex items-center justify-between gap-4">
       {step === 1 ? (
         <p aria-live="polite" className="min-w-0 text-[14px] font-medium leading-5 text-neutral-500">
-          {COPY.chosen(selected.size, items.length)}
+          {COPY.chosen} <RollingNumber value={selected.size} /> {COPY.of} {items.length}
         </p>
       ) : (
         <button

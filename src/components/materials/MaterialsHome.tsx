@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { AppliedChips } from "@/components/ui/AppliedChips";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { categoriesCount, categoryCards } from "./data";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer } from "./FiltersDrawer";
 import { FolderCard } from "./FolderCard";
@@ -17,7 +18,7 @@ const COPY = {
     "Усі необхідні матеріали в одному місці: переглядайте каталоги, технічні карти та інші файли.",
   section: "Категорії матеріалів",
   empty: "За вашим запитом нічого не знайдено.",
-  found: (n: number) => `Знайдено ${categoriesCount(n)}`,
+  found: "Знайдено",
 } as const;
 
 // The /materials page: a signed-in partner (B2B account) gets the
@@ -80,7 +81,11 @@ function PublicMaterialsHome() {
         groups={[DIRECTIONS_GROUP]}
         active={{ directions: s.directions }}
         onToggle={s.toggle}
-        resultLabel={COPY.found(cards.length)}
+        resultLabel={
+          <>
+            {COPY.found} <RollingNumber value={cards.length} format={categoriesCount} />
+          </>
+        }
         activeCount={s.filtersCount}
         onReset={s.resetFilters}
       />

@@ -16,6 +16,7 @@ import {
   PlusIcon,
 } from "@/components/catalog/icons";
 import { formatPrice, productHref, productsPlural } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { SortIcon } from "@/components/platform/orderIcons";
 import { PAGE_SIZES } from "@/components/platform/orders/data";
 import { useDismiss } from "@/components/platform/orders/listParts";
@@ -205,7 +206,7 @@ function RowStepper({ qty, onQty, name }: { qty: number; onQty: (n: number) => v
         <MinusIcon className="size-4" />
       </button>
       <span className="whitespace-nowrap text-[20px] font-bold leading-[22px] tracking-[0.2px] text-neutral-900">
-        {qty}
+        <RollingNumber value={qty} />
       </span>
       <button type="button" aria-label={`Збільшити кількість: ${name}`} onClick={() => onQty(qty + 1)} className={btn}>
         <PlusIcon className="size-4" />
@@ -394,7 +395,7 @@ function AssortmentTableRow({
         <RowStepper qty={row.qty} name={row.name} onQty={onQty} />
       </td>
       <td className={`${CELL} whitespace-nowrap text-[16px] font-semibold leading-6 text-neutral-900`}>
-        {formatPrice(row.sum)}
+        <RollingNumber value={row.sum} format={formatPrice} />
       </td>
       <td className={CELL}>
         <button
@@ -462,13 +463,17 @@ function SelectionBar({
         <p className="flex items-center gap-2 whitespace-nowrap text-neutral-900">
           <span className="text-[16px] leading-6">Обрано:</span>
           <span className="text-[20px] font-bold leading-[22px] tracking-[0.2px]">
-            {count} {productsPlural(count)}
+            <RollingNumber value={count} format={(n) => `${n} ${productsPlural(n)}`} />
           </span>
         </p>
         <span aria-hidden className="-mr-px h-6 w-px shrink-0 bg-stroke-subtle" />
         <p className="flex min-w-[156px] items-center gap-2 whitespace-nowrap text-neutral-900">
           <span className="text-[16px] leading-6">Сума:</span>
-          <span className="text-[20px] font-bold leading-[22px] tracking-[0.2px]">{formatPrice(total)}</span>
+          <RollingNumber
+            value={total}
+            format={formatPrice}
+            className="text-[20px] font-bold leading-[22px] tracking-[0.2px]"
+          />
         </p>
       </div>
       <div className="flex items-center gap-4">

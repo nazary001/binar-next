@@ -32,9 +32,8 @@ const COPY = {
 // Name: the wrapper is `role="group"` named by `label` (aria-label,
 // default "Кількість"), or by a visible caption when `labelledBy` holds
 // its id (aria-labelledby, no aria-label then; the PDP qty row).
-// `animate` (the cart contexts: drawer rows, phone sheet lines, the stock
-// modal) rolls the count like an odometer on every change
-// (ui/RollingNumber.tsx); the catalog / PDP steppers keep the plain count.
+// The count rolls like an odometer on every change (ui/RollingNumber.tsx)
+// everywhere; `animate={false}` keeps a plain count.
 //
 // CONSUMER RULE (DECISIONS round 3; the hit boxes stay as they are): the
 // 40-px hit box reaches 12 px past each 16-px glyph, so on phones the
@@ -57,7 +56,7 @@ export function QtyStepper({
   labelledBy,
   editable = false,
   max = 99999,
-  animate = false,
+  animate = true,
 }: {
   qty: number;
   onQty: (next: number) => void;

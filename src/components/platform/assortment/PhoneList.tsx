@@ -3,6 +3,7 @@
 import type { Ref } from "react";
 import { formatPrice, productHref } from "@/components/catalog/data";
 import { QtyStepper } from "@/components/catalog/QtyStepper";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { CatalogueIcon } from "@/components/platform/icons";
 import { ListPanel, ListRow, RowDisc } from "@/components/platform/ui/RecordRow";
 import { StatusPill } from "@/components/platform/ui/StatusPill";
@@ -202,9 +203,11 @@ function PhoneRow({
           <QtyStepper size="sm" editable qty={row.qty} onQty={onQty} label={COPY.qty(row.name)} />
           <p className="ml-auto flex flex-col items-end">
             <span className="text-[12px] leading-4 text-neutral-500">{COPY.sum}</span>
-            <span className="whitespace-nowrap text-[22px] font-semibold leading-7 tracking-[-0.44px] text-neutral-900">
-              {formatPrice(row.sum)}
-            </span>
+            <RollingNumber
+              value={row.sum}
+              format={formatPrice}
+              className="whitespace-nowrap text-[22px] font-semibold leading-7 tracking-[-0.44px] text-neutral-900"
+            />
           </p>
         </div>
       </div>

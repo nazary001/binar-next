@@ -4,6 +4,7 @@ import { Fragment, useRef, useState } from "react";
 import { useModalBehavior } from "@/components/cart/useModalBehavior";
 import { Button } from "@/components/ui/Button";
 import { OptionRow, Sheet, SheetDivider, SheetGroup } from "@/components/ui/Sheet";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { productsPlural } from "./data";
 import {
   CheckboxOffIcon,
@@ -241,7 +242,8 @@ const SHEET_COPY = {
   more: "Показати більше",
   reset: "Скинути",
   show: "Показати",
-  found: (n: number) => `Знайдено ${n} ${productsPlural(n)}`,
+  found: "Знайдено",
+  count: (n: number) => `${n} ${productsPlural(n)}`,
 } as const;
 
 export type FilterState = Record<FilterParam, string[]>;
@@ -355,7 +357,7 @@ export function FiltersSheet({
       footer={
         <>
           <p role="status" aria-live="polite" className="text-body-sm text-neutral-500">
-            {SHEET_COPY.found(count)}
+            {SHEET_COPY.found} <RollingNumber value={count} format={SHEET_COPY.count} />
           </p>
           <div className="flex gap-2">
             <Button

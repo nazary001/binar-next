@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { CheckboxOffIcon, CheckboxOnIcon } from "@/components/catalog/icons";
 import { useModalBehavior } from "@/components/cart/useModalBehavior";
 import { Button } from "@/components/ui/Button";
@@ -138,8 +138,9 @@ export function MaterialsFiltersDrawer({
   groups: FilterGroup[];
   active: Record<string, string[]>;
   onToggle: (key: string, value: string) => void;
-  // Phone footer: "Знайдено 9 файлів" for the current query + filters.
-  resultLabel: string;
+  // Phone footer: "Знайдено 9 файлів" for the current query + filters
+  // (the callers roll the count, ui/RollingNumber.tsx).
+  resultLabel: ReactNode;
   activeCount: number;
   onReset: () => void;
 }) {

@@ -32,6 +32,7 @@ import { SearchField } from "@/components/ui/SearchField";
 import { FilterButton } from "@/components/ui/FilterButton";
 import { AppliedChips } from "@/components/ui/AppliedChips";
 import { SortMenu } from "@/components/ui/SortMenu";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { LoadMore } from "@/components/ui/LoadMore";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
@@ -50,9 +51,12 @@ import {
   type SortOption,
 } from "./data";
 
+// "N товарів" of the result counters (the count rolls, ui/RollingNumber.tsx).
+const countPhrase = (n: number) => `${n} ${productsPlural(n)}`;
+
 // Phone copy (mobile pass, catalog-b2c 2.10 / 2.14, S20).
 const COPY = {
-  found: (n: number) => `Знайдено ${n} ${productsPlural(n)}`,
+  found: "Знайдено",
   search: "Пошук по каталогу",
   list: "Товари",
   viewCards: "Вид картками",
@@ -611,7 +615,7 @@ export function CatalogClient({
           share the 272 row; a 3-digit count wraps the trigger right. */}
       <div className="relative mt-4 flex min-h-11 flex-wrap items-center justify-between gap-x-2 gap-y-2 lg:hidden">
         <p aria-live={drawerOpen ? "off" : "polite"} className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">
-          {COPY.found(filtered.length)}
+          {COPY.found} <RollingNumber value={filtered.length} format={countPhrase} />
         </p>
         {filtered.length > 0 && (
           <SortMenu
@@ -630,7 +634,7 @@ export function CatalogClient({
       {/* === Results / sorting row (Figma 3677:39714), 48 px below. === */}
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 max-lg:hidden lg:mt-12">
         <p className="text-button-md text-neutral-900">
-          Знайдено {filtered.length} {productsPlural(filtered.length)}
+          {COPY.found} <RollingNumber value={filtered.length} format={countPhrase} />
         </p>
         <div className="flex flex-wrap items-center gap-4 lg:gap-6">
           <TextDropdown

@@ -13,6 +13,7 @@ import { useCart } from "./CartProvider";
 import { FREE_DELIVERY_THRESHOLD, METER_MOTION, lineTotal, type CartEntry } from "./data";
 import { CartSheetPhone } from "./CartSheetPhone";
 import { CheckCircleIcon, DeliveryIcon, TrashIcon } from "./icons";
+import { LeavingRow, useLeavingRows } from "./LeavingRow";
 import { useFitZoom } from "./useFitZoom";
 import { OVERLAY_INERT, useModalBehavior } from "./useModalBehavior";
 
@@ -106,7 +107,6 @@ function CartRow({ entry }: { entry: CartEntry }) {
                   qty={line.qty}
                   onQty={(next) => setQty(product.id, next)}
                   disabled={out}
-                  animate
                 />
               </div>
               <button
@@ -117,8 +117,11 @@ function CartRow({ entry }: { entry: CartEntry }) {
                   // else the previous one's, else the close button.
                   const own = e.currentTarget;
                   const aside = own.closest("aside");
+                  // Rows on their way out (LeavingRow, inert) cannot take it.
                   const all = aside
-                    ? [...aside.querySelectorAll<HTMLButtonElement>("button[data-cart-trash]")]
+                    ? [...aside.querySelectorAll<HTMLButtonElement>("button[data-cart-trash]")].filter(
+                        (b) => b === own || !b.closest("[inert]"),
+                      )
                     : [];
                   const i = all.indexOf(own);
                   const next =
@@ -250,7 +253,10 @@ function EmptyCart({ onBrowse }: { onBrowse: () => void }) {
 
 export function CartDrawer() {
   const { open, closeCart, entries, subtotal, clear, checkout, priceMode } = useCart();
-  const empty = entries.length === 0;
+  // Removed rows stay in the list while they slide out (LeavingRow), so
+  // the empty state waits for the last one.
+  const { rows, done } = useLeavingRows(entries, (e) => e.line.id);
+  const empty = rows.length === 0;
   const router = useRouter();
   const asideRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -389,8 +395,16 @@ export function CartDrawer() {
           </div>
 
           <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {entries.map((entry) => (
-              <CartRow key={entry.line.id} entry={entry} />
+            {rows.map((row) => (
+              <LeavingRow
+                key={row.key}
+                leaving={row.leaving}
+                entering={row.entering}
+                delay={row.delay}
+                onDone={() => done(row.key)}
+              >
+                <CartRow entry={row.item} />
+              </LeavingRow>
             ))}
           </div>
         </div>

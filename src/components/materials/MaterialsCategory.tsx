@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useHydrated } from "@/components/platform/ui/useHydrated";
 import { AppliedChips } from "@/components/ui/AppliedChips";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { filesCount, folderFiles, type MaterialCategory, type MaterialFile } from "./data";
 import { FileCard } from "./FileCard";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer, TYPES_GROUP } from "./FiltersDrawer";
@@ -17,7 +18,7 @@ const COPY = {
   parent: "Матеріали",
   files: (title: string) => `Файли: ${title}`,
   empty: "За вашим запитом нічого не знайдено.",
-  found: (n: number) => `Знайдено ${filesCount(n)}`,
+  found: "Знайдено",
 } as const;
 
 // /materials/<category>: the partner folder (Figma «Матеріали B2B»
@@ -103,7 +104,11 @@ function PublicMaterialsCategory({ category }: { category: MaterialCategory }) {
         groups={[DIRECTIONS_GROUP, TYPES_GROUP]}
         active={{ directions: s.directions, types: s.types }}
         onToggle={s.toggle}
-        resultLabel={COPY.found(files.length)}
+        resultLabel={
+          <>
+            {COPY.found} <RollingNumber value={files.length} format={filesCount} />
+          </>
+        }
         activeCount={s.filtersCount}
         onReset={s.resetFilters}
       />

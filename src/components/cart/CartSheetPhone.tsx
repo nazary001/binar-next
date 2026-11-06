@@ -27,6 +27,7 @@ import {
   type CartLine,
 } from "./data";
 import { CheckCircleIcon } from "./icons";
+import { LeavingRow, useLeavingRows } from "./LeavingRow";
 
 const COPY = {
   title: "Кошик",
@@ -89,7 +90,10 @@ export function CartSheetPhone({
     closeCart,
   } = useCart();
   const router = useRouter();
-  const empty = entries.length === 0;
+  // Removed lines stay while they slide out (LeavingRow); the empty state
+  // waits for the last one.
+  const { rows, done } = useLeavingRows(entries, (e) => e.line.id);
+  const empty = rows.length === 0;
   const b2b = priceMode === "partner";
 
   // The last trash tap, undoable for UNDO_MS from the head row (the
@@ -224,21 +228,33 @@ export function CartSheetPhone({
           </div>
 
           <ul role="list" aria-label={COPY.title} className="flex shrink-0 flex-col px-6 pb-6">
-            {entries.map((entry, index) => (
-              <CartLinePhone
-                key={entry.line.id}
-                entry={entry}
-                b2b={b2b}
-                onQty={(next) => setQty(entry.line.id, next)}
-                onRemove={() => onRemove(index)}
-                onNavigate={closeCart}
-                trashRef={(el) => {
-                  if (el) trashRefs.current.set(entry.line.id, el);
-                  else trashRefs.current.delete(entry.line.id);
-                }}
-                total={lineTotal(entry, priceMode)}
-              />
-            ))}
+            {rows.map((row) => {
+              const entry = row.item;
+              return (
+                <LeavingRow
+                  as="li"
+                  key={row.key}
+                  className="border-t border-stroke-subtle last:border-b"
+                  leaving={row.leaving}
+                  entering={row.entering}
+                  delay={row.delay}
+                  onDone={() => done(row.key)}
+                >
+                  <CartLinePhone
+                    entry={entry}
+                    b2b={b2b}
+                    onQty={(next) => setQty(entry.line.id, next)}
+                    onRemove={() => onRemove(entries.findIndex((e) => e.line.id === entry.line.id))}
+                    onNavigate={closeCart}
+                    trashRef={(el) => {
+                      if (el) trashRefs.current.set(entry.line.id, el);
+                      else trashRefs.current.delete(entry.line.id);
+                    }}
+                    total={lineTotal(entry, priceMode)}
+                  />
+                </LeavingRow>
+              );
+            })}
           </ul>
 
           <div
@@ -326,8 +342,8 @@ function CartLinePhone({
   const grey = b2b ? Boolean(product.preorder) || !product.available : out;
   return (
     <ProductLine
-      as="li"
-      className="border-t border-stroke-subtle last:border-b"
+      as="div"
+      padded
       image={product.image}
       title={product.title}
       href={productHref(product)}
@@ -348,7 +364,6 @@ function CartLinePhone({
             onQty={onQty}
             disabled={out}
             editable={b2b}
-            animate
           />
           <RollingNumber value={total} format={formatPrice} className={PRODUCT_LINE_TOTAL} />
         </>

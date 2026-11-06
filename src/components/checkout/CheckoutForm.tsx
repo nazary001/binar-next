@@ -6,6 +6,7 @@ import { RadioGroup } from "@/components/ui/ChoiceRow";
 import { SUMMARY_AMOUNT, SUMMARY_LABEL } from "@/components/ui/StickyBar";
 import { DESKTOP_QUERY } from "@/components/ui/useMediaQuery";
 import { formatPrice } from "@/components/catalog/data";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import {
   AutocompleteField,
   CheckboxField,
@@ -412,11 +413,11 @@ export function CheckoutForm({
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 lg:hidden">
             <span className={SUMMARY_LABEL}>{COPY.sum}</span>
-            <span className={SUMMARY_AMOUNT}>{formatPrice(subtotal)}</span>
+            <RollingNumber value={subtotal} format={formatPrice} className={SUMMARY_AMOUNT} />
           </div>
           <div className="flex items-center justify-between text-white max-lg:hidden">
             <span className="text-body-md">Сума замовлення</span>
-            <span className="text-title-lg text-white">{formatPrice(subtotal)}</span>
+            <RollingNumber value={subtotal} format={formatPrice} className="text-title-lg text-white" />
           </div>
           <p className="text-[14px] leading-6 text-white/60 max-lg:leading-5">
             Товари зарезервовано на{" "}

@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import { CabinetPage, CabinetPageHead } from "@/components/platform/ui";
 import { AppliedChips } from "@/components/ui/AppliedChips";
 import { FilterButton } from "@/components/ui/FilterButton";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { SearchField } from "@/components/ui/SearchField";
 import {
   categoriesCount,
@@ -60,8 +61,7 @@ const COPY = {
   section: "Категорії матеріалів",
   files: (title: string) => `Файли: ${title}`,
   empty: "За вашим запитом нічого не знайдено.",
-  foundCategories: (n: number) => `Знайдено ${categoriesCount(n)}`,
-  foundFiles: (n: number) => `Знайдено ${filesCount(n)}`,
+  found: "Знайдено",
 } as const;
 
 // Partner file panel: three columns of white cards from 640; phones draw
@@ -153,7 +153,11 @@ export function PartnerMaterialsHome() {
         groups={[DIRECTIONS_GROUP]}
         active={{ directions: s.directions }}
         onToggle={s.toggle}
-        resultLabel={COPY.foundCategories(cards.length)}
+        resultLabel={
+          <>
+            {COPY.found} <RollingNumber value={cards.length} format={categoriesCount} />
+          </>
+        }
         activeCount={s.filtersCount}
         onReset={s.resetFilters}
       />
@@ -220,7 +224,11 @@ export function PartnerMaterialsCategory({ category }: { category: MaterialCateg
         groups={[DIRECTIONS_GROUP, TYPES_GROUP]}
         active={{ directions: s.directions, types: s.types }}
         onToggle={s.toggle}
-        resultLabel={COPY.foundFiles(files.length)}
+        resultLabel={
+          <>
+            {COPY.found} <RollingNumber value={files.length} format={filesCount} />
+          </>
+        }
         activeCount={s.filtersCount}
         onReset={s.resetFilters}
       />

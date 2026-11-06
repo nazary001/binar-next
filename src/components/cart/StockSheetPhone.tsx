@@ -107,7 +107,7 @@ export function StockSheetPhone() {
           <p role="status" className="text-body-sm text-neutral-500">
             {COPY.left}{" "}
             <span className="whitespace-nowrap font-medium text-neutral-900">
-              {left} {COPY.of} {total}
+              <RollingNumber value={left} /> {COPY.of} {total}
             </span>
           </p>
           <div className="flex flex-col gap-2">
@@ -223,7 +223,7 @@ function IssueRowPhone({
             status={{ label: COPY.alternative, tone: "brand" }}
           />
           <div className="flex items-center justify-between gap-4">
-            <QtyStepper size="sm" slot="fixed" qty={issue.qty} onQty={onQty} disabled={issue.resolved} animate />
+            <QtyStepper size="sm" slot="fixed" qty={issue.qty} onQty={onQty} disabled={issue.resolved} />
             <span className={PRODUCT_LINE_TOTAL}>
               {total !== null && <RollingNumber value={total} format={formatPrice} />}
             </span>

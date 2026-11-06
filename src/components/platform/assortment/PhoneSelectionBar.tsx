@@ -2,6 +2,7 @@
 
 import { formatPrice, productsPlural } from "@/components/catalog/data";
 import { Button } from "@/components/ui/Button";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 import { StickyBar, SUMMARY_AMOUNT, SUMMARY_LABEL } from "@/components/ui/StickyBar";
 import { RemoveIcon, TrashIcon } from "./icons";
 
@@ -57,12 +58,12 @@ export function PhoneSelectionBar({
         <p className="flex items-baseline gap-1 whitespace-nowrap">
           <span className={SUMMARY_LABEL}>{COPY.chosen}</span>
           <span aria-live="polite" aria-atomic="true" className="text-[16px] font-bold leading-[22px] tracking-[0.16px]">
-            {count} {productsPlural(count)}
+            <RollingNumber value={count} format={(n) => `${n} ${productsPlural(n)}`} />
           </span>
         </p>
         <p className={`ml-auto ${SUMMARY_AMOUNT}`}>
           <span className="sr-only">{COPY.sum}</span>
-          {formatPrice(total)}
+          <RollingNumber value={total} format={formatPrice} />
         </p>
       </div>
       {hiddenBySearch > 0 && (

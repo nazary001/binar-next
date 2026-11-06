@@ -2,11 +2,14 @@
 
 import { useRef } from "react";
 import { Button } from "@/components/ui/Button";
+import { RollingNumber } from "@/components/ui/RollingNumber";
 
 const COPY = {
   more: "Показати більше",
   less: "Приховати",
-  counter: (shown: number, total: number) => `Показано ${shown} із ${total}`,
+  // "Показано N із M"; both numbers roll (ui/RollingNumber.tsx).
+  shown: "Показано",
+  of: "із",
 } as const;
 
 // Load-more block of every phone list (D4 / TR-12, system spec A9; blog
@@ -71,7 +74,9 @@ export function LoadMore({
 
   return (
     <div ref={rootRef} className={`flex flex-col items-center gap-4 ${className}`}>
-      <p className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">{COPY.counter(count, total)}</p>
+      <p className="whitespace-nowrap text-[14px] leading-5 text-neutral-500">
+        {COPY.shown} <RollingNumber value={count} /> {COPY.of} <RollingNumber value={total} />
+      </p>
       {more ? (
         <Button
           size="small"
