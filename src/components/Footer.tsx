@@ -55,17 +55,21 @@ export function Footer() {
   return (
     <footer
       id="contacts"
+      data-canvas-end="brand"
       className="relative w-full overflow-clip text-white"
       style={{ background: "#2d2d2f" }}
     >
       {/* Phones: the browser bar collapsing while the page is at its end
           (a short drag back up, then down again) reveals a strip of the
-          white canvas under the orange band until the finger lifts. This
-          brand strip is pinned to the viewport bottom BEHIND the page
-          (z -10: the body's white covers it everywhere the document
-          exists), so what shows there is the band's colour. The viewport
-          is its containing block, so the footer's overflow-clip does not
-          cut it; no layout, no hit-testing. */}
+          canvas under the orange band until the finger lifts. Chrome on
+          Android paints that strip outside every page layer, in the root
+          background colour: data-canvas-end above lets globals.css turn
+          the canvas brand-coloured over the last 320 px of scroll. This
+          brand strip pinned to the viewport bottom BEHIND the page (z -10:
+          the body's white covers it wherever the document exists) is the
+          fallback for browsers that do anchor fixed layers to the visible
+          bottom. The viewport is its containing block, so the footer's
+          overflow-clip does not cut it; no layout, no hit-testing. */}
       <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-48 bg-brand lg:hidden" />
       <div
         className="relative rounded-t-[32px] sm:rounded-t-[48px] lg:rounded-t-[60px]"

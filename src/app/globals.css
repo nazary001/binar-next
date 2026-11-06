@@ -1469,20 +1469,42 @@ body {
    up, then down again), Chrome on Android shows a strip of the canvas
    under the footer until the scroll is clamped - that strip is painted by
    the compositor outside every page layer (no fixed element reaches it),
-   in the ROOT element's background colour. So the root carries the colour
-   of the footer's last band and the body stays white over the document
-   itself: the public pages end in the brand band of Footer.tsx, the
-   cabinet shell in the #1d1d1f legal bar of PlatformFooter.tsx
-   (`data-cabinet-behind`). Android has no top overscroll to show the
-   colour at; WebKit (iOS) blends html AND body colours for its overscroll,
-   so it stays white there and the bounce above the white header is
-   unchanged. Desktop (from 640): the document always fills the window. */
+   in the ROOT element's background colour. The canvas is white, and a
+   scroll-driven animation turns it into the colour of the footer's last
+   band ONLY over the last 320 px of the scroll range - the bar's own
+   56..112 px of travel at the end never leaves that window - so the
+   strip shows the band's colour while the rest of the page (unpainted
+   tiles during a fling, the first frame of a load, pages that do not
+   scroll) keeps the white canvas. steps(1, jump-start): the colour
+   switches, it does not blend, since the range itself moves while the
+   bar hides. The band colour comes from the footer: the public pages end
+   in the brand band of Footer.tsx (data-canvas-end="brand"), the cabinet
+   shell in the #1d1d1f legal bar of PlatformFooter.tsx ("dark").
+   Browsers without scroll-driven animations keep the white canvas (the
+   old strip); WebKit (iOS) blends html AND body colours for its
+   overscroll, so it stays white there either way. Desktop (from 640):
+   the document always fills the window. */
 @media (max-width: 639.98px) {
-  html {
-    background-color: var(--color-brand);
+  html:has(footer[data-canvas-end="brand"]) {
+    --canvas-end: var(--color-brand);
   }
-  html:has(footer[data-cabinet-behind]) {
-    background-color: var(--color-neutral-900);
+  html:has(footer[data-canvas-end="dark"]) {
+    --canvas-end: var(--color-neutral-900);
+  }
+  @supports (animation-timeline: scroll()) {
+    html:has(footer[data-canvas-end]) {
+      animation: canvas-end steps(1, jump-start) both;
+      animation-timeline: scroll(root block);
+      animation-range: calc(100% - 320px) 100%;
+    }
+  }
+}
+@keyframes canvas-end {
+  from {
+    background-color: #ffffff;
+  }
+  to {
+    background-color: var(--canvas-end);
   }
 }
 

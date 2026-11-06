@@ -15,16 +15,20 @@ import { FIGMA_TEXT_BOX } from "@/components/catalog/textBox";
 // underline instead of links to /privacy and /terms, which answered 404.
 // Turn them back into <Link>s once those pages exist.
 // `data-cabinet-behind`: inert while the phone cabinet menu is open.
+// `data-canvas-end="dark"`: globals.css paints the phone canvas beyond the
+// page's end in this bar's colour (see Footer.tsx).
 export function PlatformFooter() {
   return (
     <footer
       data-cabinet-behind
+      data-canvas-end="dark"
       className="flex flex-col items-start gap-6 bg-neutral-900 px-6 py-6 text-[14px] leading-[30px] text-white sm:flex-row sm:items-center sm:justify-between lg:gap-2 lg:px-8 lg:py-3 lg:text-[12px]"
       style={{ fontFamily: "var(--font-onest)" }}
     >
       {/* Phones: a strip of the bar's colour pinned behind the page at the
-          viewport bottom, so the browser bar collapsing at the page end
-          shows no white canvas under the legal bar (see Footer.tsx). */}
+          viewport bottom, the fallback for browsers that anchor fixed
+          layers to the visible bottom when the browser bar collapses at
+          the page end (see Footer.tsx). */}
       <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-48 bg-neutral-900 lg:hidden" />
       <div className="flex items-center gap-4 lg:gap-6">
         <Link
