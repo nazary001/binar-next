@@ -40,7 +40,6 @@ import {
   BRANDS,
   CATALOG_DIRECTIONS,
   PAGE_SIZES,
-  PRODUCTS,
   PRODUCT_TYPE_OPTIONS,
   SORT_OPTIONS,
   ZONE_OPTIONS,
@@ -50,6 +49,7 @@ import {
   type Product,
   type SortOption,
 } from "./data";
+import { useListingProducts } from "./CatalogRegistry";
 
 // "N товарів" of the result counters (the count rolls, ui/RollingNumber.tsx).
 const countPhrase = (n: number) => `${n} ${productsPlural(n)}`;
@@ -383,14 +383,19 @@ export function CatalogClient({
     applyFilters({ ...active, [param]: next });
   };
 
+  // Every listing product, in listing order (the registry the root layout
+  // primed from the database; the same array on every render, and the
+  // request's own snapshot in the server pass).
+  const pool = useListingProducts();
+
   // The pool after the filters + the search (unsorted). Also counts the
   // phone sheet's DRAFT for its «Знайдено N товарів» status.
   const match = useCallback(
     (f: FilterState) => {
       const q = query.trim().toLowerCase();
       let base = directionSubs
-        ? PRODUCTS.filter((p) => directionSubs.has(p.subcategory))
-        : PRODUCTS;
+        ? pool.filter((p) => directionSubs.has(p.subcategory))
+        : pool;
       if (fixedSubcategory) {
         base = base.filter((p) => p.subcategory === fixedSubcategory);
       }
@@ -408,7 +413,7 @@ export function CatalogClient({
       if (q) base = base.filter((p) => p.title.toLowerCase().includes(q));
       return base;
     },
-    [query, directionSubs, fixedSubcategory],
+    [pool, query, directionSubs, fixedSubcategory],
   );
   const countFor = useCallback((f: FilterState) => match(f).length, [match]);
 

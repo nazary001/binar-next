@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { api } from "@/lib/api/client";
 
 // Figma uses heroicons-outline/star (same path we render). The icon's
 // visible bounds inside its 40-px container are `inset-[13.13%_11.85%_
@@ -232,7 +233,16 @@ export function StarRequestStrip() {
             <Button
               type="button"
               size="responsive"
-              onClick={() => canSubmit && setSubmitted(true)}
+              onClick={() => {
+                if (!canSubmit) return;
+                // Stored by POST /api/leads; the thank-you card does not wait for it,
+                // and keepalive lets the request finish if the visitor leaves.
+                void api("/api/leads", {
+                  body: { kind: "star-checklist", source: window.location.pathname, payload: { stars, email } },
+                  keepalive: true,
+                });
+                setSubmitted(true);
+              }}
               arrow
             >
               Отримати чеклист

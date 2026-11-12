@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ORDERS_TODAY, periodStart, type PeriodValue } from "./data";
+import { periodStart, type PeriodValue } from "./data";
 import type { Sort } from "./listParts";
+import { ordersToday } from "./store";
 
 // List state of one tab of the orders page (orders / returns): the query,
 // the three filters (period, counterparty, status), the sort, the desktop
@@ -70,11 +71,11 @@ export function sortRows<T>(list: T[], sort: Sort, date: (t: T) => string, total
 }
 
 // Inside the period the filter names (both ends included; "all" = up to
-// the mock "today").
-export function inPeriod(dateIso: string, period: PeriodValue): boolean {
+// the cabinet's "today", store.ts).
+export function inPeriod(dateIso: string, period: PeriodValue, today: Date = ordersToday()): boolean {
   const date = new Date(dateIso);
-  const start = periodStart(period, ORDERS_TODAY);
-  return date <= ORDERS_TODAY && (!start || date >= start);
+  const start = periodStart(period, today);
+  return date <= today && (!start || date >= start);
 }
 
 // Ukrainian plural: 1 / 2-4 / 5+ (11-14 take the "many" form).

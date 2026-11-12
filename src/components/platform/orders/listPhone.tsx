@@ -13,8 +13,6 @@ import { ListPanel, OrderStatusBadge, RecordRow, RowDisc } from "@/components/pl
 import { SideMenuOrdersIcon } from "../icons";
 import { OrderDocumentsIcon } from "../orderIcons";
 import {
-  COUNTERPARTIES,
-  ORDERS_TODAY,
   PERIODS,
   formatDate,
   formatRange,
@@ -34,6 +32,7 @@ import {
   type ListState,
 } from "./listState";
 import { PaymentCaptions, PaymentChip } from "./PaymentCell";
+import { ordersToday, useCounterpartyNames } from "./store";
 
 // Phone layer of the orders page and its returns tab (orders-list spec 2.3 -
 // 2.9, template T2): the search row (SearchField + FilterButton), the
@@ -70,7 +69,9 @@ const COPY = {
   orderDocuments: (number: string) => `Документи замовлення №${number}`,
 } as const;
 
-const rangeOf = (period: PeriodValue) => formatRange(periodStart(period, ORDERS_TODAY), ORDERS_TODAY);
+// The range under a period, counted from the cabinet's today (store.ts;
+// the rows rendering it already subscribe to the store).
+const rangeOf = (period: PeriodValue) => formatRange(periodStart(period, ordersToday()), ordersToday());
 
 // ----------------------------------------------------------------------
 // Rows
@@ -269,6 +270,7 @@ function FilterSheet<S extends string>({
   const id = useId();
   const footRef = useRef<HTMLDivElement>(null);
   const active = activeFilterCount(draft) > 0;
+  const counterparties = useCounterpartyNames();
 
   const group = <V extends string>(key: string, title: string, options: { value: V; label: string }[], value: V, pick: (v: V) => void, after?: ReactNode) => (
     <SheetGroup id={`${id}-${key}`} title={title}>
@@ -336,7 +338,7 @@ function FilterSheet<S extends string>({
       {group(
         "counterparty",
         COPY.counterparty,
-        [{ value: "all", label: COPY.allCounterparties }, ...COUNTERPARTIES.map((c) => ({ value: c, label: c }))],
+        [{ value: "all", label: COPY.allCounterparties }, ...counterparties.map((c) => ({ value: c, label: c }))],
         draft.counterparty,
         (counterparty) => setDraft({ ...draft, counterparty }),
       )}

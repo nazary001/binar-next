@@ -1,8 +1,13 @@
-// Placeholder catalog data mirroring the Figma template state
-// («Каталог :: B2C» section 4329:39002: «картки товарів» 4329:39182,
-// «застосовано фільтри» 4329:39587, the «Фільтри» sheets 4329:39542 /
-// 39659 / 39692): the master B2C card repeated with the same product.
-// Swap for the real product source when the e-commerce backend lands.
+// Catalog vocabulary shared by the browser and the server: the Product
+// type, the Figma-tuned taxonomy (directions, categories, menu, facets),
+// the filter / sort vocabularies and the pure price and URL helpers.
+// The products themselves live in MongoDB (collection `products`, seeded
+// from src/server/seed/data/catalog.ts): server pages read them through
+// src/server/repos/catalog.ts, client code through ./registry.ts.
+// Figma: "Katalog :: B2C" section 4329:39002 (product cards 4329:39182,
+// filters applied 4329:39587, the filter sheets 4329:39542 / 39659 /
+// 39692).
+import { partnerPriceMap, partnerPriceOf, type PartnerPrices } from "./registry";
 
 // A subcategory card in the direction-page carousel («Напрям»,
 // 4329:39333 - «Карусель» set 3685:54259): the 393×260 zones-style
@@ -443,11 +448,6 @@ export const BRANDS = [
   "S&R",
 ] as const;
 
-// Every category label (the 18 carousel cards of the three directions).
-const TAXONOMY_SUBS: string[] = [
-  ...new Set(CATALOG_DIRECTIONS.flatMap((d) => d.carousel.map((c) => c.label))),
-];
-
 // Vocabularies of the two context groups (URL params `zone` / `type`).
 export const ZONE_OPTIONS: string[] = [
   ...new Set(CATALOG_DIRECTIONS.flatMap((d) => d.facet.options)),
@@ -456,64 +456,27 @@ export const PRODUCT_TYPE_OPTIONS: string[] = [
   ...new Set(CATALOG_DIRECTIONS.flatMap((d) => d.productFilters)),
 ];
 
-// Placeholder distribution. Product i sits in category c = i mod 18
-// (round r = floor(i / 18)), so every category page holds 7-8 items.
-// The first 90 cover every (category, manufacturer) pair once (brand =
-// round), the rest cycle the manufacturers. Inside a category the
-// rounds walk the direction's zones (r + c) and product types (3r + c),
-// so each zone / type / brand checkbox of a category page finds
-// something and the Figma example «Косметика в малій упаковці» +
-// «Allegrini» (4329:39587) matches shampoo-20.
-const FULL_COVERAGE = TAXONOMY_SUBS.length * BRANDS.length;
-
-export const PRODUCTS: Product[] = Array.from({ length: 132 }, (_, i) => {
-  const c = i % TAXONOMY_SUBS.length;
-  const r = Math.floor(i / TAXONOMY_SUBS.length);
-  const subcategory = TAXONOMY_SUBS[c];
-  const dir = CATALOG_DIRECTIONS.find((d) => d.carousel.some((card) => card.label === subcategory));
-  const zones = dir?.facet.options ?? [];
-  const types = dir?.productFilters ?? [];
-  return {
-    id: `shampoo-${i + 1}`,
-    title: "Шампунь для волосся і тіла",
-    image: "/figma-export/catalog/product-shampoo.png",
-    volume: "40 мл",
-    brand:
-      i < FULL_COVERAGE
-        ? BRANDS[r % BRANDS.length]
-        : BRANDS[(i - FULL_COVERAGE) % BRANDS.length],
-    subcategory,
-    zone: zones.length ? zones[(r + c) % zones.length] : undefined,
-    productType: types.length ? types[(3 * r + c) % types.length] : undefined,
-    price: 31.65,
-    retailPrice: 36,
-    partnerPrice: 28.99,
-    available: true,
-  };
-});
-
-// Mock storefront states for the product page (Figma «PDP B2C» section
-// 4329:51336): the second placeholder carries a promotional price
-// («Ціна з пропозицією», 4329:51621), the third is out of stock («Немає
-// в наявності», 4329:51763). The catalog card already renders both.
-// The master's literals are 24,50 / 31,65 / «-25%» (the designer's
-// rounding - the prices compute to 22.6 %), so the label is pinned.
-PRODUCTS[1] = { ...PRODUCTS[1], price: 24.5, oldPrice: 31.65, discount: 25, fxPrice: true };
-PRODUCTS[2] = { ...PRODUCTS[2], available: false, preorder: true };
-// The B2B «Напрям» frame (4329:56219) shows the fourth card «Під
-// замовлення» too.
-PRODUCTS[3] = { ...PRODUCTS[3], preorder: true };
-
 // B2B prices of a product: wholesale = the catalog price, the retail
-// and partner prices default to the master's 36,00 / 28,99 ratios.
-export function b2bPrices(p: Product): { wholesale: number; retail: number; partner: number } {
+// price defaults to the master's 36,00 ratio.
+// The partner price is the signed-in partner's own one, which only the
+// session sends (SessionData.prices, see registry.ts); the public DTO
+// never carries partnerPrice. Without a map (it is written before the
+// account is committed, so only a broken mirror gets here) the list
+// price shows: no discount formula ships in the public bundle.
+// `prices` = the map to read: a component passes usePartnerPrices()
+// (CatalogRegistry.tsx) so it re-renders when the server's map replaces
+// the mirrored one; omitted = the mirror as it is now.
+export function b2bPrices(
+  p: Product,
+  prices: PartnerPrices | null = partnerPriceMap(),
+): { wholesale: number; retail: number; partner: number } {
   // A B2C promotion does not touch the wholesale list: the regular
   // (pre-sale) price is the wholesale one.
   const list = p.oldPrice ?? p.price;
   return {
     wholesale: list,
     retail: p.retailPrice ?? Math.round(list * 1.1374 * 100) / 100,
-    partner: p.partnerPrice ?? Math.round(list * 0.916 * 100) / 100,
+    partner: partnerPriceOf(p.id, prices) ?? p.partnerPrice ?? list,
   };
 }
 

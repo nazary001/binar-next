@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { b2bPrices, discountPercent, formatPrice, type Product } from "@/components/catalog/data";
+import { usePartnerPrices } from "@/components/catalog/CatalogRegistry";
 
 // Phone-only pieces of the product page (mobile pass, C-pdp; pdp spec 2.5,
 // 2.8). Every element here renders inside an `lg:hidden` block, except
@@ -70,7 +71,9 @@ export function PhonePrice({
 }) {
   const b2b = mode === "b2b";
   const sale = !b2b && discountPercent(product) !== null;
-  const value = b2b ? b2bPrices(product).partner : product.price;
+  // Subscribed: the server's map replaces a stale mirrored one on screen.
+  const prices = usePartnerPrices();
+  const value = b2b ? b2bPrices(product, prices).partner : product.price;
   const colour = sale ? "text-brand" : tone === "light" ? "text-white" : "text-neutral-900";
   const struck =
     size === "hero" ? "text-[18px] leading-[26px] tracking-[0.18px]" : "text-[14px] leading-5";

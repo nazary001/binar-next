@@ -7,11 +7,13 @@ import { FilterButton } from "@/components/ui/FilterButton";
 import { RollingNumber } from "@/components/ui/RollingNumber";
 import { SearchField } from "@/components/ui/SearchField";
 import {
+  canDownloadMaterial,
   categoriesCount,
   categoryCards,
   filesCount,
   folderFiles,
   type MaterialCategory,
+  type MaterialFile,
 } from "./data";
 import { FileCard } from "./FileCard";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer, TYPES_GROUP } from "./FiltersDrawer";
@@ -115,9 +117,18 @@ function Empty({ onReset }: { onReset: () => void }) {
 // Root «Матеріали» (4396:11383): title + subtitle, toolbar, folder cards
 // (FolderCard surface="white" = component 4396:11870). The sheet offers
 // the directions only (4378:63140).
-export function PartnerMaterialsHome() {
+export function PartnerMaterialsHome({
+  categories,
+  files,
+}: {
+  categories: MaterialCategory[];
+  files: MaterialFile[];
+}) {
   const s = useMaterialsState();
-  const cards = useMemo(() => categoryCards(s.filters, s.query), [s.filters, s.query]);
+  const cards = useMemo(
+    () => categoryCards(files, categories, s.filters, s.query),
+    [files, categories, s.filters, s.query],
+  );
 
   return (
     <CabinetPage>
@@ -170,12 +181,18 @@ export function PartnerMaterialsHome() {
 // padlock for files outside the partner's agreement), both filter
 // groups (4396:11930) and the preview sheet (4825:60620 = the public
 // 1103-px panel; its «коментар» is the file description).
-export function PartnerMaterialsCategory({ category }: { category: MaterialCategory }) {
+export function PartnerMaterialsCategory({
+  category,
+  files: folder,
+}: {
+  category: MaterialCategory;
+  files: MaterialFile[];
+}) {
   const s = useMaterialsState();
   const { openPreview, closePreview } = s;
   const files = useMemo(
-    () => folderFiles(category.slug, s.filters, s.query),
-    [category.slug, s.filters, s.query],
+    () => folderFiles(folder, category.slug, s.filters, s.query),
+    [folder, category.slug, s.filters, s.query],
   );
 
   return (
@@ -208,7 +225,7 @@ export function PartnerMaterialsCategory({ category }: { category: MaterialCateg
             renderFile={(file) => (
               <FileCard
                 file={file}
-                canDownload={!file.partnerLocked}
+                canDownload={canDownloadMaterial(file, "b2b")}
                 onOpen={openPreview}
                 lockedHint={COPY.lockHint}
                 surface="white"
@@ -236,7 +253,7 @@ export function PartnerMaterialsCategory({ category }: { category: MaterialCateg
       <PreviewPanel
         file={s.preview}
         onClose={closePreview}
-        canDownload={!s.preview?.partnerLocked}
+        canDownload={s.preview ? canDownloadMaterial(s.preview, "b2b") : true}
         lockedHint={COPY.lockHint}
       />
     </CabinetPage>

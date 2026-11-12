@@ -17,7 +17,8 @@ import { FitText } from "@/components/ui/FitText";
 import { QtyStepper } from "@/components/catalog/QtyStepper";
 import { ChipsRow } from "@/components/catalog/ChipsRow";
 import { CheckboxOnIcon } from "@/components/catalog/icons";
-import { PRODUCTS, formatPrice } from "@/components/catalog/data";
+import { formatPrice } from "@/components/catalog/data";
+import { useListingProducts } from "@/components/catalog/CatalogRegistry";
 import { CartIcon } from "@/components/catalog/icons";
 import { PreorderIcon } from "@/components/platform/icons";
 import { OrderDocumentsIcon } from "@/components/platform/orderIcons";
@@ -122,7 +123,7 @@ export function PhoneAtomsGallery() {
   const [comment, setComment] = useState("");
   const [invoice, setInvoice] = useState(false);
 
-  const products = PRODUCTS.slice(0, 4);
+  const products = useListingProducts().slice(0, 4);
   const items = Array.from({ length: 28 }, (_, i) => `№482910${String(64 - i).padStart(2, "0")}`);
 
   return (

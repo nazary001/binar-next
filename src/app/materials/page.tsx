@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MaterialsHome } from "@/components/materials/MaterialsHome";
+import { getMaterialCategories, getMaterialFiles } from "@/server/repos/materials";
 
 export const metadata: Metadata = {
   title: "Матеріали",
@@ -9,8 +10,9 @@ export const metadata: Metadata = {
 };
 
 // Figma «Матеріали B2C» landing (4634:63597): the category folders of
-// the materials library. Content is a placeholder feed (data.ts) until
-// the CMS is wired.
-export default function MaterialsPage() {
-  return <MaterialsHome />;
+// the materials library, read from the database (cached, tag
+// "materials") and handed to the client view.
+export default async function MaterialsPage() {
+  const [categories, files] = await Promise.all([getMaterialCategories(), getMaterialFiles()]);
+  return <MaterialsHome categories={categories} files={files} />;
 }

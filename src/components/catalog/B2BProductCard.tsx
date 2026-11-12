@@ -7,6 +7,7 @@ import { PreorderIcon } from "@/components/platform/icons";
 import { CartIcon, InfoCircleIcon } from "./icons";
 import { CARD_TITLE_LINK, ChipsRow, QtyStepper, ROW_TITLE_LINK } from "./ProductCard";
 import { b2bPrices, formatPrice, productHref, type Product } from "./data";
+import { usePartnerPrices } from "./CatalogRegistry";
 import { useCatalogAdd } from "./phoneParts";
 import { CART_DISC_IN_CART, CartDiscBody, cartDiscLabel, useCartDisc } from "./CartDisc";
 
@@ -178,6 +179,8 @@ export function B2BYourPrice({
   tone?: B2BTone;
   size?: "md" | "stat" | "amount";
 }) {
+  // Subscribed: the server's map replaces a stale mirrored one on screen.
+  const partner = b2bPrices(product, usePartnerPrices()).partner;
   const type =
     size === "stat"
       ? "text-[30px] font-semibold leading-9 tracking-[-0.6px]"
@@ -188,7 +191,7 @@ export function B2BYourPrice({
     <span className="flex flex-col justify-center gap-1">
       <Caption tone={tone}>ваша ціна</Caption>
       <span className={`whitespace-nowrap ${type} ${tone === "light" ? "text-white" : "text-neutral-900"}`}>
-        {formatPrice(b2bPrices(product).partner)}
+        {formatPrice(partner)}
       </span>
     </span>
   );

@@ -6,8 +6,8 @@ import {
   productHref,
   type Product,
 } from "@/components/catalog/data";
-import { ALL_PRODUCTS, findProduct, getProductDetails } from "@/components/product/data";
 import { ProductPageView } from "@/components/product/ProductPageView";
+import { getProductPage, listProductPaths } from "@/server/repos/catalog";
 
 // A product has exactly one canonical path (productHref); any other
 // direction/category pair in the URL is a 404, not a duplicate page.
@@ -15,11 +15,10 @@ function belongsHere(product: Product, direction: string, category: string) {
   return productHref(product) === `/catalog/${direction}/${category}/${product.id}`;
 }
 
-export function generateStaticParams() {
-  return ALL_PRODUCTS.map((p) => {
-    const [, , direction, category, product] = productHref(p).split("/");
-    return { direction, category, product };
-  });
+// Every product's canonical path, from the database (products are read
+// through the cached catalog snapshot, src/server/repos/catalog.ts).
+export async function generateStaticParams() {
+  return listProductPaths();
 }
 
 export async function generateMetadata({
@@ -30,7 +29,7 @@ export async function generateMetadata({
   const { direction, category, product: productId } = await params;
   const dir = CATALOG_DIRECTIONS.find((d) => d.slug === direction);
   const card = dir && findCategory(dir, category);
-  const product = findProduct(productId);
+  const product = (await getProductPage(productId))?.product;
   if (!dir || !card || !product || !belongsHere(product, dir.slug, card.slug)) {
     return {};
   }
@@ -63,12 +62,12 @@ export default async function ProductPage({
   const { direction, category, product: productId } = await params;
   const dir = CATALOG_DIRECTIONS.find((d) => d.slug === direction);
   const card = dir ? findCategory(dir, category) : undefined;
-  const product = findProduct(productId);
-  if (!dir || !card || !product || !belongsHere(product, dir.slug, card.slug)) {
+  const page = await getProductPage(productId);
+  if (!dir || !card || !page || !belongsHere(page.product, dir.slug, card.slug)) {
     notFound();
   }
 
-  const details = getProductDetails(product);
+  const { product, details } = page;
 
   return <ProductPageView dir={dir} card={card} product={product} details={details} />;
 }

@@ -63,7 +63,7 @@ const GATE_ID = "platform-gate";
 const GATE_STYLE_ID = "platform-gate-style";
 const GATE_SCRIPT = `(function(){try{if(!new RegExp(${JSON.stringify(
   PLATFORM_ROUTE.source,
-)}).test(location.pathname))return;var raw=localStorage.getItem(${JSON.stringify(
+)}).test(location.pathname))return;if(("; "+document.cookie+";").indexOf("; binar_auth=1;")<0)return;var raw=localStorage.getItem(${JSON.stringify(
   AUTH_STORAGE_KEY,
 )});if(!raw)return;var s=JSON.parse(raw);if(!s||typeof s.sessionId!=="string"||!Array.isArray(s.accounts))return;var a=null;for(var i=0;i<s.accounts.length;i++){var x=s.accounts[i];if(x&&typeof x==="object"&&x.id===s.sessionId&&typeof x.phone==="string"&&typeof x.login==="string"&&typeof x.passwordHash==="string"&&x.company&&typeof x.company==="object"&&x.person&&typeof x.person==="object"){a=x;break;}}if(!a||a.type==="b2c")return;var st=document.createElement("style");st.id="${GATE_STYLE_ID}";st.textContent="#${GATE_ID}~:not(header){visibility:hidden!important}@media (min-width:640px){#${GATE_ID}~header{visibility:hidden!important}}";document.head.appendChild(st);setTimeout(function(){st.remove();},4000);}catch(e){}})();`;
 

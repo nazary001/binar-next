@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { api } from "@/lib/api/client";
 
 export type QuizStep = {
   title: string;
@@ -372,6 +373,12 @@ export function QuizForm({
   function handleNext() {
     if (!canAdvance) return;
     if (step === totalSteps - 1) {
+      // Stored by POST /api/leads; the thank-you card does not wait for it,
+      // and keepalive lets the request finish if the visitor leaves.
+      void api("/api/leads", {
+        body: { kind: "quiz", source: window.location.pathname, payload: answers },
+        keepalive: true,
+      });
       setSubmitted(true);
       return;
     }

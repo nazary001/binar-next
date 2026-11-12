@@ -4,13 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { isDemoAccount } from "@/components/auth/demo";
 import { Button } from "@/components/ui/Button";
 import { FitText } from "@/components/ui/FitText";
 import type { Order } from "../orders/data";
 import { ROW_ICON_BUTTON } from "../orders/listParts";
 import { paymentKind } from "../orders/payment";
-import { useOrders } from "../orders/store";
+import { useCreditLimits, useOrders } from "../orders/store";
 import { useProfile } from "../profile/store";
 import {
   CabinetPage,
@@ -30,9 +29,7 @@ import { CABINET_SECTION_TITLE } from "../ui/CabinetPageHead";
 import { AttentionTileIcon, CoinIcon, PaymentChevronIcon, PersonFilledIcon, WalletIcon } from "./icons";
 import {
   ALL,
-  DEMO_COUNTERPARTIES,
   MANAGER,
-  NO_KPIS,
   PAYMENTS_STEP,
   PAYMENTS_VISIBLE,
   counterpartyOptions,
@@ -40,6 +37,7 @@ import {
   formatDate,
   formatSum,
   kpisFor,
+  ledgerCounterparties,
   paymentCaption,
   paymentsFor,
   readStoredFilter,
@@ -534,13 +532,14 @@ export function DashboardView() {
   // `hydrated`, so the server pass never depends on it).
   const [counterparty, setCounterparty] = useState<CounterpartyFilter>(readStoredFilter);
   const allOrders = useOrders();
+  const creditLimits = useCreditLimits();
   const partner = user?.type === "b2b" ? user : null;
-  // The placeholder history (orders, payments, balances) belongs to the
-  // demo partner only, exactly as on /orders (OrdersView): any other
-  // partner sees an empty cabinet and the counterparties of their own
-  // «Мій профіль :: Контрагенти».
-  const owned = partner ? isDemoAccount(partner) : false;
-  const profile = useProfile(partner && !owned ? partner.id : null);
+  // Orders, payments and balances are the company's own (the session
+  // payload, as on /orders). The select lists the counterparties of its
+  // credit lines and orders; a company with neither sees an empty cabinet
+  // and the counterparties of its own "Мій профіль :: Контрагенти".
+  const ledgerNames = ledgerCounterparties(allOrders, creditLimits);
+  const profile = useProfile(partner && ledgerNames.length === 0 ? partner.id : null);
 
   // The session lives in localStorage: render nothing until the client
   // knows who is signed in, so a partner never sees the sign-in prompt
@@ -557,16 +556,15 @@ export function DashboardView() {
     );
   }
 
-  const names = owned
-    ? DEMO_COUNTERPARTIES
+  const names = ledgerNames.length
+    ? ledgerNames
     : [...new Set((profile?.counterparties ?? []).map((c) => c.name.trim()).filter(Boolean))];
   const options = counterpartyOptions(names);
   // A counterparty removed in the profile meanwhile falls back to «Усі».
   const filter = options.some((o) => o.value === counterparty) ? counterparty : ALL;
-  const ownOrders = owned ? allOrders : [];
-  const kpis = owned ? kpisFor(ownOrders, filter) : NO_KPIS;
-  const orders = recentOrders(ownOrders, filter);
-  const payments = paymentsFor(ownOrders, filter);
+  const kpis = kpisFor(allOrders, filter, creditLimits);
+  const orders = recentOrders(allOrders, filter);
+  const payments = paymentsFor(allOrders, filter);
   const company = partner.company.name.trim();
   const reconciliation = `mailto:${MANAGER.email}?subject=${encodeURIComponent(
     `Акт звірки${company ? ` - ${company}` : ""}`,

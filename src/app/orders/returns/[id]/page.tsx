@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { ReturnDetailsView } from "@/components/platform/orders/ReturnDetailsView";
-import { RETURNS } from "@/components/platform/orders/data";
 
 type Params = { id: string };
 
-// The placeholder returns are prerendered; requests a partner sends live
-// in this browser's storage (orders/store.ts), so any other id renders on
-// demand and the client view resolves it (or says it was not found).
+// No return id is known at build time: the requests are the signed-in
+// partner's, read from its session. The page is a static shell for any id
+// (rendered on first request, then reused); the client view resolves it
+// (or says it was not found).
 export function generateStaticParams(): Params[] {
-  return RETURNS.map((r) => ({ id: r.id }));
+  return [];
 }
 
 export const metadata: Metadata = {

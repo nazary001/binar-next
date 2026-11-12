@@ -5,15 +5,20 @@
 // company's counterparties (legal entities that sign contracts) and the
 // employees invited to the platform.
 //
-// There is no CRM yet: the lists live in the browser (store.ts) under
-// one record per account, seeded for the shared demo partner with the
-// rows the Figma frames draw. Strings are verbatim from the Figma text
+// The lists live in the database (src/server/repos/profile.ts, the demo
+// company's rows seeded from src/server/seed/data/profile.ts with the
+// rows the Figma frames draw); the browser reads the session mirror
+// (store.ts) and posts each change (actions.ts). This module keeps the
+// types, copy, formatters and validators, which the server imports too.
+// Strings are verbatim from the Figma text
 // layers (the master's “ ” quotes included); label widths that the
 // metadata only gives as boxes were proven by measuring Manrope in
 // Chromium (see the notes next to each constant).
 
 import type { StatusTone } from "@/components/platform/ui/StatusPill";
 
+// The browser record of the lists before the database. No longer read:
+// store.ts removes it once if a browser still has it.
 export const PROFILE_STORAGE_KEY = "binar.profile.v1";
 
 // --- statuses ---------------------------------------------------------
@@ -340,101 +345,4 @@ export function mockContractNumber(existing: Contract[], today: Date): string {
   const yy = String(today.getFullYear()).slice(2);
   const n = 100 + ((existing.length * 37 + today.getDate() * 11) % 900);
   return `№${n}-${yy}`;
-}
-
-// --- seed ---------------------------------------------------------------
-
-// The demo partner's rows, verbatim from the frames: the table of
-// 4868:30958 (texts from the screenshot - the design context returns
-// "Cell") and the cards of 4868:31376. «ТОВ “Флексмакс”» has the
-// documents glyph and «+ 2», i.e. three contracts - the three tiles of
-// «Кілька договорів» 4868:31197 (Діє / Завершений / Діє, files
-// dogovir_289-03 / 932-06 / 245-01.pdf; the master repeats «№289-03» on
-// every tile, so the numbers here follow the file names and the table's
-// «№123-04»). File meta «19.09.2025 · 0.9 МБ · PDF» on every tile.
-const pdf = (name: string): ContractFile => ({ name, size: 943_718, format: "PDF" });
-
-export function seedProfile(): ProfileData {
-  return {
-    counterparties: [
-      {
-        id: "cp-mirotel",
-        name: "ТОВ “Міротель”",
-        signatory: "Іваненко С.П",
-        code: "412356789",
-        status: "active",
-        contracts: [
-          { id: "ct-432-01", number: "№432-01", date: "2025-09-19", status: "active", file: pdf("dogovir_432-01.pdf") },
-        ],
-      },
-      {
-        id: "cp-mirotel-west",
-        name: "ТОВ “Міротель Захід”",
-        signatory: "Добрій Л.М",
-        code: "189977289",
-        status: "inactive",
-        contracts: [
-          { id: "ct-289-03", number: "№289-03", date: "2025-09-19", status: "active", file: pdf("dogovir_289-03.pdf") },
-        ],
-      },
-      {
-        id: "cp-flexmax",
-        name: "ТОВ “Флексмакс”",
-        signatory: "ТОВ “Міротель”",
-        code: "412356789",
-        status: "active",
-        contracts: [
-          { id: "ct-123-04", number: "№123-04", date: "2025-09-19", status: "active", file: pdf("dogovir_123-04.pdf") },
-          { id: "ct-932-06", number: "№932-06", date: "2025-09-19", status: "completed", file: pdf("dogovir_932-06.pdf") },
-          { id: "ct-245-01", number: "№245-01", date: "2025-09-19", status: "active", file: pdf("dogovir_245-01.pdf") },
-        ],
-      },
-    ],
-    employees: [
-      {
-        id: "emp-levchenko",
-        status: "active",
-        fullName: "Марина Левченко",
-        position: "Закупівельник",
-        phone: "0671234567",
-        email: "sales@binar2000.com",
-      },
-      {
-        id: "emp-invite-sales",
-        status: "invited",
-        fullName: "",
-        position: "",
-        phone: "",
-        email: "sales@binar2000.com",
-        invitedAt: new Date().toISOString(),
-      },
-      {
-        id: "emp-melnyk",
-        status: "active",
-        fullName: "Наталія Мельник",
-        position: "Закупівельник",
-        phone: "0671234567",
-        email: "sales@binar2000.com",
-      },
-      {
-        id: "emp-bondarenko",
-        status: "active",
-        fullName: "Ірина Бондаренко",
-        position: "Закупівельник",
-        phone: "0671234567",
-        email: "sales@binar2000.com",
-      },
-    ],
-    inviteToken: "a8f3k2",
-  };
-}
-
-// Any other partner starts with empty lists (the Empty frames) and a
-// token of its own.
-export function emptyProfile(): ProfileData {
-  return {
-    counterparties: [],
-    employees: [],
-    inviteToken: Math.random().toString(36).slice(2, 8),
-  };
 }

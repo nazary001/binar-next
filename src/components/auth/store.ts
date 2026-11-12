@@ -1,10 +1,15 @@
-// Registered accounts and the current session live in a tiny external
-// store backed by localStorage (the same shape as the cart store): the
-// server snapshot is «signed out», the client snapshot is what the
-// browser has saved, so hydration matches and the header pill switches
-// to the account right after; other tabs follow via the `storage` event.
-// This is the browser-side stand-in for the CRM: api.ts is the only
-// module that writes here, so a real backend replaces api.ts alone.
+// The signed-in account lives in a tiny external store backed by
+// localStorage (the same shape as the cart store): the server snapshot is
+// "signed out", the client snapshot is what the browser has saved, so
+// hydration matches and the header pill switches to the account right
+// after; other tabs follow via the `storage` event.
+// The server owns the session (httpOnly cookie); this store is only its
+// mirror for an instant first paint: lib/session/bootstrap.ts commits what
+// GET /api/session (or a sign-in) answered, auth/api.ts and
+// platform/profile/api.ts apply optimistic edits. The mirror counts only
+// while the readable hint cookie `binar_auth=1` exists: without it the
+// browser has no session, whatever localStorage still holds.
+import { hasSessionHint } from "@/lib/session/hint";
 import {
   AUTH_STORAGE_KEY,
   EMPTY_STATE,
@@ -52,8 +57,13 @@ function readStorage(): AuthState {
     if (typeof parsed !== "object" || parsed === null) return EMPTY_STATE;
     const { accounts, sessionId, reset } = parsed as Partial<AuthState>;
     const valid = Array.isArray(accounts) ? accounts.filter(isAccount).map(withType) : [];
+    // No hint cookie = signed out (the session expired or ended in another
+    // browser). The stale records stay listed so the boot effect can clear
+    // them; the pending reset survives as before.
     const session =
-      typeof sessionId === "string" && valid.some((a) => a.id === sessionId) ? sessionId : null;
+      hasSessionHint() && typeof sessionId === "string" && valid.some((a) => a.id === sessionId)
+        ? sessionId
+        : null;
     const pending = isPendingReset(reset) ? reset : null;
     return valid.length || session || pending
       ? { accounts: valid, sessionId: session, reset: pending }

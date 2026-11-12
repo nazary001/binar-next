@@ -46,7 +46,7 @@ const COPY = {
 // caption and ONE full-width action. Motion: opacity + 12-px drop.
 
 // Placeholder document until real files are wired: the master's page
-// render. Figma lays the 963-px image box at +1 / +1 inside the stroke
+// render (a `png` file shows its own picture, `file.preview`). Figma lays the 963-px image box at +1 / +1 inside the stroke
 // (so it overhangs the right edge by 2 px, clipped) and crops the bitmap
 // to 108.08 % of that box, 8.08 % off the left: 1040.8 px wide.
 const PREVIEW_IMAGE = "/figma-export/materials/preview-doc.png";
@@ -143,7 +143,7 @@ function DocumentScroller({ file }: { file: MaterialFile }) {
             <div className="w-[calc(100%+2px)]">
               <div className="-ml-[8.08%] w-[108.08%]">
                 <img
-                  src={file.type === "png" ? file.href : PREVIEW_IMAGE}
+                  src={file.type === "png" ? (file.preview ?? file.href) : PREVIEW_IMAGE}
                   alt=""
                   decoding="async"
                   className="block w-full"

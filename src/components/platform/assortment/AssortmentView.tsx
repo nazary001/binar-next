@@ -16,6 +16,7 @@ import {
   PlusIcon,
 } from "@/components/catalog/icons";
 import { formatPrice, productHref, productsPlural } from "@/components/catalog/data";
+import { usePartnerPrices } from "@/components/catalog/CatalogRegistry";
 import { RollingNumber } from "@/components/ui/RollingNumber";
 import { SortIcon } from "@/components/platform/orderIcons";
 import { PAGE_SIZES } from "@/components/platform/orders/data";
@@ -534,7 +535,10 @@ export function AssortmentView() {
   const sizeRef = useRef<HTMLDivElement | null>(null);
   useDismiss(sizeOpen, sizeRef, () => setSizeOpen(false));
 
-  const rows = useMemo(() => resolveRows(lines), [lines]);
+  // The partner's price map: the boot's GET /api/session may replace the
+  // mirrored one, and the partner price column and the sums must follow it.
+  const prices = usePartnerPrices();
+  const rows = useMemo(() => resolveRows(lines, prices), [lines, prices]);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const selectedRows = useMemo(() => rows.filter((r) => selectedSet.has(r.id)), [rows, selectedSet]);
   const selectionKey = selectedRows.map((r) => `${r.id}:${r.qty}`).join("|");

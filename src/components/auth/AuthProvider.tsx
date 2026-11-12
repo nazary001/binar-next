@@ -11,7 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { markWelcomed, signOut as apiSignOut } from "./api";
+import { dropLocalSession, refreshSession, sessionAgeMs } from "@/lib/session/bootstrap";
+import { clearAccountCache } from "@/lib/session/cache";
+import { hasSessionHint } from "@/lib/session/hint";
+import { markWelcomed, retryPendingSignOut, signOut as apiSignOut } from "./api";
 import { PROFILE_HREF, RESET_QUERY_PARAM, type Account } from "./data";
 import { currentAccount, getServerSnapshot, getSnapshot, subscribe } from "./store";
 import { AuthDrawer } from "./AuthDrawer";
@@ -49,6 +52,9 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+// A visible tab re-checks its session when the last answer is older.
+const SESSION_RECHECK_MS = 5 * 60 * 1000;
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
@@ -104,6 +110,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [openAuth]);
   const closeAuth = useCallback(() => setOpen(false), []);
+
+  // The server owns the session; the stored account is a mirror for the
+  // first paint. After mount: a sign-out the server never confirmed is sent
+  // again first (it also removes the hint, so this browser counts as signed
+  // out); then, with the hint cookie, ask the server and let its answer
+  // replace the mirror; without it, the browser has no session, so a mirror
+  // left behind (expired cookie, an old browser-only account) and its
+  // cached data are removed. A tab that comes back after a while asks again.
+  useEffect(() => {
+    retryPendingSignOut();
+    if (hasSessionHint()) {
+      void refreshSession();
+    } else {
+      const stale = getSnapshot().accounts.map((a) => a.id);
+      dropLocalSession();
+      stale.forEach(clearAccountCache);
+    }
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || retryPendingSignOut() || !hasSessionHint()) return;
+      if (sessionAgeMs() > SESSION_RECHECK_MS) void refreshSession();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const signOut = useCallback(() => {
     apiSignOut();

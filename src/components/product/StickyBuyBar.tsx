@@ -4,6 +4,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/Button";
 import { StickyBar } from "@/components/ui/StickyBar";
 import { b2bPrices, discountPercent, formatPrice, type Product } from "@/components/catalog/data";
+import { usePartnerPrices } from "@/components/catalog/CatalogRegistry";
 
 const COPY = {
   region: "Купівля товару",
@@ -67,7 +68,9 @@ export function StickyBuyBar({
 
   const b2b = mode === "b2b";
   const sale = !b2b && discountPercent(product) !== null;
-  const price = formatPrice(b2b ? b2bPrices(product).partner : product.price);
+  // Subscribed: the server's map replaces a stale mirrored one on screen.
+  const prices = usePartnerPrices();
+  const price = formatPrice(b2b ? b2bPrices(product, prices).partner : product.price);
 
   return (
     <StickyBar tone="light" position="fixed" show={ctaOut && !endIn} label={COPY.region}>

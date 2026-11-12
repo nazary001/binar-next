@@ -5,7 +5,6 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { isDemoAccount } from "@/components/auth/demo";
 import {
   CabinetPage,
   CabinetPageHead,
@@ -76,8 +75,8 @@ const COPY = {
 // ConfirmModal 4929:66214 pattern; the master has no frame for it). Its
 // confirm button keeps the master's black fill (Button 4929:66377
 // #1d1d1f), like every other ConfirmModal on the site.
-// The placeholder returns belong to the demo partner (as on the list):
-// any other partner gets «Повернення не знайдено».
+// The request is looked up in the company's own history (the session
+// payload): an id it does not hold gets "Повернення не знайдено".
 // Phones (returns spec 2.2, template T3): the same blocks as the order
 // page - summary key / value rows (with the order number as a link and
 // the return date) + the dark total first, the returned lines with their
@@ -104,7 +103,7 @@ export function ReturnDetailsView({ id }: { id: string }) {
 
   if (user?.type !== "b2b") return <SignInPrompt title="Деталі повернення" text={DETAILS_PROMPT_TEXT} />;
 
-  const ret = isDemoAccount(user) ? found : undefined;
+  const ret = found;
   const order = ret ? orders.find((o) => o.id === ret.orderId) : undefined;
   if (!ret || !order) {
     return (

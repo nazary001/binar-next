@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
 import { usePhone } from "@/components/ui/useMediaQuery";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { isDemoAccount } from "@/components/auth/demo";
 import { useCart } from "@/components/cart/CartProvider";
 import {
   CabinetPage,
@@ -48,7 +47,7 @@ import { openDocument } from "./DocumentsModal";
 import { OrderNotFound } from "./OrderNotFound";
 import { paymentKind } from "./payment";
 import { ReturnWizardModal } from "./ReturnWizardModal";
-import { useCancelRequest, useOrder, useReturnableItems } from "./store";
+import { useCancelRequest, useOrder, useOrdersToday, useReturnableItems } from "./store";
 
 const COPY = {
   items: "Товари",
@@ -106,8 +105,9 @@ function attentionCaption(order: Order): string | null {
 // Скасовано. «Повторити замовлення» puts the lines back into the cart;
 // «До оплати» opens the invoice while something is unpaid. A cancelled
 // order asks for nothing: no due date in the summary.
-// The placeholder history belongs to the demo partner (as on the list):
-// any other partner gets «Замовлення не знайдено» for these ids.
+// The order is looked up in the company's own history (the session
+// payload): an id it does not hold (another company's, a mistyped one)
+// gets "Замовлення не знайдено".
 
 // Phones show the hint and the sent request as the status line under the
 // badges instead (a disabled pill reads as broken), so the head keeps one
@@ -164,8 +164,9 @@ function StatusAction({
 export function OrderDetailsView({ id }: { id: string }) {
   const { user } = useAuth();
   const found = useOrder(id);
-  const order = user?.type === "b2b" && isDemoAccount(user) ? found : undefined;
+  const order = user?.type === "b2b" ? found : undefined;
   const returnable = useReturnableItems(order);
+  const today = useOrdersToday();
   const cart = useCart();
   const [modal, setModal] = useState<"cancel" | "return" | null>(null);
   const phone = usePhone();
@@ -175,7 +176,7 @@ export function OrderDetailsView({ id }: { id: string }) {
   if (user?.type !== "b2b") return <SignInPrompt title="Деталі замовлення" text={DETAILS_PROMPT_TEXT} />;
   if (!order) return <OrderNotFound />;
 
-  const action = orderAction(order, returnable);
+  const action = orderAction(order, returnable, today);
   const cancelled = order.status === "cancelled";
   const unpaid = order.payment.kind !== "paid" && !cancelled;
   const invoice = order.documents.find((d) => d.id === "invoice");

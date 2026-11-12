@@ -11,6 +11,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import type { Product } from "@/components/catalog/data";
+import { usePartnerPrices } from "@/components/catalog/CatalogRegistry";
 import * as authStore from "@/components/auth/store";
 import {
   cartCount,
@@ -123,10 +124,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   const priceMode = usePriceMode();
+  // The partner's price map (SessionData.prices): the boot's GET
+  // /api/session may replace the mirrored one, and the subtotal and the
+  // unit prices (so every cart consumer) must follow it.
+  const prices = usePartnerPrices();
   const entries = useMemo(() => resolveLines(lines), [lines]);
   const count = useMemo(() => cartCount(lines), [lines]);
-  const subtotal = useMemo(() => cartSubtotal(entries, priceMode), [entries, priceMode]);
-  const priceOf = useCallback((p: Product) => unitPrice(p, priceMode), [priceMode]);
+  const subtotal = useMemo(() => cartSubtotal(entries, priceMode, prices), [entries, priceMode, prices]);
+  const priceOf = useCallback((p: Product) => unitPrice(p, priceMode, prices), [priceMode, prices]);
 
   const openCart = useCallback(() => setOpen(true), []);
   const closeCart = useCallback(() => {

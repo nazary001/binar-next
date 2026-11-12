@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { AppliedChips } from "@/components/ui/AppliedChips";
 import { RollingNumber } from "@/components/ui/RollingNumber";
-import { categoriesCount, categoryCards } from "./data";
+import { categoriesCount, categoryCards, type MaterialCategory, type MaterialFile } from "./data";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer } from "./FiltersDrawer";
 import { FolderCard } from "./FolderCard";
 import { MaterialsHero } from "./Hero";
@@ -25,10 +25,17 @@ const COPY = {
 // cabinet skin of Figma «Матеріали B2B» (PartnerMaterials.tsx), every
 // other visitor the public library below. The session lives in
 // localStorage, so the server renders the public view and the client
-// switches right after hydration (same as the catalog pages).
-export function MaterialsHome() {
+// switches right after hydration (same as the catalog pages). The page
+// (server) reads the library from the database and passes it in.
+type LibraryProps = { categories: MaterialCategory[]; files: MaterialFile[] };
+
+export function MaterialsHome({ categories, files }: LibraryProps) {
   const { user } = useAuth();
-  return user?.type === "b2b" ? <PartnerMaterialsHome /> : <PublicMaterialsHome />;
+  return user?.type === "b2b" ? (
+    <PartnerMaterialsHome categories={categories} files={files} />
+  ) : (
+    <PublicMaterialsHome categories={categories} files={files} />
+  );
 }
 
 // «Матеріали» landing — Figma 4634:63597: the head block with its
@@ -40,9 +47,12 @@ export function MaterialsHome() {
 // file names.
 // Phones (template T1): one column of row cards 24 apart, 24 under the
 // search row (or the applied chips), 60 above the footer.
-function PublicMaterialsHome() {
+function PublicMaterialsHome({ categories, files }: LibraryProps) {
   const s = useMaterialsState();
-  const cards = useMemo(() => categoryCards(s.filters, s.query), [s.filters, s.query]);
+  const cards = useMemo(
+    () => categoryCards(files, categories, s.filters, s.query),
+    [files, categories, s.filters, s.query],
+  );
 
   return (
     <div className="px-6 pb-[60px] sm:px-10 lg-shop-pad-x lg:pb-20">

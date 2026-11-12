@@ -268,8 +268,20 @@ export function isValidPhone(raw: string): boolean {
   return d.length === 10 && /^0[3-9]\d{8}$/.test(d);
 }
 
+// The rule of /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/ on the trimmed value, written
+// as linear scans: that regex backtracks quadratically on a long string such
+// as "a@" + "." * 60000 + "@", and the server runs this check on request
+// bodies. No whitespace, exactly one "@" with something before it, and a "."
+// in the domain part that has at least one character before it and two
+// after it.
 export function isValidEmail(raw: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(raw.trim());
+  const s = raw.trim();
+  if (/\s/.test(s)) return false;
+  const at = s.indexOf("@");
+  if (at < 1 || at !== s.lastIndexOf("@")) return false;
+  const domain = s.slice(at + 1);
+  const dot = domain.indexOf(".", 1);
+  return dot !== -1 && dot <= domain.length - 3;
 }
 
 export function isEmailLike(raw: string): boolean {

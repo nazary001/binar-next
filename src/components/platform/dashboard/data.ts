@@ -1,12 +1,13 @@
 // «Dashboard» — Figma «Dashboard :: Admin» 5052:32105 (frame 5052:32106).
-// The partner's landing page in the B2B cabinet. There is no CRM feed
-// yet, so every figure is read from the orders mock (platform/orders/
-// data.ts, with this device's cancellations applied through useOrders()):
-// one ledger and one clock (the mock's ORDERS_TODAY) for both pages.
+// The partner's landing page in the B2B cabinet. There is no ledger feed
+// yet, so every figure is derived from the company's orders as the
+// session payload holds them (platform/orders/store.ts useOrders(), every
+// cancellation applied): one ledger and one clock for both pages.
 //   - three KPI tiles: «Поточний баланс» = what the open orders still
 //     owe (the sum of the payment cards), «Прострочена ДЗ» = the overdue
-//     part of it, «Кредитний ліміт» = a fixed limit per counterparty (the
-//     master's 500 000 ₴ in all) with the balance as its used part (the
+//     part of it, «Кредитний ліміт» = the company's credit limit per
+//     counterparty (clients.creditLimits, the demo company's add up to
+//     the master's 500 000 ₴) with the balance as its used part (the
 //     bar) and the remainder («Доступно»);
 //   - «Останні замовлення»: the three newest orders, so every row opens
 //     a real /orders/<id> page and reads exactly like the orders list;
@@ -16,11 +17,10 @@
 //     cards first, then by due date;
 //   - «Ваш менеджер»: the account manager card, verbatim.
 // The «Усі контрагенти» select scopes everything to one counterparty.
-// The placeholder history belongs to the demo partner only, as on /orders
-// (DashboardView passes an empty order list for anyone else).
+// A company without orders or credit lines sees the empty cabinet and the
+// counterparties of its profile (DashboardView).
 
 import {
-  COUNTERPARTIES as ORDER_COUNTERPARTIES,
   MANAGER_MAILTO,
   daysPlural,
   formatDate,
@@ -36,10 +36,16 @@ export const ALL = "all";
 export type CounterpartyFilter = string;
 export type CounterpartyOption = { value: CounterpartyFilter; label: string };
 
-// The orders mock is keyed by its own counterparty names, so the demo
-// partner's select lists those (the same list as the /orders filter);
-// any other partner gets the counterparties of their profile.
-export const DEMO_COUNTERPARTIES: readonly string[] = ORDER_COUNTERPARTIES;
+// The counterparties the company's ledger knows: its credit lines in
+// their order, then any other counterparty its orders name. Empty for a
+// company with neither (the select then lists the profile's
+// counterparties). For the demo company these are the four names of its
+// orders, in the order the select always listed them.
+export type CreditLimit = { counterparty: string; limit: number };
+
+export function ledgerCounterparties(orders: readonly Order[], limits: readonly CreditLimit[]): string[] {
+  return [...new Set([...limits.map((l) => l.counterparty), ...orders.map((o) => o.counterparty)].filter(Boolean))];
+}
 
 export function counterpartyOptions(names: readonly string[]): CounterpartyOption[] {
   return [{ value: ALL, label: "Усі контрагенти" }, ...names.map((name) => ({ value: name, label: name }))];
@@ -54,7 +60,7 @@ const matches = (filter: CounterpartyFilter, counterparty: string) =>
 const owes = (o: Order) => o.payment.kind !== "paid" && o.status !== "cancelled";
 
 // The orders list's red captions: «Прострочено на N днів» and «Залишок
-// N ₴ прострочено» (the mock dates both before ORDERS_TODAY).
+// N ₴ прострочено» (the data dates both before the cabinet's today).
 export function isLate(o: Order): boolean {
   return o.payment.kind === "overdue" || (o.payment.kind === "partial" && o.payment.overdue !== undefined);
 }
@@ -86,19 +92,16 @@ export type Kpis = {
 
 export const NO_KPIS: Kpis = { balance: 0, overdue: 0, creditLimit: 0, creditUsed: 0 };
 
-// Credit limit per counterparty of the orders mock (by position); «Усі
-// контрагенти» sums them to the master's 500 000 ₴.
-const CREDIT_LIMITS = [200000, 150000, 100000, 50000];
-
 const sum = (values: number[]) => values.reduce((s, v) => s + v, 0);
 
-// The tiles print whole hryvnias (the master's «24 500 ₴»).
-export function kpisFor(orders: Order[], filter: CounterpartyFilter): Kpis {
+// The tiles print whole hryvnias (the master's «24 500 ₴»). `limits` =
+// the company's credit limit per counterparty name (OrdersPayload
+// creditLimits); "Усі контрагенти" adds them all up.
+export function kpisFor(orders: Order[], filter: CounterpartyFilter, limits: readonly CreditLimit[]): Kpis {
   const open = openOrders(orders, filter);
   const balance = Math.round(sum(open.map(amountDue)));
   const overdue = Math.round(sum(open.filter(isLate).map(amountDue)));
-  const parties = filter === ALL ? ORDER_COUNTERPARTIES : [filter];
-  const creditLimit = sum(parties.map((c) => CREDIT_LIMITS[ORDER_COUNTERPARTIES.indexOf(c)] ?? 0));
+  const creditLimit = sum(limits.filter((l) => matches(filter, l.counterparty)).map((l) => l.limit));
   return { balance, overdue, creditLimit, creditUsed: balance };
 }
 

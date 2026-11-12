@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { isDemoAccount } from "@/components/auth/demo";
 import { ChevronSideIcon } from "@/components/catalog/icons";
 import {
   CabinetPage,
@@ -18,8 +17,6 @@ import {
 } from "@/components/platform/ui";
 import { OrderDocumentsIcon } from "../orderIcons";
 import {
-  COUNTERPARTIES,
-  ORDERS_TODAY,
   ORDER_STATUS_KEYS,
   ORDER_STATUS_META,
   PERIODS,
@@ -42,7 +39,7 @@ import { OrderRecordRow, PhoneList, PhoneToolbar } from "./listPhone";
 import { inPeriod, sortRows, useListState, type Filters } from "./listState";
 import { PaymentCell } from "./PaymentCell";
 import { ReturnRecordRow, type ReturnRow } from "./ReturnRows";
-import { useOrders, useReturns } from "./store";
+import { useCounterpartyNames, useOrders, useOrdersToday, useReturns } from "./store";
 
 // «Мої замовлення» - Figma 4573:37244 (1710 x 1804) and «Мої повернення»
 // 5192:78615 (1710 x 1563) inside the platform shell, one page with the
@@ -66,10 +63,9 @@ import { useOrders, useReturns } from "./store";
 //       rows with the return badge and the two 42-px buttons;
 //   pager row 100, or the empty row 4990:72302 («Замовлень ще немає»,
 //     frame 4929:63067, no pager) for an account without orders.
-// Sorting, filters, search and pagination run over the placeholder lists
-// in data.ts (+ this device's cancellations / new returns, store.ts).
-// The placeholder history belongs to the demo partner; any other partner
-// account starts with the empty list.
+// Sorting, filters, search and pagination run over the company's orders
+// and returns as the session payload holds them (store.ts); a partner
+// without any starts with the empty list.
 
 type Tab = "orders" | "returns";
 
@@ -337,6 +333,8 @@ const PERIOD_OPTIONS = PERIODS.map((p) => ({ value: p.value, label: p.label }));
 
 function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolean }) {
   const s = useListState<OrderStatus>();
+  const today = useOrdersToday();
+  const counterparties = useCounterpartyNames();
   const [docsOf, setDocsOf] = useState<Order | null>(null);
 
   const q = s.query.trim().toLowerCase();
@@ -349,7 +347,7 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
   const pages = Math.max(1, Math.ceil(filtered.length / s.pageSize));
   const current = Math.min(s.page, pages);
   const paged = filtered.slice((current - 1) * s.pageSize, current * s.pageSize);
-  const rangeLabel = formatRange(periodStart(s.period, ORDERS_TODAY), ORDERS_TODAY);
+  const rangeLabel = formatRange(periodStart(s.period, today), today);
 
   return (
     <>
@@ -369,7 +367,7 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
             bg="white"
             label="Контрагент"
             value={s.counterparty}
-            options={[{ value: "all", label: "Усі контрагенти" }, ...COUNTERPARTIES.map((c) => ({ value: c, label: c }))]}
+            options={[{ value: "all", label: "Усі контрагенти" }, ...counterparties.map((c) => ({ value: c, label: c }))]}
             onChange={s.setCounterparty}
             className="lg:w-[234px]"
           />
@@ -446,6 +444,8 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
 
 function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns: ReturnRequest[]; hasHistory: boolean }) {
   const s = useListState<ReturnStatus>();
+  const today = useOrdersToday();
+  const counterparties = useCounterpartyNames();
   const [docsOf, setDocsOf] = useState<ReturnRow | null>(null);
 
   const rows = useMemo<ReturnRow[]>(
@@ -467,7 +467,7 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
   const pages = Math.max(1, Math.ceil(filtered.length / s.pageSize));
   const current = Math.min(s.page, pages);
   const paged = filtered.slice((current - 1) * s.pageSize, current * s.pageSize);
-  const rangeLabel = formatRange(periodStart(s.period, ORDERS_TODAY), ORDERS_TODAY);
+  const rangeLabel = formatRange(periodStart(s.period, today), today);
 
   return (
     <>
@@ -487,7 +487,7 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
             bg="white"
             label="Контрагент"
             value={s.counterparty}
-            options={[{ value: "all", label: "Усі контрагенти" }, ...COUNTERPARTIES.map((c) => ({ value: c, label: c }))]}
+            options={[{ value: "all", label: "Усі контрагенти" }, ...counterparties.map((c) => ({ value: c, label: c }))]}
             onChange={s.setCounterparty}
             className="lg:w-[234px]"
           />
@@ -574,9 +574,10 @@ export function OrdersView({ tab }: { tab: Tab }) {
     return <SignInPrompt title="Мої замовлення" text="Історія замовлень доступна в особистому кабінеті бізнес-клієнта." />;
   }
 
-  const owned = isDemoAccount(user);
-  const orders = owned ? allOrders : [];
-  const returns = owned ? allReturns : [];
+  // The company's own history (the session payload); a partner without
+  // one sees the empty lists.
+  const orders = allOrders;
+  const returns = allReturns;
 
   // The tab lives in the URL (`?tab=returns`); history.replaceState keeps
   // useSearchParams in sync without a navigation.

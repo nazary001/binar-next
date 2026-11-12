@@ -1,6 +1,6 @@
 // Cart domain helpers — Figma «Кошик» section (4329:39830).
 import { b2bPrices, productsPlural, type Product } from "@/components/catalog/data";
-import { ALL_PRODUCTS, findProduct } from "@/components/product/data";
+import { allProducts, findProduct, type PartnerPrices } from "@/components/catalog/registry";
 
 // A cart line: product id + quantity. Prices come from the product
 // itself so a price change in the feed reprices the cart.
@@ -15,8 +15,10 @@ export type CartEntry = { line: CartLine; product: Product };
 // the shop price.
 export type PriceMode = "retail" | "partner";
 
-export function unitPrice(product: Product, mode: PriceMode = "retail"): number {
-  return mode === "partner" ? b2bPrices(product).partner : product.price;
+// `prices` = the partner's price map (usePartnerPrices() in CartProvider,
+// so the sums follow the server's map); omitted = the mirror as it is now.
+export function unitPrice(product: Product, mode: PriceMode = "retail", prices?: PartnerPrices | null): number {
+  return mode === "partner" ? b2bPrices(product, prices).partner : product.price;
 }
 
 // «5 000 ₴» — the free-delivery threshold the summary's progress bar
@@ -24,6 +26,45 @@ export function unitPrice(product: Product, mode: PriceMode = "retail"): number 
 export const FREE_DELIVERY_THRESHOLD = 5000;
 
 export const CART_STORAGE_KEY = "binar-cart-v1";
+
+// Limits of the cart a signed-in account keeps on the server (PUT
+// /api/cart, server/repos/carts.ts): at most this many lines, at most this
+// many units in one line. The browser never sends more; the server
+// enforces both.
+export const CART_MAX_LINES = 200;
+export const CART_MAX_QTY = 100_000;
+
+// Three-way merge of a signed-in account's cart; one rule, two callers (the
+// cart store and PUT /api/cart, server/repos/carts.ts). `base` = the saved
+// cart the browser last knew, `local` = the browser's lines now (base plus
+// this browser's changes), `server` = the saved cart now (base plus what
+// other devices changed meanwhile). A line this browser did not change
+// follows the server, so a removal or a quantity made on another device
+// sticks instead of being brought back by a stale copy; a line it did
+// change keeps the local quantity (also when another device changed it
+// too: this, the newer edit, wins). Quantity 0 = no line. Order: the local
+// lines first, then the lines only the server has, in the server's order.
+export function rebaseCartLines(
+  base: readonly CartLine[],
+  local: readonly CartLine[],
+  server: readonly CartLine[],
+): CartLine[] {
+  const qtyOf = (lines: readonly CartLine[]) => {
+    const map = new Map<string, number>();
+    lines.forEach((l) => map.set(l.id, (map.get(l.id) ?? 0) + l.qty));
+    return map;
+  };
+  const was = qtyOf(base);
+  const mine = qtyOf(local);
+  const theirs = qtyOf(server);
+  const ids = new Set([...local.map((l) => l.id), ...server.map((l) => l.id)]);
+  return [...ids].flatMap((id) => {
+    const before = was.get(id) ?? 0;
+    const here = mine.get(id) ?? 0;
+    const qty = here === before ? (theirs.get(id) ?? 0) : here;
+    return qty > 0 ? [{ id, qty }] : [];
+  });
+}
 
 // The free-delivery meter's motion (drawer and phone sheet): the fill,
 // the knob and the sum chip glide to the new sum on the curve the digits
@@ -39,12 +80,12 @@ export function resolveLines(lines: CartLine[]): CartEntry[] {
   });
 }
 
-export function lineTotal(entry: CartEntry, mode: PriceMode = "retail"): number {
-  return Math.round(unitPrice(entry.product, mode) * entry.line.qty * 100) / 100;
+export function lineTotal(entry: CartEntry, mode: PriceMode = "retail", prices?: PartnerPrices | null): number {
+  return Math.round(unitPrice(entry.product, mode, prices) * entry.line.qty * 100) / 100;
 }
 
-export function cartSubtotal(entries: CartEntry[], mode: PriceMode = "retail"): number {
-  return Math.round(entries.reduce((sum, e) => sum + lineTotal(e, mode), 0) * 100) / 100;
+export function cartSubtotal(entries: CartEntry[], mode: PriceMode = "retail", prices?: PartnerPrices | null): number {
+  return Math.round(entries.reduce((sum, e) => sum + lineTotal(e, mode, prices), 0) * 100) / 100;
 }
 
 export function cartCount(lines: CartLine[]): number {
@@ -99,7 +140,7 @@ export function suggestReplacement(
   product: Product,
   inCart: Set<string>,
 ): Product | undefined {
-  const pool = ALL_PRODUCTS.filter(
+  const pool = allProducts().filter(
     (p) =>
       p.id !== product.id && p.available && p.oldPrice === undefined && !inCart.has(p.id),
   );

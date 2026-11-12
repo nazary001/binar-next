@@ -1,53 +1,48 @@
 // «Мій асортимент» state: the partner's lines (product + usual
-// quantity) and the checked rows, kept in localStorage and read through
-// useSyncExternalStore — the same pattern as the cart store
-// (cart/store.ts). One record per account (`binar.assortment.v1:<id>`,
-// like the per-account profile lists), so a second partner signing in on
-// the same browser never sees the first one's removals, quantities or
-// selection. Until the CRM forms the list from the order history, the
-// demo partner starts from the placeholder assortment and every other
-// B2B account starts empty (the «Ваш асортимент ще не сформовано» frame
-// 4929:65033), the same ownership rule as OrdersView. The server
-// snapshot is empty: the server renders the sign-in prompt anyway (the
-// session lives in localStorage). The `storage` event syncs tabs.
+// quantity) and the checked rows, read through useSyncExternalStore.
+//
+// The lines belong to the server: the session answer (GET /api/session,
+// the sign-in answer) carries them as the `assortment` domain, which
+// lib/session/bootstrap.ts mirrors per account (lib/session/cache.ts)
+// before it commits the account, so the page paints them at once. A
+// quantity change or a removal changes the mirror first and then saves the
+// whole list with one debounced PUT /api/assortment (flushed on
+// `pagehide`); a refused save refreshes the session and the server's
+// lines come back. The demo partner's lines are seeded; every other
+// partner starts empty (the "Ваш асортимент ще не сформовано" frame
+// 4929:65033) until lines are stored for them.
+//
+// The selection and the "added to the cart" marker are page state and stay
+// in this browser: the checked rows per account in localStorage
+// (`binar.assortment.selected.v1:<id>`), the marker per tab in
+// sessionStorage. The server snapshot is empty: the server renders the
+// sign-in prompt anyway. Other tabs follow through the `storage` event.
 import { useCallback, useSyncExternalStore } from "react";
 import type { Account } from "@/components/auth/data";
-import { isDemoAccount } from "@/components/auth/demo";
-import { DEFAULT_LINES, type AssortmentLine } from "./data";
-
-export const ASSORTMENT_STORAGE_PREFIX = "binar.assortment.v1";
-
-export function assortmentStorageKey(accountId: string): string {
-  return `${ASSORTMENT_STORAGE_PREFIX}:${accountId}`;
-}
-
-// Before the per-account records the whole browser shared this one key,
-// and only the demo partner had an assortment to edit: the demo account
-// still reads it (once, until its first edit moves it to its own key) so
-// earlier edits and the audit kit's seeded states keep working.
-const LEGACY_KEY = ASSORTMENT_STORAGE_PREFIX;
+import { currentAccount, getSnapshot as getAuthSnapshot } from "@/components/auth/store";
+import { api, type ApiResult } from "@/lib/api/client";
+import { refreshSession, registerDomainApplier } from "@/lib/session/bootstrap";
+import { readDomain, subscribeCache, writeDomain } from "@/lib/session/cache";
+import { createDebouncedSave } from "@/lib/session/push";
+import type { AssortmentLine } from "./data";
 
 export type AssortmentState = {
   lines: AssortmentLine[];
   selected: string[];
 };
 
-// The account the store reads and writes for: its id and whether it owns
-// the placeholder assortment.
-export type AssortmentOwner = { id: string; demo: boolean };
+// The account the store reads and writes for.
+export type AssortmentOwner = { id: string };
 
 export function assortmentOwner(account: Account | null): AssortmentOwner | null {
-  return account?.type === "b2b" ? { id: account.id, demo: isDemoAccount(account) } : null;
+  return account?.type === "b2b" ? { id: account.id } : null;
 }
 
-const DEMO_STATE: AssortmentState = { lines: DEFAULT_LINES, selected: [] };
-const EMPTY_STATE: AssortmentState = { lines: [], selected: [] };
+const EMPTY_LINES: AssortmentLine[] = [];
+const EMPTY_SELECTION: string[] = [];
+const EMPTY_STATE: AssortmentState = { lines: EMPTY_LINES, selected: EMPTY_SELECTION };
 
-const initial = (owner: AssortmentOwner) => (owner.demo ? DEMO_STATE : EMPTY_STATE);
-
-// Snapshots per account id; cleared when another tab writes.
-const cache = new Map<string, AssortmentState>();
-const listeners = new Set<() => void>();
+// --- the lines (session mirror) ----------------------------------------
 
 function isLine(l: unknown): l is AssortmentLine {
   return (
@@ -59,53 +54,214 @@ function isLine(l: unknown): l is AssortmentLine {
   );
 }
 
-function parse(raw: string): AssortmentState | null {
-  const parsed: unknown = JSON.parse(raw);
-  if (typeof parsed !== "object" || parsed === null) return null;
-  const { lines, selected } = parsed as Partial<AssortmentState>;
-  if (!Array.isArray(lines)) return null;
-  // One line per product (a hand edit could duplicate ids, which would
-  // collide as React keys).
+// One line per product (a duplicated id would collide as a React key).
+function cleanLines(raw: unknown): AssortmentLine[] {
+  if (!Array.isArray(raw)) return EMPTY_LINES;
   const seen = new Set<string>();
-  const clean = lines.filter((l): l is AssortmentLine => {
+  const clean = raw.filter((l): l is AssortmentLine => {
     if (!isLine(l) || seen.has(l.id)) return false;
     seen.add(l.id);
     return true;
   });
-  const sel = Array.isArray(selected)
-    ? selected.filter((id): id is string => typeof id === "string" && seen.has(id))
-    : [];
-  return { lines: clean, selected: [...new Set(sel)] };
+  return clean.length === raw.length ? (raw as AssortmentLine[]) : clean;
 }
 
-function readStorage(owner: AssortmentOwner): AssortmentState {
+const checkedLines = new WeakMap<object, AssortmentLine[]>();
+
+function linesOf(ownerId: string): AssortmentLine[] {
+  const raw: unknown = readDomain("assortment", ownerId);
+  if (typeof raw !== "object" || raw === null) return EMPTY_LINES;
+  let lines = checkedLines.get(raw);
+  if (!lines) {
+    lines = cleanLines(raw);
+    checkedLines.set(raw, lines);
+  }
+  return lines;
+}
+
+// --- saving -------------------------------------------------------------
+
+// The owner whose lines changed and are not confirmed by the server yet,
+// and a counter of changes (a save confirms only what it carried).
+let unsaved: string | null = null;
+let changes = 0;
+
+const save = createDebouncedSave(async (keepalive): Promise<ApiResult<unknown>> => {
+  const ownerId = unsaved;
+  const carried = changes;
+  // Signed out or another account meanwhile: those lines are not sent with
+  // somebody else's session.
+  const account = currentAccount(getAuthSnapshot());
+  if (!ownerId || account?.id !== ownerId) {
+    unsaved = null;
+    return { ok: true, status: 204, data: null };
+  }
+  const result = await api("/api/assortment", {
+    method: "PUT",
+    body: { lines: linesOf(ownerId) },
+    keepalive,
+  });
+  if (result.status === 0) retryWhenBack();
+  else if (changes === carried) unsaved = null;
+  return result;
+});
+
+// A save that never reached the server (offline: status 0) keeps the
+// change unsaved, so a session answer does not replace the lines the page
+// shows, and goes out again as soon as the browser is back (online again,
+// or the tab shown again).
+let retryArmed = false;
+
+function retryWhenBack() {
+  if (retryArmed || typeof window === "undefined") return;
+  retryArmed = true;
+  const retry = () => {
+    if (document.visibilityState === "hidden") return;
+    retryArmed = false;
+    window.removeEventListener("online", retry);
+    document.removeEventListener("visibilitychange", retry);
+    if (unsaved) save.schedule();
+  };
+  window.addEventListener("online", retry);
+  document.addEventListener("visibilitychange", retry);
+}
+
+// The owners whose lines changed since the last session answer this store
+// applied. An answer that arrives after a change may still have been read
+// by the server before the save was stored (a slow boot or visibility
+// refresh; refreshSession also hands a caller the request already on its
+// way); writing it would bring a removed line back, and the next save
+// would store it again. Such an answer is not written: the store asks
+// again once the save is answered, and that request reads it. (One more
+// GET /api/session after a change, never a wrong list.)
+const touched = new Set<string>();
+
+// While a change is not saved yet, a session answer may still hold the
+// older lines; the mirror keeps the browser's until the save is answered
+// (a refused save refreshes the session, and then the server's win).
+registerDomainApplier("assortment", (lines, account) => {
+  const id = account.id;
+  if (readDomain("assortment", id) === undefined) {
+    touched.delete(id);
+    writeDomain("assortment", id, lines);
+    return;
+  }
+  if (unsaved === id) return;
+  if (touched.delete(id)) {
+    // After the current refresh has settled, so this one starts anew.
+    setTimeout(() => void refreshSession(), 0);
+    return;
+  }
+  writeDomain("assortment", id, lines);
+});
+
+function changeLines(owner: AssortmentOwner, updater: (prev: AssortmentLine[]) => AssortmentLine[]) {
+  writeDomain("assortment", owner.id, updater(linesOf(owner.id)));
+  unsaved = owner.id;
+  touched.add(owner.id);
+  changes++;
+  save.schedule();
+}
+
+// --- the selection (this browser) ---------------------------------------
+
+const SELECTED_PREFIX = "binar.assortment.selected.v1";
+const selectionListeners = new Set<() => void>();
+const selectionCache = new Map<string, string[]>();
+
+function selectedKey(ownerId: string): string {
+  return `${SELECTED_PREFIX}:${ownerId}`;
+}
+
+// The pre-database records (`binar.assortment.v1` and
+// `binar.assortment.v1:<id>`, lines and selection together) are no longer
+// read; the first read of the page removes them, keeping an account's
+// checked rows when it has no selection of its own yet.
+const LEGACY_PREFIX = "binar.assortment.v1";
+let legacyDropped = false;
+
+function dropLegacy() {
+  if (legacyDropped || typeof window === "undefined") return;
+  legacyDropped = true;
   try {
-    const raw =
-      window.localStorage.getItem(assortmentStorageKey(owner.id)) ??
-      (owner.demo ? window.localStorage.getItem(LEGACY_KEY) : null);
-    return (raw && parse(raw)) || initial(owner);
+    const legacy: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && (key === LEGACY_PREFIX || key.startsWith(`${LEGACY_PREFIX}:`))) legacy.push(key);
+    }
+    for (const key of legacy) {
+      const ownerId = key.startsWith(`${LEGACY_PREFIX}:`) ? key.slice(LEGACY_PREFIX.length + 1) : "";
+      if (ownerId && window.localStorage.getItem(selectedKey(ownerId)) === null) {
+        try {
+          const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? "null");
+          const selected = (parsed as { selected?: unknown } | null)?.selected;
+          if (Array.isArray(selected)) {
+            const ids = selected.filter((id): id is string => typeof id === "string");
+            if (ids.length) window.localStorage.setItem(selectedKey(ownerId), JSON.stringify([...new Set(ids)]));
+          }
+        } catch {
+          // An unreadable record carries no selection.
+        }
+      }
+      window.localStorage.removeItem(key);
+    }
   } catch {
-    return initial(owner);
+    // Storage unavailable: nothing to remove.
   }
 }
 
-function writeStorage(owner: AssortmentOwner, next: AssortmentState) {
+function readSelection(ownerId: string): string[] {
+  let selected = selectionCache.get(ownerId);
+  if (selected) return selected;
+  selected = EMPTY_SELECTION;
   try {
-    window.localStorage.setItem(assortmentStorageKey(owner.id), JSON.stringify(next));
-    if (owner.demo) window.localStorage.removeItem(LEGACY_KEY);
+    const raw = window.localStorage.getItem(selectedKey(ownerId));
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) {
+      const ids = [...new Set(parsed.filter((id): id is string => typeof id === "string"))];
+      if (ids.length) selected = ids;
+    }
+  } catch {
+    selected = EMPTY_SELECTION;
+  }
+  selectionCache.set(ownerId, selected);
+  return selected;
+}
+
+function writeSelection(ownerId: string, ids: string[]) {
+  const next = ids.length ? ids : EMPTY_SELECTION;
+  selectionCache.set(ownerId, next);
+  try {
+    if (next.length) window.localStorage.setItem(selectedKey(ownerId), JSON.stringify(next));
+    else window.localStorage.removeItem(selectedKey(ownerId));
   } catch {
     // Storage may be unavailable (private mode); the page still works
     // for the session.
   }
+  selectionListeners.forEach((l) => l());
 }
 
-function snapshot(owner: AssortmentOwner): AssortmentState {
-  let s = cache.get(owner.id);
-  if (!s) {
-    s = readStorage(owner);
-    cache.set(owner.id, s);
+// --- snapshots ----------------------------------------------------------
+
+// The state of an owner: its mirrored lines and the checked rows that are
+// among them. The same object until one of the two changes.
+const states = new Map<string, { lines: AssortmentLine[]; selected: string[]; state: AssortmentState }>();
+
+function snapshot(ownerId: string): AssortmentState {
+  dropLegacy();
+  const lines = linesOf(ownerId);
+  const selected = readSelection(ownerId);
+  const last = states.get(ownerId);
+  if (last && last.lines === lines && last.selected === selected) return last.state;
+  let state: AssortmentState;
+  if (lines.length === 0 && selected.length === 0) state = EMPTY_STATE;
+  else {
+    const present = new Set(lines.map((l) => l.id));
+    const kept = selected.filter((id) => present.has(id));
+    state = { lines, selected: kept.length === selected.length ? selected : kept };
   }
-  return s;
+  states.set(ownerId, { lines, selected, state });
+  return state;
 }
 
 function getServerSnapshot(): AssortmentState {
@@ -113,45 +269,36 @@ function getServerSnapshot(): AssortmentState {
 }
 
 function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
+  const offCache = subscribeCache(listener);
+  selectionListeners.add(listener);
   const onStorage = (e: StorageEvent) => {
-    if (e.key !== null && e.key !== LEGACY_KEY && !e.key.startsWith(`${ASSORTMENT_STORAGE_PREFIX}:`)) return;
-    cache.clear();
-    listeners.forEach((l) => l());
+    if (e.key !== null && !e.key.startsWith(`${SELECTED_PREFIX}:`)) return;
+    selectionCache.clear();
+    listener();
   };
   window.addEventListener("storage", onStorage);
   return () => {
-    listeners.delete(listener);
+    offCache();
+    selectionListeners.delete(listener);
     window.removeEventListener("storage", onStorage);
   };
-}
-
-function update(owner: AssortmentOwner, updater: (prev: AssortmentState) => AssortmentState) {
-  const next = updater(snapshot(owner));
-  cache.set(owner.id, next);
-  writeStorage(owner, next);
-  listeners.forEach((l) => l());
 }
 
 // The signed-in partner's assortment (empty for visitors and B2C
 // customers, who get the sign-in prompt instead).
 export function useAssortmentState(owner: AssortmentOwner | null): AssortmentState {
   const id = owner?.id ?? null;
-  const demo = owner?.demo ?? false;
-  const getSnapshot = useCallback(() => (id === null ? EMPTY_STATE : snapshot({ id, demo })), [id, demo]);
+  const getSnapshot = useCallback(() => (id === null ? EMPTY_STATE : snapshot(id)), [id]);
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 export function setLineQty(owner: AssortmentOwner, id: string, qty: number) {
   const next = Math.max(1, Math.round(qty));
-  update(owner, (s) => ({
-    ...s,
-    lines: s.lines.map((l) => (l.id === id ? { ...l, qty: next } : l)),
-  }));
+  changeLines(owner, (lines) => lines.map((l) => (l.id === id ? { ...l, qty: next } : l)));
 }
 
 export function setSelected(owner: AssortmentOwner, ids: string[]) {
-  update(owner, (s) => ({ ...s, selected: [...new Set(ids)] }));
+  writeSelection(owner.id, [...new Set(ids)]);
 }
 
 // The «added to the cart» marker: the selection key (ids + quantities)
@@ -206,8 +353,7 @@ export function useAddedKey(ownerId: string | null): string | null {
 // selection bar); they leave the selection too.
 export function removeLines(owner: AssortmentOwner, ids: string[]) {
   const drop = new Set(ids);
-  update(owner, (s) => ({
-    lines: s.lines.filter((l) => !drop.has(l.id)),
-    selected: s.selected.filter((id) => !drop.has(id)),
-  }));
+  changeLines(owner, (lines) => lines.filter((l) => !drop.has(l.id)));
+  const selected = readSelection(owner.id);
+  if (selected.some((id) => drop.has(id))) writeSelection(owner.id, selected.filter((id) => !drop.has(id)));
 }

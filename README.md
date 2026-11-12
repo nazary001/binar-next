@@ -1,5 +1,47 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Database
+
+The site reads and writes MongoDB Atlas (project `Binar`, cluster `binar`,
+database `binar`). The design is in
+`docs/superpowers/specs/2026-11-11-mongodb-integration-design.md`.
+
+Setup on a new machine:
+
+1. Copy `.env.example` to `.env.local` and fill it in (the connection string
+   of the runtime user, the demo password, a revalidate secret). The file is
+   gitignored; never commit it.
+2. In Atlas, Network Access must list the IP you connect from.
+3. `npm run db:setup` creates collections, validators and indexes
+   (idempotent).
+4. `npm run db:seed` loads the demo data: catalog, materials, blog, the two
+   demo accounts and the demo company's cabinet. It only overwrites the
+   documents it owns (`seed: true`); real accounts and orders are never
+   touched. `npm run db:seed -- --only catalog` runs one seeder,
+   `-- --list` prints their names.
+5. `npm run dev`.
+
+Accounts:
+
+- Retail customers register on the site (login = e-mail or phone, plus a
+  password).
+- Partner (B2B) accounts are created by an operator:
+  `npm run user:create -- --type b2b --login 0501234567 --name "Surname Name" --company "Company"`
+  (prints a generated password once unless `--password` is given).
+- Passwords are stored only as scrypt hashes. The session is an httpOnly
+  cookie backed by the `sessions` collection.
+
+After editing catalog, materials or blog documents directly in Atlas the
+pages refresh within five minutes, or at once with
+`curl -X POST <site>/api/revalidate -H "x-revalidate-secret: <REVALIDATE_SECRET>"`.
+`GET /api/health` tells whether a deployment can reach the database.
+
+Deployment (Vercel): set `MONGODB_URI` (the `mongodb+srv://` form),
+`MONGODB_DB` and `REVALIDATE_SECRET` in the project's environment variables
+and allow Vercel in Atlas Network Access before pushing: catalog pages are
+prerendered from the database, so the build needs it too. `vercel.json`
+pins the functions to `fra1`, next to the cluster.
+
 ## Getting Started
 
 First, run the development server:

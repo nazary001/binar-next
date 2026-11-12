@@ -5,7 +5,13 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useHydrated } from "@/components/platform/ui/useHydrated";
 import { AppliedChips } from "@/components/ui/AppliedChips";
 import { RollingNumber } from "@/components/ui/RollingNumber";
-import { filesCount, folderFiles, type MaterialCategory, type MaterialFile } from "./data";
+import {
+  canDownloadMaterial,
+  filesCount,
+  folderFiles,
+  type MaterialCategory,
+  type MaterialFile,
+} from "./data";
 import { FileCard } from "./FileCard";
 import { DIRECTIONS_GROUP, MaterialsFiltersDrawer, TYPES_GROUP } from "./FiltersDrawer";
 import { MaterialsHero } from "./Hero";
@@ -23,12 +29,15 @@ const COPY = {
 
 // /materials/<category>: the partner folder (Figma «Матеріали B2B»
 // 4377:61576) for a signed-in B2B account, the public page otherwise.
-export function MaterialsCategory({ category }: { category: MaterialCategory }) {
+// `files` = the folder's files, read from the database by the page.
+type FolderProps = { category: MaterialCategory; files: MaterialFile[] };
+
+export function MaterialsCategory({ category, files }: FolderProps) {
   const { user } = useAuth();
   return user?.type === "b2b" ? (
-    <PartnerMaterialsCategory category={category} />
+    <PartnerMaterialsCategory category={category} files={files} />
   ) : (
-    <PublicMaterialsCategory category={category} />
+    <PublicMaterialsCategory category={category} files={files} />
   );
 }
 
@@ -45,7 +54,7 @@ const PUBLIC_FILES =
 // row opens the preview panel (4825:61120); the padlock of a file that
 // needs an account carries the «Завантажити після авторизації» tooltip
 // (4634:65705) and opens the sign-in drawer.
-function PublicMaterialsCategory({ category }: { category: MaterialCategory }) {
+function PublicMaterialsCategory({ category, files: folder }: FolderProps) {
   const { user, openAuth, open: authOpen } = useAuth();
   // Before hydration the auth store is the server's visitor: a signed-in
   // customer must not see the padlock flash (MAT-20).
@@ -54,11 +63,13 @@ function PublicMaterialsCategory({ category }: { category: MaterialCategory }) {
   const { openPreview, closePreview } = s;
 
   const files = useMemo(
-    () => folderFiles(category.slug, s.filters, s.query),
-    [category.slug, s.filters, s.query],
+    () => folderFiles(folder, category.slug, s.filters, s.query),
+    [folder, category.slug, s.filters, s.query],
   );
 
-  const canDownload = (file: MaterialFile) => !file.locked || user !== null;
+  // The public skin is a guest's or a B2C customer's (a partner gets the
+  // partner skin); the download route applies the same rule.
+  const canDownload = (file: MaterialFile) => canDownloadMaterial(file, user ? user.type : null);
   const signIn = () => openAuth();
 
   return (

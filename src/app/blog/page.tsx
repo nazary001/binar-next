@@ -1,6 +1,6 @@
 import { BlogHero } from "@/components/blog/BlogHero";
 import { BlogList } from "@/components/blog/BlogList";
-import { BLOG_POSTS } from "@/components/blog/data";
+import { getBlogPosts } from "@/server/repos/blog";
 
 export const metadata = {
   title: "Блог",
@@ -9,14 +9,15 @@ export const metadata = {
   alternates: { canonical: "/blog" },
 };
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const posts = await getBlogPosts();
   return (
     // lg:pt-5 — the 3603:11433 / 2670:6353 masters start the page content
     // 20 px below the 92-px header bar (content frame at y=112). Mobile
     // master keeps the hero flush under the bar.
     <div className="flex w-full flex-1 flex-col lg:pt-5">
       <BlogHero />
-      <BlogList posts={BLOG_POSTS} />
+      <BlogList posts={posts} />
     </div>
   );
 }

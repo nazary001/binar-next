@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { api } from "@/lib/api/client";
 
 // Figma 1870:6184 — partner contact section. The Figma master nests
 // the form in a dark `#2d2d2f` slab with an inner white card, but on
@@ -368,7 +369,16 @@ export function PartnerContactForm() {
                   <Button
                     type="button"
                     size="responsive"
-                    onClick={() => canSubmit && setSubmitted(true)}
+                    onClick={() => {
+                      if (!canSubmit) return;
+                      // Stored by POST /api/leads; the success state does not wait for it,
+                      // and keepalive lets the request finish if the visitor leaves.
+                      void api("/api/leads", {
+                        body: { kind: "partner-contact", source: window.location.pathname, payload: f },
+                        keepalive: true,
+                      });
+                      setSubmitted(true);
+                    }}
                     arrow
                   >
                     Домовитись про зустріч

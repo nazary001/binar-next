@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { ARTICLE_BODY } from "./data";
+import type { BlogArticleBody } from "./data";
 import { FacebookIcon, InstagramIcon, TelegramIcon } from "./icons";
 
 const SITE_URL = "https://binar-2000.com";
@@ -37,7 +37,7 @@ function shareLinks(slug: string) {
 // 707-wide prose column (intro + sub-sections + criteria list) beside the
 // 441-wide sidebar (a CTA card on bg-subtle, then «Поділитись» social
 // buttons and «Теги» chips).
-export function ArticleBody({ slug }: { slug: string }) {
+export function ArticleBody({ slug, body }: { slug: string; body: BlogArticleBody }) {
   const socials = shareLinks(slug);
 
   return (
@@ -55,9 +55,9 @@ export function ArticleBody({ slug }: { slug: string }) {
             the 1440 master) than the 40px rhythm between later sections. The
             lede itself is Body Small (14/20) on the phone master, Body Medium
             (20/28) on desktop. */}
-        <p className="text-body-sm lg:mb-14 lg:text-body-md">{ARTICLE_BODY.intro}</p>
+        <p className="text-body-sm lg:mb-14 lg:text-body-md">{body.intro}</p>
 
-        {ARTICLE_BODY.sections.map((section) => (
+        {body.sections.map((section) => (
           <div key={section.heading} className="flex flex-col gap-4">
             <h2 className="text-title-lg text-neutral-900">{section.heading}</h2>
             <div className="flex flex-col gap-5 lg:gap-6">
@@ -72,14 +72,14 @@ export function ArticleBody({ slug }: { slug: string }) {
 
         <div className="flex flex-col gap-4">
           <h2 className="text-title-lg text-neutral-900">
-            {ARTICLE_BODY.listSection.heading}
+            {body.listSection.heading}
           </h2>
           {/* max-lg:mt-5 / lg:mt-6: both masters' list text nodes open with
               a LEADING empty line (phone 20px, desktop 24px), so heading ->
               first bullet = 16 + 20 on phones and 16 + 24 = 40 at lg
               (2670:6454). */}
           <ul className="flex list-disc flex-col gap-5 ps-[21px] text-body-sm marker:text-neutral-900 max-lg:mt-5 lg:mt-6 lg:gap-6 lg:ps-6">
-            {ARTICLE_BODY.listSection.items.map((item) => (
+            {body.listSection.items.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
@@ -133,7 +133,7 @@ export function ArticleBody({ slug }: { slug: string }) {
           <div className="flex flex-col gap-6">
             <h3 className="text-title-lg text-neutral-900">Теги</h3>
             <ul className="flex flex-wrap gap-2 lg:gap-4">
-              {ARTICLE_BODY.tags.map((tag) => (
+              {body.tags.map((tag) => (
                 <li key={tag}>
                   {/* py-[7px]: the master's 36px chips count the stroke
                       INSIDE (7 + 20 + 7 + 2 = 36), same as the blog list
