@@ -30,7 +30,8 @@ import { FOCUS_RING_INSET, TEXT, type ControlSize } from "./tokens";
 //   aria-required. Native `required` is not used, so the browser never shows
 //   its own validation bubbles.
 // - optional: a quiet "необов'язково" after the label (use it in forms where
-//   most fields are required).
+//   most fields are required). Screen readers hear it as a word of its own
+//   after the label.
 // - labelAction: a small action at the right of the label line ("Згенерувати").
 // - meta: something at the right of the hint line (a character counter).
 // - htmlFor / labelId / hintId / errorId: the ids, when the control made them.
@@ -154,7 +155,15 @@ export function Field({
           *
         </span>
       )}
-      {optional && <span className="ml-1.5 font-medium text-neutral-500">{"необов'язково"}</span>}
+      {/* The hidden space keeps the marker apart from the label in the
+          accessible name ("Назва необов'язково", not "Названеобов'язково");
+          the visible gap is the margin. */}
+      {optional && (
+        <span className="ml-1.5 font-medium text-neutral-500">
+          <span className="sr-only"> </span>
+          {"необов'язково"}
+        </span>
+      )}
     </>
   );
   const labelClass = cx(TEXT.label, disabled && "text-neutral-400");

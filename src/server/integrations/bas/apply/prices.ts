@@ -8,11 +8,23 @@ import { indexProducts, resolveProduct } from "./lookup";
 // PUT /prices: one price per product and price type.
 //
 // Every price lands in product.prices[<price type id>]. A price of the
-// type whose role is "base" (set in the panel) is also the price the shop
-// shows: product.price, or, while the product has a promo (oldPrice set),
-// the regular price oldPrice, so the promo price staff set stays. A price
-// of the "individual" type is only stored (the partner pricing that reads
-// it is a later step). Prices are in UAH: the site has no other currency.
+// type whose role is "base" (set in the panel) is also the regular price
+// of the shop:
+// - no promo: it is the price the shop shows (product.price);
+// - a promo is running (staff set oldPrice; the exchange never starts one):
+//   the promo price stays as staff set it and the base price becomes the
+//   struck regular price (product.oldPrice). The regular price is thus
+//   always the current one: partner prices are counted from it, and it is
+//   what the product costs again once staff end the promo;
+// - the base price falls to the promo price or below: nothing is left of
+//   the discount, so the promo ends and the base price is the shop price.
+// Whenever the struck price moves, a discount label staff typed for the
+// old pair of prices is dropped (the site then shows the real percentage).
+// The roles are read here, at push time: giving the base role to another
+// type in the panel changes nothing on the site until BAS next sends that
+// type's prices. A price of the "individual" type is stored; partner prices
+// read it live (repos/catalog.ts partnerPrices). Prices are in UAH: the
+// site has no other currency.
 
 const CONCURRENCY = 6;
 
@@ -71,15 +83,20 @@ export async function applyPrices(items: PriceInput[]): Promise<ApplyResult> {
       const set: Record<string, unknown> = {};
       const changed: Record<string, number> = {};
       let price = doc.price;
-      let oldPrice = usable(doc.oldPrice) ? doc.oldPrice : null;
+      const promoOld = usable(doc.oldPrice) ? doc.oldPrice : null;
+      let oldPrice = promoOld;
       for (const { item, type, index } of rows) {
         const before = stored?.[type._id];
         const status = before === undefined ? "created" : before === item.price ? "unchanged" : "updated";
         outcomes[index] = ok(status);
         if (status !== "unchanged") changed[type._id] = item.price;
-        if (type.role === "base") {
-          if (oldPrice !== null) oldPrice = item.price;
-          else price = item.price;
+        if (type.role !== "base") continue;
+        if (oldPrice === null) price = item.price;
+        else if (item.price > price) oldPrice = item.price;
+        else {
+          // No discount is left: the promo is over.
+          price = item.price;
+          oldPrice = null;
         }
       }
       // Without a stored map (or a broken one) the map is written whole.
@@ -87,21 +104,31 @@ export async function applyPrices(items: PriceInput[]): Promise<ApplyResult> {
         if (stored) for (const [id, value] of Object.entries(changed)) set[`prices.${id}`] = value;
         else set.prices = changed;
       }
-      const baseMoves = price !== doc.price || (oldPrice !== null && oldPrice !== doc.oldPrice);
+      const unset: Record<string, ""> = { seed: "" };
+      const oldMoves = oldPrice !== promoOld;
+      const baseMoves = price !== doc.price || oldMoves;
       if (baseMoves) {
-        set.price = price;
-        if (oldPrice !== null) set.oldPrice = oldPrice;
+        if (price !== doc.price) set.price = price;
+        if (oldMoves) {
+          if (oldPrice !== null) set.oldPrice = oldPrice;
+          else unset.oldPrice = "";
+          unset.discount = "";
+        }
         baseChanged = true;
         // A row that only moved the shop price is an update too.
         for (const { index, type } of rows) {
           if (type.role === "base" && outcomes[index]?.status === "unchanged") outcomes[index] = ok("updated");
         }
       }
-      if (Object.keys(set).length === 0) return ok("unchanged");
+      // A write is due when a field moves or goes: the end of a promo whose
+      // price equals the new base price changes nothing but removes the
+      // struck price and the label (the `seed` mark alone is no change).
+      const removes = Object.keys(unset).some((field) => field !== "seed");
+      if (Object.keys(set).length === 0 && !removes) return ok("unchanged");
       const now = new Date();
       const result = await products.updateOne(
         { _id: doc._id },
-        { $set: { ...set, erpSyncedAt: now, updatedAt: now }, $unset: { seed: "" } },
+        { $set: { ...set, erpSyncedAt: now, updatedAt: now }, $unset: unset },
       );
       return result.matchedCount ? ok("updated") : failed("conflict: the product was removed meanwhile");
     });

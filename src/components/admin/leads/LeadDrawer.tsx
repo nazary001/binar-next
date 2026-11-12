@@ -20,6 +20,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { EntityHistory } from "../common/EntityHistory";
 import { StaffSelect } from "../common/pickers";
 import { countOf, cx, formatDateTime, formatPhone, formatRelative, qs } from "../lib/format";
+import { OWNER_ROLE_ID } from "../lib/permissions";
 import { useAdminQuery } from "../lib/query";
 import { useStaff } from "../shell/StaffProvider";
 import { Badge } from "../ui/Badge";
@@ -35,8 +36,9 @@ import { toast } from "../ui/Toast";
 import { Tooltip } from "../ui/Tooltip";
 import { COLOR_TRANSITION, FOCUS_RING, SURFACE, TEXT, TONES } from "../ui/tokens";
 import { addNote, deleteLead, deleteNote, leadPath, patchLead, type LeadAnswer } from "./actions";
+import { mailtoHref, sourceHref } from "./links";
 import { ActionLink, BlockTitle, ContactLink, StatusSegments, contactTitle, copyText, deviceOf, pageName, telHref, useNow } from "./parts";
-import { LEAD_KIND_LABELS, LEAD_NOTE_MAX, LEAD_STATUS_LABELS, type LeadDetail, type LeadField, type LeadStatus } from "./types";
+import { LEAD_KIND_LABELS, LEAD_NOTE_MAX, LEAD_STATUS_LABELS, type LeadDetail, type LeadField, type LeadNoteDto, type LeadStatus } from "./types";
 
 // One form submission in the drawer of the inbox (/admin/leads?id=<id>):
 // whom to call or write (large buttons, copy), the status and the person
@@ -225,6 +227,7 @@ function LeadBody({ lead }: { lead: LeadDetail }) {
 // reach them (and the company the partner form asks for).
 function ContactBlock({ lead }: { lead: LeadDetail }) {
   const { phone, email, company } = lead.contact;
+  const mailHref = email ? mailtoHref(email) : null;
   return (
     <section aria-label="Контакти" className={cx(SURFACE.inset, "flex flex-col gap-2 p-2 min-[640px]:gap-3 min-[640px]:p-3")}>
       {company && (
@@ -250,11 +253,22 @@ function ContactBlock({ lead }: { lead: LeadDetail }) {
       {email && (
         <ContactRow
           icon={<EnvelopeIcon aria-hidden className="size-5" strokeWidth={1.7} />}
-          value={email}
+          value={
+            mailHref ? (
+              email
+            ) : (
+              <span className="flex flex-col gap-0.5">
+                <span>{email}</span>
+                <span className={TEXT.caption}>Адреса має зайві символи, тому не відкриває пошту. Перевірте її, перш ніж писати.</span>
+              </span>
+            )
+          }
           action={
-            <ActionLink href={`mailto:${email}`} icon={<EnvelopeIcon aria-hidden strokeWidth={1.7} />} label={`Написати: ${email}`}>
-              Написати
-            </ActionLink>
+            mailHref ? (
+              <ActionLink href={mailHref} icon={<EnvelopeIcon aria-hidden strokeWidth={1.7} />} label={`Написати: ${email}`}>
+                Написати
+              </ActionLink>
+            ) : null
           }
           copy={email}
           copyLabel="Скопіювати e-mail"
@@ -408,20 +422,22 @@ function NextStep({ lead }: { lead: LeadDetail }) {
   if (lead.kind === "star-checklist" && email) {
     const stars = typeof lead.payload.stars === "number" ? lead.payload.stars : null;
     const hotel = stars ? `готелю на ${countOf(stars, ["зірку", "зірки", "зірок"])}` : "готелю";
-    const subject = `Чеклист для ${hotel}`;
+    const letter = mailtoHref(email, `Чеклист для ${hotel}`);
     return (
       <section aria-label="Наступний крок" className="flex flex-col gap-3 rounded-2xl border border-stroke-subtle p-4">
         <div className="flex flex-col gap-1">
           <p className={TEXT.bodyStrong}>Відвідувач чекає на чеклист</p>
-          <p className={TEXT.muted}>
+          <p className={cx(TEXT.muted, "[overflow-wrap:anywhere]")}>
             Сайт пообіцяв надіслати вимоги до комплектації {hotel} на {email} протягом доби. Надішліть їх листом.
           </p>
         </div>
-        <span className="self-start max-[639px]:w-full max-[639px]:[&>a]:w-full">
-          <ActionLink href={`mailto:${email}?subject=${encodeURIComponent(subject)}`} icon={<EnvelopeIcon aria-hidden strokeWidth={1.7} />}>
-            Написати лист
-          </ActionLink>
-        </span>
+        {letter && (
+          <span className="self-start max-[639px]:w-full max-[639px]:[&>a]:w-full">
+            <ActionLink href={letter} icon={<EnvelopeIcon aria-hidden strokeWidth={1.7} />}>
+              Написати лист
+            </ActionLink>
+          </span>
+        )}
       </section>
     );
   }
@@ -443,8 +459,10 @@ function Stars({ count }: { count: number }) {
 
 function AnswerValue({ field }: { field: LeadField }) {
   switch (field.type) {
-    case "email":
-      return <ContactLink href={`mailto:${field.value}`}>{field.value}</ContactLink>;
+    case "email": {
+      const href = mailtoHref(field.value);
+      return href ? <ContactLink href={href}>{field.value}</ContactLink> : <span className="[overflow-wrap:anywhere]">{field.value}</span>;
+    }
     case "phone":
       return (
         <ContactLink href={telHref(field.value)} className="tabular-nums">
@@ -481,12 +499,16 @@ function Facts({ lead }: { lead: LeadDetail }) {
   const { can } = useStaff();
   const now = useNow();
   const page = pageName(lead.source);
+  // Only a page of this site is a link: a source stored before the form
+  // route refused "//host" and "/\host" stays text, so a click never leaves
+  // the site.
+  const pageHref = sourceHref(lead.source);
   const items: KeyValueItem[] = [
     {
       label: "Сторінка",
-      value: (
+      value: pageHref ? (
         <a
-          href={lead.source}
+          href={pageHref}
           target="_blank"
           rel="noreferrer"
           className={cx(
@@ -498,9 +520,15 @@ function Facts({ lead }: { lead: LeadDetail }) {
           {page}
           <ArrowTopRightOnSquareIcon aria-hidden className="size-3.5 text-neutral-500" strokeWidth={1.7} />
         </a>
+      ) : (
+        <span className="[overflow-wrap:anywhere]">{lead.source}</span>
       ),
       // The address helps where the name is ours; the home page needs none.
-      hint: page !== lead.source && lead.source !== "/" ? `Адреса: ${lead.source}` : undefined,
+      hint: pageHref
+        ? page !== lead.source && lead.source !== "/"
+          ? `Адреса: ${lead.source}`
+          : undefined
+        : "Це не адреса сторінки сайту, тому посилання вимкнено.",
     },
     {
       label: "Надіслано",
@@ -611,23 +639,30 @@ function Notice({ lead }: { lead: LeadDetail }) {
 
 // --- notes -----------------------------------------------------------------------------
 
+// A member of staff removes their own notes; an owner also removes a
+// colleague's (the API holds the same rule and answers 403 "not-author"
+// to anybody else).
 function Notes({ lead }: { lead: LeadDetail }) {
   const { me, can } = useStaff();
   const canEdit = can("leads.edit");
+  const isOwner = me.roleId === OWNER_ROLE_ID;
   const now = useNow();
   const notesId = useId();
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const remove = async (noteId: string) => {
+  const remove = async (note: LeadNoteDto) => {
+    const own = note.by.id === me.id;
     const yes = await confirmDialog({
-      title: "Видалити нотатку?",
-      text: "Текст нотатки зникне назавжди; у журналі залишиться лише запис про видалення.",
+      title: own ? "Видалити нотатку?" : "Видалити нотатку колеги?",
+      text: own
+        ? "Текст нотатки зникне назавжди; у журналі залишиться лише запис про видалення."
+        : `Автор нотатки: ${note.by.name}. Текст зникне назавжди; у журналі залишиться запис про видалення з іменем автора.`,
       confirmLabel: "Видалити",
       tone: "danger",
     });
     if (!yes) return;
-    setRemoving(noteId);
-    const saved = await deleteNote(lead.id, noteId);
+    setRemoving(note.id);
+    const saved = await deleteNote(lead.id, note.id);
     setRemoving(null);
     if (saved) toast.success("Нотатку видалено");
   };
@@ -656,14 +691,14 @@ function Notes({ lead }: { lead: LeadDetail }) {
                     </time>
                   </Tooltip>
                   <span className="ml-auto" />
-                  {own && canEdit && (
+                  {canEdit && (own || isOwner) && (
                     <IconButton
                       label="Видалити нотатку"
                       icon={TrashIcon}
                       variant="danger"
                       size="sm"
                       loading={removing === note.id}
-                      onClick={() => remove(note.id)}
+                      onClick={() => remove(note)}
                     />
                   )}
                 </div>

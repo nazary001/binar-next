@@ -61,6 +61,28 @@ export type DeliveryInfo = {
   note: string;
 };
 
+// The parcel of an order once staff (or the carrier integration) gave it a
+// waybill number: what the customer may see of order.shipment on the
+// server. `statusText` is the carrier's own wording of the last tracking
+// answer (null until the first one); `estimatedDate` ("YYYY-MM-DD") is the
+// carrier's estimate while the parcel is still on its way.
+export type OrderShipmentInfo = {
+  carrier: "nova-poshta" | "pickup" | "other";
+  ttn: string;
+  statusText: string | null;
+  estimatedDate: string | null;
+};
+
+// The sentence a branch or postomat delivery note ends with until the
+// order has a waybill (server deliveryOf); the details page puts the
+// number in its place once there is one.
+export const TTN_PROMISE = "Ми надішлемо номер ТТН, щойно передамо замовлення перевізнику.";
+
+// The carrier's public tracking page of a Nova Poshta waybill.
+export function novaPoshtaTrackingHref(ttn: string): string {
+  return `https://novaposhta.ua/tracking/?cargo_number=${encodeURIComponent(ttn)}`;
+}
+
 export type Order = {
   id: string;
   // Digits only; the tables print it bare («48291037»), titles and
@@ -80,6 +102,32 @@ export type Order = {
   items: OrderItem[];
   documents: OrderDocument[];
 };
+
+// The cabinet's order as the server sends it (repos/orders.ts toOrderDto):
+// an Order plus `shipment` once the order has a live waybill; every other
+// order comes without the key, exactly as before. Order itself stays
+// without it because the stored order (db/collections.ts B2bOrderDoc,
+// built on Order) keeps the staff side's full shipment under that name.
+export type OrderWithShipment = Order & { shipment?: OrderShipmentInfo | null };
+
+const SHIPMENT_CARRIER_KEYS: readonly string[] = ["nova-poshta", "pickup", "other"];
+
+// The waybill of an order of the session payload, or null. The payload is
+// mirrored in localStorage and outlives deploys, so the shape is checked.
+export function orderShipment(order: Order): OrderShipmentInfo | null {
+  const value: unknown = (order as OrderWithShipment).shipment;
+  if (typeof value !== "object" || value === null) return null;
+  const s = value as Record<string, unknown>;
+  if (typeof s.ttn !== "string" || !s.ttn || typeof s.carrier !== "string" || !SHIPMENT_CARRIER_KEYS.includes(s.carrier)) {
+    return null;
+  }
+  return {
+    carrier: s.carrier as OrderShipmentInfo["carrier"],
+    ttn: s.ttn,
+    statusText: typeof s.statusText === "string" && s.statusText ? s.statusText : null,
+    estimatedDate: typeof s.estimatedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.estimatedDate) ? s.estimatedDate : null,
+  };
+}
 
 export type ReturnLine = {
   itemId: string;
@@ -143,7 +191,11 @@ export const MANAGER_MAILTO = "mailto:sales@binar2000.com";
 // The details pages' SignInPrompt line for visitors and B2C customers.
 export const DETAILS_PROMPT_TEXT = "Замовлення та повернення доступні в особистому кабінеті бізнес-клієнта.";
 
-// Placeholder return window (the spec names one without a length).
+// The return window the code always had (the spec names one without a
+// length). Staff set the real one in the panel (shop.returnWindowDays); it
+// reaches the cabinet with the session answer (lib/session/config.ts) and
+// the server through its settings reader, and this value stands in until
+// then.
 export const RETURN_WINDOW_DAYS = 14;
 
 // "YYYY-MM-DD" -> that day's midnight UTC (the clock every rule here
@@ -152,15 +204,23 @@ export function dayDate(isoDate: string): Date {
   return new Date(Date.parse(`${isoDate}T00:00:00Z`));
 }
 
-// `today` = the cabinet's today (OrdersPayload.today as dayDate).
-export function returnWindowOpen(order: Order, today: Date): boolean {
+// `today` = the cabinet's today (OrdersPayload.today as dayDate);
+// `windowDays` = the shop's return window.
+export function returnWindowOpen(order: Pick<Order, "date">, today: Date, windowDays: number = RETURN_WINDOW_DAYS): boolean {
   const placed = Date.parse(`${order.date}T00:00:00Z`);
-  return today.getTime() - placed <= RETURN_WINDOW_DAYS * 86400000;
+  return today.getTime() - placed <= windowDays * 86400000;
 }
 
 // `returnable` = the lines still free to return (returnableItems below);
-// `today` = the cabinet's today (the return window counts from it).
-export function orderAction(order: Order, returnable: readonly OrderItem[], today: Date): OrderAction {
+// `today` = the cabinet's today (the return window counts from it);
+// `windowDays` = the shop's return window (the server and the cabinet pass
+// the configured one).
+export function orderAction(
+  order: Order,
+  returnable: readonly OrderItem[],
+  today: Date,
+  windowDays: number = RETURN_WINDOW_DAYS,
+): OrderAction {
   switch (order.status) {
     case "new":
     case "blocked":
@@ -171,7 +231,7 @@ export function orderAction(order: Order, returnable: readonly OrderItem[], toda
       return { kind: "hint", text: "Повернення буде доступне після отримання" };
     case "received":
     case "completed":
-      if (!returnWindowOpen(order, today)) return { kind: "manager" };
+      if (!returnWindowOpen(order, today, windowDays)) return { kind: "manager" };
       return returnable.length > 0
         ? { kind: "return" }
         : { kind: "hint", text: "Повернення вже оформлено на всі товари" };

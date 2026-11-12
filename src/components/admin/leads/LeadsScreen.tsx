@@ -22,6 +22,7 @@ import { COLOR_TRANSITION, FOCUS_RING, LIFT_SHADOW, TEXT, Z } from "../ui/tokens
 import { useListParams } from "../ui/useListParams";
 import { bulkStatus } from "./actions";
 import { LeadDrawer } from "./LeadDrawer";
+import { mailtoHref } from "./links";
 import { ContactLink, PeriodFilter, ToggleChip, pageName, telHref, useLeadAddress, useMinWidth, useNow } from "./parts";
 import {
   LEAD_ASSIGNED_TO_ME,
@@ -98,6 +99,9 @@ function When({ row, now }: { row: LeadRow; now: number }) {
 // the e-mail gives way on phones when there is a phone to call).
 function ContactCell({ row, now }: { row: LeadRow; now: number }) {
   const { name, phone, email, company } = row.contact;
+  // A visitor's text: a link only when it is one plain address.
+  const mailHref = email ? mailtoHref(email) : null;
+  const emailClass = cx("min-w-0 truncate", phone && "max-[639px]:hidden");
   return (
     <span className="flex min-w-0 max-w-[190px] flex-col gap-0.5 min-[640px]:max-w-[250px]">
       {name ? (
@@ -112,11 +116,14 @@ function ContactCell({ row, now }: { row: LeadRow; now: number }) {
             {formatPhone(phone)}
           </ContactLink>
         )}
-        {email && (
-          <ContactLink href={`mailto:${email}`} className={cx("min-w-0 truncate", phone && "max-[639px]:hidden")}>
-            {email}
-          </ContactLink>
-        )}
+        {email &&
+          (mailHref ? (
+            <ContactLink href={mailHref} className={emailClass}>
+              {email}
+            </ContactLink>
+          ) : (
+            <span className={emailClass}>{email}</span>
+          ))}
       </span>
       {/* Phones have no room for the time and the form columns. */}
       <span className={cx(TEXT.caption, "mt-0.5 min-[640px]:hidden")}>

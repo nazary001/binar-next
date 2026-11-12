@@ -17,6 +17,7 @@ import { TEXT, type Tone } from "../ui/tokens";
 // history and do not need it.
 //
 //   <EntityHistory type="product" id={product.id} />
+//   <EntityHistory type="company" id={company.id} related />
 //   <EntityHistory type="company" id={company.id} title="Історія змін" bare />
 //
 // Props
@@ -24,6 +25,12 @@ import { TEXT, type Tone } from "../ui/tokens";
 //   section's API writes them (order, return, product, customer, company,
 //   customer-group, blog_post, material_file, lead, staff, role, media,
 //   price-type, settings ...).
+// - related: also the lines of the records that belong to this one but are
+//   journaled under types of their own (adds related=1 to the request;
+//   ENTITY_RELATED in audit/types.ts says which: for a company, its
+//   counterparties, contracts and employees). The route keeps only the
+//   related types the caller may view and ignores the flag for a type with
+//   nothing related, so it is safe to pass anywhere.
 // - title ("Журнал змін"); collapsedTo (5): how many lines show before
 //   "Показати всі".
 // - bare: no card around it (for use inside a card or a drawer).
@@ -50,6 +57,7 @@ function actorName(row: JournalRow): string {
 type EntityHistoryProps = {
   type: string;
   id: string;
+  related?: boolean;
   title?: string;
   collapsedTo?: number;
   bare?: boolean;
@@ -57,10 +65,22 @@ type EntityHistoryProps = {
   className?: string;
 };
 
-export function EntityHistory({ type, id, title = "Журнал змін", collapsedTo = 5, bare = false, refreshKey, className }: EntityHistoryProps) {
+export function EntityHistory({
+  type,
+  id,
+  related = false,
+  title = "Журнал змін",
+  collapsedTo = 5,
+  bare = false,
+  refreshKey,
+  className,
+}: EntityHistoryProps) {
   const [expanded, setExpanded] = useState(false);
   // `v` only makes the key differ after a save; the route ignores it.
-  const history = useAdminQuery<JournalEntityHistory>(`/audit/entity?${qs({ type, id, v: refreshKey ?? undefined })}`);
+  // The route reads related only as "1".
+  const history = useAdminQuery<JournalEntityHistory>(
+    `/audit/entity?${qs({ type, id, related: related ? "1" : undefined, v: refreshKey ?? undefined })}`,
+  );
 
   // Not allowed to read it (or the type is unknown to the journal): no block.
   if (history.error && (history.error.status === 403 || history.error.status === 400)) return null;

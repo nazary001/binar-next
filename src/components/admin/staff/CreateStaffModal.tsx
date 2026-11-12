@@ -10,21 +10,38 @@ import { Input } from "../ui/Input";
 import { Modal, ModalFooter } from "../ui/Modal";
 import { Select, type SelectOption } from "../ui/Select";
 import { toast } from "../ui/Toast";
+import { AccessMailNote, AccessMailSwitch, useMailReady } from "./accessMail";
 import { fieldCodes, toastStaffError } from "./messages";
 import { withinActor } from "./rules";
 import { OneTimePassword, signInAddress } from "./shared";
-import { STAFF_EMAIL_MAX, STAFF_NAME_MAX, type RoleRow, type StaffCreateAnswer, type StaffCreateBody } from "./types";
+import {
+  STAFF_EMAIL_MAX,
+  STAFF_NAME_MAX,
+  type RoleRow,
+  type StaffAccessMailAnswer,
+  type StaffCreateAnswer,
+  type StaffCreateBody,
+} from "./types";
 
 // "Додати співробітника": name, e-mail and role, then the same dialog shows
 // the generated password once, with the address to sign in at. The person
-// signs in at /admin and is asked for an own password at once.
+// signs in at /admin and is asked for an own password at once. While the
+// site sends mail, a switch also sends the access to the person's e-mail.
 //
 // Rendered with a new `key` each time it opens, so its state starts fresh.
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Errors = { name?: string; email?: string; roleId?: string };
-type Created = { id: string; name: string; roleName: string; email: string; password: string; signInUrl: string };
+type Created = {
+  id: string;
+  name: string;
+  roleName: string;
+  email: string;
+  password: string;
+  signInUrl: string;
+  mail: StaffAccessMailAnswer;
+};
 
 export function CreateStaffModal({
   open,
@@ -44,6 +61,8 @@ export function CreateStaffModal({
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
+  const mailReady = useMailReady();
+  const [notify, setNotify] = useState(false);
 
   const meOwner = me.roleId === OWNER_ROLE_ID;
   const options: SelectOption<string>[] = (roles ?? []).map((role) => {
@@ -72,7 +91,7 @@ export function CreateStaffModal({
     if (Object.keys(next).length > 0 || !roleId) return;
 
     setBusy(true);
-    const body: StaffCreateBody = { name: cleanName, email: cleanEmail, roleId };
+    const body: StaffCreateBody = { name: cleanName, email: cleanEmail, roleId, ...(mailReady && notify ? { notify: true } : {}) };
     const result = await adminApi<StaffCreateAnswer>("/staff", { method: "POST", body });
     setBusy(false);
     if (!result.ok) {
@@ -97,6 +116,7 @@ export function CreateStaffModal({
       email: staff.email,
       password: result.data.password,
       signInUrl: signInAddress(),
+      mail: { mailed: result.data.mailed, mailError: result.data.mailError },
     });
     invalidate("/staff");
     invalidate("/roles");
@@ -120,7 +140,14 @@ export function CreateStaffModal({
           </>
         }
       >
-        <OneTimePassword email={created.email} password={created.password} signInUrl={created.signInUrl} />
+        {created.mail.mailed === undefined ? (
+          <OneTimePassword email={created.email} password={created.password} signInUrl={created.signInUrl} />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <AccessMailNote email={created.email} mail={created.mail} />
+            <OneTimePassword email={created.email} password={created.password} signInUrl={created.signInUrl} />
+          </div>
+        )}
       </Modal>
     );
   }
@@ -176,6 +203,13 @@ export function CreateStaffModal({
           hint={chosen ? chosen.description || "Без опису" : "Роль визначає, що людина бачитиме і що зможе змінювати"}
           required
         />
+        {mailReady && (
+          <AccessMailSwitch
+            checked={notify}
+            onChange={setNotify}
+            hint="Лист із тимчасовим паролем і адресою для входу піде на цей e-mail. Пароль ми однаково покажемо тут один раз."
+          />
+        )}
       </form>
     </Modal>
   );

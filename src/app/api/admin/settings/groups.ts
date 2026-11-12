@@ -14,6 +14,7 @@ import {
   type SettingsMeta,
   type ShopSettings,
 } from "@/components/admin/settings/types";
+import { categoriesSharingCode } from "@/components/admin/catalog/codes";
 import { CATALOG_DIRECTIONS } from "@/components/catalog/data";
 import { SETTINGS, getSettings, saveSettings, type SettingsOf } from "@/server/admin/settings";
 import { TAG, type PublicTag } from "@/server/cache-tags";
@@ -204,6 +205,11 @@ async function checkKind(
     for (const category of Object.keys(value)) {
       if (!CATEGORY_KEYS.has(category)) errors[`categories.${category}`] = "key";
     }
+    // One accounting group code on one category only, as the categories
+    // screen and PUT /api/admin/taxonomy/meta require. The body's map
+    // replaces the stored one whole, so the body alone is checked.
+    const shared = categoriesSharingCode(value as Record<string, { externalId?: string | null }>);
+    for (const category of Object.keys(shared)) errors[`categories.${category}.externalId`] = "duplicate";
     return;
   }
   const kind = fieldKind(key, field);

@@ -30,12 +30,14 @@ import { CopyButton, KeyValueList } from "../ui/KeyValue";
 import { fileTypeLabel } from "../ui/media/upload";
 import { Select } from "../ui/Select";
 import { Skeleton, SkeletonText } from "../ui/Skeleton";
-import { NotFoundState } from "../ui/States";
+import { EmptyState, NotFoundState } from "../ui/States";
 import { toast, toastError } from "../ui/Toast";
 import { COLOR_TRANSITION, FOCUS_RING, TEXT, TONES } from "../ui/tokens";
 import {
   MEDIA_ERRORS,
   MEDIA_FOLDERS,
+  MEDIA_ORDER_FOLDER,
+  isOrderDocument,
   type MediaDetailAnswer,
   type MediaDto,
   type MediaFolder,
@@ -54,8 +56,11 @@ import {
 // list of those records; an editor may then remove it anyway after a second
 // question that says what breaks.
 
-// Who may rename and remove files: the media routes' MEDIA_EDIT.
+// Who may rename and remove files: the media routes' MEDIA_EDIT; a paper
+// of an order (isOrderDocument) only orders.edit, which also puts files
+// into the folder of those papers (library.ts on the server).
 export const MEDIA_EDIT: readonly Permission[] = ["content.edit", "catalog.edit"];
+const ORDER_DOCUMENT_EDIT: Permission = "orders.edit";
 
 const enc = encodeURIComponent;
 
@@ -189,7 +194,6 @@ const FORM_ID = "media-form";
 
 export function MediaDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { can } = useStaff();
-  const canEdit = can(MEDIA_EDIT);
   const key = id ? `/media/${enc(id)}` : null;
   const detail = useAdminQuery<MediaDetailAnswer>(key);
   const staff = useAdminQuery<{ ok: true; items: StaffOption[] }>("/staff/options");
@@ -198,6 +202,10 @@ export function MediaDrawer({ id, onClose }: { id: string | null; onClose: () =>
   const answer = detail.data && id && detail.data.media.id === id ? detail.data : undefined;
   const media = answer?.media;
   const missing = Boolean(id && detail.error?.error === "not-found" && !answer);
+  // A paper of an order opened from a link by a role without orders.view.
+  const refused = Boolean(id && detail.error?.error === "forbidden" && !answer);
+  const canEdit = answer ? can(isOrderDocument(answer.media, answer.usage) ? ORDER_DOCUMENT_EDIT : MEDIA_EDIT) : false;
+  const folderOptions = can(ORDER_DOCUMENT_EDIT) ? FOLDER_OPTIONS : FOLDER_OPTIONS.filter((option) => option.value !== MEDIA_ORDER_FOLDER);
 
   const [formFor, setFormFor] = useState<string | null>(null);
   const [base, setBase] = useState<Values | null>(null);
@@ -286,8 +294,8 @@ export function MediaDrawer({ id, onClose }: { id: string | null; onClose: () =>
           <>
             <span className="block">
               На файл {plural(usage.length, ["посилається", "посилаються", "посилаються"])}{" "}
-              {countOf(usage.length, ["запис", "записи", "записів"])}. Якщо видалити його, на сайті там лишиться порожнє місце замість
-              зображення, а документ перестане відкриватися.
+              {countOf(usage.length, ["запис", "записи", "записів"])}. Якщо видалити його, вони посилатимуться на файл, якого вже
+              немає: зображення там не покажеться, а документ не відкриється. Краще спершу замініть файл у цих записах.
             </span>
             <UsageLines usage={usage} />
           </>
@@ -341,7 +349,7 @@ export function MediaDrawer({ id, onClose }: { id: string | null; onClose: () =>
         Закрити
       </Button>
     )
-  ) : missing ? (
+  ) : missing || refused ? (
     <Button variant="secondary" onClick={() => void close()}>
       Закрити
     </Button>
@@ -353,12 +361,30 @@ export function MediaDrawer({ id, onClose }: { id: string | null; onClose: () =>
       onClose={() => void close()}
       busy={saving || deleting}
       width={600}
-      title={media ? <span className="[overflow-wrap:anywhere]">{media.filename}</span> : missing ? "Файл не знайдено" : "Файл медіатеки"}
+      title={
+        media ? (
+          <span className="[overflow-wrap:anywhere]">{media.filename}</span>
+        ) : missing ? (
+          "Файл не знайдено"
+        ) : refused ? (
+          "Немає доступу"
+        ) : (
+          "Файл медіатеки"
+        )
+      }
       description={media ? `${media.kind === "image" ? "Зображення" : "Документ"}, ${folderLabel(media.folder)}` : undefined}
       footer={footer}
     >
       {missing ? (
         <NotFoundState title="Файл не знайдено" text="Можливо, його вже видалили з медіатеки." className="min-h-0 py-10" />
+      ) : refused ? (
+        <EmptyState
+          size="lg"
+          icon={<LockClosedIcon aria-hidden className="size-6" strokeWidth={1.7} />}
+          title="Це документ замовлення"
+          text="Його бачать лише ті, кому відкрито замовлення. Якщо доступ потрібен для роботи, попросіть адміністратора."
+          className="min-h-0 py-10"
+        />
       ) : !media ? (
         <div aria-hidden className="flex flex-col gap-5">
           <Skeleton shape="tile" className="aspect-[4/3] w-full" />
@@ -426,7 +452,7 @@ export function MediaDrawer({ id, onClose }: { id: string | null; onClose: () =>
                 label="Папка"
                 value={form.folder}
                 onChange={(folder) => setForm({ ...form, folder })}
-                options={FOLDER_OPTIONS}
+                options={folderOptions}
                 hint="Лише для порядку в медіатеці: на сайті нічого не зміниться."
               />
             </form>

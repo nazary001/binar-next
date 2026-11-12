@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSitePath } from "@/components/admin/leads/links";
 import { getSession } from "@/server/auth/session";
 import { clientIp, rateLimit } from "@/server/auth/rate-limit";
 import type { LeadDoc } from "@/server/db/collections";
@@ -30,7 +31,10 @@ const MAX_KEYS = 30;
 // Field names become keys of the stored document: letters, digits, "_"
 // and "-" only (no "$", no ".", no "__proto__").
 const zKey = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,39}$/);
-const zSource = z.string().min(1).max(200).regex(/^\/[^\s]*$/);
+// The page's pathname, which a browser never gives as "//host" or with a
+// backslash (and the server redirects such addresses before a page loads):
+// a source that would leave the site when the panel links it is refused.
+const zSource = z.string().min(1).max(200).refine(isSitePath);
 
 type Answers = Record<string, string | string[]>;
 

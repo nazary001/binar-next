@@ -6,6 +6,7 @@ import { removeReturnNote } from "@/server/admin/repos/returns";
 type Context = { params: Promise<{ id: string; noteId: string }> };
 
 // DELETE /api/admin/returns/<id>/notes/<noteId> [returns.edit] -> { ok: true }
+// Only the note's author or an owner: 403 "not-author" for anybody else.
 // 404 "not-found" (no such request or note).
 export const DELETE = adminHandler<Context>("returns.edit", async ({ request, context, staff }) => {
   const params = await context.params;

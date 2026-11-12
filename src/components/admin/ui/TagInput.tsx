@@ -1,6 +1,6 @@
 "use client";
 
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cx } from "../lib/format";
@@ -29,9 +29,18 @@ import { type ControlSize } from "./tokens";
 // - normalize: shapes a tag before it is added (trim is always done).
 // - placeholder, size ("sm" | "md" | "lg"), disabled, name (a hidden input
 //   with the tags joined by commas), onBlur, and the Field props.
+// - reorderable: the order is part of the value (rubrics shown on the site
+//   in this order): each chip gets "лівіше" / "правіше" arrows, focus stays
+//   on the arrow of the moved chip, and the move is announced.
+// - invalidTag(tag, index): a message (or true) for a chip that is wrong
+//   (an e-mail that is not one): the chip turns red, its message is its
+//   tooltip and is read with it. The field's own `error` still says what
+//   to do; this only points at the chip.
 //
 // Chip (exported): the removable chip itself, also used by MultiCombobox.
 //   <Chip onRemove={() => remove(id)} removeLabel="Прибрати «Київ»">Київ</Chip>
+//   invalid (true or a message) draws it red; before: controls in front of
+//   the cross (the reorder arrows).
 // MULTI_BOX / MULTI_INPUT / MULTI_ACTION_SIZE: the look of a field that
 // holds chips (shared with MultiCombobox).
 
@@ -44,6 +53,8 @@ export type ChipProps = {
   disabled?: boolean;
   size?: ControlSize;
   title?: string;
+  invalid?: boolean | string;
+  before?: ReactNode;
 };
 
 const CHIP: Record<ControlSize, string> = {
@@ -55,18 +66,23 @@ const CHIP_PR: Record<ControlSize, string> = { sm: "pr-2", md: "pr-2.5", lg: "pr
 const CHIP_PR_REMOVE: Record<ControlSize, string> = { sm: "pr-0.5", md: "pr-0.5", lg: "pr-1" };
 const CHIP_REMOVE: Record<ControlSize, string> = { sm: "size-5", md: "size-6", lg: "size-6" };
 
-export function Chip({ children, onRemove, removeLabel = "Прибрати", disabled = false, size = "md", title }: ChipProps) {
+export function Chip({ children, onRemove, removeLabel = "Прибрати", disabled = false, size = "md", title, invalid = false, before }: ChipProps) {
+  const message = typeof invalid === "string" ? invalid : null;
   return (
     <span
-      title={title}
+      title={message ?? title}
+      data-invalid={invalid ? true : undefined}
       className={cx(
-        "inline-flex min-w-0 max-w-full shrink-0 items-center rounded-full bg-neutral-40 font-medium text-neutral-800",
+        "inline-flex min-w-0 max-w-full shrink-0 items-center rounded-full font-medium",
+        invalid ? "bg-[#fff0f0] text-[#b33a3a]" : "bg-neutral-40 text-neutral-800",
         CHIP[size],
-        onRemove && !disabled ? CHIP_PR_REMOVE[size] : CHIP_PR[size],
+        (onRemove || before) && !disabled ? CHIP_PR_REMOVE[size] : CHIP_PR[size],
         disabled && "text-neutral-400",
       )}
     >
       <span className="min-w-0 truncate">{children}</span>
+      {invalid && <span className="sr-only">{message ? `, помилка: ${message}` : ", помилка"}</span>}
+      {before && !disabled && before}
       {onRemove && !disabled && (
         <button
           type="button"
@@ -120,9 +136,18 @@ export type TagInputProps = FieldControlProps & {
   disabled?: boolean;
   name?: string;
   onBlur?: () => void;
+  reorderable?: boolean;
+  invalidTag?: (tag: string, index: number) => boolean | string;
 };
 
 const SUGGESTIONS_SHOWN = 8;
+
+// The small round buttons inside a chip (reorder arrows), as tall as its
+// cross.
+const CHIP_TOOL =
+  "flex shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-500 transition-colors duration-200 " +
+  "hover:bg-stroke-subtle hover:text-neutral-900 disabled:cursor-not-allowed disabled:text-neutral-300 disabled:hover:bg-transparent " +
+  "motion-reduce:transition-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
 
 export function TagInput(props: TagInputProps) {
   const {
@@ -137,6 +162,8 @@ export function TagInput(props: TagInputProps) {
     disabled = false,
     name,
     onBlur,
+    reorderable = false,
+    invalidTag,
   } = props;
   const ids = useFieldIds(props);
   const listId = `${ids.id}-list`;
@@ -147,6 +174,7 @@ export function TagInput(props: TagInputProps) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const [announcement, setAnnouncement] = useState("");
 
   const full = max !== undefined && value.length >= max;
   const taken = new Set(value.map((tag) => tag.toLowerCase()));
@@ -190,6 +218,23 @@ export function TagInput(props: TagInputProps) {
 
   const remove = (index: number) => {
     onChange(value.filter((_, at) => at !== index));
+  };
+
+  // Moves a chip one place; the focus follows it to the same arrow (or the
+  // other one at an end, where this one turns off).
+  const move = (index: number, by: -1 | 1) => {
+    const target = index + by;
+    if (target < 0 || target >= value.length) return;
+    const next = [...value];
+    const [tag] = next.splice(index, 1);
+    next.splice(target, 0, tag);
+    onChange(next);
+    setAnnouncement(`«${tag}» тепер на місці ${target + 1} з ${next.length}`);
+    window.requestAnimationFrame(() => {
+      const chip = boxRef.current?.querySelector<HTMLElement>(`[data-chip-index="${target}"]`);
+      const same = chip?.querySelector<HTMLButtonElement>(`[data-move="${by < 0 ? "left" : "right"}"]:not(:disabled)`);
+      (same ?? chip?.querySelector<HTMLButtonElement>("button:not(:disabled)"))?.focus();
+    });
   };
 
   const openList = () => {
@@ -266,21 +311,60 @@ export function TagInput(props: TagInputProps) {
         }}
         className={cx(MULTI_FIELD, MULTI_BOX[size], "flex-wrap cursor-text", !hasField(props) && props.className)}
       >
-        {value.map((tag, index) => (
-          <Chip
-            // The index too: tags loaded from outside may repeat.
-            key={`${index}:${tag}`}
-            size={size}
-            disabled={disabled}
-            removeLabel={`Прибрати «${tag}»`}
-            onRemove={() => {
-              remove(index);
-              inputRef.current?.focus();
-            }}
-          >
-            {tag}
-          </Chip>
-        ))}
+        {value.map((tag, index) => {
+          const chip = (
+            <Chip
+              // The index too: tags loaded from outside may repeat.
+              key={`${index}:${tag}`}
+              size={size}
+              disabled={disabled}
+              invalid={invalidTag ? invalidTag(tag, index) : false}
+              removeLabel={`Прибрати «${tag}»`}
+              onRemove={() => {
+                remove(index);
+                inputRef.current?.focus();
+              }}
+              before={
+                reorderable && value.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      data-move="left"
+                      aria-label={`Перемістити «${tag}» лівіше`}
+                      title="Лівіше"
+                      disabled={index === 0}
+                      onClick={() => move(index, -1)}
+                      className={cx(CHIP_TOOL, CHIP_REMOVE[size])}
+                    >
+                      <ChevronLeftIcon aria-hidden strokeWidth={2} className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      data-move="right"
+                      aria-label={`Перемістити «${tag}» правіше`}
+                      title="Правіше"
+                      disabled={index === value.length - 1}
+                      onClick={() => move(index, 1)}
+                      className={cx(CHIP_TOOL, CHIP_REMOVE[size])}
+                    >
+                      <ChevronRightIcon aria-hidden strokeWidth={2} className="size-3.5" />
+                    </button>
+                  </>
+                ) : undefined
+              }
+            >
+              {tag}
+            </Chip>
+          );
+          // The wrapper carries the index the focus follows after a move.
+          return reorderable ? (
+            <span key={`${index}:${tag}`} data-chip-index={index} className="inline-flex min-w-0 max-w-full">
+              {chip}
+            </span>
+          ) : (
+            chip
+          );
+        })}
         <input
           ref={inputRef}
           id={ids.id}
@@ -314,6 +398,11 @@ export function TagInput(props: TagInputProps) {
         />
         {name && <input type="hidden" name={name} value={value.join(",")} />}
       </div>
+      {reorderable && (
+        <span className="sr-only" aria-live="polite">
+          {announcement}
+        </span>
+      )}
 
       {listShown &&
         host &&

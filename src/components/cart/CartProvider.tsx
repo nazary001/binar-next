@@ -28,7 +28,7 @@ import { getServerSnapshot, getSnapshot, subscribe, updateLines } from "./store"
 import { CartDrawer } from "./CartDrawer";
 import { StockModal } from "./StockModal";
 
-// The provider sits OUTSIDE AuthProvider (app/layout.tsx), so the
+// The provider sits OUTSIDE AuthProvider (components/SiteShell.tsx), so the
 // account type is read straight from the auth store: a signed-in B2B
 // partner is billed the partner price. Server snapshot = signed out.
 function accountTypeSnapshot(): "b2b" | "b2c" | null {

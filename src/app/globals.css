@@ -1689,8 +1689,9 @@ label {
    renders at zoom 1 with its own responsive layout. Its root element
    carries `data-admin` (src/app/admin/layout.tsx), which switches the
    desktop zoom off (specificity 0,1,1 beats the plain `html` rule above,
-   and no admin page renders `data-canvas="shop"`). PlatformChrome renders
-   no public header or footer there. Admin breakpoints are arbitrary
+   and no admin page renders `data-canvas="shop"`). The panel is a document
+   of its own (a separate root layout), so nothing of the public site is
+   rendered there. Admin breakpoints are arbitrary
    variants (`min-[1024px]:`) or the untouched `xl:` / `2xl:` - the
    `--breakpoint-*` overrides in @theme must not be extended. */
 html:has([data-admin]) {

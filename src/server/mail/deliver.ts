@@ -1,6 +1,8 @@
 import "server-only";
 import type { Filter } from "mongodb";
 import {
+  MAIL_AUTO_MAX_AGE_DAYS,
+  MAIL_AUTO_MIN_AGE_MS,
   MAIL_MAX_ATTEMPTS,
   UNRENDERABLE_KINDS,
   isRenderableKind,
@@ -20,7 +22,13 @@ import { renderTestMessage, tryRender, type MailSecret } from "./templates";
 //
 //   await deliverOutbox();                     // the 20 oldest messages that are due
 //   await deliverOutbox({ ids: [id] });        // just these (if due)
+//   await deliverOutbox(AUTOMATIC_RUN);        // the sweep and the cron route
 //   await sendNow("password-reset", to, { login, userId }, { resetToken });
+//
+// Who runs it: every writer, right after its response (queue.ts
+// deliverSoon through schedule.ts); the panel's polling at most every 5
+// minutes (schedule.ts sweepOutboxSoon); GET /api/cron/outbox for a
+// scheduler; staff on the mail page.
 //
 // A message is due when it is not sent, not expired, has fewer than
 // MAIL_MAX_ATTEMPTS failed attempts, is of a kind that can be rendered from
@@ -136,13 +144,42 @@ export type DeliverOptions = {
   ids?: readonly string[];
   // Who started the run (null = the automatic run).
   actor?: Actor | null;
+  // Only messages written within this window before the run: at least
+  // `minAgeMs` ago and at most `maxAgeMs` ago (see AUTOMATIC_RUN).
+  window?: { minAgeMs?: number; maxAgeMs?: number };
 };
+
+// The runs nobody asked for (the panel's polling, a scheduler calling
+// /api/cron/outbox). A message is first tried by its own writer right
+// after the response (queue.ts deliverSoon); these runs are the safety net
+// for what that missed and for the retries after a failure, so they leave
+// a message alone for its first two minutes (no race with the writer's
+// own attempt). Nor do they send what waited over a week: a notice about
+// a status change or a lead that old is better looked at by staff first
+// ("Надіслати всі, що очікують" on the mail page sends it, the window does
+// not apply to staff). The mail page says so next to the waiting messages
+// and marks the ones the window leaves out (OutboxRow.autoSend).
+export const AUTOMATIC_RUN: DeliverOptions = {
+  window: { minAgeMs: MAIL_AUTO_MIN_AGE_MS, maxAgeMs: MAIL_AUTO_MAX_AGE_DAYS * 24 * 60 * 60_000 },
+};
+
+function windowFilter(window: DeliverOptions["window"], now: Date): Filter<OutboxDoc> | null {
+  if (!window) return null;
+  const createdAt: { $lte?: Date; $gte?: Date } = {};
+  if (window.minAgeMs) createdAt.$lte = new Date(now.getTime() - window.minAgeMs);
+  if (window.maxAgeMs) createdAt.$gte = new Date(now.getTime() - window.maxAgeMs);
+  return Object.keys(createdAt).length > 0 ? { createdAt } : null;
+}
 
 export async function deliverOutbox(options: DeliverOptions = {}): Promise<DeliverResult> {
   const limit = Math.max(1, Math.min(options.limit ?? 20, 100));
   const ids = options.ids?.filter((id) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id));
   const now = new Date();
-  const scope: Filter<OutboxDoc> = ids ? { $and: [openFilter(now), { _id: { $in: ids } }] } : openFilter(now);
+  const parts: Filter<OutboxDoc>[] = [openFilter(now)];
+  if (ids) parts.push({ _id: { $in: ids } });
+  const window = windowFilter(options.window, now);
+  if (window) parts.push(window);
+  const scope: Filter<OutboxDoc> = parts.length === 1 ? parts[0] : { $and: parts };
 
   const outbox = await collection("outbox");
   const skipped = await outbox.countDocuments({ $and: [scope, { kind: { $in: [...UNRENDERABLE_KINDS] } }] });
@@ -278,9 +315,12 @@ export async function sendNow(
   }
   const finished = new Date();
   // Written after the attempt, so the stored copy is never seen half-sent
-  // by a run of the mailer.
+  // by a run of the mailer. A delivered mail that carried the password
+  // says so (never the password itself), so the panel shows that mail and
+  // not the variant without it (repo.ts previewOf).
   await outbox.insertOne({
     ...base,
+    ...(result.ok && secret?.password ? { payload: { ...payload, secretMailed: "password" } } : {}),
     sentAt: result.ok ? finished : null,
     attempts: result.ok ? 1 : withSecret || !result.retryable ? MAIL_MAX_ATTEMPTS : 1,
     lastError: result.ok ? null : result.error.slice(0, 300),

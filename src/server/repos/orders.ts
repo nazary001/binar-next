@@ -2,33 +2,43 @@ import "server-only";
 import type { Collection, Filter } from "mongodb";
 import { parseMediaRef } from "@/components/admin/media/types";
 import type { CartEntry, CartLine } from "@/components/cart/data";
-import { cartSubtotal, checkStock } from "@/components/cart/data";
+import { cartSubtotal, checkStock, hasPrice } from "@/components/cart/data";
 import type { Product } from "@/components/catalog/data";
 import { DELIVERY_OPTIONS, PICKUP_NOTICE, type CheckoutValues } from "@/components/checkout/data";
 import {
+  TTN_PROMISE,
   cancelAsksSolution,
   dayDate,
   orderAction,
   orderDocumentHref,
   returnableItems,
   type CancelRecord,
+  type DeliveryInfo,
   type Order,
   type OrderDocument,
   type OrderItem,
+  type OrderShipmentInfo,
+  type OrderWithShipment,
   type ReturnRequest,
 } from "@/components/platform/orders/data";
 import type { OrdersPayload } from "@/lib/session/types";
+import { getSettings } from "../admin/settings";
 import {
   collection,
+  type Actor,
   type B2bOrderDoc,
   type ClientDoc,
   type OrderDocumentDoc,
+  type OrderHistoryEntry,
+  type OrderShipment,
   type ProductDoc,
   type RetailOrderDoc,
   type RetailOrderItem,
   type ReturnDoc,
   type UserDoc,
 } from "../db/collections";
+import { enqueueErp } from "../integrations/bas/queue";
+import { queueMail } from "../mail/queue";
 import { lineSum, sum } from "../money";
 import { kyivToday } from "../time";
 import { saveCartLines } from "./carts";
@@ -92,10 +102,38 @@ function toDocumentDto(orderId: string, doc: OrderDocumentDoc): OrderDocument {
   };
 }
 
+const SHIPMENT_CARRIERS: ReadonlySet<OrderShipmentInfo["carrier"]> = new Set(["nova-poshta", "pickup", "other"]);
+// The parcel has not reached the customer's branch or door yet: only then
+// is the carrier's estimate worth showing.
+const ON_THE_WAY: ReadonlySet<OrderShipment["status"]> = new Set(["created", "in_transit", "unknown"]);
+
+// What the customer sees of the order's parcel: the waybill number, the
+// carrier, the carrier's own status wording and its estimate. Nothing
+// before a number exists (a draft, a pickup) or after staff cancelled the
+// waybill; the recipient, the references, the cost and the events stay on
+// the server.
+function toShipmentDto(shipment: OrderShipment | null | undefined): OrderShipmentInfo | null {
+  if (!shipment || shipment.status === "cancelled") return null;
+  const ttn = typeof shipment.ttn === "string" ? shipment.ttn.trim() : "";
+  if (!ttn) return null;
+  const statusText = typeof shipment.statusText === "string" ? shipment.statusText.trim().slice(0, 200) : "";
+  const estimated = shipment.estimatedDate;
+  return {
+    carrier: SHIPMENT_CARRIERS.has(shipment.carrier) ? shipment.carrier : "other",
+    ttn,
+    statusText: statusText || null,
+    estimatedDate:
+      typeof estimated === "string" && ISO_DAY.test(estimated) && ON_THE_WAY.has(shipment.status) ? estimated : null,
+  };
+}
+
 // Stored order -> the cabinet's Order (field order as the UI objects
 // always had it). The file locations, the cancel record, the checkout
-// values and the technical fields stay on the server.
-export function toOrderDto(doc: B2bOrderDoc): Order {
+// values and the technical fields stay on the server. `shipment` is added
+// only for an order with a live waybill, so every other order's DTO is
+// what it always was.
+export function toOrderDto(doc: B2bOrderDoc): OrderWithShipment {
+  const shipment = toShipmentDto(doc.shipment);
   return {
     id: doc._id,
     number: doc.number,
@@ -110,6 +148,7 @@ export function toOrderDto(doc: B2bOrderDoc): Order {
     delivery: doc.delivery,
     items: doc.items,
     documents: (doc.documents ?? []).map((d) => toDocumentDto(doc._id, d)),
+    ...(shipment ? { shipment } : {}),
   };
 }
 
@@ -138,7 +177,10 @@ export function toCancelDto(record: CancelRecord): CancelRecord {
 // requests (newest first: the latest request on top) of a company.
 const ORDER_SORT = { date: -1, _id: -1 } as const;
 const RETURN_SORT = { createdAt: -1, _id: -1 } as const;
-const ORDER_PROJECTION = { checkout: 0, returnLock: 0 } as const;
+// The staff side of an order (its history, notes and exchange link grow
+// with every change) is never part of the cabinet DTO, so it is not read
+// for it either.
+const ORDER_PROJECTION = { checkout: 0, returnLock: 0, history: 0, notes: 0, erp: 0 } as const;
 
 // The session answer carries the company's orders whole (items and
 // documents included) and the browser mirrors it in localStorage, so it is
@@ -306,10 +348,16 @@ export type Buyer =
 // period old) before it opens the stock flow or shows the new total.
 export type StockState = Pick<Product, "id" | "price" | "oldPrice" | "available" | "preorder">;
 
+export type PlacedOrder = { number: string; channel: "b2b" | "retail"; total: number };
+
 export type PlaceOutcome =
-  | { ok: true; number: string }
+  | ({ ok: true } & PlacedOrder)
   | { ok: false; error: "product"; ids: string[] }
   | { ok: false; error: "stock" | "price"; ids: string[]; products: StockState[] };
+
+// The rules of the shop a placement applies (the panel's settings group
+// "shop", read by the route): the payment term of a partner order.
+export type PlaceOptions = { paymentTermDays?: number };
 
 type ProductRow = Pick<
   ProductDoc,
@@ -329,10 +377,15 @@ const PRODUCT_PROJECTION = {
   "details.sku": 1,
 } as const;
 
-const usablePrice = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value) && value >= 0;
+// A price a line can be booked at: above zero. 0 is the price of a
+// product nobody has priced yet (made in the panel or sent by the
+// accounting system, waiting for a manager), never a free item.
+const sellingPrice = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
 
-// The fields the shared stock rule (cart/data.ts checkStock) reads.
+// The fields the shared stock rule (cart/data.ts checkStock) reads. An
+// unpriced product is unavailable, as the public catalog shows it
+// (repos/catalog.ts), so a refusal tells the browser the same.
 function stockProduct(row: ProductRow): Product {
   return {
     id: row._id,
@@ -343,7 +396,7 @@ function stockProduct(row: ProductRow): Product {
     subcategory: row.subcategory,
     price: row.price,
     ...(row.oldPrice !== undefined && row.oldPrice !== null ? { oldPrice: row.oldPrice } : {}),
-    available: row.available,
+    available: row.available === true && hasPrice(row),
     ...(row.preorder ? { preorder: true } : {}),
   };
 }
@@ -414,10 +467,13 @@ async function insertNumbered<T extends { _id: string }>(
   throw new Error(`no free number in sequence ${sequence}`);
 }
 
-// "Інформація про доставку" of a partner order placed at checkout.
-function deliveryOf(values: CheckoutValues): Order["delivery"] {
+// "Інформація про доставку" of a partner order placed at checkout (the
+// panel words a shop order's delivery block with it too). A branch or a
+// postomat note ends with TTN_PROMISE; the cabinet's details page shows the
+// waybill number in its place once the order has one.
+export function deliveryOf(values: CheckoutValues): DeliveryInfo {
   const method = DELIVERY_OPTIONS.find((o) => o.value === values.delivery)?.label ?? "";
-  const ttn = "Ми надішлемо номер ТТН, щойно передамо замовлення перевізнику.";
+  const ttn = TTN_PROMISE;
   let note = "";
   if (values.delivery === "pickup") note = PICKUP_NOTICE;
   else if (values.delivery === "np-branch") note = `${values.branch}. ${ttn}`;
@@ -447,29 +503,47 @@ async function counterpartyOf(clientId: string, client: ClientDoc | null, values
   return typeof client?.name === "string" ? client.name.trim() : "";
 }
 
-// Placeholder payment term of a new partner order until the contract
-// terms come from 1C: about two months, like the demo history.
+// Payment term of a new partner order when the shop settings name none
+// (shop.paymentTermDays, passed by the route): about two months, like the
+// demo history, until the contract terms come from the ERP.
 const PAYMENT_TERM_DAYS = 60;
+
+const usableDays = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 3650;
+
+// Who placed the order, as its history names them: the account (or
+// "guest") under the name typed at checkout.
+function customerActor(buyer: Buyer, values: CheckoutValues): Actor {
+  return { id: buyer.kind === "guest" ? "guest" : buyer.user._id, name: values.name, kind: "customer" };
+}
 
 // Places an order from the checkout form. `values` are pruned, trimmed and
 // validated by the route; `lines` are distinct product ids with
 // quantities. Prices and totals come from the database only: retail =
-// product.price, partner = the company's partner price. The stock rule is
-// the cart's (a partner never gets stock issues). `shownSubtotal` is the
-// sum the checkout showed (comparison only, never used for pricing): when
-// the cart's own sum (cartSubtotal, the formula the browser ran) of the
-// current prices differs, the order is refused as "price" and the browser
-// shows the new total first. On success a signed-in buyer's stored cart is
-// emptied.
+// product.price, partner = the company's partner price. A product staff
+// archived (archivedAt a date) is out of the shop and counts as unknown.
+// The stock rule is the cart's: an unpriced product is refused for every
+// buyer, an unavailable one for retail only (a partner orders on request).
+// A line whose price for this buyer is not above zero is never booked.
+// `shownSubtotal` is the sum the checkout showed (comparison only, never
+// used for pricing): when the cart's own sum (cartSubtotal, the formula the
+// browser ran) of the current prices differs, the order is refused as
+// "price" and the browser shows the new total first. The order is stored
+// with its first history entry ("created" by the customer). On success a
+// signed-in buyer's stored cart is emptied.
 export async function placeOrder(
   buyer: Buyer,
   values: CheckoutValues,
   lines: CartLine[],
   shownSubtotal?: number,
+  options: PlaceOptions = {},
 ): Promise<PlaceOutcome> {
   const products = await collection("products");
   const rows = (await products
-    .find({ _id: { $in: lines.map((l) => l.id) } }, { projection: PRODUCT_PROJECTION })
+    .find(
+      { _id: { $in: lines.map((l) => l.id) }, archivedAt: { $not: { $type: "date" } } },
+      { projection: PRODUCT_PROJECTION },
+    )
     .toArray()) as ProductRow[];
   const byId = new Map(rows.map((row) => [row._id, row]));
   const unknown = lines.filter((l) => !byId.has(l.id)).map((l) => l.id);
@@ -491,7 +565,7 @@ export async function placeOrder(
   const prices = partner ? ((await partnerPrices(buyer.clientId)) ?? {}) : null;
   const priceOf = (row: ProductRow): number | undefined => {
     const value = prices ? prices[row._id] : row.price;
-    return usablePrice(value) ? value : undefined;
+    return sellingPrice(value) ? value : undefined;
   };
   const unpriced = lines.filter((l) => priceOf(byId.get(l.id)!) === undefined).map((l) => l.id);
   if (unpriced.length) return { ok: false, error: "product", ids: unpriced };
@@ -504,7 +578,12 @@ export async function placeOrder(
   }
 
   const now = new Date();
+  const history: OrderHistoryEntry[] = [
+    { at: now, by: customerActor(buyer, values), type: "created", text: "Оформлено на сайті" },
+  ];
   let number: string;
+  let channel: PlacedOrder["channel"];
+  let total: number;
   if (buyer.kind === "partner") {
     const clients = await collection("clients");
     const client = await clients.findOne({ _id: buyer.clientId });
@@ -527,6 +606,8 @@ export async function placeOrder(
       };
     });
     const clientId = buyer.clientId;
+    const term = usableDays(options.paymentTermDays) ? options.paymentTermDays : PAYMENT_TERM_DAYS;
+    const orderTotal = sum(items.map((it) => lineSum(it.price, it.qty)));
     number = await insertNumbered(
       await b2bOrders(),
       "orders-b2b",
@@ -539,21 +620,24 @@ export async function placeOrder(
         userId: buyer.user._id,
         number: n,
         date: today,
-        total: sum(items.map((it) => lineSum(it.price, it.qty))),
+        total: orderTotal,
         counterparty,
         status: "new",
         payment: { kind: "awaiting" },
         createdBy: buyer.user.person.fullName.trim() || values.name,
         paymentType: values.payment,
-        paymentDue: addDays(today, PAYMENT_TERM_DAYS),
+        paymentDue: addDays(today, term),
         delivery: deliveryOf(values),
         items,
         documents: [],
         checkout: values,
+        history,
         createdAt: now,
         updatedAt: now,
       }),
     );
+    channel = "b2b";
+    total = orderTotal;
   } else {
     const items: RetailOrderItem[] = lines.map((line) => {
       const row = byId.get(line.id)!;
@@ -567,6 +651,7 @@ export async function placeOrder(
       };
     });
     const userId = buyer.kind === "customer" ? buyer.user._id : null;
+    const orderTotal = sum(items.map((it) => lineSum(it.price, it.qty)));
     number = await insertNumbered(
       await retailOrders(),
       "orders-retail",
@@ -581,12 +666,15 @@ export async function placeOrder(
         date: kyivToday(now),
         status: "new",
         items,
-        total: sum(items.map((it) => lineSum(it.price, it.qty))),
+        total: orderTotal,
         checkout: values,
+        history,
         createdAt: now,
         updatedAt: now,
       }),
     );
+    channel = "retail";
+    total = orderTotal;
   }
 
   if (buyer.kind !== "guest") {
@@ -599,5 +687,100 @@ export async function placeOrder(
       console.error("[orders] emptying the stored cart failed:", error);
     }
   }
-  return { ok: true, number };
+  return { ok: true, number, channel, total };
+}
+
+// --- announcements -----------------------------------------------------------
+//
+// What follows a stored order or return request. The routes run these in
+// after(), so the buyer's answer never waits for them. Every step stands
+// alone: one that fails is logged and the others still run, and nothing
+// here can take the order or the request back.
+
+// A loose e-mail shape: the inbox list is typed by staff, the checkout
+// address passed the form's own rule. The mailer refuses a bad one in the
+// outbox, where staff can see it.
+const MAIL_ADDRESS = /^[^\s@]+@[^\s@]+$/;
+
+// The addresses of general.ordersInbox, cleaned and without repeats.
+function inboxAddresses(list: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of list) {
+    const address = typeof raw === "string" ? raw.trim() : "";
+    if (!MAIL_ADDRESS.test(address) || seen.has(address.toLowerCase())) continue;
+    seen.add(address.toLowerCase());
+    out.push(address);
+  }
+  return out;
+}
+
+// A new order is announced (POST /api/orders):
+// 1. the queue of the accounting system gets it (enqueueErp decides by the
+//    bas settings whether anything is queued, and marks the order);
+// 2. the staff notice "order-placed" (audience "staff") goes to every
+//    address of general.ordersInbox, the confirmation (audience
+//    "customer") to the checkout e-mail, else the account's e-mail, and to
+//    nobody when there is none. queueMail applies the mail settings'
+//    switches; the mailer sends the rows on its own.
+// The payload is OrderPlacedPayload (components/admin/mail/types.ts);
+// the carrier references of the checkout never go into it.
+export async function announceOrder(placed: PlacedOrder, buyer: Buyer, values: CheckoutValues): Promise<void> {
+  try {
+    await enqueueErp("order", placed.number);
+  } catch (error) {
+    console.error(`[orders] queueing order ${placed.number} for BAS failed:`, error);
+  }
+
+  const customer = {
+    ...(values.name ? { name: values.name } : {}),
+    ...(values.invoice && values.company ? { company: values.company } : {}),
+    ...(values.phone ? { phone: values.phone } : {}),
+    ...(values.email ? { email: values.email } : {}),
+  };
+  const payload = (audience: "staff" | "customer") => ({
+    orderId: placed.number,
+    number: placed.number,
+    audience,
+    channel: placed.channel,
+    total: placed.total,
+    customer,
+  });
+
+  try {
+    const general = await getSettings("general");
+    for (const to of inboxAddresses(general.ordersInbox)) await queueMail("order-placed", to, payload("staff"));
+  } catch (error) {
+    console.error(`[orders] queueing the staff notice of order ${placed.number} failed:`, error);
+  }
+
+  try {
+    const to = values.email.trim() || (buyer.kind === "guest" ? "" : (buyer.user.person.email ?? "").trim());
+    if (to) await queueMail("order-placed", to, payload("customer"));
+  } catch (error) {
+    console.error(`[orders] queueing the confirmation of order ${placed.number} failed:`, error);
+  }
+}
+
+// A partner's return request is announced (POST /api/returns): its first
+// history entry ("created" by the customer, at the moment it was stored)
+// and the queue of the accounting system, in this order, so the history
+// reads created -> queued.
+export async function announceReturn(returnId: string, user: UserDoc, at: Date): Promise<void> {
+  try {
+    const entry: OrderHistoryEntry = {
+      at,
+      by: { id: user._id, name: user.person.fullName.trim() || user.login, kind: "customer" },
+      type: "created",
+      text: "Заявку надіслано з кабінету",
+    };
+    await (await collection("returns")).updateOne({ _id: returnId }, { $push: { history: entry } });
+  } catch (error) {
+    console.error(`[returns] writing the history of return ${returnId} failed:`, error);
+  }
+  try {
+    await enqueueErp("return", returnId);
+  } catch (error) {
+    console.error(`[returns] queueing return ${returnId} for BAS failed:`, error);
+  }
 }

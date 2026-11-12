@@ -5,7 +5,8 @@ import { leadDetailOf, leadEntity, leadWho, removeLeadNote } from "@/server/admi
 import { zId } from "@/server/validate";
 
 // DELETE /api/admin/leads/<id>/notes/<noteId> -> { ok: true, lead }
-// Only the author removes a note (403 "not-author" otherwise).
+// The author removes a note, and so does an owner (403 "not-author" for
+// anybody else).
 
 type Context = { params: Promise<{ id: string; noteId: string }> };
 
@@ -15,7 +16,7 @@ export const DELETE = adminHandler<Context>("leads.edit", async ({ request, cont
   const noteId = zId.safeParse(rawNoteId);
   if (!id.success || !noteId.success) notFound();
 
-  const result = await removeLeadNote(id.data, noteId.data, staff.staff._id);
+  const result = await removeLeadNote(id.data, noteId.data, staff);
   if (!result) notFound();
   if (result === "not-author") throw new HttpError(403, "not-author");
 

@@ -25,9 +25,12 @@ import {
   RESERVE_MINUTES,
   pruneDelivery,
   validate,
+  withoutRefs,
   type CheckoutErrors,
+  type CheckoutRefKey,
   type CheckoutValues,
 } from "./data";
+import { NpCityField, NpPlaceField } from "./NpFields";
 import { useCheckoutDraft } from "./useCheckoutDraft";
 
 // Phone-only strings (the desktop copy stays inline below).
@@ -66,6 +69,15 @@ const PAYMENT_CHOICES = PAYMENT_OPTIONS.map((p) => ({ value: p, label: p }));
 // Enter in a text field moves to the next field on phones (the desktop
 // keeps the implicit submit); the first invalid VISIBLE control is focused
 // and centred.
+//
+// `npSearch` (the shop's switch in the panel, off by default): «Місто»,
+// «Відділення» and «Поштомат» search Nova Poshta's real directory
+// (NpFields.tsx). Picking a row fills the text exactly as the customer
+// would have typed it and keeps the carrier's reference next to it
+// (cityRef / branchRef / lockerRef); editing the city empties the branch
+// and the postomat with their references; text typed without picking stays
+// valid (no reference). Off, the form is the fixed-list form it always was
+// and never holds a reference.
 
 // Text controls Enter walks through on phones.
 const NEXT_FIELDS =
@@ -91,18 +103,47 @@ function focusFirstError(form: HTMLFormElement, name: string) {
 export function CheckoutForm({
   subtotal,
   onSubmit,
+  npSearch = false,
 }: {
   subtotal: number;
   onSubmit: (values: CheckoutValues) => void;
+  npSearch?: boolean;
 }) {
   const draft = useCheckoutDraft();
   // The form mounts only after hydration (CheckoutClient), so the session
-  // draft can be read in the initial state.
-  const [values, setValues] = useState<CheckoutValues>(draft.load);
+  // draft can be read in the initial state. References of a draft kept
+  // while the search was on are dropped when it is off.
+  const [values, setValues] = useState<CheckoutValues>(() =>
+    npSearch ? draft.load() : withoutRefs(draft.load()),
+  );
   const [errors, setErrors] = useState<CheckoutErrors>({});
   const set = <K extends keyof CheckoutValues>(key: K, value: CheckoutValues[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
+  };
+  // Several fields at once (the carrier search): `drop` removes references
+  // that no longer describe the text.
+  const update = (change: Partial<CheckoutValues>, drop: CheckoutRefKey[] = []) => {
+    setValues((v) => {
+      const next = { ...v, ...change };
+      for (const key of drop) delete next[key];
+      return next;
+    });
+    const keys = Object.keys(change) as (keyof CheckoutValues)[];
+    if (keys.some((key) => errors[key])) {
+      setErrors((e) => {
+        const next = { ...e };
+        for (const key of keys) next[key] = undefined;
+        return next;
+      });
+    }
+  };
+  // A new city (typed or picked) empties the branch and the postomat.
+  const typeCity = (text: string) =>
+    update({ city: text, branch: "", locker: "" }, ["cityRef", "branchRef", "lockerRef"]);
+  const pickCity = (city: { key: string; value: string }) => {
+    if (city.key === values.cityRef && city.value === values.city) return;
+    update({ city: city.value, cityRef: city.key, branch: "", locker: "" }, ["branchRef", "lockerRef"]);
   };
 
   // Every change lands in the session draft (sessionStorage = an external
@@ -202,17 +243,27 @@ export function CheckoutForm({
             Інформація про доставку
           </h2>
           <div className="flex flex-col gap-6 max-lg:@container">
-            <AutocompleteField
-              label="Місто"
-              name="city"
-              autoComplete="address-level2"
-              enterKeyHint="next"
-              announceError={false}
-              options={CITIES}
-              value={values.city}
-              onChange={(v) => set("city", v)}
-              error={errors.city}
-            />
+            {npSearch ? (
+              <NpCityField
+                value={values.city}
+                cityRef={values.cityRef}
+                onType={typeCity}
+                onPick={pickCity}
+                error={errors.city}
+              />
+            ) : (
+              <AutocompleteField
+                label="Місто"
+                name="city"
+                autoComplete="address-level2"
+                enterKeyHint="next"
+                announceError={false}
+                options={CITIES}
+                value={values.city}
+                onChange={(v) => set("city", v)}
+                error={errors.city}
+              />
+            )}
             <div className="max-lg:hidden">
               <SelectField
                 label="Варіанти доставки"
@@ -240,28 +291,54 @@ export function CheckoutForm({
                 <span>{PICKUP_NOTICE}</span>
               </p>
             )}
-            {values.delivery === "np-branch" && (
-              <SelectField
-                label="Відділення"
-                name="branch"
-                announceError={false}
-                options={BRANCH_OPTIONS}
-                value={values.branch}
-                onChange={(v) => set("branch", v)}
-                error={errors.branch}
-              />
-            )}
-            {values.delivery === "np-locker" && (
-              <SelectField
-                label="Поштомат"
-                name="locker"
-                announceError={false}
-                options={LOCKER_OPTIONS}
-                value={values.locker}
-                onChange={(v) => set("locker", v)}
-                error={errors.locker}
-              />
-            )}
+            {values.delivery === "np-branch" &&
+              (npSearch ? (
+                <NpPlaceField
+                  kind="branch"
+                  label="Відділення"
+                  name="branch"
+                  value={values.branch}
+                  cityRef={values.cityRef}
+                  placeRef={values.branchRef}
+                  onType={(text) => update({ branch: text }, ["branchRef"])}
+                  onPick={(place) => update({ branch: place.value, branchRef: place.key })}
+                  error={errors.branch}
+                />
+              ) : (
+                <SelectField
+                  label="Відділення"
+                  name="branch"
+                  announceError={false}
+                  options={BRANCH_OPTIONS}
+                  value={values.branch}
+                  onChange={(v) => set("branch", v)}
+                  error={errors.branch}
+                />
+              ))}
+            {values.delivery === "np-locker" &&
+              (npSearch ? (
+                <NpPlaceField
+                  kind="postomat"
+                  label="Поштомат"
+                  name="locker"
+                  value={values.locker}
+                  cityRef={values.cityRef}
+                  placeRef={values.lockerRef}
+                  onType={(text) => update({ locker: text }, ["lockerRef"])}
+                  onPick={(place) => update({ locker: place.value, lockerRef: place.key })}
+                  error={errors.locker}
+                />
+              ) : (
+                <SelectField
+                  label="Поштомат"
+                  name="locker"
+                  announceError={false}
+                  options={LOCKER_OPTIONS}
+                  value={values.locker}
+                  onChange={(v) => set("locker", v)}
+                  error={errors.locker}
+                />
+              ))}
             {values.delivery === "np-address" && (
               <>
                 <AutocompleteField

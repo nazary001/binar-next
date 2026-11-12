@@ -312,6 +312,7 @@ const SPECS: Record<string, Spec> = {
       roleId: str,
       isActive: bool,
       mustChangePassword: bool,
+      passwordIssuedAt: date,
       createdAt: date,
       updatedAt: date,
     }),

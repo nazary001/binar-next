@@ -2,9 +2,10 @@
 
 import { CheckCircleIcon, ExclamationCircleIcon, InformationCircleIcon } from "@heroicons/react/20/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useEffect, useRef, useState, useSyncExternalStore, type FocusEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FocusEvent } from "react";
 import { errorMessage, type ApiFailure } from "../lib/api";
 import { cx } from "../lib/format";
+import { remeasureStickyBars, useStickyBarLift } from "./stickyBars";
 import { EASE_OUT, FOCUS_RING, LIFT_SHADOW, Z } from "./tokens";
 
 // Short messages about what just happened, from anywhere in the panel:
@@ -25,7 +26,9 @@ import { EASE_OUT, FOCUS_RING, LIFT_SHADOW, Z } from "./tokens";
 // toasts with an action after 7 s; durationMs: null keeps it until
 // closed); the countdown pauses while the pointer is over it or focus is
 // in it. Errors are announced at once (role="alert"), the rest politely
-// (role="status").
+// (role="status"). While a sticky bar (FormActions sticky, BulkBar) is on
+// screen under the stack, the stack is raised above it, so a toast never
+// covers "Зберегти зміни"; it settles back when the bar leaves.
 
 export type ToastTone = "success" | "error" | "info";
 
@@ -224,13 +227,28 @@ export function ToastHost() {
     () => toasts,
     () => EMPTY,
   );
+  // Raised above a sticky save bar or a selection bar while one is on
+  // screen under the stack (ui/stickyBars.ts), so its buttons stay usable.
+  const lift = useStickyBarLift(list.length > 0);
+  // A taller or shorter stack may now reach a bar, or no longer.
+  const watchSize = useCallback((node: HTMLDivElement | null) => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => remeasureStickyBars());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   if (list.length === 0) return null;
   return (
     <div
+      ref={watchSize}
       data-admin-toasts=""
+      data-print-hide=""
+      style={lift > 0 ? { translate: `0 -${lift}px` } : undefined}
       className={cx(
         "pointer-events-none fixed inset-x-0 bottom-0 flex flex-col px-4 pb-[max(16px,env(safe-area-inset-bottom))]",
         "min-[640px]:inset-x-auto min-[640px]:bottom-6 min-[640px]:right-6 min-[640px]:w-[380px] min-[640px]:px-0 min-[640px]:pb-0",
+        "transition-[translate] duration-200 motion-reduce:transition-none print:hidden",
+        EASE_OUT,
         Z.toast,
       )}
     >

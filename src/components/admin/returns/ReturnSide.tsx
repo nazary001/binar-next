@@ -10,9 +10,10 @@ import {
 import { ChevronRightIcon, LockClosedIcon, TrashIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { HistoryEntryDto } from "../orders/types";
+import type { HistoryEntryDto, StaffNoteDto } from "../orders/types";
 import { adminApi } from "../lib/api";
 import { countOf, cx, formatDate, formatDateTime, formatMoney, formatNumber } from "../lib/format";
+import { OWNER_ROLE_ID } from "../lib/permissions";
 import { invalidate } from "../lib/query";
 import { useStaff } from "../shell/StaffProvider";
 import { Button, IconButton } from "../ui/Button";
@@ -167,8 +168,12 @@ export function CompanyCard({ ret }: { ret: ReturnDetail }) {
 
 // --- internal notes -------------------------------------------------------------------------
 
+// A member of staff removes their own notes; an owner also removes a
+// colleague's (the API holds the same rule and answers 403 "not-author"
+// to anybody else).
 export function NotesCard({ ret, canEdit }: { ret: ReturnDetail; canEdit: boolean }) {
   const { me } = useStaff();
+  const isOwner = me.roleId === OWNER_ROLE_ID;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -190,16 +195,19 @@ export function NotesCard({ ret, canEdit }: { ret: ReturnDetail; canEdit: boolea
     toast.success("Нотатку додано");
   };
 
-  const remove = async (noteId: string) => {
+  const remove = async (note: StaffNoteDto) => {
+    const own = note.by.id === me.id;
     const yes = await confirmDialog({
-      title: "Видалити нотатку?",
-      text: "Колеги більше не побачать її в заявці.",
+      title: own ? "Видалити нотатку?" : "Видалити нотатку колеги?",
+      text: own
+        ? "Колеги більше не побачать її в заявці."
+        : `Автор нотатки: ${note.by.name || "співробітник"}. Колеги більше не побачать її в заявці; у журналі залишиться запис про видалення з іменем автора.`,
       confirmLabel: "Видалити",
       tone: "danger",
     });
     if (!yes) return;
-    setRemoving(noteId);
-    const result = await adminApi(`${returnKey(ret.id)}/notes/${encodeURIComponent(noteId)}`, { method: "DELETE" });
+    setRemoving(note.id);
+    const result = await adminApi(`${returnKey(ret.id)}/notes/${encodeURIComponent(note.id)}`, { method: "DELETE" });
     setRemoving(null);
     invalidate(returnKey(ret.id));
     if (!result.ok) {
@@ -230,14 +238,14 @@ export function NotesCard({ ret, canEdit }: { ret: ReturnDetail; canEdit: boolea
                 </p>
                 <p className={cx(TEXT.body, "mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]")}>{note.text}</p>
               </div>
-              {canEdit && note.by.id === me.id && (
+              {canEdit && (note.by.id === me.id || isOwner) && (
                 <IconButton
                   size="sm"
                   variant="danger"
                   icon={TrashIcon}
                   label="Видалити нотатку"
                   loading={removing === note.id}
-                  onClick={() => void remove(note.id)}
+                  onClick={() => void remove(note)}
                   className="-mr-1 -mt-1"
                 />
               )}
@@ -331,8 +339,10 @@ function itemOf(entry: HistoryEntryDto, index: number): TimelineItem {
 
 export function HistoryCard({ ret }: { ret: ReturnDetail }) {
   const [all, setAll] = useState(false);
-  // The cabinet keeps no history of its own: the request's arrival is
-  // added from its timestamp, so the story always starts somewhere.
+  // The request's arrival is always the card's own first event, built from
+  // the request itself (who, how many lines, the sum). Requests made before
+  // the site wrote a "created" history entry have none; newer ones do, and
+  // that stored entry is left out here so the arrival is not listed twice.
   const created: TimelineItem = {
     id: "created",
     at: ret.createdAt,
@@ -342,7 +352,7 @@ export function HistoryCard({ ret }: { ret: ReturnDetail }) {
     tone: "blue",
     icon: <ClipboardDocumentListIcon />,
   };
-  const entries = [...ret.history.map(itemOf), created];
+  const entries = [...ret.history.filter((entry) => entry.type !== "created").map(itemOf), created];
   const shown = all ? entries : entries.slice(0, SHOWN);
   return (
     <Card title="Історія" subtitle={`${countOf(entries.length, ["подія", "події", "подій"])}, нові вгорі`}>

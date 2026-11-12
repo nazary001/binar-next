@@ -8,7 +8,6 @@ import { cx, formatBytes, formatNumber } from "../lib/format";
 import type { Permission } from "../lib/permissions";
 import { useAdminQuery } from "../lib/query";
 import { useStaff } from "../shell/StaffProvider";
-import type { SystemInfoResponse } from "../system/types";
 import { Button } from "../ui/Button";
 import { FilterBar, type FilterChipItem } from "../ui/FilterBar";
 import { SearchInput } from "../ui/Input";
@@ -23,7 +22,7 @@ import { COLOR_TRANSITION, FOCUS_RING, SURFACE, TEXT, TONES } from "../ui/tokens
 import { useListParams } from "../ui/useListParams";
 import { MediaDrawer, folderLabel } from "./MediaDrawer";
 import { ACCEPT_MEDIA, UploadModal } from "./UploadModal";
-import { MEDIA_FOLDERS, type MediaDto, type MediaFolder, type MediaListAnswer } from "./types";
+import { MEDIA_FOLDERS, MEDIA_ORDER_FOLDER, type MediaDto, type MediaFolder, type MediaListAnswer } from "./types";
 
 // /admin/media: every picture and document uploaded through the panel, as
 // a grid of tiles. The address bar holds the list's state in the API's own
@@ -113,7 +112,9 @@ function Tile({ media, active, onOpen }: { media: MediaDto; active: boolean; onO
 export function MediaScreen() {
   const { can } = useStaff();
   const canUpload = can(MEDIA_UPLOAD);
-  const canSeeSystem = can("settings.view");
+  // The papers of orders: only these roles see them, or file into their folder.
+  const seesOrderFolder = can("orders.view");
+  const filesOrderFolder = can("orders.edit");
   const list = useListParams({ defaults: DEFAULTS });
 
   // The open file is not a parameter of the list API.
@@ -121,7 +122,6 @@ export function MediaScreen() {
   query.delete("id");
   const media = useAdminQuery<MediaListAnswer>(`/media?${query.toString()}`);
   const overall = useAdminQuery<MediaListAnswer>("/media?limit=1");
-  const system = useAdminQuery<SystemInfoResponse>(canSeeSystem ? "/system" : null);
 
   const [upload, setUpload] = useState<{ open: boolean; files: File[] }>({ open: false, files: [] });
 
@@ -134,7 +134,11 @@ export function MediaScreen() {
   const items = media.data?.items;
   const total = media.data?.total ?? 0;
   const libraryTotal = overall.data?.total;
-  const bytes = system.data?.system.media.bytes;
+  // Both sizes come with every list answer, within what this role may see.
+  const totalBytes = media.data?.totalBytes ?? overall.data?.totalBytes;
+  const filteredBytes = filtered ? media.data?.filteredBytes : undefined;
+  const folderOptions = seesOrderFolder ? FOLDER_OPTIONS : FOLDER_OPTIONS.filter((option) => option.value !== MEDIA_ORDER_FOLDER);
+  const uploadFolder: MediaFolder = isFolder(folder) && (folder !== MEDIA_ORDER_FOLDER || filesOrderFolder) ? folder : "misc";
 
   const chips: FilterChipItem[] = [];
   if (list.q) chips.push({ key: "q", label: `Пошук: ${list.q}`, onRemove: () => list.set({ q: null }) });
@@ -202,11 +206,11 @@ export function MediaScreen() {
         light={libraryTotal !== undefined ? formatNumber(libraryTotal) : undefined}
         subtitle="Зображення та документи, які використовують статті, товари, матеріали й замовлення."
         meta={
-          // The total is read from the system figures, which only roles that
-          // see the settings may load; the others see the count alone.
-          bytes !== undefined && bytes > 0 ? (
+          totalBytes !== undefined && totalBytes > 0 ? (
             <span className={cx(TEXT.caption, "inline-flex h-7 items-center rounded-full bg-white px-3 text-[13px] text-neutral-700 tabular-nums")}>
-              Обсяг файлів: {formatBytes(bytes)}
+              {filteredBytes !== undefined
+                ? `Обсяг знайдених: ${formatBytes(filteredBytes)} з ${formatBytes(totalBytes)}`
+                : `Обсяг файлів: ${formatBytes(totalBytes)}`}
             </span>
           ) : undefined
         }
@@ -230,7 +234,7 @@ export function MediaScreen() {
                 clearable
                 value={isFolder(folder) ? folder : null}
                 onChange={(value) => list.set({ folder: value })}
-                options={FOLDER_OPTIONS}
+                options={folderOptions}
                 className="w-full"
               />
             </div>
@@ -313,7 +317,8 @@ export function MediaScreen() {
       <UploadModal
         open={upload.open}
         files={upload.files}
-        folder={isFolder(folder) ? folder : "misc"}
+        folder={uploadFolder}
+        orderFolder={filesOrderFolder}
         onClose={() => setUpload({ open: false, files: [] })}
       />
     </Page>

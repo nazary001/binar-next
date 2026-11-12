@@ -96,10 +96,13 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // lines still free to return, at most the quantity left. The order is held
 // while the remainder is computed and the request written, so two
 // requests can never return the same goods twice.
+// `windowDays` = the shop's return window (settings shop.returnWindowDays,
+// passed by the route); without it the rule's own default applies.
 export async function createReturn(
   clientId: string,
   userId: string,
   input: CreateReturnInput,
+  windowDays?: number,
 ): Promise<CreateReturnOutcome> {
   const orders = await b2bOrders();
   const started = Date.now();
@@ -128,7 +131,7 @@ export async function createReturn(
     const [today, returnDocs] = await Promise.all([todayOf(clientId), companyReturnDocs(clientId, input.orderId)]);
     const order = toOrderDto(locked);
     const returnable = returnableItems(order, returnDocs.map(toReturnDto));
-    if (orderAction(order, returnable, dayDate(today)).kind !== "return") return { ok: false, error: "state" };
+    if (orderAction(order, returnable, dayDate(today), windowDays).kind !== "return") return { ok: false, error: "state" };
 
     const seen = new Set<string>();
     for (const line of input.lines) {

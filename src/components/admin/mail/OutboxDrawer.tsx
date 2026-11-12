@@ -20,6 +20,8 @@ import { Notice } from "../integrations/shared";
 import {
   MAIL_ERROR_LABELS,
   MAIL_MAX_ATTEMPTS,
+  MAIL_PREVIEW_ERROR_LABELS,
+  OUTBOX_AUTO_SEND_LABELS,
   OUTBOX_STATE_LABELS,
   type DeliverAnswer,
   type OutboxDetailAnswer,
@@ -47,6 +49,12 @@ export function mailErrorText(error: string | null): string | null {
   return MAIL_ERROR_LABELS[error] ?? error.replace(/^http-(\d{3}):\s*/, "Сервіс відповів $1: ");
 }
 
+// Why the message cannot be shown, in words (never a bare code).
+function previewErrorText(error: string | null, fallback: string): string {
+  if (!error) return fallback;
+  return MAIL_PREVIEW_ERROR_LABELS[error] ?? mailErrorText(error) ?? fallback;
+}
+
 const ACTION_ERRORS: Record<string, string> = {
   state: "Цей лист уже надіслано або його не можна надіслати з черги.",
   busy: "Лист саме зараз надсилається. Оновіть сторінку за хвилину.",
@@ -55,6 +63,16 @@ const ACTION_ERRORS: Record<string, string> = {
 };
 
 type View = "html" | "text" | "attempts";
+
+// The delivered access mail carried the temporary password; the panel
+// shows the same mail with the password masked.
+function MaskedNote() {
+  return (
+    <Notice tone="neutral" title="Лист містив тимчасовий пароль">
+      Одержувач отримав саме такий лист, але пароль ніде не зберігається, тому тут замість нього зірочки.
+    </Notice>
+  );
+}
 
 export function OutboxDrawer({ id, configured, onClose }: { id: string | null; configured: boolean; onClose: () => void }) {
   const { can } = useStaff();
@@ -154,6 +172,14 @@ export function OutboxDrawer({ id, configured, onClose }: { id: string | null; c
         { label: "Спроб", value: `${formatNumber(message.attempts)} із ${formatNumber(MAIL_MAX_ATTEMPTS)}` },
         { label: "Остання спроба", value: message.lastAttemptAt ? formatDateTime(message.lastAttemptAt) : "Ще не було" },
         ...(message.expiresAt ? [{ label: "Актуальний до", value: formatDateTime(message.expiresAt) }] : []),
+        ...(message.autoSend
+          ? [
+              {
+                label: "Автоматично",
+                value: message.autoSend === "yes" ? "Сайт надішле сам" : OUTBOX_AUTO_SEND_LABELS[message.autoSend],
+              },
+            ]
+          : []),
       ]
     : [];
 
@@ -196,7 +222,7 @@ export function OutboxDrawer({ id, configured, onClose }: { id: string | null; c
       busy={busy !== null}
       width={720}
       title={message ? message.kindLabel : notFound ? "Лист не знайдено" : "Лист"}
-      description={message ? message.summary || `Кому: ${message.to}` : undefined}
+      description={message ? (!message.restricted && message.summary) || `Кому: ${message.to}` : undefined}
       footer={footer}
     >
       {notFound ? (
@@ -243,6 +269,7 @@ export function OutboxDrawer({ id, configured, onClose }: { id: string | null; c
             <TabPanel idBase="outbox-view" value="html" hidden={view !== "html"}>
               {data.preview ? (
                 <div className="flex flex-col gap-3">
+                  {data.previewMasked && <MaskedNote />}
                   <p className={TEXT.body}>
                     <span className="text-neutral-500">Тема: </span>
                     <span className="font-semibold">{data.preview.subject}</span>
@@ -256,18 +283,21 @@ export function OutboxDrawer({ id, configured, onClose }: { id: string | null; c
                 </div>
               ) : (
                 <Notice tone="neutral" title="Лист не можна показати">
-                  {data.previewError ?? "Для цього виду листа немає вигляду."}
+                  {previewErrorText(data.previewError, "Для цього виду листа немає вигляду.")}
                 </Notice>
               )}
             </TabPanel>
             <TabPanel idBase="outbox-view" value="text" hidden={view !== "text"}>
               {data.preview ? (
-                <pre className={cx(TEXT.body, "whitespace-pre-wrap rounded-2xl bg-bg-subtle p-4 font-[inherit] [overflow-wrap:anywhere]")}>
-                  {data.preview.text}
-                </pre>
+                <div className="flex flex-col gap-3">
+                  {data.previewMasked && <MaskedNote />}
+                  <pre className={cx(TEXT.body, "whitespace-pre-wrap rounded-2xl bg-bg-subtle p-4 font-[inherit] [overflow-wrap:anywhere]")}>
+                    {data.preview.text}
+                  </pre>
+                </div>
               ) : (
                 <Notice tone="neutral" title="Текстової версії немає">
-                  {data.previewError ?? "Для цього виду листа немає тексту."}
+                  {previewErrorText(data.previewError, "Для цього виду листа немає тексту.")}
                 </Notice>
               )}
             </TabPanel>

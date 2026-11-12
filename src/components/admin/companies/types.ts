@@ -71,6 +71,7 @@ export const COMPANY_ERRORS: Record<string, string> = {
   "in-use": "Запис використовується (акаунти, замовлення або взаєморозрахунки), тому його не можна видалити.",
   limit: "Досягнуто ліміту записів для цієї компанії.",
   "not-invited": "Запрошення вже прийняте: повторно надіслати не можна.",
+  "not-author": "Видалити нотатку може лише той, хто її написав, або власник.",
   seed: "Це демонстраційна компанія сайту: її не можна видалити.",
 };
 
@@ -280,7 +281,9 @@ export type PatchCompanyBody = {
 export type DeleteCompanyAnswer = { id: string };
 
 // POST /api/admin/companies/<id>/notes { text } -> 201 { ok: true, note }
-// DELETE /api/admin/companies/<id>/notes/<noteId> -> { ok: true, id }
+// DELETE /api/admin/companies/<id>/notes/<noteId> -> { ok: true, id }: the
+// author removes a note, and so does an owner (403 "not-author" for anybody
+// else, the rule of the orders, the returns and the leads).
 export type AddNoteBody = { text: string };
 export type NoteAnswer = { note: StaffNoteDto };
 

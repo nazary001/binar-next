@@ -45,6 +45,7 @@ import {
   type EmployeeDoc,
   type StaffNote,
 } from "@/server/db/collections";
+import { endUserSessions } from "@/server/auth/session";
 import { HttpError } from "@/server/http";
 import { newId } from "@/server/ids";
 import { createClient, newInviteToken } from "@/server/repos/clients";
@@ -56,6 +57,7 @@ import { zId, zIsoDate, zRequiredText, zText } from "@/server/validate";
 import type { StaffContext } from "../auth";
 import { contains, paginate, UK_COLLATION, type ListQuery, type Page } from "../list";
 import { assertFields, customerRows, iso, ORDER_REF_PROJECTION, text, toOrderRef, type FieldErrors } from "./customers";
+import { isOwnerActor } from "./roles";
 
 // Partner companies (`clients`) and what hangs off them: the buyers
 // (users.clientId), the counterparties with their embedded contracts and
@@ -495,7 +497,18 @@ export async function updateCompany(id: string, patch: PatchCompanyBody): Promis
     throw error;
   }
   if (!after) throw new HttpError(404, "not-found");
+  // Switching the cabinet off ends every session of the company's people at
+  // once (the storefront's getSession and sign-in refuse them from now on;
+  // this removes the sessions themselves).
+  if (set.isActive === false) await endCompanySessions(id);
   return { before, after, changed };
+}
+
+async function endCompanySessions(clientId: string): Promise<void> {
+  const users = await (await collection("users"))
+    .find({ clientId }, { projection: { _id: 1 } })
+    .toArray();
+  for (const user of users) await endUserSessions(user._id);
 }
 
 // Only a company nothing refers to: no accounts, no orders or returns, no
@@ -561,10 +574,18 @@ export async function addCompanyNote(id: string, staff: StaffContext, body: stri
   return { client, note };
 }
 
-export async function removeCompanyNote(id: string, noteId: string): Promise<{ client: ClientDoc; note: StaffNote }> {
+// The author removes a note, and so does an owner: anybody else gets 403
+// "not-author", so nobody takes back what a colleague recorded (the rule
+// of the notes of the orders, the returns and the leads).
+export async function removeCompanyNote(
+  staff: StaffContext,
+  id: string,
+  noteId: string,
+): Promise<{ client: ClientDoc; note: StaffNote }> {
   const client = await requireCompany(id);
   const note = (Array.isArray(client.notes) ? client.notes : []).find((item) => item?.id === noteId);
   if (!note) throw new HttpError(404, "not-found");
+  if (note.by?.id !== staff.staff._id && !isOwnerActor(staff)) throw new HttpError(403, "not-author");
   const result = await (await collection("clients")).updateOne(
     { _id: id, "notes.id": noteId },
     { $pull: { notes: { id: noteId } }, $set: { updatedAt: new Date() }, $unset: { seed: "" } },

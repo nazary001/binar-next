@@ -10,6 +10,7 @@ import {
   type BlogBodyDto,
   type BlogEffectiveStatus,
   type BlogFieldReason,
+  type BlogOldAddress,
   type BlogOptions,
   type BlogPostDetail,
   type BlogPostRow,
@@ -361,6 +362,11 @@ function iso(value: Date | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : null;
 }
 
+// The old addresses a post keeps (never its current one).
+function oldSlugsOf(doc: Pick<BlogPostDoc, "_id" | "previousSlugs">): string[] {
+  return [...new Set(doc.previousSlugs ?? [])].filter((slug) => typeof slug === "string" && slug !== "" && slug !== doc._id);
+}
+
 function toRow(doc: BlogPostDoc, now: Date): BlogPostRow {
   return {
     id: doc._id,
@@ -397,6 +403,7 @@ export async function toBlogPostDetail(doc: BlogPostDoc): Promise<BlogPostDetail
     body: copyBody(doc.body),
     storedStatus: doc.status ?? null,
     isPublic: isPublicPost(doc, now),
+    previousSlugs: oldSlugsOf(doc),
     createdAt: iso(doc.createdAt),
     updatedBy: doc.updatedBy ? { id: doc.updatedBy, name: editor?.name ?? "" } : null,
   };
@@ -404,9 +411,23 @@ export async function toBlogPostDetail(doc: BlogPostDoc): Promise<BlogPostDetail
 
 // --- reads --------------------------------------------------------------------
 
+// The settings the editor offers, plus every old address a post keeps (a
+// handful: one per rename of a public post), so the address dialog can say
+// before the save that an address it is given redirects to another post.
 export async function blogOptions(): Promise<BlogOptions> {
-  const settings = await getSettings("blog");
-  return { categories: [...settings.categories], defaultAuthor: settings.defaultAuthor };
+  const [settings, renamed] = await Promise.all([
+    getSettings("blog"),
+    (await collection("blogPosts"))
+      .find({ previousSlugs: { $exists: true } }, { projection: { _id: 1, title: 1, previousSlugs: 1, status: 1, publishedAt: 1 } })
+      .toArray(),
+  ]);
+  const now = new Date();
+  const oldAddresses: BlogOldAddress[] = renamed
+    .flatMap((doc) =>
+      oldSlugsOf(doc).map((slug) => ({ slug, postId: doc._id, title: doc.title ?? "", isPublic: isPublicPost(doc, now) })),
+    )
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+  return { categories: [...settings.categories], defaultAuthor: settings.defaultAuthor, oldAddresses };
 }
 
 const STATUSES: readonly BlogEffectiveStatus[] = ["draft", "scheduled", "published"];
@@ -619,17 +640,68 @@ export async function unpublishBlogPost(id: string, staff: StaffContext): Promis
   return { before, after };
 }
 
+// --- old addresses ------------------------------------------------------------
+
+// An address belongs to one post at a time: the post that now uses a slug
+// (or now remembers `claimed` old addresses) takes them away from every
+// other post's previousSlugs, so /blog/<old> can only ever redirect to one
+// post. Bookkeeping only: no stamp, the other posts' content did not
+// change. True when another post lost an address: the caller then
+// refreshes the public blog (the cached read carries the old addresses),
+// also after creating or copying a draft. The create and duplicate routes
+// call it right after the insert; renameBlogPost calls it itself.
+export async function releaseSlugs(ownerId: string, claimed: readonly string[]): Promise<boolean> {
+  if (claimed.length === 0) return false;
+  const posts = await collection("blogPosts");
+  const pulled = await posts.updateMany(
+    { _id: { $ne: ownerId }, previousSlugs: { $in: [...claimed] } },
+    { $pull: { previousSlugs: { $in: [...claimed] } } },
+  );
+  if (pulled.modifiedCount === 0) return false;
+  await posts.updateMany({ previousSlugs: { $size: 0 } }, { $unset: { previousSlugs: "" } });
+  return true;
+}
+
+// The addresses a post keeps after moving from `from` to `to`: what it had,
+// plus `from` when the post is public (an address visitors may have
+// saved), never `to` itself (a rename back drops it) and never one that
+// another post uses as its current address.
+async function previousSlugsAfterRename(before: BlogPostDoc, from: string, to: string): Promise<string[]> {
+  const candidates = [...new Set(before.previousSlugs ?? [])].filter((value) => value !== to && value !== from);
+  const used =
+    candidates.length > 0
+      ? await (await collection("blogPosts")).find({ _id: { $in: candidates } }, { projection: { _id: 1 } }).toArray()
+      : [];
+  const taken = new Set(used.map((doc) => doc._id));
+  const kept = candidates.filter((value) => !taken.has(value));
+  return isPublicPost(before) ? [...kept, from] : kept;
+}
+
 // The slug is the id: the post is copied under the new id and the old one
 // removed. Changing the address of a public post needs content.publish.
-export async function renameBlogPost(id: string, slug: string, staff: StaffContext): Promise<BlogWrite> {
+// The old address of a public post is remembered (previousSlugs), so the
+// article page answers it with a permanent redirect to the new one.
+export async function renameBlogPost(
+  id: string,
+  slug: string,
+  staff: StaffContext,
+): Promise<BlogWrite & { released: boolean }> {
   const before = await requirePost(id);
   if (isPublicPost(before)) assertCan(staff, "content.publish");
-  if (slug === id) return { before, after: before };
+  if (slug === id) return { before, after: before, released: false };
   assertFreeSlug(slug);
   const posts = await collection("blogPosts");
-  const { seed: _seed, ...rest } = before;
+  const { seed: _seed, previousSlugs: _previous, ...rest } = before;
   void _seed;
-  const after: BlogPostDoc = { ...rest, _id: slug, updatedAt: new Date(), updatedBy: staff.staff._id };
+  void _previous;
+  const previousSlugs = await previousSlugsAfterRename(before, id, slug);
+  const after: BlogPostDoc = {
+    ...rest,
+    _id: slug,
+    ...(previousSlugs.length > 0 ? { previousSlugs } : {}),
+    updatedAt: new Date(),
+    updatedBy: staff.staff._id,
+  };
   try {
     await posts.insertOne(after);
   } catch (error) {
@@ -637,7 +709,8 @@ export async function renameBlogPost(id: string, slug: string, staff: StaffConte
     throw error;
   }
   await posts.deleteOne({ _id: id });
-  return { before, after };
+  const released = await releaseSlugs(slug, [slug, ...previousSlugs]);
+  return { before, after, released };
 }
 
 const COPY_SUFFIX = "-copy";
@@ -656,8 +729,10 @@ export async function duplicateBlogPost(id: string, staff: StaffContext): Promis
   const slug = candidates.find((candidate) => !taken.has(candidate));
   if (!slug) throw new HttpError(409, "exists", { field: "slug" });
 
-  const { seed: _seed, ...rest } = source;
+  // The copy is a new article: the old addresses stay with the original.
+  const { seed: _seed, previousSlugs: _previous, ...rest } = source;
   void _seed;
+  void _previous;
   const now = new Date();
   const copy: BlogPostDoc = {
     ...rest,

@@ -13,6 +13,7 @@ import { Skeleton, SkeletonText } from "../ui/Skeleton";
 import { ErrorState } from "../ui/States";
 import { toast, toastError } from "../ui/Toast";
 import { SURFACE } from "../ui/tokens";
+import { categoriesSharingCode, sharedCodeText } from "./codes";
 import { DirectionCard, type MetaPatch } from "./DirectionCard";
 import { OrphansCard } from "./OrphansCard";
 import { ReferenceLists, type ListKey } from "./ReferenceLists";
@@ -65,21 +66,12 @@ function fieldErrors(failure: ApiFailure): Record<string, string> {
 }
 
 // Two categories with one group code would send BAS products of that
-// group to whichever comes first: refused here, with both named.
+// group to whichever comes first: refused here before sending, with both
+// named (the route refuses the same with the same words, codes.ts).
 function duplicateCodes(draft: Draft, labels: Map<string, string>): Record<string, string> {
-  const byCode = new Map<string, string[]>();
-  for (const [key, meta] of Object.entries(draft.categories)) {
-    const code = meta.externalId?.trim();
-    if (!code) continue;
-    byCode.set(code.toLowerCase(), [...(byCode.get(code.toLowerCase()) ?? []), key]);
-  }
   const errors: Record<string, string> = {};
-  for (const keys of byCode.values()) {
-    if (keys.length < 2) continue;
-    for (const key of keys) {
-      const others = keys.filter((other) => other !== key).map((other) => `«${labels.get(other) ?? other}»`);
-      errors[`${key}.externalId`] = `Цей код уже має ${others.length > 1 ? "категорії" : "категорія"} ${others.join(", ")}`;
-    }
+  for (const [key, others] of Object.entries(categoriesSharingCode(draft.categories))) {
+    errors[`${key}.externalId`] = sharedCodeText(others, (other) => labels.get(other) ?? other);
   }
   return errors;
 }

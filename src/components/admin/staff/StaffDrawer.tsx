@@ -22,17 +22,21 @@ import { ErrorState, NotFoundState } from "../ui/States";
 import { Timeline, type TimelineItem } from "../ui/Timeline";
 import { COLOR_TRANSITION, FOCUS_RING, TEXT, type Tone } from "../ui/tokens";
 import { toast } from "../ui/Toast";
+import { AccessMailNote, ResetPasswordModal, useMailReady } from "./accessMail";
 import { fieldCodes, toastStaffError } from "./messages";
 import { withinActor } from "./rules";
-import { Note, OneTimePassword, RoleBadge, SessionList, StaffStateBadge, signInAddress } from "./shared";
+import { HOUR_FORMS, Note, OneTimePassword, RoleBadge, SessionList, StaffStateBadge, signInAddress } from "./shared";
 import {
+  GENERATED_PASSWORD_TTL_HOURS,
   STAFF_NAME_MAX,
   type RoleRow,
   type SignOutAnswer,
+  type StaffAccessMailAnswer,
   type StaffDetailAnswer,
   type StaffJournalLine,
   type StaffListAnswer,
   type StaffPasswordAnswer,
+  type StaffPasswordBody,
   type StaffPatchAnswer,
   type StaffPatchBody,
   type StaffSessionDto,
@@ -51,7 +55,7 @@ const SESSION_FORMS = ["сеанс", "сеанси", "сеансів"] as const;
 const JOURNAL_COLLAPSED = 6;
 
 type Busy = null | "save" | "password" | "block" | "sign-out" | "delete" | `session:${string}`;
-type Secret = { email: string; password: string; signInUrl: string };
+type Secret = { email: string; password: string; signInUrl: string; mail: StaffAccessMailAnswer };
 
 function journalTone(line: StaffJournalLine): Tone {
   if (line.action === "staff.sign-in") return "green";
@@ -145,6 +149,10 @@ export function StaffDrawer({
   const [expanded, setExpanded] = useState(false);
   const [secret, setSecret] = useState<Secret | null>(null);
   const [secretOpen, setSecretOpen] = useState(false);
+  // "Скинути пароль?" with the e-mail switch, while the site sends mail
+  // (a new key per opening, so the switch starts off).
+  const mailReady = useMailReady();
+  const [resetAsk, setResetAsk] = useState({ key: 0, open: false });
 
   const meOwner = me.roleId === OWNER_ROLE_ID;
   const self = row !== null && row.id === me.id;
@@ -229,6 +237,10 @@ export function StaffDrawer({
 
   const resetPassword = async () => {
     if (!row || busy) return;
+    if (mailReady) {
+      setResetAsk((state) => ({ key: state.key + 1, open: true }));
+      return;
+    }
     const ok = await confirmDialog({
       title: "Скинути пароль?",
       text: `${row.name} вийде з усіх пристроїв, а поточний пароль перестане діяти. Ми згенеруємо тимчасовий пароль і покажемо його один раз.`,
@@ -236,11 +248,23 @@ export function StaffDrawer({
       tone: "danger",
     });
     if (!ok) return;
+    await generatePassword(false);
+  };
+
+  const generatePassword = async (notify: boolean) => {
+    if (!row || busy) return;
     setBusy("password");
-    const result = await adminApi<StaffPasswordAnswer>(`${path}/password`, { method: "POST", body: {} });
+    const body: StaffPasswordBody = notify ? { notify: true } : {};
+    const result = await adminApi<StaffPasswordAnswer>(`${path}/password`, { method: "POST", body });
     setBusy(null);
+    setResetAsk((state) => ({ ...state, open: false }));
     if (!result.ok) return toastStaffError(result);
-    setSecret({ email: row.email, password: result.data.password, signInUrl: signInAddress() });
+    setSecret({
+      email: row.email,
+      password: result.data.password,
+      signInUrl: signInAddress(),
+      mail: { mailed: result.data.mailed, mailError: result.data.mailError },
+    });
     setSecretOpen(true);
     refresh();
   };
@@ -401,8 +425,17 @@ export function StaffDrawer({
           </Note>
         )}
         {!row.isActive && <Note tone="danger">Акаунт заблоковано: людина не може увійти в панель.</Note>}
-        {row.isActive && row.mustChangePassword && (
-          <Note tone="warning">Людина ще не задала власний пароль: панель попросить про це при першому вході з тимчасовим паролем.</Note>
+        {row.isActive && row.mustChangePassword && row.passwordExpired && (
+          <Note tone="danger">
+            Тимчасовий пароль прострочено: він діяв {countOf(GENERATED_PASSWORD_TTL_HOURS, HOUR_FORMS)} і більше не відкриває акаунт.
+            Скиньте пароль, щоб видати новий.
+          </Note>
+        )}
+        {row.isActive && row.mustChangePassword && !row.passwordExpired && (
+          <Note tone="warning">
+            Людина ще не задала власний пароль: панель попросить про це при першому вході з тимчасовим паролем.
+            {row.passwordExpiresAt ? ` Тимчасовий пароль діє до ${formatDateTime(row.passwordExpiresAt)}.` : ""}
+          </Note>
         )}
 
         <Section title="Профіль">
@@ -606,8 +639,29 @@ export function StaffDrawer({
         description={row ? `Передайте ці дані: ${row.name} увійде з ними в панель.` : undefined}
         footer={<Button onClick={() => setSecretOpen(false)}>Готово</Button>}
       >
-        {secret && <OneTimePassword email={secret.email} password={secret.password} signInUrl={secret.signInUrl} />}
+        {secret &&
+          (secret.mail.mailed === undefined ? (
+            <OneTimePassword email={secret.email} password={secret.password} signInUrl={secret.signInUrl} />
+          ) : (
+            <div className="flex flex-col gap-4">
+              <AccessMailNote email={secret.email} mail={secret.mail} />
+              <OneTimePassword email={secret.email} password={secret.password} signInUrl={secret.signInUrl} />
+            </div>
+          ))}
       </Modal>
+      {row && (
+        <ResetPasswordModal
+          key={resetAsk.key}
+          open={resetAsk.open}
+          name={row.name}
+          email={row.email}
+          busy={busy === "password"}
+          onCancel={() => {
+            if (busy !== "password") setResetAsk((state) => ({ ...state, open: false }));
+          }}
+          onConfirm={(notify) => void generatePassword(notify)}
+        />
+      )}
     </>
   );
 }

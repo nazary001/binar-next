@@ -2,9 +2,15 @@ import type { MetadataRoute } from "next";
 import { CATALOG_DIRECTIONS } from "@/components/catalog/data";
 import { listProductPaths } from "@/server/repos/catalog";
 import { getMaterialCategories } from "@/server/repos/materials";
-import { getBlogPosts } from "@/server/repos/blog";
+import { getBlogEntries } from "@/server/repos/blog";
 
 const SITE_URL = "https://binar-2000.com";
+
+function dateOf(value: string | null): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
@@ -18,8 +24,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })),
   );
   // Product pages (/catalog/<direction>/<category>/<id>), from the
-  // database, in catalog order.
-  const productPages: MetadataRoute.Sitemap = (await listProductPaths()).map((p) => ({
+  // database, in catalog order: the products the catalog shows. A product
+  // hidden in the panel keeps its page for a direct link, noindex.
+  const productPages: MetadataRoute.Sitemap = (await listProductPaths({ listedOnly: true })).map((p) => ({
     url: `${SITE_URL}/catalog/${p.direction}/${p.category}/${p.product}`,
     lastModified,
     changeFrequency: "weekly" as const,
@@ -32,10 +39,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "monthly" as const,
     priority: 0.6,
   }));
-  // Blog articles (/blog/<slug>, the same list generateStaticParams uses).
-  const blogPages: MetadataRoute.Sitemap = (await getBlogPosts()).map((post) => ({
+  // Blog articles (/blog/<slug>, the same list generateStaticParams uses),
+  // dated by their last change in the admin panel or their publication;
+  // posts that carry neither (the seed) keep the build moment.
+  const blogPages: MetadataRoute.Sitemap = (await getBlogEntries()).map(({ post, meta }) => ({
     url: `${SITE_URL}/blog/${post.slug}`,
-    lastModified,
+    lastModified: dateOf(meta?.updatedAt ?? meta?.publishedAt ?? null) ?? lastModified,
     changeFrequency: "monthly" as const,
     priority: 0.6,
   }));

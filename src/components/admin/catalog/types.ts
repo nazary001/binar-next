@@ -98,7 +98,9 @@ export type TaxonomyAnswer = {
 
 // PUT /taxonomy/meta. `categories` replaces the stored map whole (a key
 // left out loses its meta); keys must be existing "<direction>/<category>"
-// pairs. The three lists replace the stored ones when given.
+// pairs, and an ERP group code may stand on one category only (codes.ts:
+// 400 "fields" under "categories.<key>.externalId" otherwise). The three
+// lists replace the stored ones when given.
 export type TaxonomyMetaInput = {
   categories: Record<string, CategoryMeta>;
   brands?: string[];

@@ -1,11 +1,15 @@
 import type { OutboxDetailAnswer } from "@/components/admin/mail/types";
 import { audit } from "@/server/admin/audit";
 import { adminHandler, json, notFound } from "@/server/admin/http";
-import { deleteMessage, deliveriesOf, findMessage, previewOf, toOutboxRow } from "@/server/mail/repo";
+import { deleteMessage, deliveriesOf, findMessage, mayReadMessage, previewOf, toOutboxRow } from "@/server/mail/repo";
 import { zId } from "@/server/validate";
 
 // GET /api/admin/outbox/<id> - the message, its payload, the message as it
-// would be mailed now and its delivery attempts (OutboxDetailAnswer).
+// went out (sent) or would be mailed now (waiting) and its delivery
+// attempts (OutboxDetailAnswer). A message about a record the reader may
+// not view (a lead without leads.view, an order without orders.view:
+// OUTBOX_KIND_PERMISSION) is answered with its delivery facts only: no
+// payload, no preview (previewError "restricted"), no summary.
 // DELETE /api/admin/outbox/<id> - removes the message from the outbox.
 
 type Context = { params: Promise<{ id: string }> };
@@ -18,16 +22,21 @@ async function idOf(context: Context): Promise<string> {
   return parsed.data;
 }
 
-export const GET = adminHandler<Context>("integrations.view", async ({ context }) => {
+export const GET = adminHandler<Context>("integrations.view", async ({ context, staff }) => {
   const doc = await findMessage(await idOf(context));
   if (!doc) notFound();
-  const [{ preview, previewError }, deliveries] = await Promise.all([previewOf(doc), deliveriesOf(doc._id)]);
+  const reader = staff.permissions;
+  const [{ preview, previewError, previewMasked }, deliveries] = await Promise.all([
+    previewOf(doc, reader),
+    deliveriesOf(doc._id),
+  ]);
   const answer: OutboxDetailAnswer = {
     ok: true,
-    message: toOutboxRow(doc),
-    payload: doc.payload ?? {},
+    message: toOutboxRow(doc, reader),
+    payload: mayReadMessage(doc.kind, reader) ? (doc.payload ?? {}) : {},
     preview,
     previewError,
+    previewMasked,
     deliveries,
   };
   return json(answer);
@@ -36,7 +45,7 @@ export const GET = adminHandler<Context>("integrations.view", async ({ context }
 export const DELETE = adminHandler<Context>("integrations.edit", async ({ request, context, staff }) => {
   const doc = await findMessage(await idOf(context));
   if (!doc || !(await deleteMessage(doc._id))) notFound();
-  const row = toOutboxRow(doc);
+  const row = toOutboxRow(doc, staff.permissions);
   await audit(staff, request, {
     action: "outbox.delete",
     entity: { type: "outbox", id: doc._id, label: `${row.kindLabel}: ${doc.to}` },

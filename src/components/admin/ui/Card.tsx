@@ -29,8 +29,15 @@ import { COLOR_TRANSITION, FOCUS_RING, FOCUS_RING_INSET, SURFACE, TEXT, TONES, t
 //   the direction is also spelled out for screen readers. `icon` is a
 //   24-px outline Heroicon (it is sized here). With `href` the whole tile is
 //   a link.
-// AttentionItem({ icon?, title, text?, count?, href, tone? = "orange" }): a
-//   row of a "needs attention" list; a count above zero is the brand pill.
+//   size: "md" (default) the 32-px figure; "sm" a 24-px figure, for five
+//   tiles in a row where "1 284 300 ₴" would wrap at 32.
+//   trend: a small chart (a Sparkline) at the bottom right of the tile,
+//   from 640 px. It never catches the pointer (the tile stays one link)
+//   and is hidden on phones, where the tile is too narrow for it.
+// AttentionItem({ icon?, title, text?, count?, href, tone? = "orange",
+//   wrap? }): a row of a "needs attention" list; a count above zero is the
+//   brand pill. wrap: the title may take two lines instead of being cut
+//   ("Повернення чекають рішення" in a narrow column).
 
 export type CardTone = "white" | "dark" | "inset";
 export type CardPadding = "none" | "md" | "lg";
@@ -117,10 +124,27 @@ export type StatCardProps = {
   tone?: "dark" | "white";
   href?: string;
   loading?: boolean;
+  size?: "md" | "sm";
+  trend?: ReactNode;
   className?: string;
 };
 
-export function StatCard({ label, value, hint, delta, icon, tone = "dark", href, loading = false, className }: StatCardProps) {
+// The figure at the smaller size: TEXT.figure one step down.
+const FIGURE_SM = "text-[24px] font-bold leading-8 tracking-[-0.02em] tabular-nums";
+
+export function StatCard({
+  label,
+  value,
+  hint,
+  delta,
+  icon,
+  tone = "dark",
+  href,
+  loading = false,
+  size = "md",
+  trend,
+  className,
+}: StatCardProps) {
   const dark = tone === "dark";
   const body = (
     <>
@@ -157,12 +181,18 @@ export function StatCard({ label, value, hint, delta, icon, tone = "dark", href,
         {loading ? (
           <>
             {/* The shimmer is light grey: on the dark tile a quiet white wash instead. */}
-            {dark ? <span aria-hidden className="block h-9 w-32 rounded-lg bg-white/10" /> : <Skeleton className="h-9 w-32" />}
+            {dark ? (
+              <span aria-hidden className={cx("block w-32 rounded-lg bg-white/10", size === "sm" ? "h-8" : "h-9")} />
+            ) : (
+              <Skeleton className={cx("w-32", size === "sm" ? "h-8" : "h-9")} />
+            )}
             <span className="sr-only">Завантаження...</span>
           </>
         ) : (
           <>
-            <span className={cx(TEXT.figure, "min-w-0 [overflow-wrap:anywhere]", dark ? "text-white" : "text-neutral-900")}>{value}</span>
+            <span className={cx(size === "sm" ? FIGURE_SM : TEXT.figure, "min-w-0 [overflow-wrap:anywhere]", dark ? "text-white" : "text-neutral-900")}>
+              {value}
+            </span>
             {delta && <DeltaPill delta={delta} />}
           </>
         )}
@@ -173,31 +203,39 @@ export function StatCard({ label, value, hint, delta, icon, tone = "dark", href,
     </>
   );
 
+  // With a trend the tile sits in a wrapper that takes the caller's
+  // classes (grid spans); the chart lies over the tile from outside it, so
+  // a linked tile's name stays its own text.
+  const withTrend = Boolean(trend) && !loading;
   const shell = cx(
     "group flex min-w-0 flex-col rounded-3xl p-5 min-[1024px]:p-6",
     dark ? "bg-neutral-900" : "bg-white",
-    className,
+    withTrend ? "h-full" : className,
   );
 
-  if (href) {
-    return (
-      <Link
-        href={href}
-        className={cx(
-          shell,
-          "motion-reduce:transition-none",
-          COLOR_TRANSITION,
-          FOCUS_RING,
-          dark ? "hover:bg-[#2a2a2c]" : "hover:bg-bg-subtle",
-        )}
-      >
-        {body}
-      </Link>
-    );
-  }
-  return (
+  const tile = href ? (
+    <Link
+      href={href}
+      className={cx(
+        shell,
+        "motion-reduce:transition-none",
+        COLOR_TRANSITION,
+        FOCUS_RING,
+        dark ? "hover:bg-[#2a2a2c]" : "hover:bg-bg-subtle",
+      )}
+    >
+      {body}
+    </Link>
+  ) : (
     <div className={shell} aria-busy={loading || undefined}>
       {body}
+    </div>
+  );
+  if (!withTrend) return tile;
+  return (
+    <div className={cx("relative min-w-0", className)}>
+      {tile}
+      <span className="pointer-events-none absolute bottom-5 right-5 max-[639px]:hidden min-[1024px]:bottom-6 min-[1024px]:right-6">{trend}</span>
     </div>
   );
 }
@@ -209,10 +247,11 @@ export type AttentionItemProps = {
   count?: number;
   href: string;
   tone?: Tone;
+  wrap?: boolean;
   className?: string;
 };
 
-export function AttentionItem({ icon, title, text, count, href, tone = "orange", className }: AttentionItemProps) {
+export function AttentionItem({ icon, title, text, count, href, tone = "orange", wrap = false, className }: AttentionItemProps) {
   const colors = TONES[tone] ?? TONES.orange;
   const hasCount = typeof count === "number";
   return (
@@ -235,7 +274,7 @@ export function AttentionItem({ icon, title, text, count, href, tone = "orange",
         </span>
       )}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className={cx(TEXT.bodyStrong, "truncate")}>{title}</span>
+        <span className={cx(TEXT.bodyStrong, wrap ? "line-clamp-2 [overflow-wrap:anywhere]" : "truncate")}>{title}</span>
         {text && <span className={cx(TEXT.caption, "truncate")}>{text}</span>}
       </span>
       {hasCount && <CountBadge value={count} tone={count > 0 ? "brand" : "neutral"} max={999} showZero />}

@@ -107,7 +107,8 @@ export type OutboxDoc = {
     | "order-placed"
     | "order-status"
     | "staff-invite"
-    | "staff-password";
+    | "staff-password"
+    | "return-status";
   to: string;
   payload: Record<string, unknown>;
   createdAt: Date;
@@ -555,6 +556,9 @@ export type BlogStatus = "draft" | "published" | "scheduled";
 // seed, anything older than the admin panel) is published, and a post
 // without `blocks` renders the classic `body`.
 export type BlogStaffFields = {
+  // Addresses the article had before staff renamed it: /blog/<old> answers
+  // a permanent redirect to the current one instead of 404.
+  previousSlugs?: string[];
   status?: BlogStatus;
   // When the post went live, or goes live ("scheduled").
   publishedAt?: Date | null;
@@ -613,6 +617,12 @@ export type StaffDoc = Stamps & {
   // The account was given a generated password: the panel asks for a new
   // one before anything else.
   mustChangePassword: boolean;
+  // When the password that has to be replaced was issued (generated, or
+  // typed by someone else): it opens the account for
+  // GENERATED_PASSWORD_TTL_HOURS (components/admin/staff/types.ts) only.
+  // Removed when the person sets their own. An account from before this
+  // field existed has none and is not measured.
+  passwordIssuedAt?: Date;
   lastLoginAt: Date | null;
   createdBy: string | null;
   // Accounts of the audit scripts; removed by their clean-up.

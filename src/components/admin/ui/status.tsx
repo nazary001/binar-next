@@ -54,6 +54,14 @@ export type AccountType = "b2b" | "b2c";
 // cabinet never disagree about a colour.
 export const ORDER_STATUS: Record<OrderStatus, StatusMeta> = ORDER_STATUS_META;
 
+// The cabinet's return vocabulary (RETURN_STATUS_META of
+// platform/ui/ReturnStatusBadge.tsx) with one word of the panel's own:
+// "cancelled" is the partner withdrawing the request in the cabinet (staff
+// refuse with "rejected" and cannot cancel), so staff read "Відкликано
+// клієнтом" where the partner reads "Скасовано". Every place of the panel
+// that names a return status (lists, chips, badges, search, journal
+// summaries) takes the label from here; mail to the partner keeps the
+// cabinet's word.
 export const RETURN_STATUS: Record<ReturnStatus, StatusMeta> = {
   created: { label: "Створено", tone: "blue" },
   review: { label: "На розгляді", tone: "amber" },
@@ -62,7 +70,7 @@ export const RETURN_STATUS: Record<ReturnStatus, StatusMeta> = {
   inTransit: { label: "Товар у дорозі", tone: "indigo" },
   accepted: { label: "Прийнято складом", tone: "orange" },
   completed: { label: "Завершено", tone: "green" },
-  cancelled: { label: "Скасовано", tone: "neutral" },
+  cancelled: { label: "Відкликано клієнтом", tone: "neutral" },
 };
 
 export const PAYMENT_STATUS: Record<PaymentStatus, StatusMeta> = {

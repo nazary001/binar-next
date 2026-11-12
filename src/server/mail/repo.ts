@@ -1,24 +1,45 @@
 import "server-only";
 import type { Filter } from "mongodb";
+import { hasPermission, type Permission } from "@/components/admin/lib/permissions";
 import {
+  MAIL_AUTO_MAX_AGE_DAYS,
+  MAIL_MAX_ATTEMPTS,
   OUTBOX_KIND_LABELS,
+  OUTBOX_KIND_PERMISSION,
   OUTBOX_KINDS,
   OUTBOX_STATES,
+  PREVIEW_SECRET_MASK,
   UNRENDERABLE_KINDS,
   isRenderableKind,
   type MailDeliveryDto,
   type MailPreview,
+  type OutboxAutoSend,
   type OutboxCounts,
+  type OutboxKind,
   type OutboxRow,
   type OutboxState,
 } from "@/components/admin/mail/types";
 import { ORDER_STATUS_META, type OrderStatusKey } from "@/components/platform/ui/OrderStatusBadge";
+import { RETURN_STATUS_META, type ReturnStatusKey } from "@/components/platform/ui/ReturnStatusBadge";
 import { contains, dayParam, listQuery, manyOf, oneOf, paginate, type Page } from "../admin/list";
 import { collection, type OutboxDoc } from "../db/collections";
 import { contextLoader } from "./context";
 import { tryRender } from "./templates";
 
 // The outbox as the panel shows it (GET /api/admin/outbox and friends).
+//
+// A message is about a record of another section (a lead, an order, a
+// customer's account, a member of staff). Who may read the outbox
+// (integrations.view) sees every message's delivery facts; its summary,
+// payload and rendered text only with the view permission of that record
+// as well (OUTBOX_KIND_PERMISSION), the same rule the section's own pages
+// keep. `reader` is the permissions of the member of staff.
+
+export type OutboxReader = ReadonlySet<Permission>;
+
+export function mayReadMessage(kind: OutboxKind, reader: OutboxReader): boolean {
+  return hasPermission(reader, OUTBOX_KIND_PERMISSION[kind] ?? "staff.manage");
+}
 
 const UNRENDERABLE = [...UNRENDERABLE_KINDS];
 
@@ -60,6 +81,13 @@ export function summaryOf(doc: Pick<OutboxDoc, "kind" | "payload">): string {
       line = number ? `№${number}${label ? `: ${label}` : ""}` : "";
       break;
     }
+    case "return-status": {
+      const id = text(payload.returnId, 40);
+      const status = text(payload.status, 40);
+      const label = text(payload.label, 80) || RETURN_STATUS_META[status as ReturnStatusKey]?.label || status;
+      line = id ? `№${id}${label ? `: ${label}` : ""}` : "";
+      break;
+    }
     case "email-changed": {
       const from = text(payload.from);
       const to = text(payload.to);
@@ -82,20 +110,34 @@ export function summaryOf(doc: Pick<OutboxDoc, "kind" | "payload">): string {
 
 const iso = (value: Date | null | undefined): string | null => (value ? value.toISOString() : null);
 
-export function toOutboxRow(doc: OutboxDoc): OutboxRow {
+// Whether a waiting message goes out without staff (deliver.ts isDue and
+// AUTOMATIC_RUN; the back-off pause of a failed one does not matter here).
+export function autoSendOf(doc: OutboxDoc, state: OutboxState, now: number = Date.now()): OutboxAutoSend | null {
+  if (state !== "pending" && state !== "failed") return null;
+  if (doc.expiresAt && doc.expiresAt.getTime() <= now) return "expired";
+  if ((doc.attempts ?? 0) >= MAIL_MAX_ATTEMPTS) return "stopped";
+  if (doc.createdAt.getTime() < now - MAIL_AUTO_MAX_AGE_DAYS * 24 * 60 * 60_000) return "old";
+  return "yes";
+}
+
+export function toOutboxRow(doc: OutboxDoc, reader: OutboxReader): OutboxRow {
+  const state = stateOf(doc);
+  const restricted = !mayReadMessage(doc.kind, reader);
   return {
     id: doc._id,
     kind: doc.kind,
     kindLabel: OUTBOX_KIND_LABELS[doc.kind] ?? doc.kind,
     to: doc.to,
-    state: stateOf(doc),
+    state,
     createdAt: doc.createdAt.toISOString(),
     sentAt: iso(doc.sentAt),
     attempts: doc.attempts ?? 0,
     lastError: doc.lastError ?? null,
     lastAttemptAt: iso(doc.lastAttemptAt),
     expiresAt: iso(doc.expiresAt),
-    summary: summaryOf(doc),
+    summary: restricted ? "" : summaryOf(doc),
+    restricted,
+    autoSend: autoSendOf(doc, state),
   };
 }
 
@@ -156,7 +198,7 @@ function kyivDayStart(day: string, addDays = 0): Date {
 
 export type OutboxList = Page<OutboxRow> & { counts: OutboxCounts };
 
-export async function listOutbox(url: URL): Promise<OutboxList> {
+export async function listOutbox(url: URL, reader: OutboxReader): Promise<OutboxList> {
   const query = listQuery(url, {
     sortable: ["createdAt", "sentAt", "attempts", "to", "kind"],
     defaultSort: "-createdAt",
@@ -178,7 +220,7 @@ export async function listOutbox(url: URL): Promise<OutboxList> {
     return all.length > 0 ? { $and: all } : {};
   };
   const [page, ...counted] = await Promise.all([
-    paginate(outbox, scoped(state ? [stateFilter(state)] : []), query, { map: toOutboxRow }),
+    paginate(outbox, scoped(state ? [stateFilter(state)] : []), query, { map: (doc) => toOutboxRow(doc, reader) }),
     ...OUTBOX_STATES.map((each) => outbox.countDocuments(scoped([stateFilter(each)]))),
   ]);
   const counts = Object.fromEntries(OUTBOX_STATES.map((each, index) => [each, counted[index]])) as OutboxCounts;
@@ -197,15 +239,22 @@ export async function findMessage(id: string): Promise<OutboxDoc | null> {
   return (await collection("outbox")).findOne({ _id: id });
 }
 
-// The message rendered now from the stored payload.
-export async function previewOf(
-  doc: OutboxDoc,
-): Promise<{ preview: MailPreview | null; previewError: string | null }> {
-  if (!isRenderableKind(doc.kind)) return { preview: null, previewError: "secret-required" };
-  const outcome = tryRender(doc.kind, doc.payload ?? {}, await contextLoader()(doc));
-  if (!outcome.ok) return { preview: null, previewError: outcome.error };
+export type PreviewOutcome = { preview: MailPreview | null; previewError: string | null; previewMasked: boolean };
+
+// The message rendered from the stored payload: as it went out when it is
+// sent (a staff access mail that carried the temporary password shows the
+// password masked, never the variant without it), as it would go out now
+// when it waits. Errors are keys of MAIL_PREVIEW_ERROR_LABELS.
+export async function previewOf(doc: OutboxDoc, reader: OutboxReader): Promise<PreviewOutcome> {
+  if (!mayReadMessage(doc.kind, reader)) return { preview: null, previewError: "restricted", previewMasked: false };
+  if (!isRenderableKind(doc.kind)) return { preview: null, previewError: "secret-required", previewMasked: false };
+  const payload = doc.payload ?? {};
+  const masked = Boolean(doc.sentAt) && payload.secretMailed === "password";
+  const context = await contextLoader()(doc, masked ? { password: PREVIEW_SECRET_MASK } : undefined);
+  const outcome = tryRender(doc.kind, payload, context);
+  if (!outcome.ok) return { preview: null, previewError: outcome.error, previewMasked: false };
   const { subject, html, text: plain } = outcome.mail;
-  return { preview: { subject, html, text: plain }, previewError: null };
+  return { preview: { subject, html, text: plain }, previewError: null, previewMasked: masked };
 }
 
 // The delivery attempts of a message, newest first (the exchange journal).

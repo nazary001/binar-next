@@ -7,7 +7,9 @@ import { basHandler } from "@/server/integrations/bas/handler";
 // { batchId, contractExternalId, from?, replace?, items: [{ externalId, docType, docNumber, docDate, amount, impact, orderNumber? }] }
 // An unknown contract refuses the whole request (404, nothing stored), so
 // BAS can push its clients and repeat; a batch answered before gets that
-// answer whatever happened to the contract since.
+// answer whatever happened to the contract since. With replace: true the
+// period's entries the batch does not carry are removed only when every
+// item was stored (the answer's `replace` says what happened).
 export const maxDuration = 60;
 
 export const PUT = basHandler("bas:write", "ledger", async (call) => {
@@ -20,9 +22,9 @@ export const PUT = basHandler("bas:write", "ledger", async (call) => {
     item: LedgerItem,
     idOf: (item) => item.externalId,
     rawIdOf: (raw) => rawId(raw, ["externalId"]),
-    apply: (items) => {
+    apply: (items, batch) => {
       if (!target) throw new Error("ledger batch applied without its contract");
-      return applyLedger(items, envelope, target);
+      return applyLedger(items, envelope, target, batch);
     },
   });
 });

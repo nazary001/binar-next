@@ -2,15 +2,16 @@ import { z } from "zod";
 import { hasErrors, normalizeLogin, validateSignIn } from "@/components/auth/data";
 import { burnPasswordTime, hashPassword, needsRehash, PASSWORD_MAX_LENGTH, verifyPassword } from "@/server/auth/password";
 import { clientIp, rateLimit } from "@/server/auth/rate-limit";
-import { endSession, startSession } from "@/server/auth/session";
+import { companySwitchedOff, endSession, startSession } from "@/server/auth/session";
 import { buildBootstrap } from "@/server/bootstrap";
 import { handler, HttpError, json, parseBody } from "@/server/http";
 import { findUserByLogin, recordSignIn } from "@/server/repos/users";
 
 // POST /api/auth/sign-in { login, password } -> 200 SessionBootstrap.
 // Errors: 400 "empty" + fields (the drawer's field messages), 401 "invalid"
-// (unknown login, wrong password and a blocked account all answer the same,
-// in the same time), 429 "rate".
+// (unknown login, wrong password, a blocked account and a partner whose
+// company staff switched off all answer the same, in the same time), 429
+// "rate".
 
 const Body = z.object({
   login: z.string().max(320),
@@ -36,7 +37,7 @@ export const POST = handler(async (request) => {
     throw new HttpError(401, "invalid");
   }
   const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid || !user.isActive) throw new HttpError(401, "invalid");
+  if (!valid || !user.isActive || (await companySwitchedOff(user))) throw new HttpError(401, "invalid");
 
   await recordSignIn(user._id, needsRehash(user.passwordHash) ? await hashPassword(password) : null);
   // Whatever this browser was signed in as before, that session ends here.

@@ -19,6 +19,11 @@ export const ROLE_DESCRIPTION_MAX = 300;
 export const SESSION_ID_LENGTH = 12;
 export const STAFF_JOURNAL_LIMIT = 20;
 export const ACCOUNT_RECENT_LIMIT = 10;
+// A generated password (a new account or a reset) opens the account only
+// this long after it was issued. After that the sign-in is refused like
+// any wrong password, and the account needs "Скинути пароль" again: an old
+// invitation or reset mail read later by someone else opens nothing.
+export const GENERATED_PASSWORD_TTL_HOURS = 72;
 
 // --- staff accounts ----------------------------------------------------------
 
@@ -33,6 +38,14 @@ export type StaffRow = {
   isActive: boolean;
   // A generated password that was not replaced yet.
   mustChangePassword: boolean;
+  // When that generated password stops opening the account
+  // (GENERATED_PASSWORD_TTL_HOURS after it was issued); null when the
+  // person has their own password, or for a password issued before the
+  // panel recorded the time.
+  passwordExpiresAt: string | null;
+  // That moment had passed when the answer was made: the person cannot
+  // sign in until the password is reset again.
+  passwordExpired: boolean;
   lastLoginAt: string | null;
   createdAt: string;
   // Live (not expired) sessions.
@@ -79,6 +92,11 @@ export type StaffJournalLine = {
   entity: { type: string; id: string; label: string } | null;
   summary: string;
   ip: string | null;
+  // Why a refused sign-in (staff.sign-in-refused) was refused: "password",
+  // "blocked", "role", "expired" (a generated password past
+  // GENERATED_PASSWORD_TTL_HOURS) or "rate" (too many attempts on the
+  // account: sign-in paused for the window); null for every other line.
+  reason: string | null;
 };
 
 // GET /api/admin/staff/[id] -> { ok: true, ...StaffDetailAnswer }.
@@ -90,13 +108,20 @@ export type StaffDetailAnswer = {
   journal: StaffJournalLine[];
 };
 
+// "Надіслати доступ на e-mail" (POST /staff and POST /staff/[id]/password
+// with notify: true): whether the mail service took the message with the
+// password. `mailError` is a code of MAIL_ERROR_LABELS
+// (src/components/admin/mail/types.ts) or "http-<status>: <text>". Absent
+// when notify was not asked for.
+export type StaffAccessMailAnswer = { mailed?: boolean; mailError?: string };
+
 // POST /api/admin/staff
-export type StaffCreateBody = { email: string; name: string; roleId: string };
+export type StaffCreateBody = { email: string; name: string; roleId: string; notify?: boolean };
 // -> 201 { ok: true, staff, password }. `password` is generated and leaves
 // the server only this once; the person must replace it on the first
 // sign-in. Refusals: 400 "fields" { fields: { email: "invalid" } |
 // { roleId: "unknown" } }, 403 "owner-only", 409 "exists" (e-mail taken).
-export type StaffCreateAnswer = { staff: StaffRow; password: string };
+export type StaffCreateAnswer = { staff: StaffRow; password: string } & StaffAccessMailAnswer;
 
 // PATCH /api/admin/staff/[id] (at least one field)
 export type StaffPatchBody = { name?: string; roleId?: string; isActive?: boolean };
@@ -105,10 +130,11 @@ export type StaffPatchBody = { name?: string; roleId?: string; isActive?: boolea
 // "owner-only", 409 "self", 409 "last-owner".
 export type StaffPatchAnswer = { staff: StaffRow };
 
-// POST /api/admin/staff/[id]/password -> { ok: true, password } (every
-// session ended, the person must replace the password). 409 "self": the
-// own password is changed through POST /api/admin/auth/password.
-export type StaffPasswordAnswer = { password: string };
+// POST /api/admin/staff/[id]/password { notify? } -> { ok: true, password }
+// (every session ended, the person must replace the password). 409 "self":
+// the own password is changed through POST /api/admin/auth/password.
+export type StaffPasswordBody = { notify?: boolean };
+export type StaffPasswordAnswer = { password: string } & StaffAccessMailAnswer;
 
 // POST /api/admin/staff/[id]/sign-out -> { ok: true, ended } (for one's own
 // account the current session is spared).

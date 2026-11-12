@@ -58,8 +58,11 @@ Anti-goals
 ## 3. Architecture
 
 ```
+src/app/document.tsx                the bare document both root layouts render: html, body, fonts, stylesheet
+src/app/(site)/                     the public site and the customer cabinet (ROOT layout: metadata + SiteShell)
+src/app/global-not-found.tsx        an address no route owns: the site's 404, a whole document, built once
 src/app/admin/                      pages (server components that guard, then render client screens)
-  layout.tsx                        data-admin wrapper, noindex, force-dynamic
+  layout.tsx                        ROOT layout of the panel: data-admin wrapper, noindex, force-dynamic
   login/, password/                 before the panel opens
   (panel)/layout.tsx                AdminShell (side menu, top bar, slab)
   (panel)/<section>/...             one folder per menu line
@@ -79,14 +82,48 @@ src/server/integrations/
   bas/                              keys, handler, inbound appliers, queue
 src/server/media/                   upload validation, storage, streaming
 src/server/mail/                    providers and templates (the outbox mailer)
+src/proxy.ts                        Content-Security-Policy with a per-request nonce for /admin pages
 ```
 
-Isolation from the storefront: one root layout stays. `PlatformChrome`
-renders nothing around `/admin` paths, `AuthProvider` skips the customer
-session boot and the account drawer there, and `html:has([data-admin])`
-switches the canvas zoom off. Links from the panel to the storefront are
-plain `<a target="_blank">` (never `next/link`), so the storefront always
-boots from a full load.
+Isolation from the storefront (changed on 2026-11-12 after an outside
+review found the cart, the catalog registry and the site's search keywords
+inside the sign-in page): the panel is a document of its own. The app has
+no layout above its parts; `src/app/(site)/layout.tsx` and
+`src/app/admin/layout.tsx` are two root layouts that both render the bare
+document of `src/app/document.tsx`. Everything the site sets up (search
+metadata, catalog registry, cart, customer session, header, footer) is in
+the site's layout only (`src/components/SiteShell.tsx`,
+`src/lib/site-metadata.ts`), so none of it is rendered or sent under
+`/admin`, and going from one to the other is a full page load.
+`html:has([data-admin])` still switches the canvas zoom off; links from the
+panel to the storefront stay plain `<a target="_blank">`.
+
+"Not found" with two root layouts (each variant was built and measured on
+a production build):
+- an address no route owns: `src/app/global-not-found.tsx`, a whole
+  document (the site around the 404 words), built once as a static page.
+  It needs `experimental.globalNotFound` in `next.config.ts`; without the
+  flag Next serves its bare built-in page with no header or footer;
+- notFound() of a site page: `src/app/(site)/not-found.tsx`;
+- rejected: a catch-all route calling notFound() (the answer is an empty
+  error shell that only the browser's script fills in, and every unknown
+  address costs a function call); one bare root layout with a root
+  `not-found.tsx` that draws the site (Next sends that not-found with every
+  page, so the header, the footer and the whole catalog registry were back
+  in the panel's pages and doubled in the site's);
+- the share picture (`opengraph-image.tsx`) lives in `(site)`: at the root,
+  without a root layout, it was no longer announced on the pages. Its
+  address therefore carries a suffix (`/opengraph-image-12o0cb`).
+
+Headers: `next.config.ts` sends the general ones with every answer
+(nosniff, Referrer-Policy, Permissions-Policy, framing by the site itself
+only; no `X-Powered-By`) and stricter ones for `/admin`, `/api/admin` and
+`/api/integrations` (noindex, no framing, same-origin referrer).
+`src/proxy.ts` gives every `/admin` page a Content-Security-Policy with a
+per-request nonce and `'strict-dynamic'` (no inline or foreign script, the
+page talks only to this site). The public pages are static, so they carry
+no nonce policy; a policy for them is to be written once the list of
+outside services (analytics, pixels) is known.
 
 ## 4. Security model
 

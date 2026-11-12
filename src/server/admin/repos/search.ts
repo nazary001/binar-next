@@ -11,8 +11,8 @@ import {
   type SearchGroupType,
   type SearchItem,
 } from "@/components/admin/search/types";
+import { RETURN_STATUS, statusLabel } from "@/components/admin/ui/status";
 import { ORDER_STATUS_META, type OrderStatusKey } from "@/components/platform/ui/OrderStatusBadge";
-import { RETURN_STATUS_META, type ReturnStatusKey } from "@/components/platform/ui/ReturnStatusBadge";
 import { collection, type BlogPostDoc, type ClientDoc, type OrderDoc, type ProductDoc, type UserDoc } from "../../db/collections";
 import { contains, startsWith } from "../list";
 import { prefixRange } from "./journal";
@@ -137,7 +137,7 @@ async function searchReturns(q: string): Promise<SearchItem[]> {
     title: `Повернення №${doc._id}`,
     subtitle: joined([
       formatDate(doc.date),
-      RETURN_STATUS_META[doc.status as ReturnStatusKey]?.label ?? doc.status,
+      statusLabel(RETURN_STATUS, doc.status),
       `замовлення №${doc.orderId}`,
     ]),
     href: hrefOf("/admin/returns", doc._id),

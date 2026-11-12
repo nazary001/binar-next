@@ -79,10 +79,14 @@ function useNarrow(): boolean {
 
 const enc = encodeURIComponent;
 
+// The first public article of the site's order is also the big card over
+// the photo at the top of /blog (src/app/blog/page.tsx).
+const FEATURED_NOTE = "у картці вгорі блогу";
+
 // The cover, the title and the address of a post. On phones the status
 // column is hidden, so the second line says the status instead (with the
 // date of a planned one).
-function PostCell({ row }: { row: BlogPostRow }) {
+function PostCell({ row, featured }: { row: BlogPostRow; featured: boolean }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
       {row.image ? (
@@ -98,6 +102,7 @@ function PostCell({ row }: { row: BlogPostRow }) {
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: TONES[BLOG_STATUS[row.status].tone].dot }} />
           <span className="truncate">
             {row.status === "scheduled" ? `Заплановано на ${formatDateTime(row.publishedAt)}` : BLOG_STATUS[row.status].label}
+            {featured && `, ${FEATURED_NOTE}`}
           </span>
         </span>
       </span>
@@ -131,6 +136,12 @@ export function BlogListScreen() {
   const total = data?.total ?? 0;
   const lastPage = list.page * list.limit >= total;
   const defaultAuthor = options.data?.defaultAuthor ?? "";
+  // Which row is the featured card of /blog: known only while the list
+  // shows the site's order from its start (no search, rubric or other sort).
+  const featuredId =
+    !sorted && list.page === 1 && !category && !list.q && (status === "all" || status === "published")
+      ? (items.find((item) => item.status === "published")?.id ?? null)
+      : null;
 
   // --- the order ------------------------------------------------------------------
 
@@ -232,6 +243,7 @@ export function BlogListScreen() {
     const copy = result.data.post;
     setQueryData<BlogPostAnswer>(`/blog/posts/${enc(copy.id)}`, result.data);
     invalidate("/blog/posts?");
+    invalidate("/blog/options");
     toast.success("Створено копію-чернетку. Вона перша в списку.", {
       action: { label: "Відкрити", onClick: () => router.push(`/admin/blog/${enc(copy.id)}`) },
     });
@@ -254,6 +266,8 @@ export function BlogListScreen() {
       return;
     }
     invalidate("/blog/posts?");
+    // Its old addresses (if any) are free again.
+    invalidate("/blog/options");
     toast.success(`Статтю «${row.title}» видалено.`);
   };
 
@@ -351,7 +365,7 @@ export function BlogListScreen() {
       // truncate instead of pushing the other columns narrow.
       width: "100%",
       className: "max-w-0",
-      cell: (row) => <PostCell row={row} />,
+      cell: (row) => <PostCell row={row} featured={row.id === featuredId} />,
     },
     {
       key: "category",
@@ -371,6 +385,7 @@ export function BlogListScreen() {
           {row.status === "published" && row.publishedAt && (
             <span className={cx(TEXT.caption, "whitespace-nowrap tabular-nums")}>з {formatDate(row.publishedAt)}</span>
           )}
+          {row.id === featuredId && <span className={cx(TEXT.caption, "whitespace-nowrap text-brand")}>{FEATURED_NOTE}</span>}
         </span>
       ),
     },
@@ -494,7 +509,7 @@ export function BlogListScreen() {
       <PageHeader
         title="Блог"
         light={data ? formatNumber(data.overall) : undefined}
-        subtitle="Статті сторінки /blog. Порядок у цьому списку - це порядок на сайті."
+        subtitle="Статті сторінки /blog. Порядок у цьому списку - це порядок на сайті; перша опублікована стаття ще й показується у великій картці вгорі блогу."
         actions={
           <>
             <Button variant="secondary" href="/blog" external iconRight={ArrowTopRightOnSquareIcon}>

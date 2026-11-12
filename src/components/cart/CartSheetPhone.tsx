@@ -16,9 +16,9 @@ import { QtyStepper } from "@/components/catalog/QtyStepper";
 import { CartIcon, XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, productHref, type Product } from "@/components/catalog/data";
 import { RollingNumber } from "@/components/ui/RollingNumber";
+import { useShopConfig } from "@/lib/session/config";
 import { useCart } from "./CartProvider";
 import {
-  FREE_DELIVERY_THRESHOLD,
   METER_MOTION,
   itemsPhrase,
   lineMeta,
@@ -167,8 +167,11 @@ export function CartSheetPhone({
     restoreCleared();
   };
 
-  const reached = subtotal >= FREE_DELIVERY_THRESHOLD;
-  const remaining = Math.max(0, Math.round((FREE_DELIVERY_THRESHOLD - subtotal) * 100) / 100);
+  // The shop's free-delivery limit (5 000 until the session answer brings
+  // the panel's value; the drawer asks for it when the cart opens).
+  const { freeDeliveryLimit } = useShopConfig();
+  const reached = subtotal >= freeDeliveryLimit;
+  const remaining = Math.max(0, Math.round((freeDeliveryLimit - subtotal) * 100) / 100);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:hidden">
@@ -280,7 +283,7 @@ export function CartSheetPhone({
                     className="whitespace-nowrap font-medium text-white"
                   />
                 </p>
-                <PhoneMeter subtotal={subtotal} />
+                <PhoneMeter subtotal={subtotal} limit={freeDeliveryLimit} />
               </div>
             )}
             {/* Plain block parent: a fullWidth Button is flex-1. */}
@@ -375,15 +378,16 @@ function CartLinePhone({
 // Free-delivery meter, phone: the desktop track (8 px #616162, brand fill,
 // 16-px white-ring knob 4 px inside the fill end) without the sum chip,
 // the "0" / "5 000" labels and the truck tile.
-function PhoneMeter({ subtotal }: { subtotal: number }) {
-  const pct = Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100);
+// A limit of 0 means free delivery from the first hryvnia: the bar is full.
+function PhoneMeter({ subtotal, limit }: { subtotal: number; limit: number }) {
+  const pct = limit > 0 ? Math.min(100, (subtotal / limit) * 100) : 100;
   return (
     <div
       role="progressbar"
       aria-label={COPY.meter}
       aria-valuemin={0}
-      aria-valuemax={FREE_DELIVERY_THRESHOLD}
-      aria-valuenow={Math.min(subtotal, FREE_DELIVERY_THRESHOLD)}
+      aria-valuemax={limit}
+      aria-valuenow={Math.min(subtotal, limit)}
       className="relative h-2 rounded-full bg-neutral-600"
     >
       <div className={`h-full rounded-full bg-brand ${METER_MOTION}`} style={{ width: `${pct}%` }} />

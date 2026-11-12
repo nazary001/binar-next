@@ -21,7 +21,8 @@ import type { Tone } from "../ui/tokens";
 // Refusals: 400 "bad-request" (malformed body), 400 "fields" with
 // { fields: { assigneeId: "not-found" } } (no such active member of staff),
 // 404 "not-found", 409 "state" (deleting a lead that is not marked spam),
-// 403 "not-author" (deleting a note somebody else wrote).
+// 403 "not-author" (deleting a note somebody else wrote, unless the caller
+// holds the owner role).
 
 export type LeadKind = "quiz" | "star-checklist" | "partner-contact";
 
@@ -206,7 +207,7 @@ export const LEAD_STATUS_ALL = "all";
 // Sentences for the refusals of this API, for errorMessage(result, LEAD_ERRORS).
 export const LEAD_ERRORS: Record<string, string> = {
   state: "Видалити можна лише заявку, позначену як спам.",
-  "not-author": "Видалити нотатку може лише той, хто її написав.",
+  "not-author": "Видалити нотатку може лише той, хто її написав, або власник.",
   fields: "Цього співробітника не знайдено або його заблоковано. Оберіть іншого.",
   "not-found": "Заявку не знайдено: можливо, її вже видалили.",
 };

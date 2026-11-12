@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type KeyboardEvent,
@@ -15,6 +16,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
+import { flushSync } from "react-dom";
 import { cx } from "../lib/format";
 import { SlotIcon, type IconSlot } from "./Button";
 import {
@@ -60,6 +62,8 @@ import { CONTROL, TEXT, type ControlSize } from "./tokens";
 // - align: "right" for numbers.
 // - onEnter: runs on Enter (and stops the form's submit).
 // - trailing: controls at the end of the pill (used by PasswordInput).
+// - showCount: a counter under the field ("12 / 60" with maxLength), as on
+//   Textarea (an SEO title shows its length this way).
 // - placeholder, disabled, readOnly, maxLength, inputMode, autoComplete,
 //   name, autoFocus, spellCheck, autoCapitalize, enterKeyHint, onBlur,
 //   onFocus, onKeyDown, ref: as on <input>.
@@ -68,6 +72,15 @@ import { CONTROL, TEXT, type ControlSize } from "./tokens";
 // up to maxRows), maxLength, showCount (a counter under it, "12 / 500"),
 // placeholder, disabled, readOnly, name, autoFocus, spellCheck, onBlur,
 // onFocus, onKeyDown, ref. A 16-px radius, as text areas have in the kit.
+// - variant: "field" (default, the framed form field) or "bare": a
+//   borderless writing surface that looks like the line of the page it
+//   becomes (an article's paragraph, a heading). It always grows with its
+//   text (one row to start), shows a quiet tint on hover and focus (on
+//   `surface` "white", the default, or "tint" for a grey tile), a red tint
+//   when invalid, and reaches 8 px past its column on both sides, so the
+//   text lines up with the labels around it while the tint has room.
+// - textClassName: classes on the <textarea> itself (the typography of a
+//   bare surface: "text-[16px] leading-6").
 //
 // NumberInput props: value (number | null), onChange(number | null), min,
 // max, step (1), precision (decimal places; undefined = as typed), stepper
@@ -78,6 +91,15 @@ import { CONTROL, TEXT, type ControlSize } from "./tokens";
 // and rounded to precision; an empty field commits null; text that is not
 // a number goes back to the last value). ArrowUp / ArrowDown step by `step`,
 // with Shift by ten steps.
+// - Enter inside a form: the value is committed and rendered first
+//   (flushSync), then the browser's own submit goes on, so the form's
+//   onSubmit reads the new number, never the one from before the commit.
+//   With onEnter the submit is stopped and onEnter runs instead (it sees
+//   the committed value too).
+// - clampNote (default true): a typed value outside min / max is clamped
+//   and a quiet note under the field says so ("Не більше 300: значення
+//   виправлено") until the next keystroke; false keeps it silent (a dense
+//   table cell).
 //
 // MoneyInput: a NumberInput with precision 2, the hryvnia suffix and min 0.
 //
@@ -122,8 +144,14 @@ export type InputProps = FieldControlProps & {
   onEnter?: () => void;
   onClear?: () => void;
   trailing?: ReactNode;
+  showCount?: boolean;
   ref?: Ref<HTMLInputElement>;
 };
+
+// The counter under a field ("12 / 60").
+function Counter({ length, maxLength }: { length: number; maxLength?: number }) {
+  return <span className={cx(TEXT.caption, "tabular-nums")}>{maxLength ? `${length} / ${maxLength}` : length}</span>;
+}
 
 // A press on the pill outside the input (the prefix, the icon, the
 // padding) focuses the input, as a press on a native field would.
@@ -174,12 +202,14 @@ export function Input(props: InputProps) {
     onEnter,
     onClear,
     trailing,
+    showCount = false,
     required,
     ref,
   } = props;
   const ids = useFieldIds(props);
   const canClear = clearable && value !== "" && !disabled && !readOnly;
   const endsWithAction = canClear || Boolean(trailing);
+  const counter = showCount ? <Counter length={value.length} maxLength={maxLength} /> : undefined;
 
   const clear = (event: MouseEvent<HTMLButtonElement>) => {
     const from = event.currentTarget;
@@ -189,7 +219,7 @@ export function Input(props: InputProps) {
   };
 
   return (
-    <FieldFrame field={props} ids={ids} disabled={disabled}>
+    <FieldFrame field={props} ids={ids} meta={counter} disabled={disabled}>
       <div
         data-field-box=""
         data-invalid={ids.invalid || undefined}
@@ -202,7 +232,7 @@ export function Input(props: InputProps) {
           FIELD_GAP[size],
           FIELD_PL[size],
           endsWithAction ? FIELD_PR_ACTION[size] : FIELD_PR[size],
-          !hasField(props) && props.className,
+          !hasField(props, counter) && props.className,
         )}
       >
         {leftIcon && <SlotIcon icon={leftIcon} className={cx("text-neutral-500", FIELD_ICON[size])} />}
@@ -286,8 +316,21 @@ export type TextareaProps = FieldControlProps & {
   onBlur?: () => void;
   onFocus?: () => void;
   onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  variant?: "field" | "bare";
+  surface?: "white" | "tint";
+  textClassName?: string;
   ref?: Ref<HTMLTextAreaElement>;
 };
+
+// The bare surface's hover and focus tint, by what it sits on.
+const BARE_SURFACE = {
+  white: "hover:bg-bg-subtle focus:bg-bg-subtle",
+  tint: "hover:bg-white/60 focus:bg-white",
+} as const;
+
+// -mx-2 with 16 px of extra width: the text lines up with the column while
+// the tint reaches past it.
+const BARE_WIDTH: CSSProperties = { width: "calc(100% + 16px)" };
 
 // Sets the height to the text (written to the element, no state); past
 // maxRows the area scrolls instead.
@@ -307,8 +350,9 @@ export function Textarea(props: TextareaProps) {
   const {
     value,
     onChange,
-    rows = 4,
-    autoGrow = false,
+    variant = "field",
+    surface = "white",
+    textClassName,
     maxRows,
     maxLength,
     showCount = false,
@@ -324,6 +368,10 @@ export function Textarea(props: TextareaProps) {
     required,
     ref,
   } = props;
+  const bare = variant === "bare";
+  // A writing surface always grows with its text and starts at one row.
+  const autoGrow = bare || (props.autoGrow ?? false);
+  const rows = props.rows ?? (bare ? 1 : 4);
   const ids = useFieldIds(props);
   const box = useRef<HTMLDivElement>(null);
 
@@ -349,9 +397,7 @@ export function Textarea(props: TextareaProps) {
     return () => observer.disconnect();
   }, [autoGrow, maxRows]);
 
-  const counter = showCount ? (
-    <span className={cx(TEXT.caption, "tabular-nums")}>{maxLength ? `${value.length} / ${maxLength}` : value.length}</span>
-  ) : undefined;
+  const counter = showCount ? <Counter length={value.length} maxLength={maxLength} /> : undefined;
 
   return (
     <FieldFrame field={props} ids={ids} meta={counter} disabled={disabled}>
@@ -379,11 +425,22 @@ export function Textarea(props: TextareaProps) {
           onFocus={onFocus}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
-          className={cx(
-            "admin-scroll block w-full min-w-0 rounded-2xl px-4 py-2.5 text-[14px] leading-5 outline-none placeholder:text-neutral-400",
-            FIELD_SURFACE,
-            autoGrow ? "resize-none overflow-hidden" : "resize-y",
-          )}
+          style={bare ? BARE_WIDTH : undefined}
+          className={
+            bare
+              ? cx(
+                  "-mx-2 block min-w-0 resize-none overflow-hidden rounded-xl px-2 py-1 text-neutral-900 outline-none",
+                  "placeholder:text-neutral-300 transition-colors duration-200 motion-reduce:transition-none disabled:cursor-default",
+                  ids.invalid ? "bg-[#fff0f0]" : cx("bg-transparent", !disabled && !readOnly && BARE_SURFACE[surface]),
+                  textClassName,
+                )
+              : cx(
+                  "admin-scroll block w-full min-w-0 rounded-2xl px-4 py-2.5 text-[14px] leading-5 outline-none placeholder:text-neutral-400",
+                  FIELD_SURFACE,
+                  autoGrow ? "resize-none overflow-hidden" : "resize-y",
+                  textClassName,
+                )
+          }
         />
       </div>
     </FieldFrame>
@@ -404,6 +461,7 @@ export type NumberInputProps = Omit<
   precision?: number;
   stepper?: boolean;
   grouping?: boolean;
+  clampNote?: boolean;
 };
 
 const FORMATS = new Map<string, Intl.NumberFormat>();
@@ -459,6 +517,7 @@ export function NumberInput(props: NumberInputProps) {
     precision,
     stepper = false,
     grouping = true,
+    clampNote = true,
     size = "md",
     disabled = false,
     readOnly = false,
@@ -470,13 +529,26 @@ export function NumberInput(props: NumberInputProps) {
   } = props;
   // The text while the field has focus; null shows the formatted value.
   const [draft, setDraft] = useState<string | null>(null);
+  // The quiet line after a typed value was clamped to min or max.
+  const [note, setNote] = useState<string | null>(null);
   const text = draft ?? numberText(value, precision, grouping);
   const allowNegative = min === undefined || min < 0;
   const inactive = disabled || readOnly;
+  // The caller's latest onEnter, for the Enter that has just re-rendered
+  // the form with the committed value. Written after each commit, read
+  // only in the key handler.
+  const enterRef = useRef(onEnter);
+  useLayoutEffect(() => {
+    enterRef.current = onEnter;
+  });
 
   const commit = (raw: string): number | null => {
     const parsed = parseNumber(raw);
     const next = parsed === null ? null : Number.isNaN(parsed) ? value : normalize(parsed, min, max, precision);
+    if (clampNote && parsed !== null && !Number.isNaN(parsed)) {
+      if (min !== undefined && parsed < min) setNote(`Не менше ${numberText(min, undefined, true)}: значення виправлено`);
+      else if (max !== undefined && parsed > max) setNote(`Не більше ${numberText(max, undefined, true)}: значення виправлено`);
+    }
     if (next !== value) onChange(next);
     return next;
   };
@@ -488,10 +560,12 @@ export function NumberInput(props: NumberInputProps) {
     const decimals = cleaned.split(/[.,]/)[1];
     if (precision !== undefined && decimals !== undefined && (precision === 0 || decimals.length > precision)) return;
     setDraft(next);
+    if (note !== null) setNote(null);
   };
 
   const stepBy = (direction: 1 | -1, times = 1) => {
     if (inactive) return;
+    if (note !== null) setNote(null);
     const base = parseNumber(draft ?? "") ?? value ?? min ?? 0;
     const start = Number.isNaN(base) ? (value ?? 0) : base;
     // Without a precision, round to the decimals in play, so 0.1 + 0.2
@@ -537,6 +611,15 @@ export function NumberInput(props: NumberInputProps) {
   return (
     <Input
       {...rest}
+      hint={
+        note !== null ? (
+          <span role="status" data-clamp-note="">
+            {note}
+          </span>
+        ) : (
+          rest.hint
+        )
+      }
       size={size}
       disabled={disabled}
       readOnly={readOnly}
@@ -561,11 +644,16 @@ export function NumberInput(props: NumberInputProps) {
           event.preventDefault();
           stepBy(event.key === "ArrowUp" ? 1 : -1, event.shiftKey ? 10 : 1);
         } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-          const next = commit(draft ?? text);
-          if (draft !== null) setDraft(numberText(next, precision));
-          if (onEnter) {
+          // The commit renders before the browser goes on with Enter: the
+          // form's submit (the default action, after this handler) and
+          // onEnter both see the new number.
+          flushSync(() => {
+            const next = commit(draft ?? text);
+            if (draft !== null) setDraft(numberText(next, precision));
+          });
+          if (enterRef.current) {
             event.preventDefault();
-            onEnter();
+            enterRef.current();
           }
         }
       }}

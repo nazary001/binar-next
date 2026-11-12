@@ -30,6 +30,9 @@ import { checkFile, fileTypeLabel, mediaErrorMessage, uploadMedia } from "./uplo
 // - accept: extensions or types (default: PDF and office documents,
 //   ACCEPT_DOCUMENTS); a file outside it is refused in the browser.
 // - label, hint, error, required, optional, disabled, className.
+// - onUploadingChange(busy): true when an upload starts, false when it
+//   ends (sent, refused or failed). A form keeps its save button off
+//   meanwhile, so a fast click never saves the record without its file.
 // "Відкрити" opens the staff address of the file in a new tab.
 
 export type FileValue = { mediaId: string; name: string; size: number };
@@ -47,6 +50,7 @@ export type FileFieldProps = {
   optional?: boolean;
   disabled?: boolean;
   className?: string;
+  onUploadingChange?: (busy: boolean) => void;
 };
 
 export const ACCEPT_DOCUMENTS = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.csv";
@@ -77,6 +81,7 @@ export function FileField({
   optional,
   disabled = false,
   className,
+  onUploadingChange,
 }: FileFieldProps) {
   const [pending, setPending] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -94,11 +99,14 @@ export function FileField({
     const mine = ++attempt.current;
     setFailure(null);
     setPending(file.name);
+    onUploadingChange?.(true);
     // Documents go as they are: prepareImage would redraw a photo of a
     // signed page, and it is not ours to change.
     const result = await uploadMedia(file, { folder, access, prepare: false });
+    // A newer upload took over: it reports its own end.
     if (mine !== attempt.current) return;
     setPending(null);
+    onUploadingChange?.(false);
     if (!result.ok) {
       setFailure(mediaErrorMessage(result));
       return;

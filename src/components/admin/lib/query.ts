@@ -22,6 +22,28 @@ import { adminApi, type ApiFailure } from "./api";
 //   starts with it is fetched again by the components showing it.
 //
 // Built on useSyncExternalStore: no state is set inside an effect.
+//
+// Why this store cannot cause React's development warning "Can't perform a
+// React state update on a component that hasn't mounted yet" (two builders
+// saw it on list pages; checked in wave 3). React gives that warning only
+// for an update scheduled on a fiber that rendered but was never committed
+// (or whose ancestor was not). The only updates this file can cause are:
+// - setKept, called during the component's own render: a render-phase
+//   update of the rendering component, which React applies in place and
+//   never routes through the "not mounted" check;
+// - useSyncExternalStore's own re-render, through the listener it hands to
+//   `subscribeTo`. React subscribes in a passive effect, i.e. only after
+//   the fiber is committed, and unsubscribes before it is removed; `emit`
+//   reaches only those listeners. A request that resolves between a render
+//   and its commit finds no listener of that fiber yet, and React re-reads
+//   the snapshot right after subscribing, so the answer is not lost.
+// - setBusy of useAdminAction, called from `run`, which screens call in
+//   event handlers.
+// Requests start only from effects (ensure) and handlers (reload,
+// invalidate), never during render. The shell's own updates are of the
+// same two kinds (render-phase setSeenPath / setMenuOpen on itself, and
+// handlers). audit/admin/checks/kit-mount-warning.mjs loads every list
+// page repeatedly to catch the warning with its component stack.
 
 type Entry = {
   status: "idle" | "loading" | "success" | "error";

@@ -26,6 +26,11 @@ import { UserMenu } from "./UserMenu";
 // opened from the top bar. `slots` lets the kit plug the global search and
 // the layers every page shares (toasts, dialogs) without this file knowing
 // them.
+//
+// Printing: the side menu, the top bar, the phone menu and the toasts
+// carry `data-print-hide` and are left out of a printed page; a page can
+// mark its own chrome the same way (a toolbar, the buttons over a
+// document): one print rule on the shell hides every [data-print-hide].
 
 export type ShellSlots = {
   // Rendered in the top bar between the menu button and the account chip.
@@ -67,15 +72,16 @@ export function AdminShell({ me, slots, children }: { me: StaffMe; slots?: Shell
 
   return (
     <StaffProvider me={me}>
-      <div className="flex min-h-dvh w-full bg-white text-neutral-900">
+      <div className="flex min-h-dvh w-full bg-white text-neutral-900 print:block print:min-h-0 print:[&_[data-print-hide]]:hidden">
         {/* Desktop menu: a fixed column. */}
-        <aside className="sticky top-0 hidden h-dvh w-[264px] shrink-0 min-[1024px]:block">
+        <aside data-print-hide="" className="sticky top-0 hidden h-dvh w-[264px] shrink-0 min-[1024px]:block print:hidden">
           <Sidebar />
         </aside>
 
         {/* Phone / tablet menu: a drawer. Always in the DOM so it can slide. */}
         <div
-          className={`fixed inset-0 min-[1024px]:hidden ${Z.sidebar} ${menuOpen ? "" : "pointer-events-none"}`}
+          data-print-hide=""
+          className={`fixed inset-0 min-[1024px]:hidden print:hidden ${Z.sidebar} ${menuOpen ? "" : "pointer-events-none"}`}
           aria-hidden={!menuOpen}
           inert={!menuOpen}
         >
@@ -102,7 +108,10 @@ export function AdminShell({ me, slots, children }: { me: StaffMe; slots?: Shell
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className={`sticky top-0 flex h-[72px] shrink-0 items-center gap-3 bg-white px-4 min-[1024px]:px-8 ${Z.topbar}`}>
+          <header
+            data-print-hide=""
+            className={`sticky top-0 flex h-[72px] shrink-0 items-center gap-3 bg-white px-4 min-[1024px]:px-8 print:hidden ${Z.topbar}`}
+          >
             <button
               type="button"
               aria-label="Відкрити меню"

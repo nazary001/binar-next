@@ -156,12 +156,28 @@ export async function listJournal(url: URL): Promise<Page<JournalRow>> {
   return paginate(await collection("auditLog"), filter, query, { map: toJournalRow });
 }
 
-// The last lines about one record, newest first (index entity_at).
-export async function entityHistory(type: string, id: string, limit = JOURNAL_ENTITY_LIMIT): Promise<JournalRow[]> {
+export type EntityHistoryOptions = {
+  // The lines of these related types whose meta[metaKey] names the record
+  // too (ENTITY_RELATED; the route passes only the types the caller may
+  // view). Empty or left out: the record's own lines only.
+  related?: { types: readonly string[]; metaKey: string } | null;
+  limit?: number;
+};
+
+// The last lines about one record, newest first. Its own lines are served
+// by the index entity_at; the related ones by the same index on
+// entity.type (a few point ranges), filtered on the meta key.
+export async function entityHistory(type: string, id: string, options: EntityHistoryOptions = {}): Promise<JournalRow[]> {
+  const own: Filter<AuditLogDoc> = { "entity.type": type, "entity.id": id };
+  const related = options.related;
+  const filter: Filter<AuditLogDoc> =
+    related && related.types.length > 0
+      ? { $or: [own, { "entity.type": { $in: [...related.types] }, [`meta.${related.metaKey}`]: id }] }
+      : own;
   const docs = await (await collection("auditLog"))
-    .find({ "entity.type": type, "entity.id": id })
+    .find(filter)
     .sort({ at: -1, _id: -1 })
-    .limit(limit)
+    .limit(options.limit ?? JOURNAL_ENTITY_LIMIT)
     .toArray();
   return docs.map(toJournalRow);
 }

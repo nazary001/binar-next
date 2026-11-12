@@ -25,8 +25,7 @@ import {
   type PaymentKind,
   type StaffNoteDto,
 } from "@/components/admin/orders/types";
-import { DELIVERY_OPTIONS, PICKUP_NOTICE, type CheckoutValues } from "@/components/checkout/data";
-import { dayDate, daysPlural, type DeliveryInfo, type PaymentState } from "@/components/platform/orders/data";
+import { dayDate, daysPlural, type PaymentState } from "@/components/platform/orders/data";
 import { ORDER_STATUS_META } from "@/components/platform/ui/OrderStatusBadge";
 import {
   collection,
@@ -43,7 +42,7 @@ import { newId } from "@/server/ids";
 import { findMedia, readMedia } from "@/server/media/store";
 import { lineSum, round2, sum } from "@/server/money";
 import { enqueueMessage } from "@/server/outbox";
-import { companyToday, fileLocation, toCancelDto } from "@/server/repos/orders";
+import { companyToday, deliveryOf, fileLocation, toCancelDto } from "@/server/repos/orders";
 import { kyivToday } from "@/server/time";
 import { zId } from "@/server/validate";
 import { staffActor, type AuditInput } from "../audit";
@@ -51,6 +50,7 @@ import type { StaffContext } from "../auth";
 import { HttpError } from "../http";
 import { contains, dayParam, flag, idParam, manyOf, oneOf, paginate, startsWith, type ListQuery, type Page } from "../list";
 import { findStaff } from "../staff";
+import { isOwnerActor } from "./roles";
 
 // Orders as staff work with them (the API under /api/admin/orders).
 //
@@ -156,6 +156,14 @@ export function newNote(staff: StaffContext, text: string): StaffNote {
   return { id: newId("note"), at: new Date(), by: { id: staff.staff._id, name: staff.staff.name }, text };
 }
 
+// Who may remove an internal note (of an order or a return request): its
+// author, and an owner, as everywhere in the panel (the leads section
+// holds the same rule). Anybody else gets 403 "not-author", so nobody
+// takes back what a colleague recorded.
+export function assertNoteRemovable(staff: StaffContext, note: StaffNote): void {
+  if (note.by.id !== staff.staff._id && !isOwnerActor(staff)) throw new HttpError(403, "not-author");
+}
+
 function actorDto(actor: Actor | undefined): ActorDto {
   return actor
     ? { id: actor.id, name: actor.name, kind: actor.kind }
@@ -187,13 +195,22 @@ export function notesDto(notes: StaffNote[] | undefined): StaffNoteDto[] {
 
 // --- lookups ---------------------------------------------------------------------
 
-export async function clientNames(ids: Iterable<string | null | undefined>): Promise<Map<string, string>> {
+// A partner company as an order row needs it: its name and the day its
+// rules count with (companyToday: the demo company lives on a fixed day).
+type ClientFacts = { name: string; today: string };
+
+async function clientFacts(ids: Iterable<string | null | undefined>): Promise<Map<string, ClientFacts>> {
   const unique = [...new Set([...ids].filter((id): id is string => typeof id === "string" && id !== ""))];
   if (unique.length === 0) return new Map();
   const rows = await (await collection("clients"))
-    .find({ _id: { $in: unique } }, { projection: { name: 1 } })
+    .find({ _id: { $in: unique } }, { projection: { name: 1, demoToday: 1 } })
     .toArray();
-  return new Map(rows.map((row) => [row._id, typeof row.name === "string" ? row.name : ""]));
+  return new Map(rows.map((row) => [row._id, { name: typeof row.name === "string" ? row.name : "", today: companyToday(row) }]));
+}
+
+export async function clientNames(ids: Iterable<string | null | undefined>): Promise<Map<string, string>> {
+  const facts = await clientFacts(ids);
+  return new Map([...facts].map(([id, client]) => [id, client.name]));
 }
 
 async function staffNames(ids: Iterable<string | null | undefined>): Promise<Map<string, string>> {
@@ -232,22 +249,9 @@ async function orderContext(doc: OrderDoc): Promise<{ client: { _id: string; nam
 
 // --- DTOs ----------------------------------------------------------------------------
 
-// "Інформація про доставку" of a shop order, with the words the storefront
-// writes on a partner order placed at checkout (deliveryOf in
-// src/server/repos/orders.ts, which is not exported; keep the two in step).
-export function deliveryOf(values: CheckoutValues): DeliveryInfo {
-  const method = DELIVERY_OPTIONS.find((o) => o.value === values.delivery)?.label ?? "";
-  const ttn = "Ми надішлемо номер ТТН, щойно передамо замовлення перевізнику.";
-  let note = "";
-  if (values.delivery === "pickup") note = PICKUP_NOTICE;
-  else if (values.delivery === "np-branch") note = `${values.branch}. ${ttn}`;
-  else if (values.delivery === "np-locker") note = `${values.locker}. ${ttn}`;
-  else if (values.delivery === "np-address") {
-    const flat = values.flat ? `, кв. ${values.flat}` : "";
-    note = `Адреса доставки: м. ${values.city}, ${values.street}, ${values.house}${flat}. Кур'єр зателефонує перед приїздом.`;
-  }
-  return { city: values.city, method, note };
-}
+// "Інформація про доставку" of a shop order is worded by the storefront's
+// own deliveryOf (src/server/repos/orders.ts, imported above), the words a
+// partner order placed at checkout gets, so the two can never drift apart.
 
 function customerOf(doc: OrderDoc, clientName: string | null): OrderCustomer {
   const typed = doc.checkout;
@@ -268,9 +272,10 @@ function customerOf(doc: OrderDoc, clientName: string | null): OrderCustomer {
   };
 }
 
-export function toOrderRow(doc: OrderDoc, names: ReadonlyMap<string, string>): OrderRow {
+export function toOrderRow(doc: OrderDoc, clients: ReadonlyMap<string, ClientFacts>): OrderRow {
   const b2b = doc.channel === "b2b";
-  const clientName = b2b ? (names.get(doc.clientId) ?? null) : null;
+  const client = b2b ? clients.get(doc.clientId) : undefined;
+  const clientName = client?.name ?? null;
   return {
     id: doc._id,
     number: doc.number,
@@ -280,6 +285,9 @@ export function toOrderRow(doc: OrderDoc, names: ReadonlyMap<string, string>): O
     status: doc.status,
     payment: b2b ? doc.payment : (doc.payment ?? null),
     paymentDue: b2b ? doc.paymentDue : null,
+    // A partner order of a company that is gone counts with the Kyiv
+    // date, as companyToday(null) does.
+    pastDue: pastDue(doc, client?.today ?? kyivToday()),
     total: doc.total,
     itemsCount: Array.isArray(doc.items) ? doc.items.length : 0,
     customer: customerOf(doc, clientName),
@@ -419,8 +427,8 @@ async function buildDetail(doc: OrderDoc): Promise<OrderDetail> {
       .sort({ createdAt: -1, _id: -1 })
       .toArray(),
   ]);
-  const names = new Map(client ? [[client._id, client.name]] : []);
-  const row = toOrderRow(doc, names);
+  const facts = new Map(client ? [[client._id, { name: client.name, today }]] : []);
+  const row = toOrderRow(doc, facts);
   const items = itemsOf(doc);
   const paid = paidOf(row.payment, doc.total);
   const b2b = doc.channel === "b2b";
@@ -454,6 +462,82 @@ async function buildDetail(doc: OrderDoc): Promise<OrderDetail> {
   };
 }
 
+// --- overdue payments ------------------------------------------------------------------
+//
+// One rule for "Прострочена оплата": the list's payment=overdue filter, its
+// CSV export, the row's pastDue and the overview's counter (repos/
+// overview.ts, ATTENTION_META.overduePayments) all mean the same orders. A
+// partner order that is not cancelled and still owes money is late when
+// it is stored as late (payment "overdue", or a partial payment with an
+// overdue remainder: what staff or BAS recorded) or when its due date is
+// before its company's today (the demo company lives on a fixed day,
+// clients.demoToday; everybody else on the Kyiv date). The due date ages
+// an order by itself: nobody has to mark it the day after its term.
+
+// A stored business day: "YYYY-MM-DD".
+const DAY_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Still owes money, as the overview counts what is owed: the overdue
+// remainder of a partial payment, else the total less what was paid.
+function owesMoney(payment: PaymentState | null | undefined, total: number): boolean {
+  if (payment?.kind === "paid") return false;
+  if (payment?.kind === "partial") return (payment.overdue ?? 0) > 0 || (payment.paid ?? 0) < total;
+  return total > 0;
+}
+
+// The due-date half of the rule for one order already read: past its due
+// date by `today` (its company's today) and still owing.
+function pastDue(doc: OrderDoc, today: string): boolean {
+  if (doc.channel !== "b2b" || doc.status === "cancelled") return false;
+  const due = doc.paymentDue;
+  return typeof due === "string" && DAY_SHAPE.test(due) && due < today && owesMoney(doc.payment, doc.total);
+}
+
+// The demo day a company lives on, null when it counts with the calendar
+// (companyToday answers the Kyiv date for a missing or malformed one).
+function demoDayOf(client: { demoToday?: string | null }): string | null {
+  const day = companyToday({ demoToday: client.demoToday ?? null });
+  return day === client.demoToday ? day : null;
+}
+
+// What owesMoney says, as a filter.
+const OWES_MONEY: Filter<OrderDoc> = {
+  $or: [
+    { "payment.kind": { $nin: ["paid", "partial"] }, total: { $gt: 0 } },
+    { "payment.kind": "partial", "payment.overdue": { $gt: 0 } },
+    { "payment.kind": "partial", $expr: { $lt: [{ $ifNull: ["$payment.paid", 0] }, "$total"] } },
+  ],
+};
+
+// The orders the rule calls late. `today` is the calendar day the
+// companies without a demo day count with (a check may move it, as the
+// overview's `now` does). The companies on a demo day are found first
+// (a handful of seeded ones), so every company is judged by its own day.
+export async function overdueOrdersFilter(today: string = kyivToday()): Promise<Filter<OrderDoc>> {
+  const demo = await (await collection("clients"))
+    .find({ demoToday: { $type: "string" } }, { projection: { demoToday: 1 } })
+    .toArray();
+  const byDay = new Map<string, string[]>();
+  for (const client of demo) {
+    const day = demoDayOf(client);
+    if (day) byDay.set(day, [...(byDay.get(day) ?? []), client._id]);
+  }
+  const onDemoDay = [...byDay.values()].flat();
+  const pastDueClauses: Filter<OrderDoc>[] = [
+    { clientId: { $nin: onDemoDay }, paymentDue: { $regex: DAY_SHAPE, $lt: today } },
+    ...[...byDay].map(([day, ids]) => ({ clientId: { $in: ids }, paymentDue: { $regex: DAY_SHAPE, $lt: day } })),
+  ];
+  return {
+    channel: "b2b",
+    status: { $ne: "cancelled" },
+    $or: [
+      { "payment.kind": "overdue", total: { $gt: 0 } },
+      { "payment.kind": "partial", "payment.overdue": { $gt: 0 } },
+      { $and: [{ $or: pastDueClauses }, OWES_MONEY] },
+    ],
+  };
+}
+
 // --- list and export ------------------------------------------------------------------
 
 // The list never needs the long arrays of an order.
@@ -471,7 +555,8 @@ const LIST_PROJECTION = {
 // /api/admin/nav-counts counts the same).
 const PENDING_CANCEL: Filter<OrderDoc> = { "cancel.request": true, status: { $ne: "cancelled" } };
 
-function paymentClauses(kind: PaymentKind): Filter<OrderDoc>[] {
+// `overdue` = overdueOrdersFilter(), read only when the filter asks for it.
+function paymentClauses(kind: PaymentKind, overdue: Filter<OrderDoc> | null): Filter<OrderDoc>[] {
   switch (kind) {
     case "awaiting":
       // A shop order with nothing recorded is waiting for its money too.
@@ -481,9 +566,8 @@ function paymentClauses(kind: PaymentKind): Filter<OrderDoc>[] {
     case "paid":
       return [{ "payment.kind": "paid" }];
     case "overdue":
-      // Late: the stored overdue state, or a partial payment whose
-      // remainder is overdue (what the cabinet's dashboard counts as late).
-      return [{ "payment.kind": "overdue" }, { "payment.kind": "partial", "payment.overdue": { $gt: 0 } }];
+      // Late by the one rule above: stored as late, or past its due date.
+      return overdue ? [overdue] : [];
   }
 }
 
@@ -505,7 +589,7 @@ function searchClauses(q: string): Filter<OrderDoc>[] {
   return clauses;
 }
 
-export function orderFilter(query: ListQuery): Filter<OrderDoc> {
+export async function orderFilter(query: ListQuery): Promise<Filter<OrderDoc>> {
   const params = query.params;
   const and: Filter<OrderDoc>[] = [];
 
@@ -516,7 +600,10 @@ export function orderFilter(query: ListQuery): Filter<OrderDoc> {
   if (statuses.length > 0) and.push({ status: { $in: statuses } });
 
   const payments = manyOf(params, "payment", PAYMENT_KINDS);
-  if (payments.length > 0) and.push({ $or: payments.flatMap(paymentClauses) });
+  if (payments.length > 0) {
+    const overdue = payments.includes("overdue") ? await overdueOrdersFilter() : null;
+    and.push({ $or: payments.flatMap((kind) => paymentClauses(kind, overdue)) });
+  }
 
   const from = dayParam(params, "from");
   const to = dayParam(params, "to");
@@ -543,13 +630,18 @@ export function orderFilter(query: ListQuery): Filter<OrderDoc> {
 }
 
 export async function listOrders(query: ListQuery): Promise<Page<OrderRow>> {
-  const page = await paginate(await ordersCol(), orderFilter(query), query, { projection: LIST_PROJECTION });
-  const names = await clientNames(page.items.map((doc) => (doc.channel === "b2b" ? doc.clientId : null)));
-  return { ...page, items: page.items.map((doc) => toOrderRow(doc, names)) };
+  const page = await paginate(await ordersCol(), await orderFilter(query), query, { projection: LIST_PROJECTION });
+  const clients = await clientFacts(page.items.map((doc) => (doc.channel === "b2b" ? doc.clientId : null)));
+  return { ...page, items: page.items.map((doc) => toOrderRow(doc, clients)) };
 }
 
-function paymentText(payment: PaymentState | null, total: number): string {
-  return payment ? describePayment(payment, total) : PAYMENT_KIND_LABELS.awaiting;
+// The payment column of the export. An order the due date made late
+// says so, unless its stored state already words the lateness.
+function paymentText(row: OrderRow): string {
+  const payment = row.payment;
+  const text = payment ? describePayment(payment, row.total) : PAYMENT_KIND_LABELS.awaiting;
+  const worded = payment?.kind === "overdue" || (payment?.kind === "partial" && Boolean(payment.overdue));
+  return row.pastDue && !worded ? `${text}, термін оплати минув` : text;
 }
 
 // "1500.5" -> "1500,50": a Ukrainian spreadsheet reads a comma as the
@@ -583,22 +675,22 @@ export const ORDER_EXPORT_HEADER = [
 // ORDER_EXPORT_MAX rows.
 export async function exportOrders(query: ListQuery): Promise<(string | number)[][]> {
   const docs = await (await ordersCol())
-    .find(orderFilter(query), { projection: LIST_PROJECTION })
+    .find(await orderFilter(query), { projection: LIST_PROJECTION })
     .sort(query.sort)
     .limit(ORDER_EXPORT_MAX)
     .toArray();
-  const [names, managers] = await Promise.all([
-    clientNames(docs.map((doc) => (doc.channel === "b2b" ? doc.clientId : null))),
+  const [clients, managers] = await Promise.all([
+    clientFacts(docs.map((doc) => (doc.channel === "b2b" ? doc.clientId : null))),
     staffNames(docs.map((doc) => doc.managerId)),
   ]);
   return docs.map((doc) => {
-    const row = toOrderRow(doc, names);
+    const row = toOrderRow(doc, clients);
     return [
       row.number,
       ORDER_CHANNEL_LABELS[row.channel],
       formatDate(row.date),
       orderStatusLabel(row.status),
-      paymentText(row.payment, row.total),
+      paymentText(row),
       row.paymentDue ? formatDate(row.paymentDue) : "",
       csvMoney(row.total),
       row.itemsCount,
@@ -954,10 +1046,13 @@ export async function addOrderNote(
   };
 }
 
+// The author removes a note, and so does an owner (403 "not-author" for
+// anybody else, assertNoteRemovable).
 export async function removeOrderNote(staff: StaffContext, id: string, noteId: string): Promise<Mutation<object>> {
   const doc = await loadOrder(id);
   const note = doc.notes?.find((n) => n.id === noteId);
   if (!note) throw new HttpError(404, "not-found");
+  assertNoteRemovable(staff, note);
   await commit(
     doc,
     {

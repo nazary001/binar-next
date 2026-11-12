@@ -10,12 +10,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { useState, type ReactNode } from "react";
 import { OWNER_ROLE_ID } from "../lib/permissions";
-import { cx, formatDate, formatDateTime, formatNumber, formatRelative } from "../lib/format";
+import { countOf, cx, formatDate, formatDateTime, formatNumber, formatRelative } from "../lib/format";
 import { Badge, type BadgeSize } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { CopyButton } from "../ui/KeyValue";
 import { TEXT, TONES, type Tone } from "../ui/tokens";
-import type { StaffJournalLine, StaffRow, StaffSessionDto } from "./types";
+import { GENERATED_PASSWORD_TTL_HOURS, type StaffJournalLine, type StaffRow, type StaffSessionDto } from "./types";
+
+export const HOUR_FORMS = ["годину", "години", "годин"] as const;
 
 // Pieces the staff screens and the own-account page share: the role and
 // state badges, the notes that explain a disabled control, the list of
@@ -32,12 +34,26 @@ export function RoleBadge({ roleId, name, size = "sm" }: { roleId: string; name:
   );
 }
 
-// Blocked, waiting for the first own password, or active.
-export function StaffStateBadge({ row, size = "sm" }: { row: Pick<StaffRow, "isActive" | "mustChangePassword">; size?: BadgeSize }) {
+// Blocked, a generated password that no longer opens the account, waiting
+// for the first own password, or active.
+export function StaffStateBadge({
+  row,
+  size = "sm",
+}: {
+  row: Pick<StaffRow, "isActive" | "mustChangePassword" | "passwordExpired">;
+  size?: BadgeSize;
+}) {
   if (!row.isActive) {
     return (
       <Badge tone="red" dot size={size}>
         Заблокований
+      </Badge>
+    );
+  }
+  if (row.mustChangePassword && row.passwordExpired) {
+    return (
+      <Badge tone="red" dot size={size} title="Тимчасовий пароль більше не відкриває акаунт: скиньте пароль ще раз">
+        Пароль прострочено
       </Badge>
     );
   }
@@ -213,6 +229,13 @@ export function SessionList({
 
 // --- sign-ins -------------------------------------------------------------------
 
+// The badge of a refused sign-in, by its reason.
+function refusalLabel(reason: string | null): string {
+  if (reason === "rate") return "Забагато спроб, вхід призупинено";
+  if (reason === "expired") return "Тимчасовий пароль прострочено";
+  return "Невдала спроба";
+}
+
 export function SignInList({ lines, now }: { lines: StaffJournalLine[]; now: number }) {
   return (
     <ul className="flex flex-col divide-y divide-stroke-subtle" aria-label="Останні входи">
@@ -233,7 +256,7 @@ export function SignInList({ lines, now }: { lines: StaffJournalLine[]; now: num
                 <span className={cx(TEXT.bodyStrong, "tabular-nums")}>{formatDateTime(line.at)}</span>
                 {refused && (
                   <Badge tone="red" dot>
-                    Невдала спроба
+                    {refusalLabel(line.reason)}
                   </Badge>
                 )}
               </span>
@@ -288,7 +311,10 @@ export function OneTimePassword({ email, password, signInUrl }: { email: string;
         </div>
       </dl>
       <ol className="flex list-decimal flex-col gap-1 pl-5 text-[14px] leading-5 text-neutral-800 marker:text-neutral-500">
-        <li>Людина відкриває адресу для входу і вводить свій e-mail та тимчасовий пароль.</li>
+        <li>
+          Людина відкриває адресу для входу і вводить свій e-mail та тимчасовий пароль. Пароль діє{" "}
+          {countOf(GENERATED_PASSWORD_TTL_HOURS, HOUR_FORMS)}: пізніше він уже не відкриє акаунт, і пароль доведеться скинути ще раз.
+        </li>
         <li>Панель одразу попросить задати власний пароль. До того нічого іншого відкрити не вийде.</li>
       </ol>
       <Note tone="warning">

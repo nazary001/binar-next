@@ -1,23 +1,21 @@
 import "server-only";
-import { collection, type OutboxDoc } from "./db/collections";
-import { newId } from "./ids";
+import type { OutboxDoc } from "./db/collections";
+import { deliverSoon, storeMessage } from "./mail/queue";
 
-// No mail or SMS provider is connected yet. Messages the site should send
-// (password reset links, employee invitations, "a lead came in" notices) are
-// written here; a mailer can later deliver every document whose `sentAt` is
-// null and stamp it.
+// Messages the site sends (password reset links, employee invitations,
+// "a lead came in" notices, order statuses) are written here and answered
+// with their id. When a mail provider is set up in the panel, the message
+// is sent right after the response of the request that wrote it (the
+// request never waits for it); without one it waits in the outbox, where
+// the panel shows it (src/server/mail). Notices the mail settings may
+// switch off ("lead", "order-placed") go through queueMail
+// (src/server/mail/queue.ts) instead.
 export async function enqueueMessage(
   kind: OutboxDoc["kind"],
   to: string,
   payload: Record<string, unknown>,
-): Promise<void> {
-  const outbox = await collection("outbox");
-  await outbox.insertOne({
-    _id: newId("msg"),
-    kind,
-    to: to.slice(0, 320),
-    payload,
-    createdAt: new Date(),
-    sentAt: null,
-  });
+): Promise<string> {
+  const id = await storeMessage(kind, to, payload);
+  await deliverSoon([id]);
+  return id;
 }

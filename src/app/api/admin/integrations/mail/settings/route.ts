@@ -4,18 +4,24 @@ import { audit } from "@/server/admin/audit";
 import { adminHandler, HttpError, json, parseBody } from "@/server/admin/http";
 import { getSettings } from "@/server/admin/settings";
 import { readMailSettings, mailSettingsAnswer, saveMailSettings, type MailField } from "@/server/mail/config";
+import { LEADS_INBOX } from "@/server/repos/leads";
 import { zText } from "@/server/validate";
 
 // GET /api/admin/integrations/mail/settings - the "mail" group without the
 // sealed key (hasKey + keyHint) and what the mailer can do with it.
-// PUT - any subset of the fields; `apiKey` is sealed, "" removes it.
+// PUT - any subset of the fields; `apiKey` is sealed, "" removes it; a
+// change of the provider or of the webhook's origin removes a stored key
+// that is not replaced in the same body (keyDropped: true).
 // Answer of both: MailSettingsView (src/components/admin/mail/types.ts):
-// MailSettingsAnswer plus the staff inboxes of the general settings the
-// notices go to (shown on the mail page; edited under "Налаштування").
+// MailSettingsAnswer plus the staff inboxes the notices really go to
+// (shown on the mail page; edited under "Налаштування").
 
+// The leads inbox as the lead writer uses it (src/server/repos/leads.ts):
+// the general settings' address, else the site's own.
 async function inboxes(): Promise<MailInboxes> {
   const general = await getSettings("general");
-  return { leads: general.leadsInbox, orders: general.ordersInbox };
+  const leads = general.leadsInbox.trim();
+  return { leads: leads || LEADS_INBOX, leadsIsDefault: !leads, orders: general.ordersInbox };
 }
 
 export const GET = adminHandler("integrations.view", async () => {
@@ -60,6 +66,7 @@ export const PUT = adminHandler("integrations.edit", async ({ request, staff }) 
   );
   if (outcome.key === "set") parts.push("ключ API оновлено");
   if (outcome.key === "removed") parts.push("ключ API видалено");
+  if (outcome.key === "dropped") parts.push("ключ API видалено, бо змінився сервіс або адреса webhook");
   if (parts.length > 0) {
     await audit(staff, request, {
       action: "mail.settings",
@@ -69,6 +76,10 @@ export const PUT = adminHandler("integrations.edit", async ({ request, staff }) 
       meta: { changed: outcome.changed, key: outcome.key, provider: outcome.settings.provider },
     });
   }
-  const view: MailSettingsView = { ...mailSettingsAnswer(outcome.settings), inboxes: await inboxes() };
+  const view: MailSettingsView = {
+    ...mailSettingsAnswer(outcome.settings),
+    inboxes: await inboxes(),
+    ...(outcome.key === "dropped" ? { keyDropped: true } : {}),
+  };
   return json(view);
 });

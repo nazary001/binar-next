@@ -1,7 +1,8 @@
 // Checkout content — Figma «Оформити замовлення» (4329:40696). Field
 // labels, the delivery / payment vocabularies and the pickup notice are
-// verbatim from the masters; the city and branch lists are placeholders
-// until the Nova Poshta API is wired.
+// verbatim from the masters; the city and branch lists are the fixed
+// lists the form keeps while the shop's Nova Poshta search is switched off
+// (novaPoshta.ts, NpFields.tsx).
 
 import { isValidPhone } from "@/components/auth/data";
 
@@ -58,7 +59,7 @@ export const CITIES = [
   "Суми",
 ];
 
-// Placeholder lists until the Nova Poshta API is wired.
+// Fixed lists of the form while the carrier search is switched off.
 export const BRANCHES = [
   "Відділення №1: вул. Хрещатик, 1",
   "Відділення №2: просп. Перемоги, 24",
@@ -107,6 +108,13 @@ export type CheckoutValues = {
   ipn: string;
   address: string;
   invoiceEmail: string;
+  // The carrier's own references (36-character ids of Nova Poshta's
+  // directory) of what was picked from the real lists. Present only when
+  // the checkout's carrier search is switched on and the customer picked a
+  // row; the text fields above always hold what the customer sees.
+  cityRef?: string;
+  branchRef?: string;
+  lockerRef?: string;
 };
 
 export const EMPTY_VALUES: CheckoutValues = {
@@ -131,6 +139,21 @@ export const EMPTY_VALUES: CheckoutValues = {
 };
 
 export type CheckoutErrors = Partial<Record<keyof CheckoutValues, string>>;
+
+// The optional carrier references (see CheckoutValues). They never live
+// in EMPTY_VALUES: a form that never picked a row sends exactly the keys
+// it always sent.
+export const REF_KEYS = ["cityRef", "branchRef", "lockerRef"] as const;
+export type CheckoutRefKey = (typeof REF_KEYS)[number];
+
+// The values without any carrier reference (the fixed-list form, or a
+// draft kept while the search was switched on).
+export function withoutRefs(v: CheckoutValues): CheckoutValues {
+  if (!REF_KEYS.some((key) => key in v)) return v;
+  const copy = { ...v };
+  for (const key of REF_KEYS) delete copy[key];
+  return copy;
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -166,10 +189,19 @@ export function validate(v: CheckoutValues): CheckoutErrors {
 // The payload keeps only what the chosen delivery method and the invoice
 // switch ask for: a branch / locker / address typed before the method was
 // changed, or company data with the invoice unticked, never travel with
-// the order (CO-34).
+// the order (CO-34). The same goes for the carrier references: the city's
+// only with a Nova Poshta method, a branch reference only with a branch
+// pickup, a postomat one only with a postomat, and none that is empty (the
+// key is left out, never sent as ""); POST /api/orders applies the same
+// rule.
 export function pruneDelivery(v: CheckoutValues): CheckoutValues {
+  const refs: Pick<CheckoutValues, CheckoutRefKey> = {};
+  if (v.cityRef && v.delivery.startsWith("np-")) refs.cityRef = v.cityRef;
+  if (v.branchRef && v.delivery === "np-branch") refs.branchRef = v.branchRef;
+  if (v.lockerRef && v.delivery === "np-locker") refs.lockerRef = v.lockerRef;
   return {
-    ...v,
+    ...withoutRefs(v),
+    ...refs,
     branch: v.delivery === "np-branch" ? v.branch : "",
     locker: v.delivery === "np-locker" ? v.locker : "",
     street: v.delivery === "np-address" ? v.street : "",

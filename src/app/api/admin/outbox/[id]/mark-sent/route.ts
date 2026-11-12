@@ -16,7 +16,7 @@ export const POST = adminHandler<Context>("integrations.edit", async ({ request,
   const outcome = await markSent(parsed.data);
   if (outcome === "not-found") notFound();
   if (outcome === "state") throw new HttpError(409, "state");
-  const row = toOutboxRow(outcome);
+  const row = toOutboxRow(outcome, staff.permissions);
   await audit(staff, request, {
     action: "outbox.mark-sent",
     entity: { type: "outbox", id: row.id, label: `${row.kindLabel}: ${row.to}` },

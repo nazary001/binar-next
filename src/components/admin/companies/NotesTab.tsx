@@ -4,6 +4,7 @@ import { ChatBubbleLeftEllipsisIcon, TrashIcon } from "@heroicons/react/24/outli
 import { useState, type FormEvent } from "react";
 import { adminApi } from "../lib/api";
 import { cx, formatDateTime } from "../lib/format";
+import { OWNER_ROLE_ID } from "../lib/permissions";
 import { invalidate } from "../lib/query";
 import { useStaff } from "../shell/StaffProvider";
 import { Avatar } from "../ui/Avatar";
@@ -17,13 +18,17 @@ import { TEXT } from "../ui/tokens";
 import { COMPANY_ERRORS, NOTE_MAX, type CompanyDetail, type NoteAnswer, type StaffNoteDto } from "./types";
 
 // "Нотатки": what staff want each other to know about the company. The
-// partner never sees them.
+// partner never sees them. A member of staff removes their own notes; an
+// owner also removes a colleague's (the API holds the same rule and
+// answers 403 "not-author" to anybody else).
 
 export function NotesTab({ company, canEdit }: { company: CompanyDetail; canEdit: boolean }) {
   const { me } = useStaff();
+  const isOwner = me.roleId === OWNER_ROLE_ID;
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
   const base = `/companies/${encodeURIComponent(company.id)}/notes`;
 
   const add = async (event: FormEvent) => {
@@ -47,19 +52,25 @@ export function NotesTab({ company, canEdit }: { company: CompanyDetail; canEdit
   };
 
   const remove = async (note: StaffNoteDto) => {
+    const own = note.by.id === me.id;
     const yes = await confirmDialog({
-      title: "Видалити нотатку?",
-      text: "Її текст зникне назавжди; у журналі дій лишиться запис про видалення.",
+      title: own ? "Видалити нотатку?" : "Видалити нотатку колеги?",
+      text: own
+        ? "Її текст зникне назавжди; у журналі дій лишиться запис про видалення."
+        : `Автор нотатки: ${note.by.name || "співробітник"}. Її текст зникне назавжди; у журналі дій лишиться запис про видалення з іменем автора.`,
       confirmLabel: "Видалити",
       tone: "danger",
     });
     if (!yes) return;
+    setRemoving(note.id);
     const result = await adminApi(`${base}/${encodeURIComponent(note.id)}`, { method: "DELETE" });
+    setRemoving(null);
+    // Also after a refusal: the note may be gone already.
+    invalidate(`/companies/${encodeURIComponent(company.id)}`);
     if (!result.ok) {
-      toastError(result, COMPANY_ERRORS);
+      toastError(result, { ...COMPANY_ERRORS, "not-found": "Нотатку вже видалили." });
       return;
     }
-    invalidate(`/companies/${encodeURIComponent(company.id)}`);
     invalidate("/audit");
     toast.success("Нотатку видалено");
   };
@@ -105,7 +116,7 @@ export function NotesTab({ company, canEdit }: { company: CompanyDetail; canEdit
         <Card padding="none">
           <ul className="divide-y divide-stroke-subtle">
             {company.notes.map((note) => (
-              <li key={note.id} className="flex gap-3 px-5 py-4 min-[1024px]:px-6">
+              <li key={note.id} className={cx("flex gap-3 px-5 py-4 min-[1024px]:px-6", removing === note.id && "opacity-60")}>
                 <Avatar name={note.by.name || "Співробітник"} size="md" decorative />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
@@ -115,8 +126,15 @@ export function NotesTab({ company, canEdit }: { company: CompanyDetail; canEdit
                   </div>
                   <p className={cx(TEXT.body, "mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]")}>{note.text}</p>
                 </div>
-                {canEdit && (
-                  <IconButton label="Видалити нотатку" icon={TrashIcon} size="sm" variant="danger" onClick={() => void remove(note)} />
+                {canEdit && (note.by.id === me.id || isOwner) && (
+                  <IconButton
+                    label="Видалити нотатку"
+                    icon={TrashIcon}
+                    size="sm"
+                    variant="danger"
+                    loading={removing === note.id}
+                    onClick={() => void remove(note)}
+                  />
                 )}
               </li>
             ))}

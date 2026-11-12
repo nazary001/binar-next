@@ -45,7 +45,9 @@ import { FLOAT_SHADOW, Z } from "./tokens";
 //   IconButton whose tooltip is its label), so it is not read twice.
 // - disabled: renders the child alone.
 //
-// Escape hides it; pressing the element hides it too.
+// Escape hides it; pressing the element hides it too. A wrapper around a
+// control (a span around a Switch) shows the note when the control inside
+// gets keyboard focus.
 
 export type TooltipProps = {
   content: ReactNode;
@@ -136,7 +138,9 @@ export function Tooltip({ content, children, placement = "top", delay = 300, des
         onFocus: (event: FocusEvent<HTMLElement>) => {
           own.onFocus?.(event);
           // Keyboard focus only: a tap or a click also focuses a button.
-          if (event.currentTarget.matches(":focus-visible")) show(event.currentTarget);
+          // React's onFocus bubbles, so a wrapper (a span around a Switch)
+          // hears its input's focus: test the element that took it.
+          if (event.target instanceof HTMLElement && event.target.matches(":focus-visible")) show(event.currentTarget);
         },
         onBlur: (event: FocusEvent<HTMLElement>) => {
           own.onBlur?.(event);

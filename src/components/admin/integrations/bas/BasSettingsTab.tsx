@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircleIcon, ExclamationTriangleIcon, SignalIcon } from "@heroicons/react/24/outline";
 import { useState, type FormEvent } from "react";
 import { useStaff } from "../../shell/StaffProvider";
 import { adminApi } from "../../lib/api";
@@ -13,12 +14,14 @@ import { Input } from "../../ui/Input";
 import { Skeleton, SkeletonText } from "../../ui/Skeleton";
 import { ErrorState } from "../../ui/States";
 import { toast, toastError } from "../../ui/Toast";
-import { SURFACE } from "../../ui/tokens";
+import { SURFACE, TEXT } from "../../ui/tokens";
 import { Notice, SecretField, withoutErrors } from "../shared";
 import {
   BAS_ACCEPT_FLAGS,
   type BasAcceptFlag,
   type BasMode,
+  type BasPushOutcome,
+  type BasPushTestAnswer,
   type BasSettingsAnswer,
   type BasSettingsDto,
   type BasSettingsInput,
@@ -26,27 +29,67 @@ import {
 
 // "Налаштування" of the BAS exchange: the master switch, what BAS may
 // overwrite on the site, how new products and stock behave, which orders
-// go into the queue, and the optional push address. One save bar; the push
-// password is sealed on the server and sent only when typed.
+// go into the queue, and the optional push address with its connection
+// check. One save bar; the push password is sealed on the server and sent
+// only when typed.
 
-type BasForm = Omit<BasSettingsDto, "hasPassword" | "pushPasswordHint">;
+type BasForm = Omit<BasSettingsDto, "hasPassword">;
 
 function formOf(settings: BasSettingsDto): BasForm {
-  const { hasPassword: _has, pushPasswordHint: _hint, ...rest } = settings;
+  const { hasPassword: _has, ...rest } = settings;
   void _has;
-  void _hint;
   return rest;
 }
 
+// The origin a stored password belongs to (the server's rule,
+// server/integrations/bas/push.ts originOf).
+function originOf(value: string): string {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
+  } catch {
+    return "";
+  }
+}
+
+// The quick part of the server's rule (server/integrations/bas/push.ts):
+// the server also refuses private network addresses (and, outside
+// development, the two test hosts) and answers the sentence for the field.
 function urlProblem(value: string): string | null {
   if (!value) return null;
+  let url: URL;
   try {
-    const url = new URL(value);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return "Адреса має починатися з https://";
-    return null;
+    url = new URL(value);
   } catch {
     return "Перевірте адресу: наприклад, https://bas.example.com/hs/site/orders";
   }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return "Адреса має починатися з https://";
+  if (url.username || url.password) return "Логін і пароль не пишуть в адресі: вкажіть їх у полях «Логін» і «Пароль»";
+  if (url.protocol === "http:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+    return "Потрібна адреса https://: через звичайний http пароль і замовлення йшли б відкритим текстом";
+  }
+  return null;
+}
+
+function seconds(ms: number): string {
+  return ms < 1000 ? `${ms} мс` : `${(ms / 1000).toFixed(1).replace(".", ",")} с`;
+}
+
+// What the connection check came to, in the words of the settings tab.
+function PushTestResult({ result }: { result: BasPushOutcome }) {
+  if (result.ok) {
+    return (
+      <Notice tone="green" icon={<CheckCircleIcon />} title="З'єднання працює">
+        BAS відповів {result.status} за {seconds(result.durationMs)}.{result.answer ? ` Відповідь: ${result.answer}` : ""}
+      </Notice>
+    );
+  }
+  return (
+    <Notice tone="red" icon={<ExclamationTriangleIcon />} title="З'єднання не вдалося">
+      {result.error}
+      {result.answer && result.error && !result.error.includes(result.answer) ? ` Відповідь: ${result.answer}` : ""}
+    </Notice>
+  );
 }
 
 const PUBLISH_OPTIONS = [
@@ -67,7 +110,7 @@ const MODE_OPTIONS: { value: BasMode; label: string; hint: string }[] = [
   {
     value: "push",
     label: "Сайт ще й надсилає замовлення",
-    hint: "Для BAS, що приймає замовлення за адресою: кожне нове замовлення приходить туди одразу.",
+    hint: "Для BAS, що приймає замовлення за адресою: кожне нове замовлення і повернення приходить туди одразу, а черга лишається запасним шляхом.",
   },
 ];
 
@@ -80,8 +123,17 @@ function BasSettingsForm({ settings }: { settings: BasSettingsDto }) {
   const [removePassword, setRemovePassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [test, setTest] = useState<BasPushOutcome | null>(null);
 
   const dirty = useDirty(initial, form) || password !== "" || removePassword;
+  // A stored password goes with the address: the server removes it when
+  // the address moves to another site and no new one is typed.
+  const passwordWillDrop = settings.hasPassword && !password && !removePassword && originOf(form.pushUrl) !== originOf(initial.pushUrl);
+  // The check posts to the stored address with the stored login and
+  // password, so it waits until changes to them are saved.
+  const pushDirty =
+    form.pushUrl.trim() !== initial.pushUrl || form.pushLogin.trim() !== initial.pushLogin || password !== "" || removePassword;
   useUnsavedWarning(dirty);
   const set = (patch: Partial<BasForm>) => {
     setForm((current) => ({ ...current, ...patch }));
@@ -114,11 +166,39 @@ function BasSettingsForm({ settings }: { settings: BasSettingsDto }) {
     const answer = await adminApi<BasSettingsAnswer>("/integrations/bas/settings", { method: "PUT", body });
     setSaving(false);
     if (!answer.ok) {
+      const fields = answer.data.fields as Record<string, string> | undefined;
+      if (fields?.pushUrl) {
+        setErrors({ pushUrl: fields.pushUrl });
+        toast.error("Перевірте адресу для замовлень.");
+        return;
+      }
       toastError(answer, { "bad-request": "Сервер не прийняв значення: перевірте адресу і логін." });
       return;
     }
-    toast.success("Налаштування обміну з BAS збережено");
+    if (answer.data.passwordDropped) {
+      toast.show({
+        tone: "success",
+        title: "Налаштування обміну з BAS збережено",
+        text: "Збережений пароль видалено, бо змінилася адреса. Якщо BAS за новою адресою просить пароль, введіть його.",
+      });
+    } else {
+      toast.success("Налаштування обміну з BAS збережено");
+    }
     invalidate("/integrations/bas");
+  };
+
+  const runTest = async () => {
+    setTesting(true);
+    const answer = await adminApi<BasPushTestAnswer>("/integrations/bas/push-test", { method: "POST" });
+    setTesting(false);
+    if (!answer.ok) {
+      setTest(null);
+      toastError(answer, { "no-address": "Спершу збережіть адресу для замовлень." });
+      return;
+    }
+    setTest(answer.data.result);
+    // The check is a journal row: the status tab shows it as the last call.
+    invalidate("/integrations/bas/status");
   };
 
   const disabled = !canEdit;
@@ -228,6 +308,7 @@ function BasSettingsForm({ settings }: { settings: BasSettingsDto }) {
                   onChange={(pushUrl) => set({ pushUrl })}
                   disabled={disabled}
                   error={errors.pushUrl}
+                  hint="Лише https://, без логіна й пароля в самій адресі: їх вкажіть у полях нижче."
                   className="col-span-full"
                   required
                 />
@@ -241,7 +322,7 @@ function BasSettingsForm({ settings }: { settings: BasSettingsDto }) {
                 />
                 <SecretField
                   label="Пароль"
-                  stored={{ has: settings.hasPassword, hint: settings.pushPasswordHint }}
+                  stored={{ has: settings.hasPassword, hint: "" }}
                   value={password}
                   onChange={setPassword}
                   removing={removePassword}
@@ -257,8 +338,41 @@ function BasSettingsForm({ settings }: { settings: BasSettingsDto }) {
                   }}
                 />
               </FormGrid>
+              {passwordWillDrop && (
+                <Notice tone="amber" icon={<ExclamationTriangleIcon />} title="Збережений пароль буде видалено">
+                  Адреса веде на інший сервер, а пароль належить попередній адресі: щоб він не пішов туди, куди його не вводили, сайт видалить
+                  його під час збереження. Введіть пароль для нової адреси в полі «Пароль».
+                </Notice>
+              )}
+              {canEdit && (
+                <div className="flex min-w-0 flex-col gap-3">
+                  <div className="flex min-w-0 flex-col gap-2 min-[640px]:flex-row min-[640px]:items-center min-[640px]:gap-4">
+                    <Button
+                      variant="secondary"
+                      iconLeft={SignalIcon}
+                      onClick={() => void runTest()}
+                      loading={testing}
+                      disabled={pushDirty || !settings.pushUrl}
+                      className="shrink-0 self-start"
+                    >
+                      Перевірити з&apos;єднання
+                    </Button>
+                    <p className={cx(TEXT.caption, "min-w-0")}>
+                      {pushDirty
+                        ? "Перевірка йде на збережену адресу: спершу збережіть зміни."
+                        : settings.pushUrl
+                          ? "Сайт надішле на адресу пробний запит із логіном і паролем і покаже, що відповів BAS. Працює й тоді, коли обмін вимкнено."
+                          : "Збережіть адресу, щоб перевірити з'єднання."}
+                    </p>
+                  </div>
+                  {test && !pushDirty && <PushTestResult result={test} />}
+                </div>
+              )}
               <Notice tone="blue">
-                Сайт надсилає замовлення на цю адресу одразу після оформлення; якщо BAS не відповідає, замовлення лишається в черзі.
+                Коли обмін увімкнено, сайт надсилає кожне нове замовлення і заявку на повернення на цю адресу одразу, як вони потрапили в чергу, і
+                чекає відповіді до 10 секунд. Відповідь 2xx означає «прийнято». Будь-яка інша - як мовчання: якщо BAS не відповідає, замовлення
+                лишається в черзі з текстом помилки, BAS забере його звичайним запитом черги, а повторити надсилання можна кнопкою «Повторити» на
+                вкладці «Черга». Формат запиту - на вкладці «Для розробника BAS».
               </Notice>
             </>
           )}

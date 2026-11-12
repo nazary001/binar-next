@@ -200,9 +200,10 @@ export type SecretStored = { has: boolean; hint: string; readable?: boolean };
 
 // The field of a secret the server keeps sealed (a carrier key, a mail
 // key, a password): never prefilled. With a secret stored it shows only
-// its hint ("****abcd") with "Замінити" / "Видалити"; replacing opens an
-// empty password field; removing waits for the page's save button, like
-// every other change of the form.
+// "Збережено" and its hint ("****abcd"; a password has none) with
+// "Замінити" / "Видалити"; replacing opens an empty password field;
+// removing waits for the page's save button, like every other change of
+// the form.
 //
 // The parent keeps what will be sent: `value` (typed, sent when not
 // empty) and `removing` (send "" / null to remove the stored one).
@@ -270,9 +271,12 @@ export function SecretField({
           <span className="flex min-w-0 items-center gap-2">
             <KeyIcon aria-hidden className="size-4 shrink-0 text-neutral-500" />
             <span className={TEXT.body}>Збережено</span>
-            <span className="tabular-nums tracking-[0.04em] text-neutral-500" aria-label={`закінчується на ${stored.hint.replace(/\*/g, "")}`}>
-              {stored.hint}
-            </span>
+            {/* A password shows nothing of itself; an API key its last characters. */}
+            {stored.hint.replace(/\*/g, "") ? (
+              <span className="tabular-nums tracking-[0.04em] text-neutral-500" aria-label={`закінчується на ${stored.hint.replace(/\*/g, "")}`}>
+                {stored.hint}
+              </span>
+            ) : null}
           </span>
           {canEdit && (
             <span className="flex flex-wrap items-center gap-1">

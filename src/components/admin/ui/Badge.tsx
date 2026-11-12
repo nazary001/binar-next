@@ -21,6 +21,9 @@ import { TONES, type Tone } from "./tokens";
 //   the panel is one step denser.
 // Every status badge of status.tsx (OrderStatusBadge ...) is a Badge.
 // - dot: a 6-px dot of the tone's dot colour before the text.
+// - icon: a glyph before the text instead of the dot (a lock on
+//   "Приватний"): a 20-px solid Heroicon element, sized here to 14 / 16 px
+//   and drawn in the text colour.
 // - title: a native tooltip (the full status name when the pill is short).
 //
 // CountBadge props
@@ -44,26 +47,36 @@ export type BadgeProps = {
   tone: Tone;
   size?: BadgeSize;
   dot?: boolean;
+  icon?: ReactNode;
   title?: string;
   children: ReactNode;
   className?: string;
 };
 
-export function Badge({ tone, size = "sm", dot = false, title, children, className }: BadgeProps) {
+const BADGE_ICON: Record<BadgeSize, string> = { sm: "[&>svg]:size-3.5", md: "[&>svg]:size-4" };
+
+export function Badge({ tone, size = "sm", dot = false, icon, title, children, className }: BadgeProps) {
   // A tone the map does not know (data newer than the code) stays readable.
   const colors = TONES[tone] ?? TONES.neutral;
+  const hasIcon = icon !== undefined && icon !== null && icon !== false;
   return (
     <span
       title={title}
       className={cx(
         "inline-flex max-w-full shrink-0 items-center whitespace-nowrap rounded-[40px] font-medium",
         BOX[size],
-        dot ? PAD_DOT[size] : PAD[size],
+        dot || hasIcon ? PAD_DOT[size] : PAD[size],
         className,
       )}
       style={{ backgroundColor: colors.bg, color: colors.text }}
     >
-      {dot && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: colors.dot }} />}
+      {hasIcon ? (
+        <span aria-hidden className={cx("inline-flex shrink-0 items-center", BADGE_ICON[size])}>
+          {icon}
+        </span>
+      ) : (
+        dot && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: colors.dot }} />
+      )}
       <span className="min-w-0 truncate">{children}</span>
     </span>
   );

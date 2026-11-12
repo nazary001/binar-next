@@ -20,15 +20,36 @@ import { NpError } from "./errors";
 // is the method plus a hash of the normalised arguments; the TTL index on
 // expiresAt removes old rows. The cache is a convenience: when it cannot be
 // read or written the carrier is asked directly.
+//
+// Every distinct search is a row of its own, and the checkout's searches
+// (src/server/integrations/nova-poshta/public.ts) come from anybody, so the
+// cache is bounded whatever is searched: once it holds CACHE_MAX_ROWS rows,
+// a new answer is served without being kept until the TTL index has
+// emptied it again. A full answer is 3 to 12 KB (20 settlements, 20
+// branches) and at most about 60 KB (100 branches, the panel only), so the
+// collection stays within tens of megabytes on the 512 MB database.
 
 const CACHE_MS = 24 * 60 * 60 * 1000;
+const CACHE_MAX_ROWS = 2000;
+
+let cacheMaxRows = CACHE_MAX_ROWS;
+
+// The audit scripts lower the bound to see it hold; null restores it.
+export function setDirectoryCacheLimit(rows: number | null): void {
+  cacheMaxRows = rows ?? CACHE_MAX_ROWS;
+}
+
+// What a caller of the directory may add. `beforeCarrier` runs when the
+// cache cannot answer, right before the carrier is asked, and may refuse
+// by throwing (the checkout's budget of carrier calls, public.ts).
+export type DirectoryOptions = { beforeCarrier?: () => Promise<void> };
 
 export function directoryCacheKey(method: string, args: unknown): string {
   const hash = createHash("sha256").update(JSON.stringify(args)).digest("hex").slice(0, 40);
   return `np:${method}:${hash}`;
 }
 
-async function cached<T>(method: string, args: unknown, load: () => Promise<T>): Promise<T> {
+async function cached<T>(method: string, args: unknown, load: () => Promise<T>, options: DirectoryOptions = {}): Promise<T> {
   const key = directoryCacheKey(method, args);
   try {
     const hit = await (await collection("carrierCache")).findOne({ _id: key, expiresAt: { $gt: new Date() } });
@@ -36,13 +57,15 @@ async function cached<T>(method: string, args: unknown, load: () => Promise<T>):
   } catch (error) {
     console.error("[np] cache read failed:", (error as Error)?.name ?? "error");
   }
+  if (options.beforeCarrier) await options.beforeCarrier();
   const data = await load();
   try {
-    await (await collection("carrierCache")).updateOne(
-      { _id: key },
-      { $set: { data, expiresAt: new Date(Date.now() + CACHE_MS) } },
-      { upsert: true },
-    );
+    const cache = await collection("carrierCache");
+    // The collection's own count (no scan); a few answers written at the
+    // same moment may pass the bound together, which is harmless.
+    if ((await cache.estimatedDocumentCount()) < cacheMaxRows) {
+      await cache.updateOne({ _id: key }, { $set: { data, expiresAt: new Date(Date.now() + CACHE_MS) } }, { upsert: true });
+    }
   } catch (error) {
     console.error("[np] cache write failed:", (error as Error)?.name ?? "error");
   }
@@ -78,7 +101,7 @@ type SettlementRow = {
   AddressDeliveryAllowed?: unknown;
 };
 
-export async function searchCities(query: string, limit = 20): Promise<NpCity[]> {
+export async function searchCities(query: string, limit = 20, options: DirectoryOptions = {}): Promise<NpCity[]> {
   const text = normalized(query);
   if (!text) return [];
   const size = Math.min(Math.max(1, Math.floor(limit)), 50);
@@ -106,6 +129,7 @@ export async function searchCities(query: string, limit = 20): Promise<NpCity[]>
         // A settlement without a delivery city cannot be shipped to.
         .filter((city) => city.cityRef !== "");
     }),
+    options,
   );
 }
 
@@ -191,7 +215,7 @@ function byNumber(a: NpWarehouse, b: NpWarehouse): number {
 
 export type WarehouseQuery = { cityRef: string; query?: string; kind?: NpWarehouseFilter; limit?: number };
 
-export async function listWarehouses(input: WarehouseQuery): Promise<NpWarehouse[]> {
+export async function listWarehouses(input: WarehouseQuery, options: DirectoryOptions = {}): Promise<NpWarehouse[]> {
   const text = normalized(input.query ?? "");
   const kind = input.kind ?? "all";
   const size = Math.min(Math.max(1, Math.floor(input.limit ?? 50)), 100);
@@ -214,6 +238,7 @@ export async function listWarehouses(input: WarehouseQuery): Promise<NpWarehouse
       }
       return warehousesOfType(cityRef, text, size, null);
     }),
+    options,
   );
 }
 

@@ -45,7 +45,9 @@ const COLUMNS: Column<EntityRow>[] = [
   {
     key: "entity",
     header: "Дані",
-    cell: (row) => <TwoLineCell title={BAS_ENTITY_LABELS[row.entity]} subtitle={directionLabel("bas", row.direction)} />,
+    // The last call's own direction: a connection check of the push address
+    // is a "ping" the site makes.
+    cell: (row) => <TwoLineCell title={BAS_ENTITY_LABELS[row.entity]} subtitle={directionLabel("bas", row.call?.direction ?? row.direction)} />,
   },
   {
     key: "at",
@@ -197,7 +199,7 @@ function HowItWorks({ mode }: { mode: "pull" | "push" }) {
         <p>Потім забирає з черги нові замовлення та заявки на повернення і підтверджує кожне своїм номером.</p>
         <p>
           {mode === "push"
-            ? "Додатково сайт сам надсилає кожне нове замовлення на адресу BAS з налаштувань; якщо BAS не відповідає, замовлення лишається в черзі. Інших звернень сайту до BAS немає."
+            ? "Додатково, поки обмін увімкнено, сайт сам надсилає кожне нове замовлення і заявку на повернення на адресу BAS з налаштувань, одразу як вони потрапили в чергу. Відповідь BAS про прийняття підтверджує запис; якщо BAS не відповів або відповів помилкою, запис лишається в черзі з текстом помилки, і BAS забере його звичайним запитом. Інших звернень сайту до BAS немає."
             : "Сайт сам до облікової системи не звертається, тож відкривати доступ до бази BAS ззовні не потрібно."}{" "}
           Кожен виклик записується в журнал.
         </p>

@@ -28,6 +28,12 @@ import { formatPercent, numberOf } from "./scale";
 //   Hovering a segment or a legend line shows that part there instead.
 // - formatValue: values in the legend and the hole (default formatNumber).
 // - label: the accessible name of the group.
+// - fit: how it chooses between the ring above the legend and the two side
+//   by side. "viewport" (default): side by side from a 640-px window.
+//   "container": side by side when its own box is at least 420 px wide (a
+//   container query), so a narrow card of a wide page keeps the column and
+//   a wide card of a narrow page goes side by side. "column" / "row":
+//   always the one or the other.
 //
 // Fixed size, no measuring: safe to render on the server.
 
@@ -40,7 +46,16 @@ export type DonutChartProps = {
   centerValue?: string;
   formatValue?: (value: number) => string;
   label?: string;
+  fit?: "viewport" | "container" | "column" | "row";
   className?: string;
+};
+
+// The layout of the ring and the legend, by `fit` (whole literal classes).
+const FIT: Record<NonNullable<DonutChartProps["fit"]>, string> = {
+  viewport: "flex-col items-center gap-5 min-[640px]:flex-row min-[640px]:items-center min-[640px]:gap-6",
+  container: "flex-col items-center gap-5 @min-[420px]:flex-row @min-[420px]:items-center @min-[420px]:gap-6",
+  column: "flex-col items-center gap-5",
+  row: "flex-row items-center gap-6",
 };
 
 const GAP = 2;
@@ -53,6 +68,7 @@ export function DonutChart({
   centerValue,
   formatValue = plainValue,
   label,
+  fit = "viewport",
   className,
 }: DonutChartProps) {
   const [active, setActive] = useState<number | null>(null);
@@ -75,12 +91,8 @@ export function DonutChart({
   const share = (value: number) => (total > 0 ? (value / total) * 100 : 0);
   const hole = shown !== null ? { value: formatValue(values[shown]), label: data[shown].label } : { value: centerValue, label: centerLabel };
 
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className={cx("flex min-w-0 flex-col items-center gap-5 min-[640px]:flex-row min-[640px]:items-center min-[640px]:gap-6", className)}
-    >
+  const chart = (
+    <div role="group" aria-label={label} className={cx("flex min-w-0", FIT[fit], fit !== "container" && className)}>
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="block -rotate-90">
           <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#ececed" strokeWidth={thickness} />
@@ -152,4 +164,6 @@ export function DonutChart({
       </ul>
     </div>
   );
+  // A container query needs a box of its own around the flex row.
+  return fit === "container" ? <div className={cx("@container min-w-0", className)}>{chart}</div> : chart;
 }

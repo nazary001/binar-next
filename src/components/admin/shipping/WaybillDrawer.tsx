@@ -2,6 +2,7 @@
 
 import { ChevronDownIcon, ExclamationTriangleIcon, MapPinIcon, XCircleIcon } from "@heroicons/react/20/solid";
 import { useEffect, useState, type ReactNode } from "react";
+import { placeSearchText } from "@/components/checkout/novaPoshta";
 import { adminApi, type ApiFailure } from "../lib/api";
 import { invalidate, useAdminQuery } from "../lib/query";
 import { cx, formatDate, formatMoney, qs } from "../lib/format";
@@ -31,6 +32,7 @@ import {
   type NpPaymentMethod,
   type NpStreet,
   type NpWarehouse,
+  type NpWarehouseKind,
   type ServiceKind,
   type ShippingOrderDto,
   type WaybillInput,
@@ -39,9 +41,13 @@ import {
 } from "./types";
 
 // The "create a Nova Poshta waybill" drawer of an order. It starts from
-// GET /shipping/orders/<id> (the recipient as the buyer typed it, the
-// parcel defaults of the settings) and lets the manager pick the carrier's
-// real city and branch, because the checkout keeps plain text only.
+// GET /shipping/orders/<id> (the recipient as the buyer gave it, the
+// parcel defaults of the settings). When the customer picked the city and
+// the branch or postomat from the carrier's lists at checkout, the order
+// kept their references: the drawer looks those rows up again in the
+// directory and opens with them chosen, so the manager only confirms.
+// Otherwise (a typed city, an older order, a row the carrier no longer
+// lists) the pickers start empty and the checkout text is the hint.
 // Under the form: the cost and date the carrier promises (POST
 // /np/estimate, quiet when it fails) and, on request, the exact requests
 // that will go to the carrier (a dry run of the same route).
@@ -78,6 +84,31 @@ export function WaybillDrawer({ orderId, open, onClose, onCreated }: WaybillDraw
   const shipLabel = data && data.order.allowedStatuses.includes("shipped") && can("orders.edit") ? ORDER_STATUS.shipped.label : null;
   const ready = data?.integration.ready ?? false;
 
+  // The rows the customer picked, looked up once per opening before the
+  // form is made (it starts from them; a later answer of the same opening
+  // does not remake it). null = still looking.
+  const opening = `${orderId}:${session}`;
+  const lookup = lookupKey(data, session);
+  const [found, setFound] = useState<{ opening: string; picked: Picked } | null>(null);
+  useEffect(() => {
+    if (!lookup) return;
+    let live = true;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), LOOKUP_MS);
+    const [orderKey, sessionKey, input] = JSON.parse(lookup) as [string, number, LookupInput];
+    void lookupPicked(input, controller.signal)
+      .catch(() => NOTHING_PICKED)
+      .then((picked) => {
+        if (live) setFound({ opening: `${orderKey}:${sessionKey}`, picked });
+      });
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [lookup]);
+  const picked = !lookup ? NOTHING_PICKED : found?.opening === opening ? found.picked : null;
+
   return (
     <Drawer
       open={open}
@@ -100,7 +131,13 @@ export function WaybillDrawer({ orderId, open, onClose, onCreated }: WaybillDraw
             <Button variant="secondary" onClick={onClose} disabled={busy}>
               Скасувати
             </Button>
-            <Button type="submit" form={formId} loading={busy} disabled={!ready} title={ready ? undefined : "Спершу налаштуйте Нову Пошту"}>
+            <Button
+              type="submit"
+              form={formId}
+              loading={busy}
+              disabled={!ready || !picked}
+              title={ready ? undefined : "Спершу налаштуйте Нову Пошту"}
+            >
               Створити накладну
             </Button>
           </>
@@ -111,16 +148,17 @@ export function WaybillDrawer({ orderId, open, onClose, onCreated }: WaybillDraw
         )
       }
     >
-      {data ? (
+      {data && picked ? (
         <WaybillForm
           key={`${orderId}:${session}`}
           formId={formId}
           data={data}
+          picked={picked}
           markShipped={shipLabel !== null && markShipped}
           onBusy={setBusy}
           onCreated={onCreated}
         />
-      ) : query.error ? (
+      ) : !data && query.error ? (
         <ErrorState failure={query.error} onRetry={query.reload} />
       ) : (
         <div className="flex flex-col gap-6 pt-2" data-loading="true">
@@ -131,6 +169,61 @@ export function WaybillDrawer({ orderId, open, onClose, onCreated }: WaybillDraw
       )}
     </Drawer>
   );
+}
+
+// --- the place the customer picked ------------------------------------------------------
+
+// The carrier's rows of the city and the branch or postomat the customer
+// picked at checkout, looked up again through the directory routes: the
+// pickers then hold real rows (the carrier's labels, whether a courier
+// goes there, the weight and size limits). A reference is trusted only
+// when the carrier lists it under the text the order keeps: the city among
+// the settlements of its name, the branch or postomat among those of that
+// city found by its number. Anything not found (the carrier no longer
+// lists it, it did not answer in LOOKUP_MS) is left for the manager to
+// pick, with the checkout text as the hint.
+type Picked = { city: NpCity | null; warehouse: NpWarehouse | null };
+
+const NOTHING_PICKED: Picked = { city: null, warehouse: null };
+
+const LOOKUP_MS = 8000;
+
+type LookupInput = { cityRef: string; city: string; kind: NpWarehouseKind | null; warehouseRef: string; warehouse: string };
+
+// null = nothing to look up (no city reference came with the order).
+function lookupKey(data: ShippingOrderDto | undefined, session: number): string | null {
+  const r = data?.recipient;
+  if (!data || !r?.cityRef || !r.city.trim()) return null;
+  const kind = r.serviceKind === "branch" || r.serviceKind === "postomat" ? r.serviceKind : null;
+  const input: LookupInput = {
+    cityRef: r.cityRef,
+    city: r.city.trim(),
+    kind,
+    warehouseRef: kind ? (r.warehouseRef ?? "") : "",
+    warehouse: r.warehouse,
+  };
+  return JSON.stringify([data.order.id, session, input]);
+}
+
+function sameRef(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+async function lookupPicked(input: LookupInput, signal: AbortSignal): Promise<Picked> {
+  const [cities, places] = await Promise.all([
+    adminApi<NpListAnswer<NpCity>>(`/np/cities?${qs({ q: input.city, limit: 50 })}`, { signal }),
+    input.kind && input.warehouseRef
+      ? adminApi<NpListAnswer<NpWarehouse>>(
+          `/np/warehouses?${qs({ cityRef: input.cityRef, kind: input.kind, q: placeSearchText(input.warehouse), limit: 50 })}`,
+          { signal },
+        )
+      : null,
+  ]);
+  const city = cities.ok ? (cities.data.items.find((c) => sameRef(c.cityRef, input.cityRef)) ?? null) : null;
+  if (!city) return NOTHING_PICKED;
+  const warehouse =
+    places?.ok ? (places.data.items.find((w) => sameRef(w.ref, input.warehouseRef) && w.kind === input.kind) ?? null) : null;
+  return { city, warehouse };
 }
 
 // --- the form ------------------------------------------------------------------------
@@ -169,14 +262,14 @@ const FIELD_OF_PATH: Record<string, keyof Errors> = {
   "params.dimensions": "dimensions",
 };
 
-function initialForm(data: ShippingOrderDto): Form {
+function initialForm(data: ShippingOrderDto, picked: Picked): Form {
   const p = data.params;
   return {
     name: data.recipient.name,
     phone: data.recipient.phone,
-    city: null,
+    city: picked.city,
     kind: p.serviceKind,
-    warehouse: null,
+    warehouse: picked.warehouse,
     street: null,
     house: data.recipient.house,
     flat: data.recipient.flat,
@@ -355,22 +448,36 @@ function Callout({ tone, title, children, action }: { tone: "amber" | "red"; tit
   );
 }
 
-// What the buyer typed at checkout, so the manager can match it with the
-// carrier's directory.
-function CheckoutHint({ data }: { data: ShippingOrderDto }) {
+// What is left to do with the place the customer gave: confirm the rows
+// already chosen, or find the rest in the carrier's directory.
+function hintNote(data: ShippingOrderDto, picked: Picked): string {
+  const r = data.recipient;
+  const postomat = r.serviceKind === "postomat";
+  if (!picked.city) return "Знайдіть це місце в довіднику Нової Пошти нижче: накладна потребує точного відділення, а не тексту.";
+  if (r.serviceKind === "address") return "Місто вже вибрано: клієнт обрав його зі списку Нової Пошти. Вулицю знайдіть у довіднику нижче.";
+  if (picked.warehouse) {
+    return `Клієнт обрав місто й ${postomat ? "поштомат" : "відділення"} зі списків Нової Пошти: їх уже вибрано нижче, лишилося перевірити.`;
+  }
+  if (r.warehouseRef) {
+    return `Місто вже вибрано, а ${postomat ? "поштомат" : "відділення"} із замовлення не вдалося знайти в довіднику Нової Пошти: оберіть його нижче.`;
+  }
+  return `Місто вже вибрано: клієнт обрав його зі списку Нової Пошти. ${postomat ? "Поштомат" : "Відділення"} знайдіть у довіднику нижче.`;
+}
+
+// What the buyer gave at checkout, so the manager can match it with the
+// carrier's directory (or check the rows chosen from it).
+function CheckoutHint({ data, picked }: { data: ShippingOrderDto; picked: Picked }) {
   const r = data.recipient;
   const place = r.serviceKind === "address" ? r.address : [r.city ? `м. ${r.city}` : "", r.warehouse].filter(Boolean).join(", ");
   if (!place && !data.order.deliveryMethod) return null;
   return (
-    <div className="flex gap-3 rounded-2xl bg-bg-subtle p-4">
+    <div className="flex gap-3 rounded-2xl bg-bg-subtle p-4" data-picked={picked.city ? (picked.warehouse ? "all" : "city") : "none"}>
       <MapPinIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-neutral-500" />
       <div className="min-w-0">
         <p className={TEXT.caption}>Клієнт вказав при оформленні</p>
         {data.order.deliveryMethod && <p className={cx(TEXT.bodyStrong, "mt-1")}>{data.order.deliveryMethod}</p>}
         {place && <p className={cx(TEXT.body, "mt-0.5 [overflow-wrap:anywhere]")}>{place}</p>}
-        <p className={cx(TEXT.caption, "mt-2")}>
-          Знайдіть це місце в довіднику Нової Пошти нижче: накладна потребує точного відділення, а не тексту.
-        </p>
+        <p className={cx(TEXT.caption, "mt-2")}>{hintNote(data, picked)}</p>
       </div>
     </div>
   );
@@ -508,13 +615,15 @@ function Preview({ orderId, form }: { orderId: string; form: Form }) {
 type FormProps = {
   formId: string;
   data: ShippingOrderDto;
+  // What the form starts with in the city and place pickers.
+  picked: Picked;
   markShipped: boolean;
   onBusy: (busy: boolean) => void;
   onCreated: (result: WaybillResult) => void;
 };
 
-function WaybillForm({ formId, data, markShipped, onBusy, onCreated }: FormProps) {
-  const [form, setForm] = useState<Form>(() => initialForm(data));
+function WaybillForm({ formId, data, picked, markShipped, onBusy, onCreated }: FormProps) {
+  const [form, setForm] = useState<Form>(() => initialForm(data, picked));
   const [errors, setErrors] = useState<Errors>({});
   const [refusal, setRefusal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -628,7 +737,7 @@ function WaybillForm({ formId, data, markShipped, onBusy, onCreated }: FormProps
       )}
 
       <Block title="Одержувач" first>
-        <CheckoutHint data={data} />
+        <CheckoutHint data={data} picked={picked} />
         <FormGrid>
           <Input
             label="Прізвище, ім'я та по батькові"

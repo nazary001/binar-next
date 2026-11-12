@@ -838,8 +838,8 @@ const DETAIL_KEYS = [
 ] as const satisfies readonly (keyof ProductDetailsDoc)[];
 
 // Optional public fields: null removes them from the document. The
-// storefront reads a present `oldPrice` as a promo (and as "sold out" at
-// retail checkout), so a cleared promo must not linger as a null.
+// storefront reads a present `oldPrice` as a promo, so a cleared promo must
+// not linger as a null.
 const UNSET_ON_NULL = new Set<string>(["zone", "productType", "oldPrice", "discount", "retailPrice", "partnerPrice", "chips"]);
 
 // JSON with sorted keys: tells whether a value really changed whatever the

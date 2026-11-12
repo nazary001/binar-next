@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -717,5 +718,260 @@ export function CheckboxField({
       )}
       <span className="text-button-md text-neutral-800 peer-focus-visible:underline">{label}</span>
     </label>
+  );
+}
+
+// The carrier search of the checkout (NpFields.tsx): the «Місто» field
+// and, once a city is picked, «Відділення» / «Поштомат» ask Nova Poshta's
+// directory instead of filtering a fixed list. The same 46-px ring,
+// floating caption, magnifier, menu and rows as AutocompleteField (phones:
+// the two-line rows of the select, the menu kept above the keyboard);
+// what differs is where the rows come from:
+// - `search(query, scope, signal)` loads them (debounced while typing),
+//   null meaning the list could not be loaded;
+// - `scope` names the list ("city", "<cityRef>:branch"); null = no list,
+//   the field is plain free text;
+// - `query` is what is searched (the caller passes "" to show the whole
+//   list of a scope again, e.g. after a branch was picked);
+// - picking a row hands it to `onPick` (the caller stores its text and
+//   its reference); typing hands the text to `onChange`. Typing without
+//   picking always stays possible, so a carrier outage never blocks the
+//   form.
+// The menu says when it is searching, when nothing matched and when the
+// list failed, in a row of its own (and to screen readers).
+
+// A row of such a list: `key` identifies it (the carrier's reference),
+// `value` is the text the field takes when it is picked.
+export type SearchOption = SelectOption & { key: string };
+
+// The rows for `query` in `scope`, or null when they could not be loaded.
+export type SearchFn = (query: string, scope: string, signal: AbortSignal) => Promise<SearchOption[] | null>;
+
+const SEARCH_COPY = {
+  loading: "Шукаємо...",
+  empty: "Нічого не знайдено",
+  failed: "Не вдалося завантажити список. Введіть назву вручну.",
+} as const;
+
+// Pause after the last keystroke before the list is asked for.
+const SEARCH_DEBOUNCE_MS = 250;
+
+type SearchResult = { scope: string; text: string; items: SearchOption[]; failed: boolean };
+
+export function SearchField({
+  label,
+  value,
+  query,
+  minChars,
+  scope,
+  search,
+  selectedKey,
+  onChange,
+  onPick,
+  error,
+  name,
+  autoComplete,
+  enterKeyHint,
+  announceError = true,
+}: {
+  label: string;
+  value: string;
+  query: string;
+  minChars: number;
+  scope: string | null;
+  search: SearchFn;
+  selectedKey?: string;
+  onChange: (v: string) => void;
+  onPick: (option: SearchOption) => void;
+  error?: string;
+  name?: string;
+  autoComplete?: string;
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+  announceError?: boolean;
+}) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const [result, setResult] = useState<SearchResult | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+
+  // The list the open field wants, and whether the last answer is it.
+  const text = query.trim();
+  const wants = open && scope !== null && text.length >= minChars;
+  const wanted = wants ? JSON.stringify([scope, text]) : null;
+  const answered = result ? JSON.stringify([result.scope, result.text]) : null;
+  const fresh = wanted !== null && result !== null && answered === wanted;
+  // While the answer to a new query is on its way the rows of the previous
+  // one (same scope) stay, so the list does not blink on every keystroke.
+  const sameScope = result !== null && !result.failed && result.scope === scope;
+  const items = !wants || result === null ? [] : fresh || sameScope ? result.items : [];
+  let status: keyof typeof SEARCH_COPY | null = null;
+  if (wants && fresh && result) status = result.failed ? "failed" : result.items.length === 0 ? "empty" : null;
+  else if (wants && items.length === 0) status = "loading";
+  const showMenu = wants && (items.length > 0 || status !== null);
+  const activeIndex = active < items.length ? active : -1;
+
+  // Asks for the wanted list once it differs from the last answer; the
+  // answer to a query that was typed over is dropped (aborted).
+  useEffect(() => {
+    if (wanted === null || answered === wanted) return;
+    const [scopeOf, textOf] = JSON.parse(wanted) as [string, string];
+    const controller = new AbortController();
+    const done = (rows: SearchOption[] | null) => {
+      if (controller.signal.aborted) return;
+      setResult({ scope: scopeOf, text: textOf, items: rows ?? [], failed: rows === null });
+      setActive(-1);
+    };
+    const timer = window.setTimeout(
+      () => {
+        search(textOf, scopeOf, controller.signal).then(done, () => done(null));
+      },
+      textOf ? SEARCH_DEBOUNCE_MS : 0,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [wanted, answered, search]);
+
+  // Phones: the open menu never runs under the keyboard (AutocompleteField).
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!showMenu || !menu || !isPhone()) return;
+    const vv = window.visualViewport;
+    const cap = () => {
+      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const room = Math.floor(visibleBottom - menu.getBoundingClientRect().top - 8);
+      menu.style.maxHeight = `${Math.min(250, Math.max(140, room))}px`;
+    };
+    cap();
+    vv?.addEventListener("resize", cap);
+    vv?.addEventListener("scroll", cap);
+    window.addEventListener("scroll", cap, { passive: true });
+    return () => {
+      vv?.removeEventListener("resize", cap);
+      vv?.removeEventListener("scroll", cap);
+      window.removeEventListener("scroll", cap);
+    };
+  }, [showMenu]);
+
+  // Keeps the highlighted row in view while the arrows walk the list.
+  useEffect(() => {
+    if (!showMenu || activeIndex < 0) return;
+    const row = document.getElementById(`${id}-opt-${activeIndex}`);
+    const menu = menuRef.current;
+    if (!row || !menu) return;
+    if (row.offsetTop < menu.scrollTop) menu.scrollTop = row.offsetTop;
+    else if (row.offsetTop + row.offsetHeight > menu.scrollTop + menu.clientHeight) {
+      menu.scrollTop = row.offsetTop + row.offsetHeight - menu.clientHeight;
+    }
+  }, [showMenu, activeIndex, id]);
+
+  const pick = (option: SearchOption) => {
+    onPick(option);
+    setOpen(false);
+    setActive(-1);
+    // Desktop closes the field; phones keep the focus (and the keyboard)
+    // for the next field.
+    if (!isPhone()) inputRef.current?.blur();
+  };
+
+  return (
+    <div>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          id={id}
+          name={name}
+          type="text"
+          autoComplete={autoComplete ?? "off"}
+          role="combobox"
+          aria-label={label}
+          aria-autocomplete="list"
+          aria-expanded={showMenu}
+          aria-controls={showMenu ? `${id}-menu` : undefined}
+          aria-activedescendant={showMenu && activeIndex >= 0 ? `${id}-opt-${activeIndex}` : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-hint` : undefined}
+          data-search-field=""
+          enterKeyHint={enterKeyHint}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setActive(-1);
+            setOpen(true);
+          }}
+          onClick={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            // A list that failed is asked for again on the next visit.
+            if (result?.failed) setResult(null);
+            // Phones: the field goes to the top so its rows have room
+            // above the keyboard (AutocompleteField).
+            if (isPhone()) {
+              const behavior = motionBehavior();
+              requestAnimationFrame(() => inputRef.current?.scrollIntoView({ block: "start", behavior }));
+            }
+          }}
+          onBlur={() => {
+            setOpen(false);
+            setActive(-1);
+          }}
+          onKeyDown={(e) => {
+            if (!showMenu) return;
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              if (items.length === 0) return;
+              const next = e.key === "ArrowDown" ? activeIndex + 1 : activeIndex - 1;
+              setActive(Math.max(0, Math.min(items.length - 1, next)));
+            } else if (e.key === "Enter") {
+              // Enter takes the highlighted row (or the first one) of the
+              // answer to what is typed now; otherwise it keeps the typed
+              // text and closes the list. Never a form submit while the
+              // list is open.
+              e.preventDefault();
+              if (fresh && items.length > 0) pick(items[activeIndex >= 0 ? activeIndex : 0]);
+              else setOpen(false);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+            }
+          }}
+          placeholder=" "
+          className={`${RING} pr-14 ${error ? RING_ERROR : ""}`}
+        />
+        <span className={`${error ? LABEL_ERROR : LABEL} ${REST_FIT_ADORNED}`}>{label}</span>
+        <MagnifierIcon className="pointer-events-none absolute right-6 top-1/2 size-6 -translate-y-1/2 text-neutral-900" />
+        <Menu id={`${id}-menu`} open={showMenu} menuRef={menuRef}>
+          {items.map((o, i) => (
+            <MenuItem
+              key={o.key}
+              id={`${id}-opt-${i}`}
+              selected={o.key === selectedKey}
+              active={i === activeIndex}
+              onSelect={() => pick(o)}
+            >
+              <OptionText option={o} />
+            </MenuItem>
+          ))}
+          {items.length === 0 && status && (
+            <li
+              role="option"
+              aria-disabled="true"
+              aria-selected={false}
+              className="px-4 py-3 text-button-md text-neutral-500"
+            >
+              {SEARCH_COPY[status]}
+            </li>
+          )}
+        </Menu>
+      </div>
+      <Hint id={`${id}-hint`} error={error} announce={announceError} />
+      <span className="sr-only" aria-live="polite">
+        {status ? SEARCH_COPY[status] : ""}
+      </span>
+    </div>
   );
 }

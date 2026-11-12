@@ -5,12 +5,19 @@ import { idParam, listQuery, oneOf } from "@/server/admin/list";
 import { enqueueErp, listQueue, queueDto } from "@/server/integrations/bas/queue";
 import { zId } from "@/server/validate";
 
+// A manual queue entry is posted to the accounting system at once (up to 10
+// s).
+export const maxDuration = 60;
+
 // GET  /api/admin/integrations/bas/queue?state=&kind=&entityId=&page=&limit=&sort=
 //      [integrations.view] -> ListAnswer<ExchangeQueueDto>, newest first.
 // POST /api/admin/integrations/bas/queue [integrations.edit] { kind, entityId }
 //      sends an order or a return request to BAS by hand (the exchange
-//      switch and the export settings do not apply to a hand-sent one).
-//      201 { ok, entry } | 404 | 409 "exists" { entry }.
+//      switch and the export settings do not apply to queueing a hand-sent
+//      one). In the push mode (exchange on, mode "push", an address) the
+//      entry is also posted to the BAS address at once: `push` says how
+//      that went and `entry` is as it stands after it.
+//      201 { ok, entry, push? } | 404 | 409 "exists" { entry }.
 
 export const GET = adminHandler("integrations.view", async ({ url }) => {
   const query = listQuery(url, { sortable: ["seq", "createdAt"], defaultSort: "-seq" });
@@ -33,11 +40,16 @@ export const POST = adminHandler("integrations.edit", async ({ request, staff })
   const entry = await queueDto(outcome.entry);
   const what =
     body.kind === "order" ? `Замовлення №${entry.number ?? body.entityId}` : `Заявку на повернення ${body.entityId}`;
+  const pushed = outcome.push
+    ? outcome.push.ok
+      ? " і надіслано на адресу BAS"
+      : "; надіслати на адресу BAS не вдалося"
+    : "";
   await audit(staff, request, {
     action: "integration.bas.enqueue",
     entity: { type: body.kind, id: body.entityId, label: entry.number ? `№${entry.number}` : body.entityId },
-    summary: `${what} передано в чергу обміну з BAS`,
-    meta: { queueId: entry.id, seq: entry.seq },
+    summary: `${what} передано в чергу обміну з BAS${pushed}`,
+    meta: { queueId: entry.id, seq: entry.seq, ...(outcome.push ? { pushed: outcome.push.ok } : {}) },
   });
-  return json({ ok: true, entry }, 201);
+  return json({ ok: true, entry, ...(outcome.push ? { push: outcome.push } : {}) }, 201);
 });

@@ -12,7 +12,7 @@ import {
   type Ref,
   type RefObject,
 } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { cx, plural } from "../lib/format";
 import { SlotIcon, type IconSlot } from "./Button";
 import {
@@ -75,6 +75,14 @@ import { CONTROL, type ControlSize } from "./tokens";
 //   (open the list when the field gets focus, default false: a press or
 //   typing opens it), onBlur, ref (the input), and the Field props.
 //
+// - freeText(text): the typed text becomes the value when nothing is picked
+//   (a brand, a unit: a list of known values that a new one may join).
+//   Leaving the field, or Enter with no row highlighted, commits
+//   freeText(text) (return null to refuse a text); a row picked from the
+//   list still wins. For a string combobox: freeText={(text) => text}.
+//   Enter on a closed list commits first and renders, then lets the form
+//   submit (as NumberInput does), so the submit sees the new value.
+//
 // Keyboard: typing searches; ArrowDown / ArrowUp open the list and move;
 // Enter picks the highlighted row (the first is highlighted when answers
 // come); Escape closes the list, a second Escape puts back the chosen
@@ -113,6 +121,7 @@ export type ComboboxProps<T> = FieldControlProps &
     onChange: (value: T | null) => void;
     clearable?: boolean;
     leftIcon?: IconSlot;
+    freeText?: (text: string) => T | null;
   };
 
 export type MultiComboboxProps<T> = FieldControlProps &
@@ -418,6 +427,7 @@ export function Combobox<T>(props: ComboboxProps<T>) {
     name,
     openOnFocus = false,
     onBlur,
+    freeText,
     ref,
   } = props;
   const ids = useFieldIds(props);
@@ -437,6 +447,18 @@ export function Combobox<T>(props: ComboboxProps<T>) {
     setEditing(false);
     setText("");
     if (getKey(item) !== valueKey) onChange(item);
+  };
+
+  // freeText: the typed text as the value (false when there is nothing to
+  // commit: not editing, no freeText, an empty text, or a refused one).
+  const commitText = (): boolean => {
+    if (!freeText || !editing) return false;
+    const typed = text.trim();
+    if (typed === "") return false;
+    const item = freeText(typed);
+    if (item === null) return false;
+    pick(item);
+    return true;
   };
 
   const toggle = () => {
@@ -505,7 +527,7 @@ export function Combobox<T>(props: ComboboxProps<T>) {
           }}
           onBlur={() => {
             core.close();
-            if (editing) {
+            if (editing && !commitText()) {
               if (text.trim() === "" && clearable && value !== null) onChange(null);
               setEditing(false);
               setText("");
@@ -513,6 +535,19 @@ export function Combobox<T>(props: ComboboxProps<T>) {
             onBlur?.();
           }}
           onKeyDown={(event) => {
+            if (freeText && event.key === "Enter" && editing && !event.nativeEvent.isComposing) {
+              const highlighted = core.open && core.list.fresh && core.active >= 0 ? core.list.items[core.active] : undefined;
+              if (highlighted === undefined) {
+                // Nothing to pick: the typed text is the value. On an open
+                // list Enter never submits; on a closed one the commit
+                // renders first and the browser's submit goes on.
+                if (core.open) event.preventDefault();
+                flushSync(() => {
+                  commitText();
+                });
+                return;
+              }
+            }
             if (core.navigate(event, pick)) return;
             if (event.key === "Escape" && editing) {
               // The second Escape: back to the chosen label.

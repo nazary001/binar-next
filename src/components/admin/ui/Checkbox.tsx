@@ -4,7 +4,9 @@ import { CheckIcon, MinusIcon } from "@heroicons/react/20/solid";
 import { useId, type ReactNode } from "react";
 import { cx } from "../lib/format";
 import { FIELD_ERROR, FieldFrame, hasField, present, useFieldIds, type FieldControlProps, type FieldError } from "./Field";
+import type { Placement } from "./floating";
 import { EASE_OUT, TEXT } from "./tokens";
+import { Tooltip } from "./Tooltip";
 
 // Choice controls: Checkbox, Switch, RadioGroup, CheckboxGroup. Each is a
 // real native input (hidden, for keyboard, forms and screen readers) under
@@ -28,7 +30,10 @@ import { EASE_OUT, TEXT } from "./tokens";
 // Switch props: checked, onChange(checked), label, hint, disabled, size
 // ("sm" 28x16 | "md" 36x20, default), labelPosition ("end" default: the
 // switch then the label; "start": the label on the left and the switch at
-// the right edge, for settings rows), name, id, aria-label, className.
+// the right edge, for settings rows), name, id, aria-label, className,
+// tooltip (a short note on hover AND on keyboard focus of the switch, read
+// as its description; for a switch in a table cell whose meaning needs a
+// sentence) and tooltipPlacement ("bottom-start" default).
 // A switch acts at once; inside a form that is saved with a button, prefer
 // a Checkbox.
 //
@@ -172,6 +177,8 @@ export type SwitchProps = {
   id?: string;
   "aria-label"?: string;
   className?: string;
+  tooltip?: ReactNode;
+  tooltipPlacement?: Placement;
 };
 
 const TRACK: Record<"sm" | "md", string> = { sm: "h-4 w-7", md: "h-5 w-9" };
@@ -189,9 +196,13 @@ export function Switch({
   name,
   id,
   className,
+  tooltip,
+  tooltipPlacement = "bottom-start",
   ...aria
 }: SwitchProps) {
   const ids = useFieldIds({ id, hint });
+  const tipId = useId();
+  const hasTip = present(tooltip);
   const atStart = labelPosition === "start";
   const text = (present(label) || present(hint)) && (
     <span className={cx("flex min-w-0 flex-col gap-0.5", atStart && "flex-1")}>
@@ -204,7 +215,7 @@ export function Switch({
     </span>
   );
 
-  return (
+  const control = (
     <label
       className={cx(
         "group flex min-w-0 items-start gap-3",
@@ -225,7 +236,7 @@ export function Switch({
           disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
           aria-label={aria["aria-label"]}
-          aria-describedby={present(hint) ? ids.hintId : undefined}
+          aria-describedby={cx(present(hint) && ids.hintId, hasTip && tipId) || undefined}
           className={cx(NATIVE, "rounded-full")}
         />
         <span
@@ -254,6 +265,21 @@ export function Switch({
       </span>
       {!atStart && text}
     </label>
+  );
+
+  if (!hasTip) return control;
+  // The note shows on hover and on keyboard focus of the switch (the
+  // label hears its input's focus); screen readers get it as the input's
+  // description, present before the note is drawn.
+  return (
+    <>
+      <Tooltip content={tooltip} placement={tooltipPlacement} describe={false}>
+        {control}
+      </Tooltip>
+      <span id={tipId} hidden>
+        {tooltip}
+      </span>
+    </>
   );
 }
 

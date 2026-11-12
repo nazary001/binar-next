@@ -154,9 +154,11 @@ function CreateKeyModal({
   );
 }
 
-// Called from a click handler, never while rendering.
+// Called from a click handler, never while rendering. The Kyiv day after
+// today by the calendar (a clock-change day is 23 or 25 hours long).
 function tomorrow(): string {
-  return kyivDay(Date.now() + 86_400_000);
+  const [year, month, day] = kyivDay(Date.now()).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
 
 function CreatedKeyModal({ created, onClose }: { created: ApiKeyCreatedAnswer | null; onClose: () => void }) {

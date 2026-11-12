@@ -45,20 +45,37 @@ const COPY = {
 // the footer (pinned, static below 500 px of height) holds the lock
 // caption and ONE full-width action. Motion: opacity + 12-px drop.
 
-// Placeholder document until real files are wired: the master's page
-// render (a `png` file shows its own picture, `file.preview`). Figma lays the 963-px image box at +1 / +1 inside the stroke
-// (so it overhangs the right edge by 2 px, clipped) and crops the bitmap
-// to 108.08 % of that box, 8.08 % off the left: 1040.8 px wide.
+// Placeholder document: the master's page render, shown for every file
+// that is not a picture and for a picture this viewer cannot load. Figma
+// lays the 963-px image box at +1 / +1 inside the stroke (so it overhangs
+// the right edge by 2 px, clipped) and crops the bitmap to 108.08 % of
+// that box, 8.08 % off the left: 1040.8 px wide. That framing belongs to
+// this render only; a real picture fills the box as it is.
 const PREVIEW_IMAGE = "/figma-export/materials/preview-doc.png";
+
+// What the document box shows: a `png` file's own picture when this viewer
+// can load it (its `preview`, which every viewer may load, else the
+// download route for a viewer who may download the file); the placeholder
+// otherwise, so a locked picture never asks for bytes it would be refused.
+function pictureOf(file: MaterialFile, canDownload: boolean): string {
+  if (file.type !== "png") return PREVIEW_IMAGE;
+  return file.preview ?? (canDownload ? file.href : PREVIEW_IMAGE);
+}
 
 // Rectangle 157 (4825:60637 / 4825:61137): a fixed 120-px thumb that
 // travels the track, not a proportional one.
 const THUMB_H = 120;
 
-function DocumentScroller({ file }: { file: MaterialFile }) {
+function DocumentScroller({ file, canDownload }: { file: MaterialFile; canDownload: boolean }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [thumb, setThumb] = useState({ top: 0, height: 0, visible: false });
+  // A picture that does not load after all (its file was removed since the
+  // page was built) gives way to the placeholder.
+  const [failed, setFailed] = useState<string | null>(null);
+  const wanted = pictureOf(file, canDownload);
+  const src = wanted === failed ? PREVIEW_IMAGE : wanted;
+  const placeholder = src === PREVIEW_IMAGE;
 
   // The thumb mirrors the hidden native scrollbar: the master's fixed
   // 120-px height (capped by a shorter track), position from scrollTop.
@@ -140,14 +157,17 @@ function DocumentScroller({ file }: { file: MaterialFile }) {
           </div>
         ) : (
           <div className="overflow-hidden">
-            <div className="w-[calc(100%+2px)]">
-              <div className="-ml-[8.08%] w-[108.08%]">
+            <div className={placeholder ? "w-[calc(100%+2px)]" : "w-full"}>
+              <div className={placeholder ? "-ml-[8.08%] w-[108.08%]" : "w-full"}>
                 <img
-                  src={file.type === "png" ? (file.preview ?? file.href) : PREVIEW_IMAGE}
+                  src={src}
                   alt=""
                   decoding="async"
                   className="block w-full"
                   onLoad={measure}
+                  onError={() => {
+                    if (!placeholder) setFailed(src);
+                  }}
                 />
               </div>
             </div>
@@ -231,9 +251,12 @@ export function PreviewPanel({
   const panelRef = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLParagraphElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
-  // The last shown file stays rendered through the slide-out.
+  // The last shown file stays rendered through the slide-out, with the
+  // access it was shown with (the parent stops computing it on close).
   const [shown, setShown] = useState<MaterialFile | null>(file);
   if (file && file !== shown) setShown(file);
+  const [shownCanDownload, setShownCanDownload] = useState(canDownload);
+  if (file && canDownload !== shownCanDownload) setShownCanDownload(canDownload);
 
   // Initial focus (A5): the bar title on a touch phone, the close mark
   // everywhere else (the desktop behaviour of today).
@@ -355,7 +378,7 @@ export function PreviewPanel({
 
               <div className="flex min-h-0 w-full flex-1 flex-col gap-6 lg:gap-8 max-lg:flex-none">
                 <p className="text-body-sm text-neutral-800">{shown.description}</p>
-                <DocumentScroller key={shown.id} file={shown} />
+                <DocumentScroller key={shown.id} file={shown} canDownload={shownCanDownload} />
               </div>
             </div>
 

@@ -4,7 +4,7 @@ import { CheckCircleIcon, EnvelopeIcon, ExclamationTriangleIcon, PaperAirplaneIc
 import { useState, type FormEvent } from "react";
 import { useStaff } from "../shell/StaffProvider";
 import { adminApi, type ApiFailure } from "../lib/api";
-import { countOf, formatDateTime, formatNumber } from "../lib/format";
+import { countOf, cx, formatDateTime, formatNumber } from "../lib/format";
 import { invalidate, useAdminQuery } from "../lib/query";
 import { Notice, SecretField, StatePill, withoutErrors } from "../integrations/shared";
 import { mailState } from "../integrations/state";
@@ -27,9 +27,11 @@ import { TEXT } from "../ui/tokens";
 import { useListParams } from "../ui/useListParams";
 import { OutboxDrawer, mailErrorText } from "./OutboxDrawer";
 import {
+  MAIL_AUTO_MAX_AGE_DAYS,
   MAIL_FIELD_ERRORS,
   MAIL_MAX_ATTEMPTS,
   MAIL_MISSING_LABELS,
+  OUTBOX_AUTO_SEND_LABELS,
   OUTBOX_KINDS,
   OUTBOX_KIND_LABELS,
   type DeliverAnswer,
@@ -94,6 +96,17 @@ function fieldErrors(failure: ApiFailure): Record<string, string> {
 
 type TestOutcome = { to: string; ok: true; id: string | null } | { to: string; ok: false; error: string };
 
+// The origin a stored key belongs to (the server's rule,
+// src/server/mail/provider.ts webhookOrigin).
+function originOf(value: string): string {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
+  } catch {
+    return "";
+  }
+}
+
 function MailSettingsForm({ view }: { view: MailSettingsView }) {
   const { can, me } = useStaff();
   const canEdit = can("integrations.edit");
@@ -109,6 +122,14 @@ function MailSettingsForm({ view }: { view: MailSettingsView }) {
 
   const dirty = useDirty(initial, form) || apiKey.trim() !== "" || removeKey;
   useUnsavedWarning(dirty);
+  // The stored key belongs to the service and the webhook address it was
+  // typed for: the server removes it when either changes and no new key is
+  // typed in the same save.
+  const keyWillDrop =
+    settings.hasKey &&
+    !apiKey.trim() &&
+    !removeKey &&
+    (form.provider !== initial.provider || (form.provider === "webhook" && originOf(form.webhookUrl) !== originOf(initial.webhookUrl)));
   const set = (patch: Partial<MailForm>) => {
     setForm((current) => ({ ...current, ...patch }));
     setErrors((current) => withoutErrors(current, Object.keys(patch)));
@@ -149,7 +170,16 @@ function MailSettingsForm({ view }: { view: MailSettingsView }) {
       toastError(answer);
       return;
     }
-    toast.success(answer.data.status.configured ? "Налаштування пошти збережено: листи надсилаються" : "Налаштування пошти збережено");
+    const saved = answer.data.status.configured ? "Налаштування пошти збережено: листи надсилаються" : "Налаштування пошти збережено";
+    if (answer.data.keyDropped) {
+      toast.show({
+        tone: "success",
+        title: saved,
+        text: "Збережений ключ видалено, бо змінився сервіс або адреса webhook. Якщо новий сервіс потребує ключа, введіть його.",
+      });
+    } else {
+      toast.success(saved);
+    }
     setTest(null);
     invalidate("/integrations/mail");
     invalidate("/outbox");
@@ -250,6 +280,14 @@ function MailSettingsForm({ view }: { view: MailSettingsView }) {
                   nouns={keyNouns}
                   disabled={!view.secretsAvailable}
                 />
+                {keyWillDrop && (
+                  <Notice tone="amber" icon={<ExclamationTriangleIcon />} title="Збережений ключ буде видалено" className="mt-3">
+                    {form.provider !== initial.provider
+                      ? "Ключ належить попередньому сервісу: щоб він не пішов іншому, сайт видалить його під час збереження."
+                      : "Адреса webhook веде на інший сервер, а ключ належить попередній адресі: сайт видалить його під час збереження."}{" "}
+                    Якщо потрібен ключ, введіть його в полі вище.
+                  </Notice>
+                )}
               </div>
               <Input
                 label="Відправник"
@@ -331,7 +369,11 @@ function MailSettingsForm({ view }: { view: MailSettingsView }) {
               disabled={!canEdit}
               labelPosition="start"
               label="Нова заявка з сайту: співробітникам"
-              hint={inboxes.leads ? `На ${inboxes.leads}` : "Адресу для заявок не вказано в загальних налаштуваннях."}
+              hint={
+                inboxes.leadsIsDefault
+                  ? `На ${inboxes.leads}: це адреса сайту, бо окремої пошти для заявок у загальних налаштуваннях немає.`
+                  : `На ${inboxes.leads}`
+              }
             />
           </div>
           <div className="pt-4">
@@ -381,6 +423,12 @@ const EMPTY: Record<OutboxState, { title: string; text: string }> = {
   unsendable: { title: "Таких листів немає", text: "Тут лишаються записи листів з одноразовими посиланнями, які надсилаються лише в момент створення." },
 };
 
+// The mark of a waiting message the automatic runs leave alone.
+function AutoSendMark({ row }: { row: OutboxRow }) {
+  if (!row.autoSend || row.autoSend === "yes") return null;
+  return <span className={cx(TEXT.caption, "font-medium text-[#805300] [overflow-wrap:anywhere]")}>{OUTBOX_AUTO_SEND_LABELS[row.autoSend]}</span>;
+}
+
 function whenCell(row: OutboxRow) {
   if (row.state === "sent") return <DateCell value={row.sentAt} withTime />;
   if (row.state === "failed") {
@@ -388,11 +436,29 @@ function whenCell(row: OutboxRow) {
       <span className="flex min-w-0 flex-col">
         <span className="line-clamp-1 font-medium text-[#b33a3a] [overflow-wrap:anywhere]">{mailErrorText(row.lastError) ?? "Помилка"}</span>
         {row.lastAttemptAt && <span className={TEXT.caption}>{formatDateTime(row.lastAttemptAt)}</span>}
+        <AutoSendMark row={row} />
       </span>
     );
   }
   if (row.state === "unsendable") return <span className="text-neutral-500">Лише в момент створення</span>;
-  return <span className="whitespace-nowrap text-neutral-500">Не надсилався</span>;
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="whitespace-nowrap text-neutral-500">Не надсилався</span>
+      <AutoSendMark row={row} />
+    </span>
+  );
+}
+
+// What happens to the waiting messages without staff (deliver.ts
+// AUTOMATIC_RUN, schedule.ts), said once above their list.
+function WaitingNote({ configured }: { configured: boolean }) {
+  return (
+    <Notice tone="neutral" className="mb-4">
+      {configured
+        ? `Листи, що чекають, сайт надсилає сам: одразу після дії, яка їх створила, а повторні спроби робить, поки хтось працює в панелі (не частіше ніж раз на 5 хвилин). Лист, старший за ${MAIL_AUTO_MAX_AGE_DAYS} днів, або той, для якого вичерпано всі ${MAIL_MAX_ATTEMPTS} спроб, сам уже не піде: такі позначено в рядку, надішліть їх кнопкою «Надіслати всі, що очікують» або з картки листа.`
+        : "Поки сервіс надсилання не підключено, листи лише чекають у черзі. Після підключення нові листи підуть самі, а ті, що вже чекають, можна надіслати кнопкою «Надіслати всі, що очікують»."}
+    </Notice>
+  );
 }
 
 function Outbox({ status }: { status: MailStatusDto | undefined }) {
@@ -440,7 +506,12 @@ function Outbox({ status }: { status: MailStatusDto | undefined }) {
     {
       key: "kind",
       header: "Лист",
-      cell: (row) => <TwoLineCell title={row.kindLabel} subtitle={row.summary || undefined} />,
+      cell: (row) => (
+        <TwoLineCell
+          title={row.kindLabel}
+          subtitle={row.restricted ? "Деталі приховано: немає доступу до розділу" : row.summary || undefined}
+        />
+      ),
     },
     {
       key: "to",
@@ -524,6 +595,7 @@ function Outbox({ status }: { status: MailStatusDto | undefined }) {
         items={STATE_TABS.map((tab) => ({ ...tab, count: counts?.[tab.key] }))}
         className="mb-4"
       />
+      {(state === "pending" || state === "failed") && <WaitingNote configured={configured} />}
       <DataTable
         caption="Черга листів"
         columns={columns}

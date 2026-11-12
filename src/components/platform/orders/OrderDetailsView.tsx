@@ -6,6 +6,7 @@ import { showToast } from "@/components/ui/Toast";
 import { usePhone } from "@/components/ui/useMediaQuery";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useCart } from "@/components/cart/CartProvider";
+import { useShopConfig } from "@/lib/session/config";
 import {
   CabinetPage,
   CabinetPageHead,
@@ -24,10 +25,15 @@ import {
   formatQty,
   formatSum,
   lineSum,
+  novaPoshtaTrackingHref,
   orderAction,
+  orderShipment,
   MANAGER_MAILTO,
+  TTN_PROMISE,
+  type DeliveryInfo,
   type Order,
   type OrderAction,
+  type OrderShipmentInfo,
 } from "./data";
 import {
   DetailsBody,
@@ -59,7 +65,56 @@ const COPY = {
   overdue: (days: number) => `Прострочено на ${days} ${daysPlural(days)}`,
   remainder: (sum: string) => `Залишок ${sum} прострочено`,
   paidLate: "Оплачено із простроченням",
+  ttn: "Номер ТТН:",
+  parcel: "Номер відправлення:",
+  estimated: (date: string) => `Орієнтовна дата доставки: ${date}.`,
+  track: (ttn: string) => `Відстежити посилку ${ttn} на сайті Нової Пошти (відкриється в новій вкладці)`,
 } as const;
+
+// The waybill line of «Інформація про доставку»: the number (for Nova
+// Poshta a link to the carrier's tracking page, in a new tab), the
+// carrier's own status wording and its estimate, in the note's own text
+// style. The label and the number are glued with no-break spaces, so a
+// phone never breaks «Номер ТТН: 2045...» apart.
+function ShipmentLine({ shipment }: { shipment: OrderShipmentInfo }) {
+  const np = shipment.carrier === "nova-poshta";
+  return (
+    <>
+      {(np ? COPY.ttn : COPY.parcel).replace(" ", NBSP)}
+      {NBSP}
+      {np ? (
+        <a
+          href={novaPoshtaTrackingHref(shipment.ttn)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={COPY.track(shipment.ttn)}
+          className="whitespace-nowrap font-medium text-neutral-900 underline decoration-1 underline-offset-2 transition-colors duration-200 hover:text-brand active:text-brand motion-reduce:transition-none"
+        >
+          {shipment.ttn}
+        </a>
+      ) : (
+        <span className="whitespace-nowrap font-medium text-neutral-900">{shipment.ttn}</span>
+      )}
+      {shipment.statusText ? ` (${shipment.statusText}).` : "."}
+      {shipment.estimatedDate ? ` ${COPY.estimated(formatDate(shipment.estimatedDate))}` : null}
+    </>
+  );
+}
+
+// The delivery note as stored, unless the order has a waybill: then the
+// number takes the place of the promise to send it (a branch or postomat
+// note), or follows the note (address delivery, pickup).
+function deliveryNote(delivery: DeliveryInfo, shipment: OrderShipmentInfo | null) {
+  if (!shipment) return delivery.note;
+  const note = delivery.note.trim();
+  const lead = note.endsWith(TTN_PROMISE) ? note.slice(0, -TTN_PROMISE.length).trimEnd() : note;
+  return (
+    <>
+      {lead ? `${lead} ` : null}
+      <ShipmentLine shipment={shipment} />
+    </>
+  );
+}
 
 // Phones (order-detail spec 2.1, A21 / A28): the overdue / paid-late
 // caption of the payment badge on its own line under the badge row (the
@@ -167,6 +222,7 @@ export function OrderDetailsView({ id }: { id: string }) {
   const order = user?.type === "b2b" ? found : undefined;
   const returnable = useReturnableItems(order);
   const today = useOrdersToday();
+  const { returnWindowDays } = useShopConfig();
   const cart = useCart();
   const [modal, setModal] = useState<"cancel" | "return" | null>(null);
   const phone = usePhone();
@@ -176,7 +232,7 @@ export function OrderDetailsView({ id }: { id: string }) {
   if (user?.type !== "b2b") return <SignInPrompt title="Деталі замовлення" text={DETAILS_PROMPT_TEXT} />;
   if (!order) return <OrderNotFound />;
 
-  const action = orderAction(order, returnable, today);
+  const action = orderAction(order, returnable, today, returnWindowDays);
   const cancelled = order.status === "cancelled";
   const unpaid = order.payment.kind !== "paid" && !cancelled;
   const invoice = order.documents.find((d) => d.id === "invoice");
@@ -253,7 +309,7 @@ export function OrderDetailsView({ id }: { id: string }) {
                 { label: "Місто", value: order.delivery.city },
                 { label: "Варіант доставки", value: order.delivery.method },
               ]}
-              note={order.delivery.note}
+              note={deliveryNote(order.delivery, orderShipment(order))}
             />
             <DocumentsCard title="Документи замовлення" documents={order.documents} />
           </>

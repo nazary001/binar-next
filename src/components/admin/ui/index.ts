@@ -22,7 +22,7 @@
 //   ButtonGroup            a row of related buttons
 //
 // Small things
-//   Badge                  status pill of a tone, sm 24 / md 28, optional dot
+//   Badge                  status pill of a tone, sm 24 / md 28, optional dot or icon
 //   CountBadge             a counter ("needs attention" brand, or a calm tone)
 //   Spinner                the busy ring (decorative, or announced with a label)
 //   Skeleton               loading bar / pill / circle / tile / card
@@ -34,25 +34,27 @@
 // Forms
 //   Field, FieldFrame      label + control + hint / error frame (for controls outside the kit)
 //   useFieldIds            ids and aria wiring for such a control
-//   Input                  one-line text: prefix / suffix, icon, clearable
-//   Textarea               multi-line text, autoGrow, counter
-//   NumberInput            a number with decimal comma, min / max / step, steppers
+//   Input                  one-line text: prefix / suffix, icon, clearable, counter
+//   Textarea               multi-line text, autoGrow, counter; variant "bare" = a writing surface
+//   NumberInput            a number with decimal comma, min / max / step, steppers, clamp note
 //   MoneyInput             hryvnias, 2 decimals
 //   PasswordInput          password with eye toggle and "Згенерувати"
 //   SearchInput            debounced search with clear and Escape
 //   Select                 one value from a short list (custom listbox)
 //   NativeSelect           the browser's select in the kit's pill
-//   Combobox               one record from a server search
+//   Combobox               one record from a server search (freeText: the typed text as the value)
 //   MultiCombobox          several records from a server search, as chips
-//   TagInput, Chip         free-text tags as chips; the chip itself
+//   TagInput, Chip         free-text tags as chips (reorderable, invalid chips); the chip itself
 //   Checkbox               one yes / no (indeterminate for "some")
-//   Switch                 a setting that acts at once
+//   Switch                 a setting that acts at once (tooltip for keyboard users too)
 //   RadioGroup             one of a few, plain or as tiles
+//   SegmentedControl       one of a few as the Tabs capsule (a radio group)
 //   CheckboxGroup          several of a few
 //   DateInput              a business day "YYYY-MM-DD"
 //   DateTimeInput          a local date and time
 //   DateRange              from / to with presets
-//   FormSection, FormGrid, FormActions   the layout of an edit screen
+//   PeriodFilter, periodText   a list's "Період" button with the range in a popover
+//   FormSection, FormGrid, FormActions   the layout of an edit screen (FormActions idle: slim on phones)
 //   useDirty               "the form differs from what was loaded"
 //   useUnsavedWarning      ask before leaving with unsaved edits
 //
@@ -67,15 +69,21 @@
 // Page layout and data
 //   Page, PageHeader, PageSection, Stack, Grid   the screen's column, head, sections, layout
 //   Card                   white r24 block (also dark and inset tones)
-//   StatCard               KPI tile with a delta pill
-//   AttentionItem          a row of a "needs attention" list
-//   KeyValueList, CopyButton   facts of a record, with copy buttons
-//   Tabs, TabPanel, LinkTabs   tab capsule (state or links)
-//   DataTable              the table: sort, selection, row links, states
+//   StatCard               KPI tile with a delta pill (size sm, trend slot)
+//   AttentionItem          a row of a "needs attention" list (wrap: two-line title)
+//   KeyValueList, CopyButton   facts of a record, with copy buttons (CopyButton size sm / md / lg)
+//   OneTimeSecret          a login, an e-mail, a password or key shown once, with copy buttons
+//   copyText               write text to the clipboard (lib/clipboard.ts)
+//   Tabs, TabPanel, LinkTabs   tab capsule (state or links): open tab kept in view, marks, compactBelow
+//   DataTable              the table: sort, selection, row links, expandable rows, marked row, states
 //   MoneyCell, DateCell, TwoLineCell, ThumbCell   its helper cells
 //   Pagination             pager with page size
-//   FilterBar, FilterChip  search + filters + actions row, removable chips
-//   useListParams          list state (q, filters, sort, page) in the URL
+//   FilterBar, FilterChip  search + filters + actions row (filtersLayout, secondary row), removable chips
+//   TogglePill             a pressed filter pill (aria-pressed), with an optional count
+//   BulkBar                the sticky bar of actions for a table's selection
+//   useListParams          list state (q, filters, sort, page) in the URL (exclude: a drawer's ?id)
+//   useMinWidth, useNow, useAddressParam   window width step, ticking clock, a drawer / tab in the address (lib/hooks.ts)
+//   describeDevice         "Chrome, Windows" from a user agent (lib/device.ts)
 //   EmptyState, ErrorState, LoadingBlock, NotFoundState, Forbidden   designed states
 //   Timeline               vertical history of a record
 //   OrderStatusBadge ... ActiveBadge, ORDER_STATUS ... ACCOUNT_TYPE, statusOptions, statusLabel   the status vocabulary
@@ -83,7 +91,7 @@
 // Charts (charts/)
 //   AreaChart              change over time, one or more series
 //   BarChart               magnitudes of categories, columns or horizontal bars
-//   DonutChart             part to whole, up to six parts
+//   DonutChart             part to whole, up to six parts (fit "container": by its own width)
 //   Sparkline              tiny trend line
 //   CHART_COLORS, seriesColor, formatCompact, formatPercent
 //
@@ -102,6 +110,7 @@
 //   adminRoot, floatingRoot, useClientReady     where layers portal, and when
 //   useModalLayer, useEscapeLayer, usePresence, lockScroll, focusableIn, hasOpenLayer, prefersReducedMotion
 //   TriggerSlot, assignRef                      merge a caller's trigger / ref
+//   useStickyBar, useStickyBarLift, remeasureStickyBars   bars stuck to the bottom and the toast stack above them
 //   FIELD_BOX, FIELD_SURFACE, FIELD_ACTION ...  the field look for a custom control
 
 // --- Visual law ------------------------------------------------------------
@@ -189,6 +198,7 @@ export {
 export { NativeSelect, Select, ToneDot, type NativeSelectProps, type SelectOption, type SelectProps } from "./Select";
 export { Combobox, MultiCombobox, type ComboboxProps, type MultiComboboxProps, type OptionState } from "./Combobox";
 export { Chip, TagInput, type ChipProps, type TagInputProps } from "./TagInput";
+export { SegmentedControl, type SegmentOption, type SegmentedControlProps } from "./SegmentedControl";
 export {
   Checkbox,
   CheckboxGroup,
@@ -210,6 +220,7 @@ export {
   type DateRangeProps,
   type DateRangeValue,
 } from "./DateInput";
+export { PeriodFilter, periodText, type PeriodFilterProps } from "./PeriodFilter";
 export {
   FormActions,
   FormGrid,
@@ -265,8 +276,21 @@ export {
   type StatCardProps,
   type StatDelta,
 } from "./Card";
-export { CopyButton, KeyValueList, type KeyValueItem, type KeyValueListProps } from "./KeyValue";
-export { LinkTabs, TabPanel, Tabs, panelId, tabId, type LinkTabItem, type TabItem, type TabsProps } from "./Tabs";
+export { CopyButton, KeyValueList, type CopyButtonSize, type KeyValueItem, type KeyValueListProps } from "./KeyValue";
+export { OneTimeSecret, type OneTimeSecretItem, type OneTimeSecretProps } from "./OneTimeSecret";
+export { copyText } from "../lib/clipboard";
+export {
+  LinkTabs,
+  TabPanel,
+  Tabs,
+  panelId,
+  tabId,
+  type LinkTabItem,
+  type TabItem,
+  type TabMark,
+  type TabsCompactBelow,
+  type TabsProps,
+} from "./Tabs";
 export {
   DataTable,
   DateCell,
@@ -276,10 +300,14 @@ export {
   type Column,
   type DataTableProps,
   type DataTableSelection,
+  type HideBelow,
 } from "./DataTable";
 export { Pagination, type PaginationProps } from "./Pagination";
-export { FilterBar, FilterChip, type FilterBarProps, type FilterChipItem } from "./FilterBar";
+export { FilterBar, FilterChip, TogglePill, type FilterBarProps, type FilterChipItem, type TogglePillProps } from "./FilterBar";
+export { BulkBar, type BulkBarProps } from "./BulkBar";
 export { useListParams, type ListParams, type ListParamsOptions, type ListPatch, type ListPatchValue } from "./useListParams";
+export { useAddressParam, useMinWidth, useNow, type AddressParam } from "../lib/hooks";
+export { describeDevice, type Device } from "../lib/device";
 export {
   EmptyState,
   ErrorState,
@@ -358,6 +386,7 @@ export { CommandPalette, PaletteTrigger, closePalette, hasCommandPalette, openPa
 
 // --- Plumbing --------------------------------------------------------------
 export { useDismiss, useFloating, type FloatingOptions, type Placement } from "./floating";
+export { remeasureStickyBars, useStickyBar, useStickyBarLift } from "./stickyBars";
 export {
   TriggerSlot,
   adminRoot,

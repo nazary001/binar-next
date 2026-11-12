@@ -67,6 +67,13 @@ export function kyivMidnight(day: string): Date {
   return kyivWallTime(y, m, d);
 }
 
+// The end of a "YYYY-MM-DD" Kyiv day: the midnight the next day starts
+// with. Not midnight + 24 hours: the days of a clock change last 23 or 25.
+export function kyivDayEnd(day: string): Date {
+  const [y, m, d] = day.split("-").map(Number);
+  return kyivWallTime(y, m, d + 1);
+}
+
 // --- dates ----------------------------------------------------------------------
 
 // A date of the exchange: the moment, and the business day it falls on in

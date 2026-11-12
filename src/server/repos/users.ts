@@ -12,7 +12,7 @@ import {
 } from "@/components/auth/data";
 import { hashPassword } from "../auth/password";
 import { collection, type ClientDoc, type PasswordResetDoc, type UserDoc } from "../db/collections";
-import { newAccountId, newId } from "../ids";
+import { newAccountId } from "../ids";
 import { enqueueMessage } from "../outbox";
 import { patchClient } from "./clients";
 
@@ -184,20 +184,20 @@ async function dropLiveResets(userId: string): Promise<void> {
   await outbox.deleteMany({ kind: "password-reset", "payload.userId": userId, sentAt: null });
 }
 
-// Stores a reset for `user` under the SHA-256 of `token` and queues a notice
-// for the mailer / SMS gateway.
+// Stores a reset for `user` under the SHA-256 of `token` and answers when
+// the link expires.
 //
-// The token itself is stored nowhere: not in the reset row (only its hash)
-// and not in the outbox notice, whose payload names the account only, so a
-// database dump or a read-only connection opens no account. A mailer, once
-// connected, sends the link from the token it is handed in the same request
-// (the reset route's `after` callback) and stamps the notice.
+// The token itself is stored nowhere: the reset row keeps only its hash, so
+// a database dump or a read-only connection opens no account. The caller
+// (the reset request route) mails the link from the token right away
+// through sendNow (src/server/mail/deliver.ts), whose stored copy names the
+// account only and expires with the link.
 //
 // One live link per account (partial unique index `userId_live_unique` on
 // unused rows): older unused links are removed first, and when a parallel
 // request inserted its row in between, the insert is retried after removing
 // that one, so the newest request wins and no second token stays live.
-export async function createPasswordReset(user: UserDoc, token: string): Promise<void> {
+export async function createPasswordReset(user: UserDoc, token: string): Promise<{ expiresAt: Date }> {
   const resets = await collection("passwordResets");
   const now = new Date();
   const expiresAt = new Date(now.getTime() + RESET_TTL_MS);
@@ -210,16 +210,7 @@ export async function createPasswordReset(user: UserDoc, token: string): Promise
       if (!isDuplicateKey(error) || attempt >= 5) throw error;
     }
   }
-  const outbox = await collection("outbox");
-  await outbox.insertOne({
-    _id: newId("msg"),
-    kind: "password-reset",
-    to: (user.person.email || user.phone || user.login).slice(0, 320),
-    payload: { login: user.login, userId: user._id },
-    createdAt: now,
-    sentAt: null,
-    expiresAt,
-  });
+  return { expiresAt };
 }
 
 // Marks the reset of `token` used and returns it, or null when the token is

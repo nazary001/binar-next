@@ -20,8 +20,10 @@ import { plural } from "@/components/admin/lib/format";
 import { collection, type LeadDoc, type StaffNote } from "../../db/collections";
 import { newId } from "../../ids";
 import { mailStatus } from "../../mail/provider";
+import type { StaffContext } from "../auth";
 import { contains, dayParam, idParam, listQuery, manyOf, paginate, type ListQuery, type Page } from "../list";
 import { kyivDayRange } from "./journal";
+import { isOwnerActor } from "./roles";
 
 // Form submissions of the marketing pages, as the staff area reads and
 // processes them. The storefront writes them (POST /api/leads ->
@@ -504,18 +506,19 @@ export async function addLeadNote(id: string, by: { id: string; name: string }, 
 }
 
 // null when the lead or the note does not exist; "not-author" when the
-// note is somebody else's (a member of staff removes only their own notes,
-// so nobody can take back what a colleague recorded).
+// note is somebody else's and the caller is not an owner (a member of
+// staff removes only their own notes, so nobody takes back what a
+// colleague recorded; an owner may remove any, as everywhere in the panel).
 export async function removeLeadNote(
   id: string,
   noteId: string,
-  staffId: string,
+  actor: StaffContext,
 ): Promise<{ lead: LeadDoc; note: StaffNote } | "not-author" | null> {
   const leads = await collection("leads");
   const before = await leads.findOne({ _id: id, "notes.id": noteId }, { projection: { notes: 1 } });
   const note = before?.notes?.find((item) => item.id === noteId);
   if (!note) return null;
-  if (note.by.id !== staffId) return "not-author";
+  if (note.by.id !== actor.staff._id && !isOwnerActor(actor)) return "not-author";
   const lead = await leads.findOneAndUpdate(
     { _id: id },
     { $pull: { notes: { id: noteId } }, $set: { updatedAt: new Date() } },

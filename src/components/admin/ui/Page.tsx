@@ -31,6 +31,8 @@ import { COLOR_TRANSITION, FOCUS_RING, TEXT } from "./tokens";
 //   title below it; `meta` is a row under the subtitle (badges, dates);
 //   `tabs` is the row under everything.
 // PageSection({ title?, description?, actions?, children }): an h2 block.
+//   The title block takes the free room, so the actions stay on the right
+//   even under a long description (from 640 px; on phones they wrap under).
 // Stack({ gap?, children }) and Grid({ cols, gap?, children }): Grid columns
 //   are given per step: base (phones), sm (from 640 px), md (from 1024 px),
 //   xl (from 1280 px), "2xl" (from 1536 px).
@@ -123,9 +125,17 @@ export function PageSection({ title, description, actions, children, className }
     <section className={cx("flex min-w-0 flex-col gap-4", className)}>
       {hasHead && (
         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-          <div className="min-w-0">
+          {/* The title block takes the free room. From 640 px the
+              description does not count towards its width (w-0 min-w-full:
+              it fills the block but adds nothing to its size), so a long
+              description wraps beside the actions instead of pushing them
+              to a line of their own; only the title itself can. On phones
+              the actions still go under a long description. */}
+          <div className="min-w-0 flex-auto">
             {title && <h2 className={TEXT.sectionTitle}>{title}</h2>}
-            {description && <p className={cx(TEXT.muted, title ? "mt-1" : "")}>{description}</p>}
+            {description && (
+              <p className={cx(TEXT.muted, title ? "mt-1" : "", actions ? "min-[640px]:w-0 min-[640px]:min-w-full" : undefined)}>{description}</p>
+            )}
           </div>
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>

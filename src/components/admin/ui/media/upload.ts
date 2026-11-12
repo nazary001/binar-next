@@ -27,10 +27,14 @@ import { formatBytes } from "../../lib/format";
 // file the browser cannot decode is returned unchanged (the server says
 // what is wrong with it).
 //
-// uploadMedia(file, { folder, access?, alt?, prepare? }): prepares images
-// (prepare: false skips that), refuses a file that is still over the
-// limit without sending it, and posts the multipart form. The answer is
-// ApiResult<{ media: MediaDto }>, never a thrown error.
+// uploadMedia(file, { folder, access?, alt?, prepare?, onProgress?, signal? }):
+// prepares images (prepare: false skips that), refuses a file that is
+// still over the limit without sending it, and posts the multipart form.
+// The answer is ApiResult<{ media: MediaDto }>, never a thrown error.
+// onProgress(fraction 0..1) reports the upload as it goes (the request
+// then goes by XMLHttpRequest, with the same lost-session handling as
+// adminApi: a 401 still sends the browser to the login page); signal
+// aborts it ({ ok: false, error: "aborted" }).
 //
 // mediaErrorMessage(failure): the sentence for a refused upload, in the
 // words of lib/api.ts errorMessage plus the media codes (too large, wrong
@@ -42,6 +46,8 @@ export type UploadOptions = {
   access?: MediaAccess;
   alt?: string;
   prepare?: boolean;
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
 };
 
 export type UploadAnswer = { media: MediaDto };
@@ -191,7 +197,10 @@ export function checkFile(file: File, accept: string | undefined): ApiFailure | 
   return ok ? null : refusal("type");
 }
 
-export async function uploadMedia(file: File, { folder, access = "public", alt = "", prepare = true }: UploadOptions): Promise<ApiResult<UploadAnswer>> {
+export async function uploadMedia(
+  file: File,
+  { folder, access = "public", alt = "", prepare = true, onProgress, signal }: UploadOptions,
+): Promise<ApiResult<UploadAnswer>> {
   const ready = prepare ? await prepareImage(file) : file;
   if (ready.size > MEDIA_MAX_BYTES) return refusal("too-large", { size: ready.size });
   const form = new FormData();
@@ -199,7 +208,7 @@ export async function uploadMedia(file: File, { folder, access = "public", alt =
   form.set("folder", folder);
   form.set("access", access);
   if (alt.trim()) form.set("alt", alt.trim());
-  const result = await adminUpload<{ ok: true; media: MediaDto }>("/media", form);
+  const result = await adminUpload<{ ok: true; media: MediaDto }>("/media", form, { onProgress, signal });
   if (!result.ok) return result;
   if (!result.data || typeof result.data !== "object" || !result.data.media) {
     return refusal("http");

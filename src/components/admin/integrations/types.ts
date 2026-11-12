@@ -15,6 +15,7 @@
 //   GET  /bas/queue?state=&kind=&page=&limit= -> ListAnswer<ExchangeQueueDto>
 //   POST /bas/queue     QueueEnqueueInput -> QueueEntryAnswer (201)    integrations.edit
 //   POST /bas/queue/<id>/retry         -> QueueEntryAnswer             integrations.edit
+//   POST /bas/push-test                -> BasPushTestAnswer            integrations.edit
 //   GET  /bas/spec                     -> BasSpecAnswer                integrations.view
 //   GET  /log?system=&entity=&status=&direction=&from=&to=&q=&page=&limit= -> ListAnswer<ExchangeLogDto>
 //   GET  /keys?page=&limit=&sort=      -> ListAnswer<ApiKeyDto>        integrations.view
@@ -145,14 +146,14 @@ export type BasAcceptFlag =
 // The "bas" settings group without the sealed password.
 export type BasSettingsDto = {
   enabled: boolean;
-  // "push" is stored but nothing posts orders to pushUrl yet: the exchange
-  // works in "pull" (BAS reads the queue) whatever is chosen.
+  // "pull": BAS reads the queue. "push": besides, while the exchange is on,
+  // the site posts every newly queued order and return request to pushUrl
+  // (server/integrations/bas/push.ts); the queue stays the fallback.
   mode: BasMode;
   pushUrl: string;
   pushLogin: string;
+  // A password is stored. Nothing of it is ever answered (no hint either).
   hasPassword: boolean;
-  // "****abcd" of the stored password ("" when there is none).
-  pushPasswordHint: string;
   acceptProducts: boolean;
   acceptPrices: boolean;
   acceptStock: boolean;
@@ -168,12 +169,14 @@ export type BasSettingsDto = {
 
 // PUT /bas/settings: any subset of the fields. pushPassword: a new
 // password (sealed on the server), null or "" removes the stored one,
-// absent keeps it.
-export type BasSettingsInput = Partial<Omit<BasSettingsDto, "hasPassword" | "pushPasswordHint">> & {
+// absent keeps it, except when pushUrl moves to another origin (scheme,
+// host, port): the stored password then goes too (the answer says
+// passwordDropped), so it never reaches an address it was not typed for.
+export type BasSettingsInput = Partial<Omit<BasSettingsDto, "hasPassword">> & {
   pushPassword?: string | null;
 };
 
-export type BasSettingsAnswer = { ok: true; settings: BasSettingsDto };
+export type BasSettingsAnswer = { ok: true; settings: BasSettingsDto; passwordDropped?: boolean };
 
 // What the ERP may overwrite on the site, in the order the panel lists it.
 export const BAS_ACCEPT_FLAGS: { key: BasAcceptFlag; label: string; hint: string }[] = [
@@ -283,6 +286,9 @@ export type ExchangeLogDto = {
 
 export type BasLastCall = {
   at: string;
+  // "ping" rows go both ways: BAS checking its key, or the site checking
+  // the push address.
+  direction?: ExchangeDirection;
   action: string;
   status: ExchangeStatus;
   counts: ExchangeCounts;
@@ -307,6 +313,10 @@ export type BasStatusAnswer = { ok: true } & BasStatusDto;
 export type QueueKind = "order" | "return";
 export type QueueState = "pending" | "acked" | "error";
 
+// A pending entry BAS has not taken for this long can be put back into the
+// queue by hand ("Повторити"), under a new seq.
+export const QUEUE_STALE_MS = 60 * 60_000;
+
 export const QUEUE_KIND_LABELS: Record<QueueKind, string> = { order: "Замовлення", return: "Повернення" };
 
 export const QUEUE_STATE_LABELS: Record<QueueState, string> = {
@@ -322,13 +332,19 @@ export type ExchangeQueueDto = {
   // orders._id / returns._id.
   entityId: string;
   state: QueueState;
-  // How many times BAS answered the entry with an error.
+  // How many times BAS answered the entry with an error, or a post to the
+  // push address failed.
   attempts: number;
   createdAt: string;
   ackedAt: string | null;
   // What BAS called the document (its GUID and number).
   ack: { externalId: string | null; number: string | null } | null;
+  // state "error": what BAS said. state "pending" with an error: the last
+  // post to the push address failed (the entry still waits for a pull).
   error: string | null;
+  // Pending without an error for longer than QUEUE_STALE_MS: BAS has not
+  // taken it; "Повторити" puts it back under a new seq.
+  stale: boolean;
   // Order: its number; return: the number of its order.
   number: string | null;
   // The company or the buyer.
@@ -341,7 +357,29 @@ export type ExchangeQueueDto = {
 };
 
 export type QueueEnqueueInput = { kind: QueueKind; entityId: string };
-export type QueueEntryAnswer = { ok: true; entry: ExchangeQueueDto };
+
+// What one post to the push address came to. Present in the answers of
+// POST /bas/queue and /retry only when the push mode is active.
+export type BasPushOutcome = {
+  ok: boolean;
+  // HTTP status of BAS's answer; null when none came (no connection, the
+  // 10-second timeout, or nothing was sent: a refused address, a password
+  // that cannot be opened).
+  status: number | null;
+  // Why it did not work, a sentence for staff; null when it worked.
+  error: string | null;
+  durationMs: number;
+  // The number BAS gave the document in its answer, when it gave one.
+  number: string | null;
+  // The beginning of BAS's answer (at most 300 characters).
+  answer: string;
+};
+
+export type QueueEntryAnswer = { ok: true; entry: ExchangeQueueDto; push?: BasPushOutcome };
+
+// POST /bas/push-test: { kind: "ping" } posted to the stored push address.
+// 409 "no-address" when none is stored.
+export type BasPushTestAnswer = { ok: true; result: BasPushOutcome };
 
 export type ListAnswer<T> = { ok: true; items: T[]; total: number; page: number; limit: number };
 
@@ -367,6 +405,15 @@ export type BasSpecEndpoint = {
   notes: string[];
 };
 
+// The push mode seen from BAS: what the site posts to the address of the
+// settings, with which headers, and what it expects back.
+export type BasSpecPush = {
+  description: string;
+  headers: { name: string; value: string; description: string }[];
+  examples: { label: string; body: unknown }[];
+  rules: string[];
+};
+
 export type BasSpecDto = {
   version: string;
   basePath: string;
@@ -375,6 +422,8 @@ export type BasSpecDto = {
   errors: { status: number; code: string; meaning: string }[];
   statusMap: { bas: string; site: string; label: string }[];
   endpoints: BasSpecEndpoint[];
+  // Optional so a contract downloaded before the push mode still reads.
+  push?: BasSpecPush;
   codeSamples: { title: string; language: "bsl"; code: string }[];
 };
 
@@ -386,11 +435,20 @@ export type BasItemStatus = "created" | "updated" | "unchanged" | "error";
 
 export type BasPushResult = { externalId: string; status: BasItemStatus; error?: string };
 
+// PUT /ledger with replace: true: what the replace step did. It runs only
+// once every item of the batch is stored: one item refused (it did not
+// parse, it repeated another) or not stored leaves every entry of the
+// period in place ({ done: false }), and BAS resends the corrected period
+// under a new batchId.
+export type BasLedgerReplace = { done: true; removed: number } | { done: false; reason: "items-failed" };
+
 export type BasPushAnswer = {
   ok: true;
   batchId: string;
   results: BasPushResult[];
   counts: ExchangeCounts;
+  // PUT /ledger with replace: true only.
+  replace?: BasLedgerReplace;
 };
 
 export type BasAckResult = { id: string; status: "acked" | "unchanged" | "error"; error?: string };

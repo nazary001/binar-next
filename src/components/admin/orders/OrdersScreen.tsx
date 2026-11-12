@@ -74,13 +74,15 @@ function Muted() {
   return <span className="text-neutral-400">-</span>;
 }
 
-function paymentCaption(row: OrderRow): string | null {
+// `late`: the due date has passed with money still owed (row.pastDue), so
+// the row is in "Прострочена оплата" although its badge says it waits.
+function paymentCaption(row: OrderRow): { text: string; late: boolean } | null {
   const payment = row.payment;
   if (row.status === "cancelled") return null;
-  if (payment?.kind === "overdue") return `на ${formatNumber(payment.days)} дн.`;
-  if (payment?.kind === "partial") return `сплачено ${formatMoney(payment.paid)}`;
-  if (payment?.kind === "paid") return payment.late ? "із простроченням" : null;
-  return row.paymentDue ? `до ${formatDate(row.paymentDue)}` : null;
+  if (payment?.kind === "overdue") return { text: `на ${formatNumber(payment.days)} дн.`, late: false };
+  if (payment?.kind === "partial") return { text: `сплачено ${formatMoney(payment.paid)}`, late: false };
+  if (payment?.kind === "paid") return payment.late ? { text: "із простроченням", late: false } : null;
+  return row.paymentDue ? { text: `до ${formatDate(row.paymentDue)}`, late: row.pastDue } : null;
 }
 
 // The BAS state in the widest table: the kit's words in the state's
@@ -172,7 +174,15 @@ function columns(managerName: (id: string) => string, wide: Wide): Column<OrderR
         return (
           <span className="flex flex-col items-start gap-1">
             <PaymentStatusBadge kind={paymentKindOf(o)} />
-            {caption && <span className={cx(TEXT.caption, "whitespace-nowrap tabular-nums")}>{caption}</span>}
+            {caption && (
+              <span
+                className={cx(TEXT.caption, "whitespace-nowrap tabular-nums", caption.late && "font-semibold")}
+                style={caption.late ? { color: TONES.red.text } : undefined}
+              >
+                {caption.late && <span className="sr-only">Термін оплати минув: </span>}
+                {caption.text}
+              </span>
+            )}
           </span>
         );
       },

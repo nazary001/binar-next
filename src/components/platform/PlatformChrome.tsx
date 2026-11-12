@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { AUTH_STORAGE_KEY } from "@/components/auth/data";
-import { isAdminRoute } from "@/lib/admin-route";
 import { PlatformFooter } from "./PlatformFooter";
 import { PlatformHeader } from "./PlatformHeader";
 import { SideMenu } from "./SideMenu";
@@ -110,10 +109,6 @@ export function PlatformChrome({
   useEffect(() => {
     if (hydrated) document.getElementById(GATE_STYLE_ID)?.remove();
   }, [hydrated]);
-
-  // The staff area renders its own shell: no public header, footer, scroll
-  // dock or hydration gate around it.
-  if (isAdminRoute(pathname)) return <>{children}</>;
 
   if (!platform) {
     return (

@@ -33,6 +33,7 @@ import {
 import { mailStatus } from "@/server/mail/provider";
 import { round2 } from "@/server/money";
 import { kyivToday } from "@/server/time";
+import { overdueOrdersFilter } from "./orders";
 
 // The figures of the overview page (GET /api/admin/overview) and the
 // "waits for somebody" counters (GET /api/admin/overview/attention). The
@@ -584,18 +585,9 @@ async function orderAttention(today: string): Promise<OrderAttention> {
       default: 0,
     },
   };
-  const companyToday = {
-    $let: {
-      vars: { demo: { $arrayElemAt: ["$_company.demoToday", 0] } },
-      in: {
-        $cond: [
-          { $eq: [{ $type: "$$demo" }, "string"] },
-          { $cond: [{ $regexMatch: { input: "$$demo", regex: DAY_PATTERN } }, "$$demo", today] },
-          today,
-        ],
-      },
-    },
-  };
+  // The same rule the list behind the counter filters by
+  // (/admin/orders?payment=overdue), so the two always agree.
+  const overdue = await overdueOrdersFilter(today);
 
   const orders = await collection("orders");
   const [row] = await orders
@@ -611,34 +603,8 @@ async function orderAttention(today: string): Promise<OrderAttention> {
           fresh: [{ $match: { status: "new" } }, { $group: { _id: null, count: { $sum: 1 }, total: { $sum: "$total" } } }],
           cancelRequests: [{ $match: { "cancel.request": true } }, { $count: "count" }],
           overdue: [
-            { $match: { channel: "b2b", "payment.kind": { $ne: "paid" } } },
-            {
-              $lookup: {
-                from: COLLECTION.clients,
-                localField: "clientId",
-                foreignField: "_id",
-                pipeline: [{ $project: { demoToday: 1 } }],
-                as: "_company",
-              },
-            },
-            {
-              $set: {
-                _owed: { $cond: [partialOverdue, remainder, { $subtract: ["$total", paid] }] },
-                _today: companyToday,
-              },
-            },
-            {
-              $match: {
-                _owed: { $gt: 0 },
-                $expr: {
-                  $or: [
-                    { $eq: [kind, "overdue"] },
-                    partialOverdue,
-                    { $and: [{ $eq: [{ $type: "$paymentDue" }, "string"] }, { $lt: ["$paymentDue", "$_today"] }] },
-                  ],
-                },
-              },
-            },
+            { $match: overdue },
+            { $set: { _owed: { $cond: [partialOverdue, remainder, { $subtract: ["$total", paid] }] } } },
             { $group: { _id: null, count: { $sum: 1 }, owed: { $sum: "$_owed" } } },
           ],
         },

@@ -2,15 +2,15 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ArrowDownIcon, ArrowUpIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
+import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import Link from "next/link";
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { Fragment, useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { errorMessage, type ApiFailure } from "../lib/api";
 import { cx, formatDate, formatMoney, formatTime } from "../lib/format";
 import { Checkbox } from "./Checkbox";
 import { Skeleton } from "./Skeleton";
 import { EmptyState, ErrorState } from "./States";
-import { COLOR_TRANSITION, FOCUS_RING_INSET, SURFACE, TEXT, TONES } from "./tokens";
+import { COLOR_TRANSITION, FOCUS_RING, FOCUS_RING_INSET, SURFACE, TEXT, TONES } from "./tokens";
 
 // The panel's table: a white r24 card clipping a table that scrolls
 // sideways inside it, a dark head, hairline rows with a hover tint, and
@@ -47,8 +47,20 @@ import { COLOR_TRANSITION, FOCUS_RING_INSET, SURFACE, TEXT, TONES } from "./toke
 //   `sort` / `onSort` ("createdAt" ascending, "-createdAt" descending).
 //   firstSort: the direction of the first press (default "asc"; dates and
 //   sums usually want "desc").
-// - align, width (px or any CSS width), className (added to every cell).
-// - hideBelow: 640 | 1024 | 1280, hides the column under that width.
+// - align, width (px or any CSS width), className (added to every body
+//   cell), headClassName (added to the head cell; put the same hiding
+//   class in both to hide a column by CSS of your own).
+// - hideBelow: 640 | 768 | 1024 | 1280 | 1360 | 1440 | 1536 | 1600 | 1680,
+//   hides the column (head and cells) under that window width. Pure CSS:
+//   no second render after hydration.
+// - maxWidth: px (a number) or a max-width class ("max-w-[240px]"): the
+//   cell's content is cut with an ellipsis at that width instead of
+//   widening the table; the full text is the cell's tooltip.
+// - fill: the column takes the free room of the table (the others keep
+//   their content's width) and its content is cut with an ellipsis rather
+//   than pushing the table wider than its card. One per table.
+// - title(row): the tooltip of a cut cell (default: the cell itself when it
+//   is plain text or a number).
 // - interactive: the cell holds controls (a menu, a switch): it is lifted
 //   above the row link and clicks in it never open the row.
 //
@@ -59,18 +71,37 @@ import { COLOR_TRANSITION, FOCUS_RING_INSET, SURFACE, TEXT, TONES } from "./toke
 //   page loads (keep showing the old rows); error: an error panel with
 //   "Спробувати ще раз" (onRetry), or a thin bar above the rows when old
 //   rows are still on screen.
-// - rowHref(row): the whole row is a link: a real <a> in the first plain
-//   column stretched over the row, so middle-click, Ctrl+click and keyboard
-//   work. onRowClick(row): the same for an action instead of an address
-//   (the row is focusable then and opens on Enter).
+// - rowHref(row): the whole row is a link: a real <a> stretched over the
+//   row, so middle-click, Ctrl+click and keyboard work. It sits in the first
+//   plain column that is visible at every width (no hideBelow, no hiding
+//   class); without one it falls back to the first plain column and warns
+//   in development (phones would lose the link). onRowClick(row): the same
+//   for an action instead of an address (the row is focusable then and
+//   opens on Enter). Neither fires for clicks inside a layer a cell opened
+//   (a Select's options, a KebabMenu's items), which React would otherwise
+//   bubble up from their portal to the row.
 // - selection: { selected: ids, onChange(ids) }: a checkbox column with a
 //   tri-state head box (selects or clears the rows of this page, keeps the
-//   ids of other pages).
+//   ids of other pages). The head box shows only when the page has rows.
+// - renderExpanded(row): rows open in place to show details under them: a
+//   chevron column at the end (aria-expanded, aria-controls, Enter and
+//   Space), and a press on the row toggles it too (unless the row has its
+//   own rowHref / onRowClick). Return null for a row without details: it
+//   gets no chevron. expandMode: "multiple" (default) or "single" (opening
+//   one closes the other). expanded / onExpandedChange(ids): control it
+//   from outside (an address ?open=); defaultExpanded: the ids open at
+//   first. expandLabel(row, open): the chevron's name ("Показати
+//   подробиці" / "Сховати подробиці").
+// - markedKey: the id of the row an address points at (/admin/materials?file=):
+//   a warm tint, the brand bar on its left edge, aria-current="true".
+//   rowClassName(row): classes of your own on a row's <tr>.
 // - minWidth: px under which the table scrolls inside its card (phones).
 // - footer: under the rows (Pagination, totals).
 // - dense: 44-px rows instead of 56. caption: the table's accessible name.
 //
 // Helper cells: MoneyCell, DateCell, TwoLineCell, ThumbCell (below).
+
+export type HideBelow = 640 | 768 | 1024 | 1280 | 1360 | 1440 | 1536 | 1600 | 1680;
 
 export type Column<T> = {
   key: string;
@@ -81,7 +112,11 @@ export type Column<T> = {
   align?: "left" | "right" | "center";
   width?: number | string;
   className?: string;
-  hideBelow?: 640 | 1024 | 1280;
+  headClassName?: string;
+  hideBelow?: HideBelow;
+  maxWidth?: number | string;
+  fill?: boolean;
+  title?: (row: T) => string | undefined;
   interactive?: boolean;
 };
 
@@ -101,6 +136,14 @@ export type DataTableProps<T> = {
   rowHref?: (row: T) => string;
   onRowClick?: (row: T) => void;
   selection?: DataTableSelection;
+  renderExpanded?: (row: T) => ReactNode;
+  expandMode?: "single" | "multiple";
+  expanded?: string[];
+  defaultExpanded?: string[];
+  onExpandedChange?: (ids: string[]) => void;
+  expandLabel?: (row: T, open: boolean) => string;
+  markedKey?: string | null;
+  rowClassName?: (row: T) => string | undefined;
   minWidth?: number;
   footer?: ReactNode;
   dense?: boolean;
@@ -108,11 +151,22 @@ export type DataTableProps<T> = {
   className?: string;
 };
 
-const HIDE: Record<640 | 1024 | 1280, string> = {
+// Whole literal classes per step (Tailwind extracts nothing built at run
+// time); the project's rule: min-/max-[...px] variants, never lg:.
+const HIDE: Record<HideBelow, string> = {
   640: "max-[639px]:hidden",
+  768: "max-[767px]:hidden",
   1024: "max-[1023px]:hidden",
   1280: "max-[1279px]:hidden",
+  1360: "max-[1359px]:hidden",
+  1440: "max-[1439px]:hidden",
+  1536: "max-[1535px]:hidden",
+  1600: "max-[1599px]:hidden",
+  1680: "max-[1679px]:hidden",
 };
+
+// A class that hides an element at some width ("hidden", "max-[639px]:hidden").
+const HIDING = /(^|\s)([^\s]*:)?hidden(\s|$)/;
 
 const ALIGN: Record<"left" | "right" | "center", string> = {
   left: "text-left",
@@ -133,6 +187,13 @@ const SKELETON_ROWS = 8;
 // Elements whose clicks belong to themselves, not to the row.
 const OWN_CLICKS = "a, button, input, select, textarea, label, summary, [role='menuitem'], [role='checkbox'], [data-row-ignore]";
 
+// The cut row: a warm tint and the brand bar on the left edge (the look the
+// media library gave the file a link points at).
+const MARKED = "[&>td]:bg-[#fff7f2] [&>td:first-child]:shadow-[inset_3px_0_0_#f85a0b]";
+
+// Each problem of a table's link column is told once per page load.
+const warned = new Set<string>();
+
 function parseSort(sort: string | undefined): { field: string; dir: "asc" | "desc" } | null {
   if (!sort) return null;
   return sort.startsWith("-") ? { field: sort.slice(1), dir: "desc" } : { field: sort, dir: "asc" };
@@ -143,6 +204,26 @@ function edgePad(index: number, count: number, hasSelection: boolean): string {
     index === 0 && !hasSelection ? "pl-5 min-[1024px]:pl-6" : "pl-4",
     index === count - 1 ? "pr-5 min-[1024px]:pr-6" : "pr-4",
   );
+}
+
+// Whether a column can be hidden at some width (so a row link in it would
+// be lost there).
+function mayHide<T>(column: Column<T>): boolean {
+  return Boolean(column.hideBelow) || HIDING.test(column.className ?? "") || HIDING.test(column.headClassName ?? "");
+}
+
+// The content of a cut cell (maxWidth or fill): one line with an ellipsis.
+function cutStyle<T>(column: Column<T>): CSSProperties | undefined {
+  return typeof column.maxWidth === "number" ? { maxWidth: column.maxWidth } : undefined;
+}
+
+function cutClass<T>(column: Column<T>): string | undefined {
+  if (column.maxWidth === undefined && !column.fill) return undefined;
+  return cx("block min-w-0 truncate", typeof column.maxWidth === "string" && column.maxWidth);
+}
+
+function plainText(content: ReactNode): string | undefined {
+  return typeof content === "string" || typeof content === "number" ? String(content) : undefined;
 }
 
 // The selection column uses the kit's Checkbox (brand when on, the dash of
@@ -171,6 +252,8 @@ function SortGlyph({ dir }: { dir: "asc" | "desc" | null }) {
   );
 }
 
+const defaultExpandLabel = (_row: unknown, open: boolean) => (open ? "Сховати подробиці" : "Показати подробиці");
+
 export function DataTable<T>({
   columns,
   rows,
@@ -185,26 +268,66 @@ export function DataTable<T>({
   rowHref,
   onRowClick,
   selection,
+  renderExpanded,
+  expandMode = "multiple",
+  expanded,
+  defaultExpanded,
+  onExpandedChange,
+  expandLabel = defaultExpandLabel,
+  markedKey,
+  rowClassName,
   minWidth,
   footer,
   dense = false,
   caption,
   className,
 }: DataTableProps<T>) {
+  const tableId = useId();
   const hasSelection = Boolean(selection);
+  const expandable = Boolean(renderExpanded);
   const active = parseSort(sort);
   const showSkeleton = !error && (loading || rows === undefined) && !(rows && rows.length > 0);
   const showError = Boolean(error) && !(rows && rows.length > 0);
   const list = rows ?? [];
   const showEmpty = !showSkeleton && !showError && list.length === 0;
+  // Data columns plus the chevron column, for the edge paddings and colSpan.
+  const edgeCount = columns.length + (expandable ? 1 : 0);
+  const span = edgeCount + (hasSelection ? 1 : 0);
+
   // The column that carries the row link: the first one that is neither a
-  // control nor hidden on phones (a hidden link would leave phones without one).
-  const linkColumn = rowHref ? columns.findIndex((column) => !column.interactive && !column.hideBelow) : -1;
+  // control nor hidden at some width (a hidden link would leave phones
+  // without one); else the first plain one, with a warning in development.
+  const plainIndex = rowHref ? columns.findIndex((column) => !column.interactive) : -1;
+  const visibleIndex = rowHref ? columns.findIndex((column) => !column.interactive && !mayHide(column)) : -1;
+  const linkColumn = visibleIndex >= 0 ? visibleIndex : plainIndex;
+  const linkProblem =
+    !rowHref || visibleIndex >= 0
+      ? null
+      : plainIndex >= 0
+        ? `DataTable "${caption ?? columns.map((column) => column.key).join(",")}": every plain column can be hidden, so the row link sits in "${columns[plainIndex].key}" and is lost where that column is hidden. Keep one plain column visible at every width.`
+        : `DataTable "${caption ?? columns.map((column) => column.key).join(",")}": rowHref is set but every column is interactive, so rows have no link.`;
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !linkProblem || warned.has(linkProblem)) return;
+    warned.add(linkProblem);
+    console.warn(linkProblem);
+  }, [linkProblem]);
+
+  // Open rows: the caller's when controlled, else our own.
+  const [ownOpen, setOwnOpen] = useState<string[]>(() => defaultExpanded ?? []);
+  const openIds = expanded ?? ownOpen;
+  const toggleExpanded = (id: string) => {
+    const isOpen = openIds.includes(id);
+    const next = isOpen ? openIds.filter((item) => item !== id) : expandMode === "single" ? [id] : [...openIds, id];
+    if (expanded === undefined) setOwnOpen(next);
+    onExpandedChange?.(next);
+  };
 
   const selected = new Set(selection?.selected ?? []);
   const pageIds = list.map(rowKey);
   const onPage = pageIds.filter((id) => selected.has(id)).length;
   const headState: boolean | "mixed" = pageIds.length > 0 && onPage === pageIds.length ? true : onPage > 0 ? "mixed" : false;
+  // Nothing to choose on an empty or loading page: no head box.
+  const headBox = hasSelection && !showSkeleton && !showError && pageIds.length > 0;
 
   const toggleAll = () => {
     if (!selection) return;
@@ -227,13 +350,23 @@ export function DataTable<T>({
     onSort(dir === "desc" ? `-${column.sortKey}` : column.sortKey);
   };
 
-  const rowClick = (event: MouseEvent<HTMLTableRowElement>, row: T) => {
-    if (!onRowClick) return;
-    const control = (event.target as HTMLElement).closest(OWN_CLICKS);
-    if (control && control !== event.currentTarget && event.currentTarget.contains(control)) return;
+  // A press on a row's own surface; false for one that belongs elsewhere.
+  const isRowPress = (event: MouseEvent<HTMLTableRowElement>): boolean => {
+    const target = event.target;
+    // React bubbles events from a portal (a Select's options, a menu's
+    // items opened from a cell) up to the row; those are not on the row.
+    if (!(target instanceof Node) || !event.currentTarget.contains(target)) return false;
+    const control = target instanceof Element ? target.closest(OWN_CLICKS) : null;
+    if (control && control !== event.currentTarget && event.currentTarget.contains(control)) return false;
     // A text selection in a cell is not a click on the row.
-    if (window.getSelection()?.toString()) return;
-    onRowClick(row);
+    if (window.getSelection()?.toString()) return false;
+    return true;
+  };
+
+  const rowClick = (event: MouseEvent<HTMLTableRowElement>, row: T, id: string, canExpand: boolean) => {
+    if (!isRowPress(event)) return;
+    if (onRowClick) onRowClick(row);
+    else if (canExpand) toggleExpanded(id);
   };
 
   const rowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, row: T) => {
@@ -284,24 +417,30 @@ export function DataTable<T>({
             <tr className="bg-neutral-800">
               {hasSelection && (
                 <th scope="col" className="h-11 w-12 pl-5 pr-0 text-left align-middle min-[1024px]:pl-6">
-                  <SelectBox checked={headState} label="Вибрати всі рядки на сторінці" onToggle={toggleAll} />
+                  {headBox ? (
+                    <SelectBox checked={headState} label="Вибрати всі рядки на сторінці" onToggle={toggleAll} />
+                  ) : (
+                    <span className="sr-only">Вибір рядків</span>
+                  )}
                 </th>
               )}
               {columns.map((column, index) => {
                 const align = column.align ?? "left";
                 const sortable = Boolean(column.sortKey && onSort);
                 const dir = sortable && active && active.field === column.sortKey ? active.dir : null;
+                const width = column.fill ? "100%" : column.width;
                 return (
                   <th
                     key={column.key}
                     scope="col"
                     aria-sort={sortable ? (dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none") : undefined}
-                    style={column.width !== undefined ? { width: column.width } : undefined}
+                    style={width !== undefined ? { width } : undefined}
                     className={cx(
                       "h-11 whitespace-nowrap align-middle text-[12px] font-semibold leading-4 text-white",
-                      edgePad(index, columns.length, hasSelection),
+                      edgePad(index, edgeCount, hasSelection),
                       ALIGN[align],
                       column.hideBelow && HIDE[column.hideBelow],
+                      column.headClassName,
                     )}
                   >
                     {sortable ? (
@@ -323,6 +462,11 @@ export function DataTable<T>({
                   </th>
                 );
               })}
+              {expandable && (
+                <th scope="col" className="h-11 w-[60px] pl-2 pr-5 align-middle min-[1024px]:w-[68px] min-[1024px]:pr-6">
+                  <span className="sr-only">Подробиці</span>
+                </th>
+              )}
             </tr>
           </thead>
 
@@ -343,7 +487,13 @@ export function DataTable<T>({
                   {columns.map((column, c) => (
                     <td
                       key={column.key}
-                      className={cx(rowHeight, "align-middle", edgePad(c, columns.length, hasSelection), column.hideBelow && HIDE[column.hideBelow])}
+                      className={cx(
+                        rowHeight,
+                        "align-middle",
+                        edgePad(c, edgeCount, hasSelection),
+                        column.hideBelow && HIDE[column.hideBelow],
+                        column.fill && "max-w-0",
+                      )}
                     >
                       {/* The bar's width varies by cell, so the rows read as text. */}
                       <span
@@ -354,6 +504,11 @@ export function DataTable<T>({
                       </span>
                     </td>
                   ))}
+                  {expandable && (
+                    <td className={cx(rowHeight, "pl-2 pr-5 min-[1024px]:pr-6")}>
+                      <Skeleton shape="circle" className="ml-auto size-8" />
+                    </td>
+                  )}
                 </tr>
               ))}
 
@@ -363,47 +518,44 @@ export function DataTable<T>({
                 const id = rowKey(row);
                 const isSelected = selected.has(id);
                 const href = rowHref?.(row);
-                const clickable = Boolean(href || onRowClick);
+                const details = renderExpanded ? renderExpanded(row) : null;
+                const canExpand = details !== null && details !== undefined && details !== false;
+                const isOpen = canExpand && openIds.includes(id);
+                const detailsId = `${tableId}-details-${id}`;
+                const marked = markedKey !== undefined && markedKey !== null && markedKey === id;
+                const clickable = Boolean(href || onRowClick || canExpand);
                 return (
-                  <tr
-                    key={id}
-                    onClick={onRowClick ? (event) => rowClick(event, row) : undefined}
-                    onKeyDown={onRowClick ? (event) => rowKeyDown(event, row) : undefined}
-                    tabIndex={onRowClick && !href ? 0 : undefined}
-                    aria-selected={hasSelection ? isSelected : undefined}
-                    className={cx(
-                      "[&:not(:last-child)>td]:border-b [&>td]:border-stroke-subtle motion-reduce:transition-none",
-                      COLOR_TRANSITION,
-                      href && "relative",
-                      clickable && "cursor-pointer",
-                      onRowClick && !href && "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand",
-                      isSelected ? "bg-neutral-40" : "hover:bg-bg-subtle",
-                    )}
-                  >
-                    {hasSelection && (
-                      <td className={cx(rowHeight, "relative z-10 w-12 pl-5 pr-0 align-middle min-[1024px]:pl-6")}>
-                        <SelectBox checked={isSelected} label={`Вибрати рядок ${id}`} onToggle={() => toggleOne(id)} />
-                      </td>
-                    )}
-                    {columns.map((column, c) => {
-                      const content = column.cell(row);
-                      return (
-                        <td
-                          key={column.key}
-                          className={cx(
-                            rowHeight,
-                            TEXT.body,
-                            "py-2 align-middle",
-                            edgePad(c, columns.length, hasSelection),
-                            ALIGN[column.align ?? "left"],
-                            // Right-aligned columns hold figures: "1 240 шт." stays on one line.
-                            column.align === "right" && "whitespace-nowrap",
-                            column.hideBelow && HIDE[column.hideBelow],
-                            column.interactive && "relative z-10",
-                            column.className,
-                          )}
-                        >
-                          {href && c === linkColumn ? (
+                  <Fragment key={id}>
+                    <tr
+                      onClick={onRowClick || (canExpand && !href) ? (event) => rowClick(event, row, id, canExpand && !href) : undefined}
+                      onKeyDown={onRowClick ? (event) => rowKeyDown(event, row) : undefined}
+                      tabIndex={onRowClick && !href ? 0 : undefined}
+                      aria-selected={hasSelection ? isSelected : undefined}
+                      aria-current={marked ? "true" : undefined}
+                      data-marked={marked || undefined}
+                      className={cx(
+                        // An open row and its details read as one block: no line between them.
+                        !isOpen && "[&:not(:last-child)>td]:border-b",
+                        "[&>td]:border-stroke-subtle motion-reduce:transition-none",
+                        COLOR_TRANSITION,
+                        href && "relative",
+                        clickable && "cursor-pointer",
+                        onRowClick && !href && "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand",
+                        isSelected ? "bg-neutral-40" : isOpen ? "bg-bg-subtle" : "hover:bg-bg-subtle",
+                        marked && MARKED,
+                        rowClassName?.(row),
+                      )}
+                    >
+                      {hasSelection && (
+                        <td className={cx(rowHeight, "relative z-10 w-12 pl-5 pr-0 align-middle min-[1024px]:pl-6")}>
+                          <SelectBox checked={isSelected} label={`Вибрати рядок ${id}`} onToggle={() => toggleOne(id)} />
+                        </td>
+                      )}
+                      {columns.map((column, c) => {
+                        const content = column.cell(row);
+                        const cut = cutClass(column);
+                        const linked =
+                          href && c === linkColumn ? (
                             <Link
                               href={href}
                               className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-brand"
@@ -412,11 +564,70 @@ export function DataTable<T>({
                             </Link>
                           ) : (
                             content
+                          );
+                        return (
+                          <td
+                            key={column.key}
+                            className={cx(
+                              rowHeight,
+                              TEXT.body,
+                              "py-2 align-middle",
+                              edgePad(c, edgeCount, hasSelection),
+                              ALIGN[column.align ?? "left"],
+                              // Right-aligned columns hold figures: "1 240 шт." stays on one line.
+                              column.align === "right" && "whitespace-nowrap",
+                              column.hideBelow && HIDE[column.hideBelow],
+                              column.interactive && "relative z-10",
+                              // max-w-0: the filling column gives way instead of widening the table.
+                              column.fill && "max-w-0",
+                              column.className,
+                            )}
+                          >
+                            {cut ? (
+                              <span className={cut} style={cutStyle(column)} title={column.title?.(row) ?? plainText(content)}>
+                                {linked}
+                              </span>
+                            ) : (
+                              linked
+                            )}
+                          </td>
+                        );
+                      })}
+                      {expandable && (
+                        <td className={cx(rowHeight, "relative z-10 py-2 pl-2 pr-5 text-right align-middle min-[1024px]:pr-6")}>
+                          {canExpand && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(id)}
+                              aria-expanded={isOpen}
+                              aria-controls={isOpen ? detailsId : undefined}
+                              aria-label={expandLabel(row, isOpen)}
+                              title={expandLabel(row, isOpen)}
+                              className={cx(
+                                "inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-neutral-600 hover:bg-bg-cabinet hover:text-neutral-900 motion-reduce:transition-none",
+                                COLOR_TRANSITION,
+                                FOCUS_RING,
+                              )}
+                            >
+                              <ChevronDownIcon
+                                aria-hidden
+                                className={cx("size-5 transition-[rotate] duration-200 motion-reduce:transition-none", isOpen && "rotate-180")}
+                              />
+                            </button>
                           )}
                         </td>
-                      );
-                    })}
-                  </tr>
+                      )}
+                    </tr>
+                    {isOpen && (
+                      <tr className="bg-bg-subtle [&:not(:last-child)>td]:border-b [&>td]:border-stroke-subtle">
+                        <td colSpan={span} className="p-0">
+                          <div id={detailsId} className="min-w-0 px-5 py-5 min-[1024px]:px-6">
+                            {details}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
           </tbody>

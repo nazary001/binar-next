@@ -14,10 +14,15 @@ import type { Permission } from "../lib/permissions";
 //       ?from=YYYY-MM-DD&to=YYYY-MM-DD (Kyiv days, both inclusive)
 //       ?q=<text> (the summary contains it)  ?sort=-at|at  ?page=1&limit=50
 //   GET /api/admin/audit/facets  [audit.view] -> JournalFacets (for the filter selects)
-//   GET /api/admin/audit/entity?type=<type>&id=<id>
-//       [the view permission of that record, see entityViewPermission();
-//        a type not listed there needs audit.view]
+//   GET /api/admin/audit/entity?type=<type>&id=<id>[&related=1]
+//       [any view permission of that record, see entityViewPermissions(),
+//        or audit.view; a type not listed there needs audit.view]
 //       -> { ok: true, items: JournalRow[] } (the last JOURNAL_ENTITY_LIMIT lines, newest first)
+//       related=1 adds the lines of the records that belong to it and are
+//       journaled under their own type (ENTITY_RELATED: for a company, its
+//       counterparties, contracts and employees), each related type only
+//       when the caller may view it. Any other value of `related`, or a
+//       type with nothing related, answers the record's own lines.
 //
 // A filter value that does not have the expected shape is ignored (the
 // list answers as if it was not given); /audit/entity without a valid
@@ -115,19 +120,40 @@ export const ENTITY_VIEW_PERMISSION: Record<string, Permission> = {
   outbox: "integrations.view",
 };
 
-// Settings groups that belong to an integration page: their history is
-// open to whoever may see that integration.
-const SETTINGS_ID_PERMISSION: Record<string, Permission> = {
-  novaPoshta: "integrations.view",
-  bas: "integrations.view",
-  mail: "integrations.view",
+// Settings groups shown on a page outside the settings screen: their
+// history is open to whoever may open one of the pages that show them.
+// The integrations' groups go with their integration page; the catalog
+// group (written by PUT /api/admin/taxonomy/meta [catalog.edit] and by
+// the settings screen's catalog tab) with /admin/categories [catalog.view]
+// and with that tab [settings.view].
+const SETTINGS_ID_PERMISSIONS: Record<string, readonly Permission[]> = {
+  novaPoshta: ["integrations.view"],
+  bas: ["integrations.view"],
+  mail: ["integrations.view"],
+  catalog: ["catalog.view", "settings.view"],
 };
 
-// The permission that opens the history of one record, null when the type
-// is unknown (then only audit.view may read it).
-export function entityViewPermission(type: string, id: string): Permission | null {
-  if (type === "settings" && Object.hasOwn(SETTINGS_ID_PERMISSION, id)) return SETTINGS_ID_PERMISSION[id];
-  return Object.hasOwn(ENTITY_VIEW_PERMISSION, type) ? ENTITY_VIEW_PERMISSION[type] : null;
+// The permissions that open the history of one record (any one of them;
+// audit.view always does). Empty when the type is unknown: then only
+// audit.view may read it.
+export function entityViewPermissions(type: string, id: string): readonly Permission[] {
+  if (type === "settings" && Object.hasOwn(SETTINGS_ID_PERMISSIONS, id)) return SETTINGS_ID_PERMISSIONS[id];
+  return Object.hasOwn(ENTITY_VIEW_PERMISSION, type) ? [ENTITY_VIEW_PERMISSION[type]] : [];
+}
+
+// Records journaled under a type of their own that belong to a record of
+// another type, and the meta key that names the owner on their lines.
+// The companies routes write meta.clientId = the company's id on every
+// line about one of its counterparties, contracts and employees.
+export type EntityRelation = { types: readonly string[]; metaKey: string };
+
+export const ENTITY_RELATED: Record<string, EntityRelation> = {
+  company: { types: ["counterparty", "contract", "employee"], metaKey: "clientId" },
+};
+
+// The relation of a type, null when it has none.
+export function entityRelation(type: string): EntityRelation | null {
+  return Object.hasOwn(ENTITY_RELATED, type) ? ENTITY_RELATED[type] : null;
 }
 
 // What one record of each type is called (the journal's "Об'єкт" column,

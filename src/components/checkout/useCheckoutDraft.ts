@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { DRAFT_KEY, EMPTY_VALUES, type CheckoutValues } from "./data";
+import { DRAFT_KEY, EMPTY_VALUES, REF_KEYS, type CheckoutValues } from "./data";
+import { NP_REF } from "./novaPoshta";
 
 // Session draft of the checkout form (checkout spec 2.13, CO-25): the typed
 // values survive a reload or a PDP round trip in the same tab. Initial
@@ -24,6 +25,13 @@ function read(key: string): CheckoutValues {
     const next: Record<string, unknown> = { ...EMPTY_VALUES };
     for (const k of Object.keys(EMPTY_VALUES) as (keyof CheckoutValues)[]) {
       if (typeof src[k] === typeof EMPTY_VALUES[k]) next[k] = src[k];
+    }
+    // The carrier references of rows picked from Nova Poshta's lists
+    // (optional keys, not in EMPTY_VALUES): taken over only in their own
+    // shape.
+    for (const k of REF_KEYS) {
+      const ref = src[k];
+      if (typeof ref === "string" && NP_REF.test(ref)) next[k] = ref;
     }
     return next as CheckoutValues;
   } catch {

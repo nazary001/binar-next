@@ -1,8 +1,15 @@
 import "server-only";
-import type { Filter, UpdateFilter } from "mongodb";
-import type { ExchangeQueueDto, QueueKind, QueueState } from "@/components/admin/integrations/types";
+import type { ClientSession, Filter, UpdateFilter } from "mongodb";
+import {
+  QUEUE_STALE_MS,
+  type BasPushOutcome,
+  type ExchangeQueueDto,
+  type QueueKind,
+  type QueueState,
+} from "@/components/admin/integrations/types";
 import type { ListQuery } from "../../admin/list";
-import { getSettings } from "../../admin/settings";
+import { getSettings, type SettingsOf } from "../../admin/settings";
+import { getClient } from "../../db/client";
 import {
   collection,
   type Actor,
@@ -14,6 +21,7 @@ import {
 } from "../../db/collections";
 import { newId } from "../../ids";
 import { lineSum, sum } from "../../money";
+import { activePushTarget, postQueueEntry, toOutcome } from "./push";
 
 // The queue of what BAS has to pick up (collection `exchange_queue`): new
 // orders and return requests. BAS reads it in `seq` order
@@ -29,22 +37,56 @@ import { lineSum, sum } from "../../money";
 // while the exchange is off, and an order of a channel that is not
 // exported is marked "skipped". Staff sending a record by hand override
 // both.
+//
+// The seq and the write that carries it are one transaction (withQueueSeq):
+// BAS keeps the last seq it saw as its cursor, so an entry must never
+// become visible after one with a higher seq. Two transactions that both
+// take a seq conflict on the counter, the second one starts again after
+// the first has committed, so seqs become visible in their own order and
+// a cursor never passes one that is still being written.
+//
+// In the push mode (push.ts) a freshly queued entry is also posted to the
+// BAS address at once, inside the same call (the storefront runs it in
+// after(), so the post happens within that scope): a 2xx answer acks the
+// entry, anything else leaves it pending with the error and one more
+// attempt. The queue stays the fallback either way: an address that does
+// not work never loses an order.
 
 export const QUEUE_COUNTER = "exchange-queue";
 
-export async function nextQueueSeq(): Promise<number> {
-  const counters = await collection("counters");
-  const doc = await counters.findOneAndUpdate(
-    { _id: QUEUE_COUNTER },
-    { $inc: { seq: 1 } },
-    { upsert: true, returnDocument: "after" },
-  );
-  if (!doc) throw new Error("queue counter missing");
-  return doc.seq;
+// Takes the next seq and runs `write` with it in one transaction: the seq
+// and the entry that carries it commit together (or not at all: a failed
+// write takes nothing from the counter). `write` must do all its database
+// work through `session`; the driver repeats the whole callback after a
+// write conflict, so it must not have other effects.
+export async function withQueueSeq<T>(write: (seq: number, session: ClientSession) => Promise<T>): Promise<T> {
+  const session = (await getClient()).startSession();
+  // What the last (the committed) run of the callback answered.
+  const box: { done: boolean; value?: T } = { done: false };
+  try {
+    await session.withTransaction(async () => {
+      box.done = false;
+      const counters = await collection("counters");
+      const doc = await counters.findOneAndUpdate(
+        { _id: QUEUE_COUNTER },
+        { $inc: { seq: 1 } },
+        { upsert: true, returnDocument: "after", session },
+      );
+      if (!doc) throw new Error("queue counter missing");
+      box.value = await write(doc.seq, session);
+      box.done = true;
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (!box.done) throw new Error("queue transaction did not run");
+  return box.value as T;
 }
 
 export type EnqueueOutcome =
-  | { state: "queued"; entry: ExchangeQueueDoc }
+  // `push`: what the post to the BAS address came to (push mode only);
+  // `entry` is then as it stands after that post.
+  | { state: "queued"; entry: ExchangeQueueDoc; push?: BasPushOutcome }
   | { state: "exists"; entry: ExchangeQueueDoc }
   | { state: "skipped" }
   | { state: "disabled" }
@@ -78,8 +120,9 @@ export async function enqueueErp(kind: QueueKind, entityId: string, options: Enq
   if (!target) return { state: "not-found" };
 
   const now = new Date();
+  let settings: BasSettings | undefined;
   if (!options.manual) {
-    const settings = await getSettings("bas");
+    settings = await getSettings("bas");
     if (!settings.enabled) return { state: "disabled" };
     if (kind === "order") {
       const channel = (target as Pick<OrderDoc, "channel">).channel;
@@ -94,23 +137,27 @@ export async function enqueueErp(kind: QueueKind, entityId: string, options: Enq
     }
   }
 
-  const entry: ExchangeQueueDoc = {
-    _id: newId("q"),
-    seq: await nextQueueSeq(),
-    kind,
-    entityId,
-    state: "pending",
-    attempts: 0,
-    createdAt: now,
-    ackedAt: null,
-    ack: null,
-    error: null,
-  };
+  let entry: ExchangeQueueDoc;
   try {
-    await queue.insertOne(entry);
+    entry = await withQueueSeq(async (seq, session) => {
+      const doc: ExchangeQueueDoc = {
+        _id: newId("q"),
+        seq,
+        kind,
+        entityId,
+        state: "pending",
+        attempts: 0,
+        createdAt: now,
+        ackedAt: null,
+        ack: null,
+        error: null,
+      };
+      await queue.insertOne(doc, { session });
+      return doc;
+    });
   } catch (error) {
-    // Queued meanwhile by a parallel call: that entry stands (its seq is
-    // used, this one is simply skipped).
+    // Queued meanwhile by a parallel call: that entry stands (the
+    // transaction took nothing from the counter).
     if ((error as { code?: number }).code !== 11000) throw error;
     const raced = await queue.findOne({ kind, entityId });
     if (raced) return { state: "exists", entry: raced };
@@ -124,7 +171,59 @@ export async function enqueueErp(kind: QueueKind, entityId: string, options: Enq
   const update = { $set: { erp: link, updatedAt: now }, $push: { history } };
   if (kind === "order") await orders.updateOne({ _id: entityId }, update as UpdateFilter<OrderDoc>);
   else await returns.updateOne({ _id: entityId }, update as UpdateFilter<ReturnDoc>);
-  return { state: "queued", entry };
+  const delivered = await deliverEntry(entry, actor, settings);
+  return delivered ? { state: "queued", entry: delivered.entry, push: delivered.push } : { state: "queued", entry };
+}
+
+// --- the push mode ------------------------------------------------------------
+
+type BasSettings = SettingsOf<"bas">;
+
+// Who acknowledged an entry that BAS took at its push address.
+const PUSH_ACTOR: Actor = { id: "bas-push", name: "BAS", kind: "integration" };
+
+export type Delivery = { entry: ExchangeQueueDoc; push: BasPushOutcome };
+
+// Posts a pending entry to the BAS address when the push mode is active
+// (null when it is not, and then nothing happened). A 2xx answer acks the
+// entry like POST /orders/ack would (with the GUID and number BAS answered,
+// else the ones it gave before); anything else leaves it pending with the
+// error and one more attempt, still served by the pull endpoints. Never
+// throws: a broken address or database hiccup must not fail the order or
+// the panel action that queued it.
+export async function deliverEntry(
+  entry: ExchangeQueueDoc,
+  actor: Actor,
+  settings?: BasSettings,
+): Promise<Delivery | null> {
+  try {
+    const target = activePushTarget(settings ?? (await getSettings("bas")));
+    if (!target) return null;
+    const posted = await postQueueEntry(target, entry, actor);
+    const queue = await collection("exchangeQueue");
+    if (posted.ok) {
+      const current = await queue.findOne({ _id: entry._id });
+      // BAS may have pulled and acked it meanwhile: that ack stands.
+      if (current?.state === "pending") {
+        await ackEntry(
+          entry.kind,
+          {
+            entityId: entry.entityId,
+            externalId: posted.ack?.externalId ?? current.ack?.externalId ?? null,
+            number: posted.ack?.number ?? current.ack?.number ?? null,
+            error: null,
+          },
+          PUSH_ACTOR,
+        );
+      }
+    } else {
+      await queue.updateOne({ _id: entry._id, state: "pending" }, { $set: { error: posted.error }, $inc: { attempts: 1 } });
+    }
+    return { entry: (await queue.findOne({ _id: entry._id })) ?? entry, push: toOutcome(posted) };
+  } catch (error) {
+    console.error("[bas] push of a queue entry failed:", error);
+    return null;
+  }
 }
 
 // The pending entries after a cursor, in seq order.
@@ -208,19 +307,30 @@ export async function ackEntry(kind: QueueKind, input: AckInput, actor: Actor): 
   return { status: "acked" };
 }
 
+// A pending entry BAS has not taken for this long may be put back under a
+// new seq too: a cursor that went past it (an older version could hand
+// out seqs out of order) would otherwise never see it again.
+export function isStalePending(entry: Pick<ExchangeQueueDoc, "state" | "error" | "createdAt">, now: number = Date.now()): boolean {
+  return entry.state === "pending" && !entry.error && entry.createdAt.getTime() <= now - QUEUE_STALE_MS;
+}
+
 // An entry that failed, or one BAS should take again, goes back to the
 // queue under a new seq: a BAS cursor already past its old seq still sees
-// it.
+// it. A pending entry can be retried only when its last post to the push
+// address failed (it carries that error; the route then posts it again)
+// or when it has waited longer than QUEUE_STALE_MS.
 export async function retryEntry(id: string, actor: Actor): Promise<ExchangeQueueDoc | "not-found" | "state"> {
   const queue = await collection("exchangeQueue");
   const entry = await queue.findOne({ _id: id });
   if (!entry) return "not-found";
-  if (entry.state === "pending") return "state";
+  if (entry.state === "pending" && !entry.error && !isStalePending(entry)) return "state";
   const now = new Date();
-  const updated = await queue.findOneAndUpdate(
-    { _id: id, state: entry.state },
-    { $set: { state: "pending", seq: await nextQueueSeq(), error: null, ackedAt: null } },
-    { returnDocument: "after" },
+  const updated = await withQueueSeq((seq, session) =>
+    queue.findOneAndUpdate(
+      { _id: id, state: entry.state, seq: entry.seq },
+      { $set: { state: "pending", seq, error: null, ackedAt: null } },
+      { returnDocument: "after", session },
+    ),
   );
   if (!updated) return "state";
   const history: OrderHistoryEntry = { at: now, by: actor, type: "erp", to: "pending", text: "Повторно передано в чергу обміну з BAS" };
@@ -341,6 +451,7 @@ export function toQueueDto(entry: ExchangeQueueDoc, summary: Summary | undefined
     ackedAt: entry.ackedAt ? entry.ackedAt.toISOString() : null,
     ack: entry.ack ? { externalId: entry.ack.externalId ?? null, number: entry.ack.number ?? null } : null,
     error: entry.error ?? null,
+    stale: isStalePending(entry),
     ...(summary ?? { number: null, label: "", total: null, channel: null, missing: true }),
   };
 }

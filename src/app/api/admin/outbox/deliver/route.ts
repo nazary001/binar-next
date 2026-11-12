@@ -6,6 +6,9 @@ import { deliverOutbox } from "@/server/mail/deliver";
 import { outboxCounts } from "@/server/mail/repo";
 import { zId } from "@/server/validate";
 
+// A run of the mailer may take its whole budget (40 s) plus one last send.
+export const maxDuration = 60;
+
 // POST /api/admin/outbox/deliver  { ids?: string[] }
 // Runs the mailer now: the given messages, or the 20 oldest that are due.
 // Answer: DeliverAnswer (the outcome and the new counts per state).

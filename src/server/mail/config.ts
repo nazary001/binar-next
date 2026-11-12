@@ -2,11 +2,18 @@ import "server-only";
 import type { MailSettingsAnswer, MailSettingsDto, MailSettingsInput } from "@/components/admin/mail/types";
 import { sealSecret, secretHint, secretsAvailable } from "../admin/secrets";
 import { getSettings, saveSettings } from "../admin/settings";
-import { mailStatusOf, parseFromAddress, webhookUrlProblem, type MailSettings } from "./provider";
+import { mailStatusOf, parseFromAddress, webhookOrigin, webhookUrlProblem, type MailSettings } from "./provider";
 
 // The mail settings as the panel reads and writes them
 // (/api/admin/integrations/mail/settings). The sealed key never leaves
 // the server: the answer says whether one is stored and shows its hint.
+//
+// The key belongs to where it was typed for: the provider (a Resend key
+// is not the webhook's) and, for the webhook, the origin of its address.
+// A change of the provider, or of the webhook's origin while the webhook
+// is the provider, removes the stored key unless a new one comes in the
+// same change, so a key can never be sent to a service or an address
+// nobody typed it for.
 
 export function mailSettingsDto(settings: MailSettings): MailSettingsDto {
   return {
@@ -48,12 +55,13 @@ const PLAIN_FIELDS = [
 export type MailField = (typeof PLAIN_FIELDS)[number];
 
 export type SaveMailOutcome =
-  | { ok: true; settings: MailSettings; changed: MailField[]; key: "set" | "removed" | "kept" }
+  // key "dropped": removed because the provider or the webhook origin moved.
+  | { ok: true; settings: MailSettings; changed: MailField[]; key: "set" | "removed" | "kept" | "dropped" }
   | { ok: false; error: "fields"; fields: Record<string, string> }
   | { ok: false; error: "secrets-key" };
 
 // Merges a change into the stored group. `apiKey`: a new key is sealed,
-// "" removes the stored one, absent keeps it.
+// "" removes the stored one, absent keeps it (unless its destination moves).
 export async function saveMailSettings(input: MailSettingsInput, staffId: string): Promise<SaveMailOutcome> {
   const fields: Record<string, string> = {};
   if (input.from && !parseFromAddress(input.from)) fields.from = "format";
@@ -76,8 +84,15 @@ export async function saveMailSettings(input: MailSettingsInput, staffId: string
     Object.assign(next, { [field]: value });
   }
 
-  let key: "set" | "removed" | "kept" = "kept";
-  if (input.apiKey === "") {
+  let key: "set" | "removed" | "kept" | "dropped" = "kept";
+  const destinationMoves =
+    next.provider !== current.provider ||
+    (next.provider === "webhook" && webhookOrigin(next.webhookUrl) !== webhookOrigin(current.webhookUrl));
+  if (input.apiKey === undefined && current.apiKeySealed && destinationMoves) {
+    key = "dropped";
+    next.apiKeySealed = null;
+    next.apiKeyHint = "";
+  } else if (input.apiKey === "") {
     if (current.apiKeySealed) key = "removed";
     next.apiKeySealed = null;
     next.apiKeyHint = "";
@@ -88,7 +103,9 @@ export async function saveMailSettings(input: MailSettingsInput, staffId: string
     } catch {
       return { ok: false, error: "secrets-key" };
     }
-    next.apiKeyHint = secretHint(input.apiKey);
+    // A short secret (a webhook key may be 8 characters) shows nothing of
+    // itself: its last four would be half of it.
+    next.apiKeyHint = input.apiKey.length >= 20 ? secretHint(input.apiKey) : "****";
     key = "set";
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useSyncExternalStore, type Ref } from "react";
+import { useRef, useSyncExternalStore, type Ref } from "react";
 import { cx, kyivDay } from "../lib/format";
 import {
   FIELD_ACTION,
@@ -46,6 +46,10 @@ import { COLOR_TRANSITION, CONTROL, FOCUS_RING, type ControlSize } from "./token
 //   ("До") (the accessible names of the two inputs), and the Field props
 //   (label names the pair).
 // The first date cannot go past the second in the calendar and back.
+// Each change is built on the latest range this control handed out, not
+// only on the props: a screen whose props come back later (useListParams
+// writes the address, and the address renders the next frame) keeps the
+// first date when the second is set before the first one came back.
 
 type DateKind = "date" | "datetime-local";
 
@@ -214,6 +218,19 @@ export function DateRange(props: DateRangeProps) {
   const ids = useFieldIds(props);
   const today = useToday();
   const list = presets === true ? DATE_PRESETS : presets === false ? [] : presets;
+  // The props this control last saw, and the range it last emitted.
+  // Written and read only in the handlers below, never while rendering.
+  const latest = useRef<{ seen: DateRangeValue; sent: DateRangeValue } | null>(null);
+  const emit = (patch: Partial<DateRangeValue>) => {
+    const last = latest.current;
+    // New props since the last change (a reset, a preset from outside, our
+    // own change come back): they are the truth. Otherwise our last range
+    // is, because the props have not caught up with it yet.
+    const base = last && last.seen.from === from && last.seen.to === to ? last.sent : { from, to };
+    const next = { ...base, ...patch };
+    latest.current = { seen: { from, to }, sent: next };
+    onChange(next);
+  };
   const current = today
     ? list.find((preset) => {
         const range = preset.range(today);
@@ -235,7 +252,7 @@ export function DateRange(props: DateRangeProps) {
           <DateInput
             aria-label={fromLabel}
             value={from}
-            onChange={(next) => onChange({ from: next, to })}
+            onChange={(next) => emit({ from: next })}
             min={min}
             max={to || max}
             size={size}
@@ -250,7 +267,7 @@ export function DateRange(props: DateRangeProps) {
           <DateInput
             aria-label={toLabel}
             value={to}
-            onChange={(next) => onChange({ from, to: next })}
+            onChange={(next) => emit({ to: next })}
             min={from || min}
             max={max}
             size={size}
@@ -271,7 +288,7 @@ export function DateRange(props: DateRangeProps) {
                   aria-pressed={on}
                   disabled={disabled}
                   // Today is read when the button is pressed, never during render.
-                  onClick={() => onChange(preset.range(kyivDay()))}
+                  onClick={() => emit(preset.range(kyivDay()))}
                   className={cx(
                     PRESET,
                     CONTROL[size],

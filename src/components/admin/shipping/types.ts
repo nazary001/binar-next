@@ -188,11 +188,12 @@ export type NpSettingsInput = Partial<Omit<NpSettingsDto, "hasKey" | "apiKeyHint
   sender?: Partial<NpSenderProfile>;
 };
 
-// What the settings screen says about fields nothing reads yet (the
-// "no dead controls" rule of the design).
+// What the settings screen says under each switch: what the switch really
+// does today (the "no dead controls" rule of the design).
 export const NP_SETTING_HINTS = {
   enabled: "Без цього накладні не створюються; пошук міст і відділень працює завжди.",
-  checkoutSearch: "Поки що ні на що не впливає: оформлення замовлення на сайті ще має фіксовані списки міст і відділень.",
+  checkoutSearch:
+    "Покупець при оформленні замовлення обирає місто, відділення чи поштомат зі справжніх списків Нової Пошти; замовлення зберігає цей вибір разом із кодами довідника перевізника. Ввести назву вручну, як раніше, теж можна. Ключ API для цього не потрібен.",
   autoTrack: "Статус відправлення оновлюється, коли співробітник відкриває форму доставки замовлення (не частіше ніж раз на 30 хв).",
 } as const;
 
@@ -355,15 +356,23 @@ export type ShippingOrderSummary = {
   allowedStatuses: OrderStatus[];
 };
 
-// The recipient as the buyer typed it. The checkout keeps no carrier refs,
-// so the refs are null and the form finds them with the directory pickers.
+// The recipient as the buyer gave it at checkout. The texts are always
+// there; the carrier's references only when the customer picked the city
+// (and the branch or postomat) from Nova Poshta's real lists (the checkout
+// search switched on). The drawer then starts with those rows chosen,
+// looked up again in the directory, so the manager only confirms them.
 export type RecipientPrefill = {
   name: string;
   phone: string;
   city: string;
+  // NpCity.cityRef of the picked city; absent when the city was typed.
+  cityRef?: string;
   serviceKind: ServiceKind | null;
   // The branch or postomat text, "" for address delivery.
   warehouse: string;
+  // NpWarehouse.ref of the picked branch or postomat (the kind of
+  // serviceKind); absent when it was typed or for address delivery.
+  warehouseRef?: string;
   street: string;
   house: string;
   flat: string;

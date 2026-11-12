@@ -20,7 +20,7 @@ export const POST = adminHandler<Context>("integrations.edit", async ({ request,
     if (outcome.error === "not-found") notFound();
     throw new HttpError(409, outcome.error);
   }
-  const row = toOutboxRow(outcome.doc);
+  const row = toOutboxRow(outcome.doc, staff.permissions);
   await audit(staff, request, {
     action: "outbox.retry",
     entity: { type: "outbox", id: row.id, label: `${row.kindLabel}: ${row.to}` },

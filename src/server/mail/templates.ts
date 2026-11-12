@@ -1,10 +1,12 @@
 import "server-only";
 import { formatDate, formatDateTime, formatMoney } from "@/components/admin/lib/format";
 import { MAIL_PROVIDER_LABELS, type MailProvider, type OutboxKind } from "@/components/admin/mail/types";
+import { GENERATED_PASSWORD_TTL_HOURS } from "@/components/admin/staff/types";
 import { DELIVERY_OPTIONS } from "@/components/checkout/data";
 import { ORDER_STATUS_META, type OrderStatusKey } from "@/components/platform/ui/OrderStatusBadge";
+import { RETURN_STATUS_META, type ReturnStatusKey } from "@/components/platform/ui/ReturnStatusBadge";
 import type { LeadDoc, OrderDoc } from "../db/collections";
-import { isMailAddress } from "./provider";
+import { headerText, isMailAddress } from "./provider";
 
 // The messages of the site: one plain, robust HTML e-mail layout (a table
 // layout with inline styles and system fonts, as every mail client
@@ -224,8 +226,12 @@ function footerLines(context: MailContext): string[] {
   );
 }
 
-// One layout for every message.
-export function layout(letter: Letter, context: MailContext): RenderedMail {
+// One layout for every message. The subject and the hidden first line are
+// one line each: a line break or another control character from the data
+// (a lead's name, a company) becomes a space, so no provider or webhook
+// receiver ever gets a subject that reads as more than one header.
+export function layout(input: Letter, context: MailContext): RenderedMail {
+  const letter: Letter = { ...input, subject: headerText(input.subject), preheader: headerText(input.preheader) };
   const brand = brandOf(context);
   const blocks = letter.blocks.filter(present);
   const button = letter.button;
@@ -478,6 +484,52 @@ function orderStatus(payload: Record<string, unknown>, context: MailContext): Re
   };
 }
 
+// --- returns --------------------------------------------------------------------
+
+// What staff decided on a return request, for the partner. Only the
+// decisions a partner acts on are mailed (returns.ts decides which); the
+// words follow the cabinet's status names.
+function returnStatus(payload: Record<string, unknown>, context: MailContext): RenderOutcome {
+  const id = safeId(str(payload.returnId, 64));
+  const status = str(payload.status, 40);
+  if (!id || !status) return { ok: false, error: "template" };
+  const label = str(payload.label, 80) || RETURN_STATUS_META[status as ReturnStatusKey]?.label || status;
+  const orderNumber = str(payload.orderNumber, 40);
+  const reason = str(payload.reason, 2000);
+  const refund = num(payload.refundAmount);
+  const lines: Record<string, string> = {
+    approved: "Ми погодили повернення. Передайте товар так, як обрали в запиті: після того як склад його прийме, ми завершимо повернення.",
+    rejected: "На жаль, ми не можемо погодити це повернення.",
+    completed: "Повернення завершено. Дякуємо, що обираєте нас!",
+  };
+  return {
+    ok: true,
+    mail: layout(
+      {
+        subject: `Повернення №${id}: ${label}`,
+        preheader: orderNumber
+          ? `Рішення щодо повернення товарів із замовлення №${orderNumber}.`
+          : `Рішення щодо запиту на повернення №${id}.`,
+        title: `Запит на повернення №${id}`,
+        blocks: [
+          {
+            type: "p",
+            text: orderNumber
+              ? `Статус запиту на повернення товарів із замовлення №${orderNumber} змінено на «${label}».`
+              : `Статус запиту на повернення змінено на «${label}».`,
+          },
+          lines[status] ? { type: "p", text: lines[status] } : null,
+          status === "rejected" && reason ? { type: "rows", rows: [["Причина відмови", reason]] } : null,
+          status === "completed" && refund !== null ? { type: "rows", rows: [["Сума повернення", formatMoney(refund)]] } : null,
+          contactNote(context, "Питання щодо повернення? Телефонуйте або пишіть:"),
+        ],
+        button: { label: "Відкрити запит", url: link(context, `/orders/returns/${encodeURIComponent(id)}`) },
+      },
+      context,
+    ),
+  };
+}
+
 // --- the other kinds ------------------------------------------------------------
 
 const LEAD_KIND_LABELS: Record<string, string> = {
@@ -598,6 +650,10 @@ function employeeInvite(payload: Record<string, unknown>, context: MailContext):
   };
 }
 
+// A generated password opens the account for a limited time only
+// (src/server/admin/staff.ts), and the person has to know it.
+const TEMPORARY_PASSWORD_HOLDS = `Тимчасовий пароль діє ${GENERATED_PASSWORD_TTL_HOURS} год від моменту видачі: пізніше він уже не відкриє акаунт, і адміністратору доведеться скинути пароль ще раз.`;
+
 function staffInvite(payload: Record<string, unknown>, context: MailContext): RenderOutcome {
   const brand = brandOf(context);
   const name = str(payload.name, 200);
@@ -624,6 +680,7 @@ function staffInvite(payload: Record<string, unknown>, context: MailContext): Re
               ? "Після першого входу система попросить задати власний пароль."
               : "Тимчасовий пароль вам передасть адміністратор. Після першого входу система попросить задати власний пароль.",
           },
+          { type: "p", text: TEMPORARY_PASSWORD_HOLDS },
         ],
         button: { label: "Увійти в панель", url: link(context, "/admin/login") },
       },
@@ -656,6 +713,7 @@ function staffPassword(payload: Record<string, unknown>, context: MailContext): 
             : byAdmin
               ? { type: "p", text: "Новий тимчасовий пароль вам передасть адміністратор." }
               : null,
+          password || byAdmin ? { type: "p", text: TEMPORARY_PASSWORD_HOLDS } : null,
           { type: "note", text: "Якщо ви цього не робили, негайно повідомте адміністратора." },
         ],
         button: { label: "Увійти в панель", url: link(context, "/admin/login") },
@@ -700,6 +758,8 @@ export function tryRender(kind: OutboxKind, payload: Record<string, unknown>, co
       return orderPlaced(data, context);
     case "order-status":
       return orderStatus(data, context);
+    case "return-status":
+      return returnStatus(data, context);
     case "email-changed":
       return emailChanged(data, context);
     case "employee-invite":

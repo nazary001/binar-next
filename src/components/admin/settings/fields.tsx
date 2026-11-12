@@ -60,6 +60,8 @@ export function fieldErrorText(field: SettingsFieldDef, reason: SettingsFieldErr
       return field.kind === "number" || field.kind === "money" || field.kind === "days" ? "Вкажіть число." : "Неправильне значення.";
     case "unknown-price-type":
       return "Такого типу цін немає: можливо, його видалили.";
+    case "duplicate":
+      return "Один код групи BAS вказано в кількох категоріях. Залиште його лише в одній.";
     case "unknown":
       return "Це поле більше не зберігається. Оновіть сторінку.";
     default:

@@ -1,19 +1,26 @@
 import "server-only";
+import type { BasLedgerReplace } from "@/components/admin/integrations/types";
 import { collection, type LedgerEntryDoc } from "../../../db/collections";
 import { HttpError } from "../../../http";
 import { newId } from "../../../ids";
 import type { LedgerEnvelopeBody, LedgerInput } from "../contract";
-import { failed, guarded, mapPool, ok, type ApplyResult } from "../batch";
+import { failed, guarded, mapPool, ok, type ApplyResult, type BatchContext } from "../batch";
 import { kyivMidnight } from "../values";
 
 // PUT /ledger: the settlements of one contract as BAS reports them (the
 // lines of a reconciliation act): opening balance, orders, invoices,
 // payments, returns, each raising (plus) or lowering (minus) the debt.
 //
-// Entries are upserted by their GUID. replace: true first removes the
+// Entries are upserted by their GUID. replace: true then removes the
 // contract's entries dated from `from` (all of them without it) that the
-// batch does not carry, so BAS can resend a period whole. orderNumber
-// links an entry to a site order of the same company when there is one.
+// batch does not carry, so BAS can resend a period whole. The removal runs
+// only after every item of the batch was stored: an item the runner
+// refused (it did not parse, it repeated another) or one that failed to be
+// written would otherwise count as "not carried" and take its stored entry
+// (a payment, a part of the balance) with it. Then nothing is removed and
+// the answer says so (replace: { done: false }); the corrected period comes
+// again under a new batchId. orderNumber links an entry to a site order of
+// the same company when there is one.
 
 const CONCURRENCY = 6;
 
@@ -37,17 +44,9 @@ export async function applyLedger(
   items: LedgerInput[],
   envelope: LedgerEnvelopeBody,
   target: LedgerTarget,
+  batch: BatchContext,
 ): Promise<ApplyResult & { removed: number }> {
   const ledger = await collection("ledger");
-  let removed = 0;
-  if (envelope.replace) {
-    const filter: Record<string, unknown> = {
-      contractId: target.contractId,
-      externalId: { $nin: items.map((item) => item.externalId) },
-    };
-    if (envelope.from) filter.docDate = { $gte: kyivMidnight(envelope.from) };
-    removed = (await ledger.deleteMany(filter)).deletedCount;
-  }
 
   const numbers = [...new Set(items.flatMap((item) => (item.orderNumber ? [item.orderNumber] : [])))];
   const orders = numbers.length
@@ -82,5 +81,19 @@ export async function applyLedger(
       return result.matchedCount ? ok("unchanged") : failed("not stored");
     }),
   );
-  return { outcomes, removed };
+
+  if (!envelope.replace) return { outcomes, removed: 0 };
+  const complete = batch.refused === 0 && outcomes.every((outcome) => outcome.status !== "error");
+  let replace: BasLedgerReplace = { done: false, reason: "items-failed" };
+  let removed = 0;
+  if (complete) {
+    const filter: Record<string, unknown> = {
+      contractId: target.contractId,
+      externalId: { $nin: items.map((item) => item.externalId) },
+    };
+    if (envelope.from) filter.docDate = { $gte: kyivMidnight(envelope.from) };
+    removed = (await ledger.deleteMany(filter)).deletedCount;
+    replace = { done: true, removed };
+  }
+  return { outcomes, removed, extra: { replace } };
 }

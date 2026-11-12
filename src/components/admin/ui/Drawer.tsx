@@ -35,7 +35,13 @@ import { EASE_OUT, SCRIM, TEXT, Z } from "./tokens";
 // - headerActions: small controls next to the cross (a kebab menu).
 // - busy: a request is running; Escape, the scrim and the cross do nothing.
 // - initialFocusRef: what gets focus on open (default: the first field or
-//   button that is not the cross).
+//   button that is not the cross). A drawer that opens before its content
+//   (a record fetched by ?id, only skeletons yet) gives the focus to the
+//   panel itself, with no ring on the cross; when the content arrives the
+//   focus moves to its first field (when the content starts with one, or
+//   to an element marked data-autofocus), unless the person has already
+//   moved it. Content that starts with facts and buttons leaves the focus
+//   on the panel: Tab goes on from there.
 // The panel keeps its last content while it slides out.
 
 export type DrawerProps = {
@@ -87,7 +93,7 @@ export function Drawer({
   const descriptionId = useId();
   const ready = useClientReady();
   const mounted = usePresence(open, EXIT_MS);
-  useModalLayer(open, { onClose, containerRef: box, initialFocusRef, locked: busy });
+  useModalLayer(open, { onClose, containerRef: box, initialFocusRef, locked: busy, waitForContent: true });
 
   const [kept, setKept] = useState<Content>(() => ({ title, description, footer, headerActions, children }));
   if (

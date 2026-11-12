@@ -89,8 +89,8 @@ export function ReturnActions({ ret }: { ret: ReturnDetail }) {
         const yes = await confirmDialog({
           title: `Погодити повернення №${ret.id}?`,
           text: ret.delivery
-            ? `${returnSummary(ret)}. Клієнт побачить у кабінеті статус «Погоджено» і передасть товар так, як обрав: «${ret.delivery}».`
-            : `${returnSummary(ret)}. Клієнт побачить у кабінеті статус «Погоджено».`,
+            ? `${returnSummary(ret)}. Клієнт побачить у кабінеті статус «Погоджено», отримає лист про рішення і передасть товар так, як обрав: «${ret.delivery}».`
+            : `${returnSummary(ret)}. Клієнт побачить у кабінеті статус «Погоджено» і отримає лист про рішення.`,
           confirmLabel: "Погодити повернення",
           cancelLabel: "Не зараз",
         });
@@ -100,7 +100,7 @@ export function ReturnActions({ ret }: { ret: ReturnDetail }) {
       case "rejected": {
         const reason = await promptDialog({
           title: `Відхилити заявку №${ret.id}?`,
-          text: "Клієнт побачить у кабінеті статус «Відхилено». Причину бачать лише співробітники: за потреби повідомте її клієнту самі.",
+          text: "Клієнт побачить у кабінеті статус «Відхилено» і отримає лист про рішення з цією причиною. Пишіть її так, щоб вона була зрозуміла клієнту.",
           label: "Причина відмови",
           placeholder: "Наприклад: минув термін повернення, товар був у використанні",
           required: true,
@@ -285,7 +285,7 @@ function CompleteModal({
       busy={busy}
       size="md"
       title={`Завершити повернення №${ret.id}`}
-      description="Клієнт побачить у кабінеті статус «Завершено». Після цього заявку змінити не вийде."
+      description="Клієнт побачить у кабінеті статус «Завершено» і отримає лист із сумою повернення. Після цього заявку змінити не вийде."
       footer={<ModalFooter onCancel={onClose} confirmLabel="Завершити повернення" form="return-complete" busy={busy} />}
     >
       <form id="return-complete" onSubmit={submit} noValidate className="flex flex-col gap-5">

@@ -5,17 +5,19 @@ import { HttpError, adminHandler, json } from "@/server/admin/http";
 import { saveMedia, toMediaDto } from "@/server/media/store";
 import { inspectUpload, storedFilename } from "@/server/media/validate";
 import { zText } from "@/server/validate";
-import { FOLDER_VALUES, MEDIA_UPLOAD, MEDIA_VIEW, folderLabel, listMedia, readUploadForm } from "./library";
+import { FOLDER_VALUES, MEDIA_UPLOAD, MEDIA_VIEW, assertMayFileInto, folderLabel, listMedia, readUploadForm } from "./library";
 
 // GET /api/admin/media - the media library, newest first.
 //   ?folder=blog|products|materials|orders|misc  ?kind=image|file
 //   ?access=public|private  ?q=<filename or alt text, or a media id>
 //   ?sort=createdAt|-createdAt|size|-size|filename|-filename  ?page  ?limit
-//   -> { ok: true, items: MediaDto[], total, page, limit }
+//   -> { ok: true, items: MediaDto[], total, page, limit, totalBytes, filteredBytes }
+//   Without orders.view the papers of orders are left out of the list and
+//   of both sizes (library.ts visibleScope).
 //
 // POST /api/admin/media - one upload, multipart/form-data:
 //   file    the file (at most MEDIA_MAX_BYTES; its type is read from the bytes)
-//   folder  one of MEDIA_FOLDERS (default "misc")
+//   folder  one of MEDIA_FOLDERS (default "misc"; "orders" needs orders.edit)
 //   access  "public" | "private" (default "public")
 //   alt     optional text (images)
 //   -> { ok: true, media: MediaDto, duplicate: boolean }
@@ -23,10 +25,11 @@ import { FOLDER_VALUES, MEDIA_UPLOAD, MEDIA_VIEW, folderLabel, listMedia, readUp
 // not stored twice: the existing record comes back with duplicate: true.
 // Refusals: 415 "content-type" (not multipart), 413 "too-large" (with
 // maxBytes), 400 "empty", 415 "type" (not an accepted image or document),
-// 400 "fields" { fields: { file | folder | access | alt | <unknown>: reason } }.
+// 400 "fields" { fields: { file | folder | access | alt | <unknown>: reason } },
+// 403 "forbidden" (the folder "orders" without orders.edit).
 
-export const GET = adminHandler(MEDIA_VIEW, async ({ url }) => {
-  return json({ ok: true, ...(await listMedia(url)) });
+export const GET = adminHandler(MEDIA_VIEW, async ({ url, staff }) => {
+  return json({ ok: true, ...(await listMedia(url, staff)) });
 });
 
 const Fields = z
@@ -63,6 +66,7 @@ export const POST = adminHandler(MEDIA_UPLOAD, async ({ request, staff }) => {
   if (Object.keys(fieldErrors).length > 0 || !(file instanceof File) || !parsed.success) {
     throw new HttpError(400, "fields", { fields: fieldErrors });
   }
+  assertMayFileInto(staff, parsed.data.folder);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const inspected = inspectUpload(bytes, file.name);

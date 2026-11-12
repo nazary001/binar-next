@@ -11,6 +11,8 @@ import {
 } from "@/components/admin/staff/types";
 import { collection, type AuditLogDoc, type StaffDoc, type StaffRoleDoc, type StaffSessionDoc } from "../../db/collections";
 import { isProduction } from "../../env";
+import { sendNow } from "../../mail/deliver";
+import { staffActor } from "../audit";
 import { endStaffSessions, staffMeOf, type StaffContext } from "../auth";
 import { HttpError } from "../http";
 import { UK_COLLATION, contains, paginate, type ListQuery, type Page } from "../list";
@@ -18,11 +20,14 @@ import {
   createStaff,
   findRole,
   findStaff,
+  generatedPasswordExpired,
+  generatedPasswordExpiresAt,
   generatedStaffPassword,
   isStaffEmail,
   normalizeStaffEmail,
   otherActiveOwners,
   setStaffPassword,
+  type StaffPasswordIssue,
 } from "../staff";
 import { assertWithinActor, rolePermissionsOf, roleNames } from "./roles";
 
@@ -77,7 +82,8 @@ async function liveSessionCounts(staffIds: string[]): Promise<Map<string, number
   return new Map(rows.map((row) => [row._id, row.n]));
 }
 
-function toStaffRow(doc: StaffDoc, names: Map<string, string>, sessions: number): StaffRow {
+function toStaffRow(doc: StaffDoc & StaffPasswordIssue, names: Map<string, string>, sessions: number, now: Date): StaffRow {
+  const passwordExpiresAt = generatedPasswordExpiresAt(doc);
   return {
     id: doc._id,
     email: doc.email,
@@ -86,6 +92,8 @@ function toStaffRow(doc: StaffDoc, names: Map<string, string>, sessions: number)
     roleName: names.get(doc.roleId) ?? doc.roleId,
     isActive: doc.isActive,
     mustChangePassword: doc.mustChangePassword === true,
+    passwordExpiresAt: passwordExpiresAt ? iso(passwordExpiresAt) : null,
+    passwordExpired: generatedPasswordExpired(doc, now),
     lastLoginAt: doc.lastLoginAt ? iso(doc.lastLoginAt) : null,
     createdAt: iso(doc.createdAt),
     sessions,
@@ -95,7 +103,8 @@ function toStaffRow(doc: StaffDoc, names: Map<string, string>, sessions: number)
 
 async function rowsOf(docs: StaffDoc[]): Promise<StaffRow[]> {
   const [names, counts] = await Promise.all([roleNames(), liveSessionCounts(docs.map((doc) => doc._id))]);
-  return docs.map((doc) => toStaffRow(doc, names, counts.get(doc._id) ?? 0));
+  const now = new Date();
+  return docs.map((doc) => toStaffRow(doc, names, counts.get(doc._id) ?? 0, now));
 }
 
 export async function staffRowOf(doc: StaffDoc): Promise<StaffRow> {
@@ -175,6 +184,7 @@ function toJournalLine(doc: AuditLogDoc): StaffJournalLine {
     entity: doc.entity ?? null,
     summary: doc.summary,
     ip: doc.ip ?? null,
+    reason: doc.action === "staff.sign-in-refused" && typeof doc.meta?.reason === "string" ? doc.meta.reason.slice(0, 40) : null,
   };
 }
 
@@ -393,6 +403,34 @@ export async function resetStaffPassword(actor: StaffContext, staffId: string): 
   await setStaffPassword(staffId, password, true);
   await endStaffSessions(staffId);
   return { target, password };
+}
+
+// "Надіслати доступ на e-mail": a generated password (of a new account or
+// a reset) also goes to the person by mail, with the address to sign in
+// at. The password travels in the mail only: sendNow stores the message
+// without it, and a copy that failed is never sent again by the mailer.
+// The answer says whether the provider took it; the account and the
+// password stand either way (the panel shows the password once as
+// before), so this never throws.
+export type StaffAccessMail = { mailed: boolean; mailError?: string };
+
+export async function mailStaffAccess(
+  actor: StaffContext,
+  kind: "staff-invite" | "staff-password",
+  person: { id: string; email: string; name: string; roleName?: string },
+  password: string,
+): Promise<StaffAccessMail> {
+  const payload: Record<string, unknown> =
+    kind === "staff-invite"
+      ? { staffId: person.id, name: person.name, email: person.email, ...(person.roleName ? { roleName: person.roleName } : {}) }
+      : { staffId: person.id, name: person.name, email: person.email, byAdmin: true };
+  try {
+    const { result } = await sendNow(kind, person.email, payload, { password }, { actor: staffActor(actor) });
+    return result.ok ? { mailed: true } : { mailed: false, mailError: result.error };
+  } catch (error) {
+    console.error(`[admin] mailing ${kind} failed:`, error);
+    return { mailed: false, mailError: "network" };
+  }
 }
 
 async function endSessions(staffId: string, keep?: string): Promise<number> {

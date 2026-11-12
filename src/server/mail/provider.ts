@@ -3,6 +3,7 @@ import type { MailMissing, MailSendResult, MailStatusDto } from "@/components/ad
 import { isValidEmail } from "@/components/auth/data";
 import { openSecret } from "../admin/secrets";
 import { getSettings, type SettingsOf } from "../admin/settings";
+import { OutboundError, outboundPost, outboundUrlProblem } from "../integrations/outbound";
 
 // The provider layer of the outgoing mail: hands one finished message to
 // the service chosen in the panel ("mail" settings group).
@@ -13,8 +14,17 @@ import { getSettings, type SettingsOf } from "../admin/settings";
 // - "resend": POST https://api.resend.com/emails with the sealed API key;
 // - "webhook": POST the message as JSON to the configured address (any 2xx
 //   is success); a stored key, if any, goes along as a Bearer token so the
-//   receiver can tell the site's calls from anyone else's;
+//   receiver can tell the site's calls from anyone else's (the key belongs
+//   to the provider and the webhook origin it was typed for: config.ts
+//   removes it when either changes);
 // - "none": nothing is sent ({ error: "no-provider", retryable: true }).
+//
+// Both calls go through server/integrations/outbound.ts: the webhook
+// address follows the rule of every outbound address (https, no private
+// network, also not through a name that resolves to one), no redirect is
+// followed, one timeout covers the whole call and at most 64 KB of the
+// answer is read. The subject is one line: control characters (a line
+// break in a lead's name) never reach a provider.
 //
 // Never throws, never logs a key: an error text a provider echoes back is
 // scrubbed of it before it is stored or shown. No next/* import: the
@@ -41,18 +51,16 @@ const USER_AGENT = "binar-mailer/1";
 // Resend takes at most 50 recipients per message.
 const MAX_RECIPIENTS = 50;
 
-const fetchTransport: MailTransport = async (request) => {
-  const response = await fetch(request.url, {
-    method: request.method,
+// A redirect is answered as it is (a refusal), never followed: it could
+// point the call (and the key) somewhere else.
+const outboundTransport: MailTransport = async (request) => {
+  const response = await outboundPost({
+    url: request.url,
     headers: request.headers,
     body: request.body,
-    // The timeout covers reading the answer too.
-    signal: AbortSignal.timeout(request.timeoutMs),
-    // A redirect could point the call (and the key) somewhere else.
-    redirect: "error",
-    cache: "no-store",
+    timeoutMs: request.timeoutMs,
   });
-  return { status: response.status, text: (await response.text()).slice(0, 4000) };
+  return { status: response.status, text: response.text.slice(0, 4000) };
 };
 
 let transport: MailTransport | null = null;
@@ -63,6 +71,20 @@ export function setMailTransport(fn: MailTransport | null): void {
 }
 
 // --- addresses ----------------------------------------------------------------
+
+// Control characters (CR, LF, tab, NUL and the rest, C0 and C1) and the
+// Unicode line and paragraph separators.
+function breaksLine(code: number): boolean {
+  return code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029;
+}
+
+// A value that becomes a header line of the message (the subject): one
+// line, whatever the data it was built from held.
+export function headerText(value: string): string {
+  let line = "";
+  for (const char of value) line += breaksLine(char.charCodeAt(0)) ? " " : char;
+  return line.replace(/ {2,}/g, " ").trim();
+}
 
 // A bare e-mail address as a provider takes it: the site's own rule plus
 // none of the characters that would let it be read as a list or a header.
@@ -95,19 +117,26 @@ export function splitRecipients(to: string): string[] | null {
   return list.every(isMailAddress) ? list : null;
 }
 
-// Why a webhook address is refused, or null when it is fine: https only,
-// plain http only for this machine (a receiver under test).
-export function webhookUrlProblem(value: string): "format" | "https" | "credentials" | null {
-  let url: URL;
+export type WebhookUrlProblem = "format" | "https" | "credentials" | "private";
+
+// Why a webhook address is refused, or null when it is fine: the rule of
+// every outbound address (server/integrations/outbound.ts): https only, no
+// login inside it, no address of a private network; plain http and the
+// two test hosts only on the developer's machine (a receiver under test).
+export function webhookUrlProblem(value: string): WebhookUrlProblem | null {
+  const problem = outboundUrlProblem(value);
+  return problem === "scheme" ? "format" : problem;
+}
+
+// The origin of a webhook address ("" when it is not one): a stored key
+// belongs to the origin it was typed for.
+export function webhookOrigin(value: string): string {
   try {
-    url = new URL(value);
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
   } catch {
-    return "format";
+    return "";
   }
-  if (url.username || url.password) return "credentials";
-  if (url.protocol === "https:") return null;
-  if (url.protocol === "http:") return url.hostname === "localhost" || url.hostname === "127.0.0.1" ? null : "https";
-  return "format";
 }
 
 // --- status -------------------------------------------------------------------
@@ -175,8 +204,13 @@ function idOf(text: string): string | null {
 async function call(request: TransportRequest, secret: string | null): Promise<MailSendResult> {
   let response: TransportResponse;
   try {
-    response = await (transport ?? fetchTransport)(request);
+    response = await (transport ?? outboundTransport)(request);
   } catch (error) {
+    // The address leads into a private network: trying again changes
+    // nothing until staff fix it.
+    if (error instanceof OutboundError && (error.reason === "private" || error.reason === "address")) {
+      return { ok: false, error: "private-address", retryable: false };
+    }
     const name = (error as { name?: unknown } | null)?.name;
     return { ok: false, error: name === "TimeoutError" || name === "AbortError" ? "timeout" : "network", retryable: true };
   }
@@ -192,6 +226,9 @@ export async function sendWith(settings: MailSettings, message: MailMessage): Pr
   if (!recipients) return { ok: false, error: "address", retryable: false };
   const replyTo = (message.replyTo || settings.replyTo).trim();
   const key = settings.apiKeySealed ? openSecret(settings.apiKeySealed) : null;
+  // The last guard for a subject built anywhere (templates.ts makes it one
+  // line already).
+  const subject = headerText(message.subject);
 
   let result: MailSendResult;
   if (settings.provider === "resend") {
@@ -205,7 +242,7 @@ export async function sendWith(settings: MailSettings, message: MailMessage): Pr
         body: JSON.stringify({
           from,
           to: recipients,
-          subject: message.subject,
+          subject,
           html: message.html,
           text: message.text,
           ...(replyTo ? { reply_to: replyTo } : {}),
@@ -229,7 +266,7 @@ export async function sendWith(settings: MailSettings, message: MailMessage): Pr
         },
         body: JSON.stringify({
           to: message.to,
-          subject: message.subject,
+          subject,
           html: message.html,
           text: message.text,
           from: settings.from.trim(),

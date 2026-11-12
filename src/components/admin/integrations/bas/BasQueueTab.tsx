@@ -32,8 +32,9 @@ import {
 
 // "Черга": what the site has handed to BAS (orders and return requests),
 // whether BAS took each one and under which number, and what it refused.
-// A refused or taken entry can be sent again; any order can be added by
-// its number. Filters live in the address bar, as the API names them.
+// A refused or taken entry can be sent again, and so can a waiting one
+// whose post to the BAS address failed (push mode); any order can be added
+// by its number. Filters live in the address bar, as the API names them.
 
 const STATE_TONE: Record<QueueState, Tone> = { pending: "amber", acked: "green", error: "red" };
 
@@ -78,7 +79,14 @@ export function BasQueueTab() {
       refresh();
       return;
     }
-    toast.success(`${entryTitle(entry)} знову в черзі: BAS забере його під час наступного обміну.`);
+    const push = answer.data.push;
+    if (push && push.ok) {
+      toast.success(`${entryTitle(entry)} надіслано на адресу BAS, і BAS його прийняв${push.number ? `: №${push.number}` : ""}.`);
+    } else if (push) {
+      toast.error(`${entryTitle(entry)} знову в черзі, але надіслати на адресу BAS не вдалося: ${push.error ?? "невідома помилка"}`);
+    } else {
+      toast.success(`${entryTitle(entry)} знову в черзі: BAS забере його під час наступного обміну.`);
+    }
     refresh();
   };
 
@@ -111,7 +119,11 @@ export function BasQueueTab() {
       });
       return;
     }
-    toast.success(`Замовлення №${answer.data.entry.number ?? number} додано в чергу BAS`);
+    const push = answer.data.push;
+    const title = `Замовлення №${answer.data.entry.number ?? number}`;
+    if (push && push.ok) toast.success(`${title} надіслано на адресу BAS, і BAS його прийняв${push.number ? `: №${push.number}` : ""}`);
+    else if (push) toast.error(`${title} додано в чергу BAS, але надіслати на адресу BAS не вдалося: ${push.error ?? "невідома помилка"}`);
+    else toast.success(`${title} додано в чергу BAS`);
     refresh();
   };
 
@@ -171,6 +183,14 @@ export function BasQueueTab() {
           {entry.state === "error" && entry.error && (
             <span className={cx(TEXT.caption, "line-clamp-2 [overflow-wrap:anywhere]")}>{entry.error}</span>
           )}
+          {entry.state === "pending" && entry.error && (
+            <span className={cx(TEXT.caption, "line-clamp-2 [overflow-wrap:anywhere]")}>Не надіслано на адресу BAS: {entry.error}</span>
+          )}
+          {entry.stale && (
+            <span className={cx(TEXT.caption, "line-clamp-2 [overflow-wrap:anywhere]")}>
+              BAS не забирає запис понад годину: «Повторити» поставить його в чергу ще раз
+            </span>
+          )}
           {entry.state === "acked" && entry.ack?.number && <span className={TEXT.caption}>У BAS: №{entry.ack.number}</span>}
           {entry.state !== "error" && entry.attempts > 0 && (
             <span className={TEXT.caption}>Помилок раніше: {formatNumber(entry.attempts)}</span>
@@ -209,7 +229,7 @@ export function BasQueueTab() {
       align: "right",
       interactive: true,
       cell: (entry) =>
-        entry.state === "pending" || entry.missing ? null : (
+        (entry.state === "pending" && !entry.error && !entry.stale) || entry.missing ? null : (
           <Button size="sm" variant="secondary" iconLeft={ArrowPathIcon} loading={retrying === entry.id} onClick={() => void retry(entry)}>
             Повторити
           </Button>

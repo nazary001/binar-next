@@ -150,7 +150,10 @@ export type MaterialFieldReason =
   | "reserved"
   | "too-long"
   | "mismatch"
-  | "conflict";
+  | "conflict"
+  // mediaId: the upload is a paper of an order (an invoice, a waybill),
+  // which never becomes a material.
+  | "order-document";
 
 // Wording of the codes only the materials routes answer, for
 // errorMessage(..., own).
@@ -168,4 +171,5 @@ export const MATERIAL_FIELD_MESSAGES: Record<MaterialFieldReason, string> = {
   "too-long": "Задовге значення.",
   mismatch: "Список не збігається з поточним вмістом. Оновіть сторінку.",
   conflict: "Оберіть щось одне: файл або посилання.",
+  "order-document": "Це документ замовлення: до матеріалів його додати не можна. Завантажте окремий файл.",
 };

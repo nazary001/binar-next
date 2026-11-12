@@ -31,7 +31,7 @@ import {
   type OrderHistoryEntry,
   type OrderShipment,
 } from "@/server/db/collections";
-import { npPhone, storedNpKey } from "./client";
+import { isNpRef, npPhone, storedNpKey } from "./client";
 import { ShippingError, notConfigured } from "./errors";
 import {
   FINAL_CODES,
@@ -174,6 +174,24 @@ function addressLine(city: string, street: string, house: string, flat: string):
   return [city ? `м. ${city}` : "", street, house, flat ? `кв. ${flat}` : ""].filter(Boolean).join(", ");
 }
 
+// The carrier's references the checkout stored when the customer picked
+// the city and the branch or postomat from Nova Poshta's lists (the shop's
+// checkout search switched on): the form can start with them chosen, so
+// the manager only confirms. Present only when the order has them, so the
+// answer keeps its shape for every other order.
+type PrefillRefs = Pick<RecipientPrefill, "cityRef" | "warehouseRef">;
+
+function checkoutRefs(checkout: CheckoutValues, kind: ServiceKind | null): PrefillRefs {
+  const refs: PrefillRefs = {};
+  if (!checkout.cityRef || !isNpRef(checkout.cityRef)) return refs;
+  refs.cityRef = checkout.cityRef;
+  // The branch or postomat of the method the order has (the checkout
+  // keeps only that one, pruneDelivery).
+  const placeRef = kind === "branch" ? checkout.branchRef : kind === "postomat" ? checkout.lockerRef : undefined;
+  if (placeRef && isNpRef(placeRef)) refs.warehouseRef = placeRef;
+  return refs;
+}
+
 function prefillFromCheckout(checkout: CheckoutValues): RecipientPrefill {
   const kind = checkout.delivery ? (KIND_OF_OPTION[checkout.delivery] ?? null) : null;
   return {
@@ -187,6 +205,7 @@ function prefillFromCheckout(checkout: CheckoutValues): RecipientPrefill {
     flat: kind === "address" ? checkout.flat : "",
     address: kind === "address" ? addressLine(checkout.city, checkout.street, checkout.house, checkout.flat) : "",
     pickup: checkout.delivery === "pickup",
+    ...checkoutRefs(checkout, kind),
   };
 }
 

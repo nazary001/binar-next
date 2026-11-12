@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { z } from "zod";
 import {
   PAYMENT_OPTIONS,
@@ -9,8 +10,13 @@ import {
 import { clientIp, rateLimit, type RateResult } from "@/server/auth/rate-limit";
 import { getSession } from "@/server/auth/session";
 import { handler, HttpError, json, parseBody } from "@/server/http";
-import { placeOrder, type Buyer } from "@/server/repos/orders";
+import { announceOrder, placeOrder, type Buyer } from "@/server/repos/orders";
+import { shopSettings } from "@/server/shop-settings";
 import { zLine } from "@/server/validate";
+
+// After the answer the order is posted to the accounting system (up to 10
+// s) and its mail is sent: that work needs more than a short default limit.
+export const maxDuration = 60;
 
 // POST /api/orders { values: CheckoutValues, lines: [{ id, qty }], subtotal? }
 // -> 201 { ok: true, number } - the checkout's "До оплати".
@@ -29,7 +35,18 @@ import { zLine } from "@/server/validate";
 // listed in its cabinet from the next session answer. Prices and totals
 // are computed here from the database; the body carries none. `subtotal`
 // is the sum the checkout showed, compared with the current one and never
-// used for pricing. A signed-in buyer's stored cart is emptied.
+// used for pricing. A signed-in buyer's stored cart is emptied. A partner
+// order's due date counts the shop's payment term (the panel's setting
+// shop.paymentTermDays). A product staff archived is refused like an
+// unknown one. After the answer (after()) the order is queued for the
+// accounting system and the staff notice and the buyer's confirmation are
+// queued for the mailer (repos/orders.ts announceOrder).
+//
+// With the checkout's carrier search on, `values` also carries the carrier
+// references of what was picked (cityRef, branchRef, lockerRef: Nova
+// Poshta's 36-character ids; each optional, a malformed one is 400
+// "fields"). They are kept with the stored checkout values only for the
+// delivery method they belong to and are never shown to the customer.
 
 // Fields the form fills from its own lists or caps itself (the phone, the
 // EDRPOU / IPN inputs have a maxLength): a longer value is a malformed body.
@@ -76,8 +93,46 @@ const Values = z
     ipn: capped(32),
     address: free,
     invoiceEmail: free,
+    // Checked below with the form's other fields (a bad one is 400
+    // "fields", not a malformed body); the cap only bounds the text.
+    cityRef: capped(64).optional(),
+    branchRef: capped(64).optional(),
+    lockerRef: capped(64).optional(),
   })
   .strict();
+
+// A reference of the carrier's directory: a GUID, 36 characters of hex
+// digits and hyphens.
+const CARRIER_REF = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type RefKey = "cityRef" | "branchRef" | "lockerRef";
+
+// Which delivery methods a reference belongs to: the city of any carrier
+// delivery, the branch of a branch pickup, the postomat of a postomat.
+const REF_METHODS: Record<RefKey, readonly CheckoutValues["delivery"][]> = {
+  cityRef: ["np-branch", "np-locker", "np-address"],
+  branchRef: ["np-branch"],
+  lockerRef: ["np-locker"],
+};
+
+const REF_MESSAGES: Record<RefKey, string> = {
+  cityRef: "Оберіть місто зі списку",
+  branchRef: "Оберіть відділення зі списку",
+  lockerRef: "Оберіть поштомат зі списку",
+};
+
+// The references pruned the way pruneDelivery prunes the text fields: one
+// the chosen method does not use, or an empty one (nothing picked), is
+// dropped from the values, so it is never stored.
+function pruneRefs(values: CheckoutValues): CheckoutValues {
+  const next: CheckoutValues = { ...values };
+  for (const key of Object.keys(REF_METHODS) as RefKey[]) {
+    const value = next[key]?.trim();
+    if (value && REF_METHODS[key].includes(next.delivery)) next[key] = value;
+    else delete next[key];
+  }
+  return next;
+}
 
 const Body = z
   .object({
@@ -123,9 +178,13 @@ export const POST = handler(async (request) => {
 
   // The form's own rule and messages (CheckoutForm runs the same two
   // functions before it calls the API); the payment must be one of the
-  // form's options.
-  const values = pruneDelivery(body.values);
+  // form's options; a carrier reference the method keeps must be one.
+  const values = pruneRefs(pruneDelivery(body.values));
   const fields: CheckoutErrors = validate(values);
+  for (const key of Object.keys(REF_METHODS) as RefKey[]) {
+    const value = values[key];
+    if (value !== undefined && !fields[key] && !CARRIER_REF.test(value)) fields[key] = REF_MESSAGES[key];
+  }
   if (!fields.payment && !(PAYMENT_OPTIONS as readonly string[]).includes(values.payment)) {
     fields.payment = "Оберіть спосіб оплати";
   }
@@ -150,10 +209,16 @@ export const POST = handler(async (request) => {
     throw new HttpError(400, "limit");
   }
 
-  const outcome = await placeOrder(buyer, stored(values), body.lines, body.subtotal);
+  const kept = stored(values);
+  const shop = buyer.kind === "partner" ? await shopSettings() : null;
+  const outcome = await placeOrder(buyer, kept, body.lines, body.subtotal, {
+    ...(shop ? { paymentTermDays: shop.paymentTermDays } : {}),
+  });
   if (!outcome.ok) {
     if (outcome.error === "product") throw new HttpError(400, "product", { ids: outcome.ids });
     throw new HttpError(409, outcome.error, { ids: outcome.ids, products: outcome.products });
   }
+  const placed = { number: outcome.number, channel: outcome.channel, total: outcome.total };
+  after(() => announceOrder(placed, buyer, kept));
   return json({ ok: true, number: outcome.number }, 201);
 });

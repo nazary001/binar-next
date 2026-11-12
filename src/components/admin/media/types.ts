@@ -1,5 +1,6 @@
 // What the panel knows about an uploaded file (GET / POST /api/admin/media).
-// Shared by the media routes and the kit's upload widgets. Types only.
+// Shared by the media routes and the kit's upload widgets. Types and small
+// pure helpers only.
 
 export type MediaFolder = "blog" | "products" | "materials" | "orders" | "misc";
 
@@ -62,7 +63,29 @@ export type MediaUsageItem = {
   href: string;
 };
 
-export type MediaListAnswer = { ok: true; items: MediaDto[]; total: number; page: number; limit: number };
+// totalBytes: the size of every file of the library the caller may see;
+// filteredBytes: of the files that pass the filters (the same figure when
+// nothing is filtered).
+export type MediaListAnswer = {
+  ok: true;
+  items: MediaDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalBytes: number;
+  filteredBytes: number;
+};
+
+// The folder the order screen and BAS file the papers of orders in.
+export const MEDIA_ORDER_FOLDER: MediaFolder = "orders";
+
+// A paper of an order: a file of the folder "orders", or any file an order
+// document points at. Only the orders permissions reach it in the library
+// (orders.view to see it, orders.edit to rename, move or delete it); the
+// server applies the same rule (src/app/api/admin/media/library.ts).
+export function isOrderDocument(media: Pick<MediaDto, "folder">, usage: readonly MediaUsageItem[]): boolean {
+  return media.folder === MEDIA_ORDER_FOLDER || usage.some((item) => item.type === "order");
+}
 
 // `duplicate`: the same bytes were already stored in that folder with that
 // access, and the existing record came back instead of a second copy.

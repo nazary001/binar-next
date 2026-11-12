@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { collection } from "@/server/db/collections";
+import { collection, type OutboxDoc } from "@/server/db/collections";
 import { isTestMode } from "@/server/env";
 import { fail, handler, HttpError, json, readJson } from "@/server/http";
 import { revalidatePublicData } from "@/server/revalidate";
@@ -14,6 +14,53 @@ import { seedContextFromEnv } from "@/server/seed/util";
 // carts (also with only: ["users"]), then runs the seeders. The audit
 // scripts call it before a run that mutates data and before every pixel
 // capture. Optional JSON body: { "only": ["orders", "profile", ...] }.
+//
+// Whenever the orders seeder ran, the order and return counters are back at
+// the highest number in use, so a number that a removed test record had can
+// be handed out again. What still points at records that no longer exist
+// (entries of the accounting exchange queue, queued mail about an order or
+// a return) is therefore removed too: a new record must never meet the
+// leftovers of an old one with its number.
+
+// The outbox kinds whose payload names an order (orderId) or a return
+// request (returnId).
+const ORDER_MAIL: OutboxDoc["kind"][] = ["order-placed", "order-status"];
+const RETURN_MAIL: OutboxDoc["kind"][] = ["return-status"];
+
+async function dropOrphans(): Promise<string> {
+  const orderDocs = await (await collection("orders")).find({}, { projection: { _id: 1, number: 1 } }).toArray();
+  const orderIds = new Set<string>();
+  for (const doc of orderDocs) {
+    orderIds.add(String(doc._id));
+    if (doc.number) orderIds.add(String(doc.number));
+  }
+  const returnIds = new Set(
+    (await (await collection("returns")).find({}, { projection: { _id: 1 } }).toArray()).map((doc) => String(doc._id)),
+  );
+
+  const queue = await collection("exchangeQueue");
+  const deadEntries = (await queue.find({}, { projection: { kind: 1, entityId: 1 } }).toArray())
+    .filter((entry) => !(entry.kind === "order" ? orderIds : returnIds).has(String(entry.entityId)))
+    .map((entry) => entry._id);
+  if (deadEntries.length) await queue.deleteMany({ _id: { $in: deadEntries } });
+
+  const outbox = await collection("outbox");
+  const deadMail = (
+    await outbox
+      .find({ kind: { $in: [...ORDER_MAIL, ...RETURN_MAIL] } }, { projection: { kind: 1, payload: 1 } })
+      .toArray()
+  )
+    .filter((message) => {
+      const payload = (message.payload ?? {}) as Record<string, unknown>;
+      return RETURN_MAIL.includes(message.kind)
+        ? !returnIds.has(String(payload.returnId ?? ""))
+        : !orderIds.has(String(payload.orderId ?? payload.number ?? ""));
+    })
+    .map((message) => message._id);
+  if (deadMail.length) await outbox.deleteMany({ _id: { $in: deadMail } });
+
+  return `orphans removed: ${deadEntries.length} exchange queue entries, ${deadMail.length} messages`;
+}
 
 const Body = z.object({ only: z.array(z.string().max(32)).max(20).optional() }).strict();
 
@@ -67,6 +114,7 @@ export const POST = handler(async (request) => {
   }
 
   report.push(...(await runSeed(seedContextFromEnv(() => {}), only)));
+  if (!only?.length || only.includes("orders")) report.push(await dropOrphans());
   revalidatePublicData();
   return json({ ok: true, report });
 });

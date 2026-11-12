@@ -1,5 +1,5 @@
 import "server-only";
-import type { UpdateFilter } from "mongodb";
+import type { Filter, UpdateFilter } from "mongodb";
 import {
   collection,
   type Actor,
@@ -170,7 +170,14 @@ export function nextShipmentState(shipment: OrderShipment, row: NpTrackingRow, a
 }
 
 // Stores a tracking answer on the order. The write is conditional on the
-// same waybill still being there (not replaced or cancelled meanwhile).
+// same waybill still being there (not replaced or cancelled meanwhile) and
+// on the carrier's code still being the one the change was computed from:
+// two refreshes of the same parcel at once (two staff opening the order,
+// an open order and the bulk refresh) both read the old code, and only the
+// first may add the new event and the history line. The one that comes
+// second finds the stored shipment already moved on and answers it as it
+// is now (nothing changed by this call); null only when the waybill itself
+// is gone (cancelled, replaced, still a draft).
 export async function applyTracking(
   order: Pick<OrderDoc, "_id" | "shipment">,
   row: NpTrackingRow,
@@ -196,8 +203,19 @@ export async function applyTracking(
   }
   const orders = await collection("orders");
   const result = await orders.updateOne(
-    { _id: order._id, "shipment.ttn": shipment.ttn, "shipment.status": { $nin: ["cancelled", "draft"] } },
+    {
+      _id: order._id,
+      "shipment.ttn": shipment.ttn,
+      // null also matches a shipment that has no code yet (a typed-in
+      // number before its first refresh).
+      "shipment.statusCode": shipment.statusCode ?? null,
+      "shipment.status": { $nin: ["cancelled", "draft"] },
+    } as Filter<OrderDoc>,
     update as UpdateFilter<OrderDoc>,
   );
-  return result.matchedCount === 1 ? change : null;
+  if (result.matchedCount === 1) return change;
+  const fresh = await orders.findOne({ _id: order._id }, { projection: { shipment: 1 } });
+  const stored = fresh?.shipment;
+  if (isTrackable(stored) && stored.ttn === shipment.ttn) return { shipment: stored, changed: false, entry: null };
+  return null;
 }

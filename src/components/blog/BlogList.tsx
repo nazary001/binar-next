@@ -60,7 +60,11 @@ function RevealBatch({ posts }: { posts: BlogPost[] }) {
 // the button are made functional here — clicking a chip filters by category
 // (and resets pagination); the button reveals more cards, each batch
 // unfolding with the smooth height + fade animation above.
-export function BlogList({ posts }: { posts: BlogPost[] }) {
+//
+// `categories` are the chips after «Всі статті», in order (the blog
+// settings of the admin panel; the server drops chips no post uses).
+export function BlogList({ posts, categories }: { posts: BlogPost[]; categories: readonly string[] }) {
+  const chips = [BLOG_CATEGORIES[0], ...categories];
   const [active, setActive] = useState<string>(BLOG_CATEGORIES[0]);
   const [visible, setVisible] = useState(INITIAL_VISIBLE);
 
@@ -87,7 +91,7 @@ export function BlogList({ posts }: { posts: BlogPost[] }) {
     <section className="lg-pad-x flex flex-col px-6 pb-[60px] sm:px-10 sm:pb-16 lg:pb-20">
       {/* Filter chips */}
       <div className="flex flex-wrap gap-2 pt-[60px] sm:gap-3 sm:pt-16 lg:gap-6 lg:pt-[160px]">
-        {BLOG_CATEGORIES.map((cat) => {
+        {chips.map((cat) => {
           const isActive = cat === active;
           return (
             <button

@@ -64,8 +64,20 @@ export async function startSession(userId: string): Promise<void> {
   await writeCookies(token, expiresAt);
 }
 
+// True when this partner's company has its cabinet switched off in the
+// panel (clients.isActive false, "кабінет вимкнено"). A company without
+// the field, or one that cannot be found, is not switched off: that is
+// how every company before the panel reads. One small indexed read.
+export async function companySwitchedOff(user: Pick<UserDoc, "type" | "clientId">): Promise<boolean> {
+  if (user.type !== "b2b" || !user.clientId) return false;
+  const clients = await collection("clients");
+  const off = await clients.findOne({ _id: user.clientId, isActive: false }, { projection: { _id: 1 } });
+  return off !== null;
+}
+
 // The signed-in user of this request, or null. An expired or unknown token,
-// a deleted user and a blocked user (isActive: false) are all "no session".
+// a deleted user, a blocked user (isActive: false) and a partner whose
+// company is switched off are all "no session".
 export async function getSession(): Promise<SessionContext | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || token.length > 128) return null;
@@ -79,6 +91,7 @@ export async function getSession(): Promise<SessionContext | null> {
   const users = await collection("users");
   const user = await users.findOne({ _id: session.userId, isActive: true });
   if (!user) return null;
+  if (await companySwitchedOff(user)) return null;
 
   // Sliding expiry, at most one write per day and session.
   if (now.getTime() - session.lastSeenAt.getTime() > DAY_MS) {
@@ -100,8 +113,8 @@ export async function endSession(): Promise<void> {
   await clearSessionCookies();
 }
 
-// Ends every session of a user (password reset, account blocked); `keep`
-// spares the current one after a password change.
+// Ends every session of a user (password reset, account blocked, company
+// switched off); `keep` spares the current one after a password change.
 export async function endUserSessions(userId: string, keep?: string): Promise<void> {
   const sessions = await collection("sessions");
   await sessions.deleteMany(keep ? { userId, _id: { $ne: keep } } : { userId });

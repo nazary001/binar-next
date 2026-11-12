@@ -44,7 +44,7 @@ import {
   type FieldErrors,
 } from "./model";
 import { PublishCard, type PublishBusy } from "./PublishCard";
-import { SlugModal } from "./SlugModal";
+import { OldAddressNotice, SlugModal, takenOldAddress } from "./SlugModal";
 import { BLOG_LIMITS, type BlogOptions, type BlogPostAnswer, type BlogPostDetail } from "./types";
 
 // The article editor (/admin/blog/new and /admin/blog/<id>): the article on
@@ -131,6 +131,28 @@ function SerpPreview({ title, description, slug }: { title: string; description:
   );
 }
 
+// The addresses the article had before a rename (read-only): while it is
+// public, each one answers a permanent redirect to the current address.
+function OldAddresses({ slugs, isPublic }: { slugs: readonly string[]; isPublic: boolean }) {
+  return (
+    <div className="mt-4 border-t border-stroke-subtle pt-4">
+      <p className={TEXT.label}>Старі адреси, що переспрямовують сюди</p>
+      <ul className="mt-2 flex flex-col gap-1">
+        {slugs.map((old) => (
+          <li key={old} className="text-[13px] leading-[18px] text-neutral-700 [overflow-wrap:anywhere]">
+            /blog/{old}
+          </li>
+        ))}
+      </ul>
+      <p className={cx(TEXT.caption, "mt-2 leading-[18px]")}>
+        {isPublic
+          ? "Хто відкриє стару адресу, потрапить на цю статтю. Якщо дати таку адресу іншій статті, переспрямування з неї зникне."
+          : "Поки стаття не опублікована, ці адреси відкривають сторінку «не знайдено»; після публікації переспрямування запрацюють знову."}
+      </p>
+    </div>
+  );
+}
+
 // The settings of an article for a role that may only look: facts, not
 // disabled controls.
 function ReadOnlyDetails({ record, defaultAuthor }: { record: BlogPostDetail; defaultAuthor: string }) {
@@ -162,6 +184,20 @@ function ReadOnlyDetails({ record, defaultAuthor }: { record: BlogPostDetail; de
                 ),
             },
             { label: "Адреса", value: `/blog/${record.id}`, copy: `${SITE_ORIGIN}/blog/${record.id}` },
+            ...(record.previousSlugs.length > 0
+              ? [
+                  {
+                    label: "Старі адреси, що переспрямовують сюди",
+                    value: (
+                      <span className="flex flex-col gap-1 [overflow-wrap:anywhere]">
+                        {record.previousSlugs.map((old) => (
+                          <span key={old}>/blog/{old}</span>
+                        ))}
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       </Card>
@@ -210,6 +246,9 @@ export function BlogEditor({ post, options }: Props) {
 
   const isNew = record === null;
   const slug = record ? record.id : customSlug || slugify(form.title, BLOG_LIMITS.slug);
+  // A new article whose address is another article's old one takes that
+  // redirect away when it is created: the address card says so first.
+  const newTakes = isNew && slug ? takenOldAddress(slug, null, options.oldAddresses) : null;
   const missing = missingForPublish(form);
   const autoMinutes = readingMinutesOf(form.blocks);
 
@@ -287,6 +326,8 @@ export function BlogEditor({ post, options }: Props) {
       return null;
     }
     applySaved(result.data.post, sent);
+    // A new article may have taken another one's old address.
+    if (!record) invalidate("/blog/options");
     return result.data.post;
   };
 
@@ -448,6 +489,8 @@ export function BlogEditor({ post, options }: Props) {
       const moved = result.data.post;
       setQueryData<BlogPostAnswer>(`/blog/posts/${enc(moved.id)}`, { ok: true, post: moved });
       invalidate("/blog/posts?");
+      // The old addresses moved: this one gained one, another may have lost one.
+      invalidate("/blog/options");
       setSlugOpen(false);
       toast.success(`Адресу змінено: /blog/${moved.id}`);
       router.replace(`/admin/blog/${enc(moved.id)}`);
@@ -470,6 +513,7 @@ export function BlogEditor({ post, options }: Props) {
       const copy = result.data.post;
       setQueryData<BlogPostAnswer>(`/blog/posts/${enc(copy.id)}`, { ok: true, post: copy });
       invalidate("/blog/posts?");
+      invalidate("/blog/options");
       toast.success("Створено копію статті. Вона в чернетках.");
       router.push(`/admin/blog/${enc(copy.id)}`);
     } finally {
@@ -496,6 +540,7 @@ export function BlogEditor({ post, options }: Props) {
         return;
       }
       invalidate("/blog/posts?");
+      invalidate("/blog/options");
       toast.success(`Статтю «${record.title}» видалено.`);
       router.push("/admin/blog");
     } finally {
@@ -553,6 +598,7 @@ export function BlogEditor({ post, options }: Props) {
       ? "Ще не змінювалась у панелі"
       : "";
 
+  // The byline exactly as the article page will print it.
   const preview = (
     <ArticlePreview
       title={form.title}
@@ -560,6 +606,11 @@ export function BlogEditor({ post, options }: Props) {
       image={form.image}
       coverAlt={form.coverAlt}
       blocks={form.blocks.map((entry) => entry.block)}
+      byline={{
+        author: form.author.trim() || options.defaultAuthor,
+        publishedAt: record && record.status !== "draft" ? record.publishedAt : null,
+        readingMinutes: form.readingMinutes ?? autoMinutes,
+      }}
     />
   );
 
@@ -793,6 +844,8 @@ export function BlogEditor({ post, options }: Props) {
                   ) : record?.isPublic && !canPublish ? (
                     <p className={cx(TEXT.caption, "mt-2")}>Змінити адресу опублікованої статті може роль із дозволом на публікацію.</p>
                   ) : null}
+                  {newTakes && <OldAddressNotice taken={newTakes} className="mt-3" />}
+                  {record && record.previousSlugs.length > 0 && <OldAddresses slugs={record.previousSlugs} isPublic={record.isPublic} />}
                 </Card>
               </div>
 
@@ -878,6 +931,8 @@ export function BlogEditor({ post, options }: Props) {
         title={form.title}
         isPublic={record?.isPublic ?? false}
         mode={record ? "rename" : "new"}
+        postId={record?.id ?? null}
+        oldAddresses={options.oldAddresses}
         error={slugError}
         onSubmit={(next) => void rename(next)}
       />

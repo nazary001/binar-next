@@ -36,7 +36,12 @@ import {
 // - Tab and Shift+Tab cycle inside the container;
 // - focus moves in (initialFocusRef, else `[data-autofocus]`, else the first
 //   focusable element that is not a close button, else the container) and
-//   goes back to the element that had it when the layer closes.
+//   goes back to the element that had it when the layer closes. With
+//   waitForContent (Drawer) a layer whose body is still loading focuses
+//   the container instead of the close button; once the content is there
+//   the focus moves on to it if its first focusable element is a field (or
+//   marked data-autofocus) and the person has not moved the focus
+//   meanwhile; otherwise it stays on the container.
 //
 // Floating layers (menus, listboxes, date pickers) must portal into
 // floatingRoot(anchor) instead of adminRoot(): the wrapper of a modal layer
@@ -197,16 +202,29 @@ export function focusableIn(container: HTMLElement): HTMLElement[] {
   );
 }
 
-function initialTarget(container: HTMLElement, preferred: HTMLElement | null | undefined): HTMLElement {
-  if (preferred && preferred.isConnected) return preferred;
+// The element of the content that should take focus: [data-autofocus],
+// else the first focusable one that is not inside `data-no-autofocus` (the
+// close cross and the small actions of a header come first in most
+// layers; landing there reads badly and an Enter would close the layer).
+// null when the content has nothing to focus yet (still loading).
+function contentTarget(container: HTMLElement): HTMLElement | null {
   const marked = container.querySelector<HTMLElement>("[data-autofocus]");
   if (marked && marked.getClientRects().length > 0) return marked;
-  const nodes = focusableIn(container);
-  // The close cross (and the small actions of a header) come first in most
-  // layers; landing there reads badly and an Enter would close the layer.
-  // Prefer the first field or the safe button of the footer: anything not
-  // inside an element marked `data-no-autofocus`.
-  return nodes.find((el) => !el.closest("[data-no-autofocus]")) ?? nodes[0] ?? container;
+  return focusableIn(container).find((el) => !el.closest("[data-no-autofocus]")) ?? null;
+}
+
+// What late content may hand the focus to: a field, or an element marked.
+const ARRIVAL_TARGET = "[data-autofocus], input, textarea, select, [contenteditable='true'], [role='combobox']";
+
+function initialTarget(container: HTMLElement, preferred: HTMLElement | null | undefined, waitForContent: boolean): HTMLElement {
+  if (preferred && preferred.isConnected) return preferred;
+  const target = contentTarget(container);
+  if (target) return target;
+  // Only the cross is there (the body is still a skeleton): a layer that
+  // waits for its content takes the focus itself, without a ring, instead
+  // of ringing the cross.
+  if (waitForContent) return container;
+  return focusableIn(container)[0] ?? container;
 }
 
 // --- The stack of open layers ----------------------------------------------
@@ -252,9 +270,17 @@ export type ModalLayerOptions = {
   initialFocusRef?: RefObject<HTMLElement | null>;
   // While true, Escape does nothing (a request is running).
   locked?: boolean;
+  // The content may arrive after the layer opens (a record fetched by its
+  // id): with nothing to focus but the close button, the container takes
+  // the focus; when focusable content appears, focus moves to it, unless
+  // the person has moved it meanwhile.
+  waitForContent?: boolean;
 };
 
-export function useModalLayer(open: boolean, { onClose, containerRef, initialFocusRef, locked = false }: ModalLayerOptions): void {
+export function useModalLayer(
+  open: boolean,
+  { onClose, containerRef, initialFocusRef, locked = false, waitForContent = false }: ModalLayerOptions,
+): void {
   // The layer's portal renders only after hydration; the effect waits for
   // it, so the container exists when focus moves in.
   const ready = useClientReady();
@@ -279,7 +305,27 @@ export function useModalLayer(open: boolean, { onClose, containerRef, initialFoc
 
     // preventScroll: the card may still be translated by its enter
     // animation, and focus() would scroll its overflow:hidden parents.
-    if (box) initialTarget(box, initialFocusRef?.current).focus({ preventScroll: true });
+    if (box) initialTarget(box, initialFocusRef?.current, waitForContent).focus({ preventScroll: true });
+
+    // The container holds the focus while the content loads: hand it on
+    // to the content once it is there, if it is still where we put it.
+    let waiting: MutationObserver | null = null;
+    if (box && waitForContent && document.activeElement === box && typeof MutationObserver !== "undefined") {
+      waiting = new MutationObserver(() => {
+        if (document.activeElement !== box) {
+          waiting?.disconnect();
+          return;
+        }
+        const target = contentTarget(box);
+        if (!target) return;
+        waiting?.disconnect();
+        // Only a field (or what the content marked) takes the focus: a
+        // drawer that opens on a record's facts and buttons keeps it on
+        // the panel, with no ring on a button the person did not choose.
+        if (target.matches(ARRIVAL_TARGET)) target.focus({ preventScroll: true });
+      });
+      waiting.observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "hidden", "inert", "tabindex"] });
+    }
 
     const onKey = (event: KeyboardEvent) => {
       if (layers[layers.length - 1] !== layer) return;
@@ -311,6 +357,7 @@ export function useModalLayer(open: boolean, { onClose, containerRef, initialFoc
     window.addEventListener("keydown", onKey);
 
     return () => {
+      waiting?.disconnect();
       window.removeEventListener("keydown", onKey);
       const index = layers.indexOf(layer);
       const wasTop = index === layers.length - 1;
@@ -327,7 +374,7 @@ export function useModalLayer(open: boolean, { onClose, containerRef, initialFoc
       const opener = layer.opener;
       if (opener && opener.isConnected) opener.focus({ preventScroll: true });
     };
-  }, [open, ready, containerRef, initialFocusRef]);
+  }, [open, ready, containerRef, initialFocusRef, waitForContent]);
 }
 
 // --- Presence (exit animations) ----------------------------------------------

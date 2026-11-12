@@ -14,6 +14,8 @@ import {
 } from "@/components/admin/returns/types";
 import { RETURN_STATUS_META } from "@/components/platform/ui/ReturnStatusBadge";
 import { collection, type B2bOrderDoc, type OrderHistoryEntry, type ReturnDoc } from "@/server/db/collections";
+import { isMailAddress } from "@/server/mail/provider";
+import { queueMail } from "@/server/mail/queue";
 import { lineSum, round2, sum } from "@/server/money";
 import { b2bOrders } from "@/server/repos/orders";
 import { staffActor, type AuditInput } from "../audit";
@@ -22,6 +24,7 @@ import { HttpError } from "../http";
 import { dayParam, idParam, manyOf, paginate, startsWith, type ListQuery, type Page } from "../list";
 import {
   accountOf,
+  assertNoteRemovable,
   clientNames,
   fieldError,
   historyDto,
@@ -274,6 +277,71 @@ async function commit(
   return updated;
 }
 
+// --- the partner hears about the decision -------------------------------------------------
+
+// The decisions a partner acts on get a "return-status" message: approved
+// (send the goods), rejected (with the reason, which the cabinet does not
+// show) and completed (with the amount given back). The steps in between
+// (review, goods on the way, accepted by the warehouse) are visible in the
+// cabinet and mail nobody.
+const MAILED_DECISIONS: readonly ReturnStatus[] = ["approved", "rejected", "completed"];
+
+type Person = { login?: unknown; person?: { email?: unknown } };
+
+function mailOf(user: Person | null | undefined): string | null {
+  const candidates = [user?.person?.email, user?.login].map((value) => (typeof value === "string" ? value.trim() : ""));
+  return candidates.find((value) => value !== "" && isMailAddress(value)) ?? null;
+}
+
+// The e-mail of the account that sent the request; else (no e-mail, the
+// account is gone or blocked) the e-mail of the company's admin; else none.
+async function partnerMail(doc: ReturnDoc): Promise<string | null> {
+  const users = await collection("users");
+  if (doc.userId) {
+    const author = await users.findOne(
+      { _id: doc.userId, isActive: { $ne: false } },
+      { projection: { login: 1, person: 1 } },
+    );
+    const own = mailOf(author);
+    if (own) return own;
+  }
+  const admins = await users
+    .find(
+      { clientId: doc.clientId, type: "b2b", role: "b2b_admin", isActive: { $ne: false } },
+      { projection: { login: 1, person: 1 } },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .limit(20)
+    .toArray();
+  for (const admin of admins) {
+    const mail = mailOf(admin);
+    if (mail) return mail;
+  }
+  return null;
+}
+
+// The decision stands even if its message could not be queued: never
+// answer an error for a change that was stored.
+async function notifyDecision(doc: ReturnDoc, ret: ReturnDetail): Promise<void> {
+  if (!MAILED_DECISIONS.includes(doc.status)) return;
+  try {
+    const to = await partnerMail(doc);
+    if (!to) return;
+    const reason = doc.status === "rejected" ? doc.rejectReason?.trim() : undefined;
+    const refund = doc.status === "completed" ? doc.refundAmount : undefined;
+    await queueMail("return-status", to, {
+      returnId: doc._id,
+      orderNumber: ret.orderNumber,
+      status: doc.status,
+      label: returnStatusLabel(doc.status),
+      ...(reason ? { reason } : {}),
+      ...(typeof refund === "number" ? { refundAmount: refund } : {}),
+    });
+  } catch (error) {
+    console.error("[admin] queueing the return-status message failed:", error);
+  }
+}
+
 export type ReturnPatch = {
   status?: ReturnStatus;
   comment?: string;
@@ -380,8 +448,10 @@ export async function updateReturn(
   if (patch.comment?.trim()) meta.comment = patch.comment.trim();
 
   const updated = await commit(doc, { set, unset, history }, { guard: true, filter: { status: doc.status } });
+  const ret = await buildDetail(updated);
+  if (patch.status !== undefined) await notifyDecision(updated, ret);
   return {
-    ret: await buildDetail(updated),
+    ret,
     audit: {
       action: patch.status !== undefined ? "return.status" : "return.update",
       entity: returnEntity(doc),
@@ -417,10 +487,13 @@ export async function addReturnNote(
   };
 }
 
+// The author removes a note, and so does an owner (403 "not-author" for
+// anybody else, assertNoteRemovable: the rule of the orders and the leads).
 export async function removeReturnNote(staff: StaffContext, id: string, noteId: string): Promise<Mutation<object>> {
   const doc = await loadReturn(id);
   const note = doc.notes?.find((n) => n.id === noteId);
   if (!note) throw new HttpError(404, "not-found");
+  assertNoteRemovable(staff, note);
   await commit(
     doc,
     {

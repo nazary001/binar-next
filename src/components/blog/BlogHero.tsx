@@ -2,6 +2,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import type { BlogPost } from "./data";
 import { ArrowUpRight } from "./icons";
 
 // Figma blog hero, redesigned in the 3603:11433 comp (frame 3603:11436):
@@ -13,7 +14,12 @@ import { ArrowUpRight } from "./icons";
 // (79 + border), photo fixed 603 (707 at 1710 = 603 + the 104 fill
 // stretch; the floating card master is exactly 539 = 603 - 2x32 insets).
 // Total hero height 484 — content-driven, no min-height.
-export function BlogHero() {
+//
+// The floating card features a real article (`featured`, the first public
+// post of the list: src/app/blog/page.tsx): its card label, its title and
+// its address, so the card always matches the article it opens. No public
+// article, no card. A long title stops at three lines.
+export function BlogHero({ featured }: { featured: BlogPost | null }) {
   return (
     <section className="w-full">
       {/* Below lg the Figma MOBILE master (3176:4374/4376) stacks the two
@@ -92,25 +98,29 @@ export function BlogHero() {
             className="absolute inset-0 hidden size-full object-cover lg:block"
           />
 
-          <Link
-            href="/blog/hostova-kosmetyka-formaty-ta-brenduvannya"
-            className="group absolute bottom-6 left-1/2 flex w-[342px] max-w-[calc(100%-32px)] -translate-x-1/2 items-center gap-[40px] rounded-[40px] bg-white p-6 sm:w-[420px] lg:bottom-[32px] lg:left-[32px] lg:right-auto lg:w-[539px] lg:max-w-none lg:translate-x-0 lg:gap-[40px] lg:p-[24px]"
-          >
-            <span className="flex min-w-0 flex-1 flex-col gap-[5px]">
-              <span className="text-[12px] font-medium uppercase leading-5 text-brand lg:text-[14px] lg:leading-6">
-                Готелі
-              </span>
-              <span className="text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-900 lg:text-[18px] lg:tracking-[0.18px]">
-                Еко-косметика в номерах: тренд чи необхідність
-              </span>
-            </span>
-            <span
-              aria-hidden
-              className="flex size-[52px] shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white"
+          {featured && (
+            <Link
+              href={`/blog/${featured.slug}`}
+              className="group absolute bottom-6 left-1/2 flex w-[342px] max-w-[calc(100%-32px)] -translate-x-1/2 items-center gap-[40px] rounded-[40px] bg-white p-6 sm:w-[420px] lg:bottom-[32px] lg:left-[32px] lg:right-auto lg:w-[539px] lg:max-w-none lg:translate-x-0 lg:gap-[40px] lg:p-[24px]"
             >
-              <ArrowUpRight className="size-[16.5px]" />
-            </span>
-          </Link>
+              <span className="flex min-w-0 flex-1 flex-col gap-[5px]">
+                {(featured.categoryLabel || featured.category) && (
+                  <span className="text-[12px] font-medium uppercase leading-5 text-brand lg:text-[14px] lg:leading-6">
+                    {featured.categoryLabel || featured.category}
+                  </span>
+                )}
+                <span className="line-clamp-3 text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-neutral-900 [overflow-wrap:anywhere] lg:text-[18px] lg:tracking-[0.18px]">
+                  {featured.title}
+                </span>
+              </span>
+              <span
+                aria-hidden
+                className="flex size-[52px] shrink-0 items-center justify-center rounded-[26px] border border-neutral-900 text-neutral-900 transition-colors duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white"
+              >
+                <ArrowUpRight className="size-[16.5px]" />
+              </span>
+            </Link>
+          )}
         </div>
       </div>
     </section>

@@ -62,6 +62,10 @@ export const TEXT = {
   muted: "text-[14px] leading-5 text-neutral-500",
   // Captions, hints, table head.
   caption: "text-[12px] font-medium leading-4 text-neutral-500",
+  // A lighter caption (regular weight): the quiet second line under a
+  // value (a relative time, a kind of actor) where the medium weight of
+  // `caption` competes with the line above.
+  captionLight: "text-[12px] leading-4 text-neutral-500",
   // A field label.
   label: "text-[13px] font-semibold leading-[18px] text-neutral-800",
   // Big figures (KPI tiles).

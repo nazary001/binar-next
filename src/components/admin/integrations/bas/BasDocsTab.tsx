@@ -13,16 +13,16 @@ import { PageSection } from "../../ui/Page";
 import { Skeleton, SkeletonText } from "../../ui/Skeleton";
 import { ErrorState } from "../../ui/States";
 import { COLOR_TRANSITION, FOCUS_RING_INSET, SURFACE, TEXT, type Tone } from "../../ui/tokens";
-import { BAS_ACCEPT_FLAGS, BAS_LIMITS, type BasSpecAnswer, type BasSpecEndpoint } from "../types";
+import { BAS_ACCEPT_FLAGS, BAS_LIMITS, type BasSpecAnswer, type BasSpecEndpoint, type BasSpecPush } from "../types";
 import { basTabHref } from "./links";
 
 // "Для розробника BAS": the contract of the machine API, rendered from
 // GET /api/admin/integrations/bas/spec, for the customer to hand to the
 // developer who sets up the exchange on the BAS side. Everything is on the
 // page: the address, the header, the rules, every endpoint with example
-// bodies and answers, the error codes and a 1C code sample. It prints as a
-// document (the panel's chrome is hidden on paper, every block is open)
-// and downloads as JSON.
+// bodies and answers, what the site posts to BAS in the push mode, the
+// error codes and 1C code samples. It prints as a document (the panel's
+// chrome is hidden on paper, every block is open) and downloads as JSON.
 
 const METHOD_TONE: Record<BasSpecEndpoint["method"], Tone> = { GET: "blue", PUT: "indigo", POST: "green" };
 
@@ -139,6 +139,54 @@ function EndpointBlock({ endpoint, base }: { endpoint: BasSpecEndpoint; base: st
         </div>
       </div>
     </section>
+  );
+}
+
+// The push mode, the other way round: the site calls BAS.
+function PushSection({ push }: { push: BasSpecPush }) {
+  return (
+    <PageSection
+      title="Режим надсилання: що сайт надсилає в BAS"
+      description="Лише коли в налаштуваннях обміну обрано «Сайт ще й надсилає замовлення». Тут не BAS звертається до сайту, а сайт - до адреси BAS."
+    >
+      <Card className="print:break-inside-avoid-page">
+        <div className="flex min-w-0 flex-col gap-5">
+          <p className={cx(TEXT.body, "max-w-[820px] text-neutral-800")}>{push.description}</p>
+          <div className="flex min-w-0 items-center gap-2 rounded-xl bg-bg-subtle px-4 py-2.5 print:px-0">
+            <span className="min-w-0 flex-1 break-all font-mono text-[13px] leading-5 text-neutral-900">
+              <span className="font-semibold">POST</span> {"<адреса з налаштувань обміну>"}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className={TEXT.label}>Заголовки запиту</span>
+            <ul className="flex flex-col divide-y divide-stroke-subtle rounded-2xl bg-bg-subtle px-4">
+              {push.headers.map((header) => (
+                <li key={header.name} className="flex flex-col gap-0.5 py-2.5 min-[640px]:flex-row min-[640px]:gap-4">
+                  <span className="shrink-0 font-mono text-[13px] font-semibold leading-5 min-[640px]:w-36">{header.name}</span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-mono text-[13px] leading-5 text-neutral-900 [overflow-wrap:anywhere]">{header.value}</span>
+                    <span className={cx(TEXT.body, "text-neutral-700")}>{header.description}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className={TEXT.label}>Відповідь і повтори</span>
+            <ul className={cx(TEXT.body, "flex list-disc flex-col gap-1.5 pl-5 text-neutral-700 marker:text-neutral-400")}>
+              {push.rules.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-4 2xl:grid-cols-2 print:grid-cols-1">
+            {push.examples.map((example) => (
+              <CodeBlock key={example.label} label={example.label} code={json(example.body)} />
+            ))}
+          </div>
+        </div>
+      </Card>
+    </PageSection>
   );
 }
 
@@ -275,6 +323,8 @@ export function BasDocsTab() {
         </div>
       </PageSection>
 
+      {spec.push && <PushSection push={spec.push} />}
+
       <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-2 print:grid-cols-1">
         <Card title="Коди відповідей з помилкою" padding="none">
           <ul className="flex flex-col divide-y divide-stroke-subtle px-5 pb-5 min-[1024px]:px-6">
@@ -300,7 +350,10 @@ export function BasDocsTab() {
         </Card>
       </div>
 
-      <PageSection title="Зразок коду для BAS (1С)" description="Готові процедури, з яких можна почати: запит до сайту, надсилання товарів і отримання черги.">
+      <PageSection
+        title="Зразок коду для BAS (1С)"
+        description="Готові процедури, з яких можна почати: запит до сайту, надсилання товарів, отримання черги і прийом замовлень у режимі надсилання."
+      >
         <div className="flex min-w-0 flex-col gap-4">
           {spec.codeSamples.map((sample) => (
             <Card key={sample.title} title={sample.title} className="print:break-inside-avoid-page">

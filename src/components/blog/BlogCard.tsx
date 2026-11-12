@@ -23,15 +23,21 @@ export function BlogCard({ post }: { post: BlogPost }) {
           stroke INSIDE (image at y0 under the border, excerpt->bottom gap
           48 incl the stroke); border-box adds 2px, so the image slides
           under the top border and the bottom pad gives one px back. */}
-      <div className="relative h-[206px] w-full shrink-0 overflow-hidden rounded-[32px] max-lg:-mt-px sm:rounded-[40px] lg:aspect-auto lg:h-[336px]">
-        <img
-          src={post.image}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 size-full object-cover transition duration-500 ease-out group-hover:scale-[1.03]"
-        />
+      {/* A post whose cover upload is gone keeps the box (the grid stays
+          even) with a quiet fill instead of a broken picture. */}
+      <div
+        className={`relative h-[206px] w-full shrink-0 overflow-hidden rounded-[32px] max-lg:-mt-px sm:rounded-[40px] lg:aspect-auto lg:h-[336px]${post.image ? "" : " bg-bg-subtle"}`}
+      >
+        {post.image ? (
+          <img
+            src={post.image}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 size-full object-cover transition duration-500 ease-out group-hover:scale-[1.03]"
+          />
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-4 px-6 pb-[47px] pt-6 lg:p-0">

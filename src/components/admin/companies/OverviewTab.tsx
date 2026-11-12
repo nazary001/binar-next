@@ -47,7 +47,8 @@ export function OverviewTab({ company, canEdit }: { company: CompanyDetail; canE
           <InviteCard company={company} canEdit={canEdit} />
         </div>
       </div>
-      <EntityHistory type="company" id={company.id} refreshKey={company.updatedAt} />
+      {/* related: the lines of its counterparties, contracts and employees too. */}
+      <EntityHistory type="company" id={company.id} related refreshKey={company.updatedAt} />
     </div>
   );
 }

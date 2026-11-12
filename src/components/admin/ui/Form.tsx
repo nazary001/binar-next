@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useEffectEvent, useId, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from "react";
 import { cx } from "../lib/format";
+import { useStickyBar } from "./stickyBars";
 import { FLOAT_SHADOW, SURFACE, TEXT, Z } from "./tokens";
 
 // The layout of edit screens: sections as white cards, fields in a grid,
@@ -39,7 +40,13 @@ import { FLOAT_SHADOW, SURFACE, TEXT, Z } from "./tokens";
 // quiet line on the left: "Є незбережені зміни"), sticky (sticks to the
 // bottom of the window on a white r24 bar with the floating shadow, for
 // long forms), align ("end" default | "start" | "between"), className.
-// On phones the buttons share the row equally.
+// On phones the buttons share the row equally. A sticky bar registers
+// itself (ui/stickyBars.ts), so the toast stack rises above it instead of
+// covering its buttons.
+// idle (with sticky): the form has nothing to save. Below 640 px the bar
+// then shrinks to the status line alone (the buttons, all off, are left
+// out), about 44 px instead of 110; it grows back with the first edit.
+// From 640 px nothing changes.
 //
 // useDirty(initial, current): true when `current` differs from what was
 // loaded, compared as JSON with sorted keys (the order of keys does not
@@ -118,6 +125,7 @@ export type FormActionsProps = {
   children: ReactNode;
   status?: ReactNode;
   sticky?: boolean;
+  idle?: boolean;
   align?: "start" | "end" | "between";
   className?: string;
 };
@@ -128,13 +136,20 @@ const JUSTIFY: Record<NonNullable<FormActionsProps["align"]>, string> = {
   between: "justify-between",
 };
 
-export function FormActions({ children, status, sticky = false, align = "end", className }: FormActionsProps) {
+export function FormActions({ children, status, sticky = false, idle = false, align = "end", className }: FormActionsProps) {
+  const bar = useRef<HTMLDivElement>(null);
+  useStickyBar(bar, sticky);
+  // The slim phone bar needs a status to show; without one it keeps the buttons.
+  const slim = sticky && idle && Boolean(status);
   return (
     <div
+      ref={bar}
+      data-sticky-bar={sticky ? "" : undefined}
       className={cx(
         "flex flex-col gap-3 min-[640px]:flex-row min-[640px]:flex-wrap min-[640px]:items-center",
         status ? "min-[640px]:justify-between" : JUSTIFY[align],
         sticky && cx("sticky bottom-4 rounded-3xl bg-white p-3 min-[1024px]:px-4", FLOAT_SHADOW, Z.sticky),
+        slim && "max-[639px]:px-4 max-[639px]:py-3",
         className,
       )}
     >
@@ -147,6 +162,7 @@ export function FormActions({ children, status, sticky = false, align = "end", c
         className={cx(
           "flex flex-wrap items-center gap-2 [&>*]:flex-1 min-[640px]:[&>*]:flex-none",
           align === "between" && !status && "min-[640px]:w-full min-[640px]:justify-between",
+          slim && "max-[639px]:hidden",
         )}
       >
         {children}

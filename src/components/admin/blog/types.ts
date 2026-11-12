@@ -4,6 +4,7 @@
 // and plain constants only: no "use client", no server import.
 //
 //   GET    /blog/options                  -> BlogOptionsAnswer          content.view
+//                                            (with every post's old addresses)
 //   GET    /blog/posts?status&category&q&sort&page&limit
 //                                         -> BlogPostsAnswer            content.view
 //                                            (with the tab counts)
@@ -107,11 +108,27 @@ export const BLOG_RESERVED_SLUGS = ["new", "reorder"] as const;
 // "/figma-export/", or an https address.
 export const BLOG_IMAGE_SOURCES_HINT = "Файл медіатеки, шлях /figma-export/... або адреса https://";
 
+// An address a post had before staff renamed it. While the post is public,
+// /blog/<slug> answers a permanent redirect to it; an address belongs to one
+// post at a time, so giving it to another post (a rename or the address of
+// a new one) takes that redirect away.
+export type BlogOldAddress = {
+  slug: string;
+  postId: string;
+  title: string;
+  // The post it leads to is on the site now (else the address answers 404
+  // until that post is published again).
+  isPublic: boolean;
+};
+
 export type BlogOptions = {
   // The chips of the blog list, in order (settings "blog.categories").
   categories: string[];
   // Shown when a post names no author (settings "blog.defaultAuthor").
   defaultAuthor: string;
+  // Every old address any post keeps, by slug (the address dialog warns
+  // before one is taken).
+  oldAddresses: BlogOldAddress[];
 };
 
 export type BlogOptionsAnswer = { ok: true } & BlogOptions;
@@ -180,6 +197,10 @@ export type BlogPostDetail = BlogPostRow & {
   storedStatus: "draft" | "published" | "scheduled" | null;
   // Visible on the site right now.
   isPublic: boolean;
+  // The addresses the post had before a rename: /blog/<old> answers a
+  // permanent redirect here while the post is public. Read-only; a rename
+  // adds the address it leaves (of a public post).
+  previousSlugs: string[];
   createdAt: string | null;
   updatedBy: { id: string; name: string } | null;
 };

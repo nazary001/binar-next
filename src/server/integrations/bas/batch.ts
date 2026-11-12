@@ -26,13 +26,23 @@ import type { BasCall } from "./handler";
 //    refused ("duplicate-in-batch"), so the appliers may work on several
 //    items at once without two of them racing for one document.
 // 4. The entity's applier writes the valid items and reports one outcome
-//    per item; the answer lists the results in the order of the items.
+//    per item; the answer lists the results in the order of the items. It
+//    is told how many items were refused in steps 2 and 3, so a step that
+//    reads "what the batch does not carry" (the ledger's replace) never
+//    takes a refused item for a missing one.
 // 5. The answer is stored under "<entity>:<batchId>", public caches the
 //    applier names are dropped once, and the journal row gets the counts.
 
 export type Outcome = { status: Exclude<BasItemStatus, "error"> } | { status: "error"; error: string };
 
-export type ApplyResult = { outcomes: Outcome[]; revalidate?: PublicTag[] };
+// `extra`: fields an entity adds to its answer (the ledger says what its
+// replace step did).
+export type ApplyResult = { outcomes: Outcome[]; revalidate?: PublicTag[]; extra?: Record<string, unknown> };
+
+// What the runner knows about the batch besides the valid items: how many
+// were refused before the applier saw them (did not parse, or named a
+// record an earlier item of the batch named too).
+export type BatchContext = { refused: number };
 
 export type BatchSpec<T> = {
   entity: BasEntity;
@@ -44,7 +54,7 @@ export type BatchSpec<T> = {
   rawIdOf: (raw: unknown) => string;
   // Keys of the records an item touches (for the duplicate rule).
   keysOf?: (item: T) => string[];
-  apply: (items: T[]) => Promise<ApplyResult>;
+  apply: (items: T[], batch: BatchContext) => Promise<ApplyResult>;
 };
 
 export const ok = (status: Exclude<BasItemStatus, "error">): Outcome => ({ status });
@@ -121,7 +131,8 @@ export async function runBatch<T, C>(call: BasCall<C>, spec: BatchSpec<T>): Prom
     valid.push({ index, item: parsed.data });
   });
 
-  const applied = valid.length ? await spec.apply(valid.map((v) => v.item)) : { outcomes: [] };
+  const refused = envelope.items.length - valid.length;
+  const applied: ApplyResult = valid.length ? await spec.apply(valid.map((v) => v.item), { refused }) : { outcomes: [] };
   valid.forEach(({ index, item }, k) => {
     const outcome = applied.outcomes[k] ?? failed("not processed");
     results[index] =
@@ -132,7 +143,7 @@ export async function runBatch<T, C>(call: BasCall<C>, spec: BatchSpec<T>): Prom
 
   const rows = results as BasPushResult[];
   const counts = countOutcomes(rows.map((row) => row.status));
-  const answer: BasPushAnswer = { ok: true, batchId, results: rows, counts };
+  const answer: BasPushAnswer = { ok: true, batchId, results: rows, counts, ...applied.extra };
   if (applied.revalidate?.length && (counts.created > 0 || counts.updated > 0)) revalidatePublicData(applied.revalidate);
   await storeAnswer(entity, batchId, answer as unknown as Record<string, unknown>);
   call.note({

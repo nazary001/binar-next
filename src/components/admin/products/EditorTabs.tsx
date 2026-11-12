@@ -337,7 +337,15 @@ export function PricesTab({ draft, set, errors, product, options, readOnly }: Ta
       <FormSection title="Роздрібна ціна" description="Ціна для покупців сайту, з ПДВ.">
         <div className="flex min-w-0 flex-col gap-5">
           <FormGrid>
-            <MoneyInput label="Ціна" required value={draft.price} onChange={(price) => set({ price })} error={errors.price} disabled={readOnly} />
+            <MoneyInput
+              label="Ціна"
+              required
+              value={draft.price}
+              onChange={(price) => set({ price })}
+              error={errors.price}
+              hint={draft.price !== null && draft.price > 0 ? undefined : "Поки ціна 0, сайт показує товар як відсутній і не приймає на нього замовлень"}
+              disabled={readOnly}
+            />
           </FormGrid>
           <Switch
             label="Акція"
@@ -375,8 +383,8 @@ export function PricesTab({ draft, set, errors, product, options, readOnly }: Ta
                   disabled={readOnly}
                 />
               </FormGrid>
-              <Note tone="amber" title="Поки діє акція, роздрібні покупці не можуть купити цей товар">
-                Кошик сайту вважає товар з акцією розпроданим і пропонує замість нього інший. Партнерам акція не діє: їхня ціна рахується від старої ціни.
+              <Note title="Партнерам акція не діє">
+                Роздрібні покупці купують товар за акційною ціною. Ціна партнера рахується від старої ціни (або від ціни індивідуального типу, якщо товар її має).
               </Note>
             </>
           )}
@@ -933,8 +941,8 @@ export function SeoTab({ draft, set, errors, product, options, readOnly }: TabPr
       <FormSection title="Сторінка в пошуку" description="Заголовок і опис, які пошуковики показують у результатах.">
         <div className="flex min-w-0 flex-col gap-5">
           <Note>
-            Зараз сайт складає заголовок і опис сторінки товару сам, з назви й категорії. Поля нижче збережуться і почнуть діяти, коли сторінка
-            товару їх читатиме.
+            Сторінка товару бере заголовок і опис з цих полів одразу після збереження. Порожнє поле - сайт складе текст сам, з назви й категорії. До
+            заголовка сайт дописує « | Binar 2000». Покупці на сторінці цих текстів не бачать: їх читають пошуковики та вкладка браузера.
           </Note>
           <Input
             label="Заголовок сторінки"

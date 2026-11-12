@@ -2,6 +2,7 @@
 
 import { CheckIcon, DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { copyText } from "../lib/clipboard";
 import { cx } from "../lib/format";
 import { COLOR_TRANSITION, FOCUS_RING, TEXT, TONES } from "./tokens";
 
@@ -24,6 +25,13 @@ import { COLOR_TRANSITION, FOCUS_RING, TEXT, TONES } from "./tokens";
 // - columns: 1 (default, hairlines between rows), 2 or 3 (a grid from 640
 //   / 1024 px; one column on phones).
 // - dense: tighter rows (side panels, drawers).
+//
+// CopyButton({ text, label, size? = "sm", className? }): the copy button on
+// its own. size "sm" is the 28-px button that sits in a line of text (the
+// default, as in the list); "md" 32 px and "lg" 40 px are touch targets
+// for a block of its own (a one-time password, a phone number in a
+// drawer). copyText(text) (lib/clipboard.ts, also exported from the kit)
+// is the helper behind it, for a menu item or a toast action.
 
 export type KeyValueItem = { label: string; value: ReactNode; hint?: string; copy?: string };
 
@@ -34,41 +42,30 @@ export type KeyValueListProps = {
   className?: string;
 };
 
-// Writes text to the clipboard; the old textarea route covers browsers or
-// contexts without the async Clipboard API.
-async function writeClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // Fall through to the textarea.
-  }
-  try {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.appendChild(area);
-    area.select();
-    const done = document.execCommand("copy");
-    area.remove();
-    return done;
-  } catch {
-    return false;
-  }
-}
+export type CopyButtonSize = "sm" | "md" | "lg";
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+// sm keeps the -my-1 that lets the 28-px button sit in a 20-px text line.
+const COPY_BOX: Record<CopyButtonSize, string> = { sm: "-my-1 size-7", md: "size-8", lg: "size-10" };
+const COPY_ICON: Record<CopyButtonSize, string> = { sm: "size-4", md: "size-4", lg: "size-5" };
+
+export function CopyButton({
+  text,
+  label,
+  size = "sm",
+  className,
+}: {
+  text: string;
+  label: string;
+  size?: CopyButtonSize;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const copy = async () => {
-    const done = await writeClipboard(text);
+    const done = await copyText(text);
     if (!done) return;
     setCopied(true);
     window.clearTimeout(timer.current);
@@ -83,16 +80,18 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
         aria-label={`Скопіювати: ${label}`}
         title="Скопіювати"
         className={cx(
-          "-my-1 inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-500 hover:bg-bg-cabinet hover:text-neutral-900 motion-reduce:transition-none",
+          "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full text-neutral-500 hover:bg-bg-cabinet hover:text-neutral-900 motion-reduce:transition-none",
+          COPY_BOX[size],
           COLOR_TRANSITION,
           FOCUS_RING,
+          className,
         )}
         style={copied ? { color: TONES.green.text } : undefined}
       >
         {copied ? (
-          <CheckIcon aria-hidden className="size-4" strokeWidth={2} />
+          <CheckIcon aria-hidden className={COPY_ICON[size]} strokeWidth={2} />
         ) : (
-          <DocumentDuplicateIcon aria-hidden className="size-4" strokeWidth={1.7} />
+          <DocumentDuplicateIcon aria-hidden className={COPY_ICON[size]} strokeWidth={1.7} />
         )}
       </button>
       <span className="sr-only" aria-live="polite">

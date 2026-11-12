@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import { OWNER_ROLE_ID, SYSTEM_ROLES, isPermission } from "@/components/admin/lib/permissions";
+import { GENERATED_PASSWORD_TTL_HOURS } from "@/components/admin/staff/types";
 import { hashPassword } from "../auth/password";
 import { collection, type StaffDoc, type StaffRoleDoc } from "../db/collections";
 
@@ -9,6 +10,71 @@ import { collection, type StaffDoc, type StaffRoleDoc } from "../db/collections"
 // run this under plain Node.
 
 export const STAFF_PASSWORD_MIN = 10;
+
+// --- generated passwords --------------------------------------------------------
+
+// When the password that has to be replaced (mustChangePassword) was
+// issued: written with every generated or typed-by-someone-else password,
+// removed when the person sets their own. Kept beside StaffDoc until
+// collections.ts declares it.
+export type StaffPasswordIssue = { passwordIssuedAt?: Date | null };
+
+const HOUR_MS = 60 * 60 * 1000;
+
+// The moment a password that has to be replaced stops opening the account;
+// null when the person has their own password, or for a password issued
+// before the time was recorded (nothing to measure its age by).
+export function generatedPasswordExpiresAt(doc: Pick<StaffDoc, "mustChangePassword"> & StaffPasswordIssue): Date | null {
+  if (doc.mustChangePassword !== true) return null;
+  const issued = doc.passwordIssuedAt;
+  if (!(issued instanceof Date) || Number.isNaN(issued.getTime())) return null;
+  return new Date(issued.getTime() + GENERATED_PASSWORD_TTL_HOURS * HOUR_MS);
+}
+
+export function generatedPasswordExpired(
+  doc: Pick<StaffDoc, "mustChangePassword"> & StaffPasswordIssue,
+  now: Date = new Date(),
+): boolean {
+  const expiresAt = generatedPasswordExpiresAt(doc);
+  return expiresAt !== null && expiresAt.getTime() <= now.getTime();
+}
+
+// --- sign-in limits -------------------------------------------------------------
+
+export type SignInBucket = { scope: string; key: string; limit: number; windowSec: number };
+
+export const SIGN_IN_WINDOW_SEC = 15 * 60;
+
+// The network a rate-limit key (auth/rate-limit.ts clientIp) belongs to:
+// an IPv4 address counts with its /24, an IPv6 /64 with its /48 (what one
+// tunnel or site gets), so stepping through neighbouring addresses does
+// not multiply the allowance. Anything else ("local", an unparsable value)
+// stays as it is.
+export function signInNetwork(ip: string): string {
+  if (ip.endsWith("::/64")) return `${ip.slice(0, -"::/64".length).split(":").slice(0, 3).join(":")}::/48`;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/.exec(ip);
+  return v4 ? `${v4[1]}.${v4[2]}.${v4[3]}.0/24` : ip;
+}
+
+// The limits on one staff sign-in attempt, all per SIGN_IN_WINDOW_SEC.
+// `source`: what one caller may try (one e-mail from one address, one
+// address, one network). `account`: how many attempts one e-mail takes
+// from everywhere together, known or unknown alike (the same count for
+// both, so a 429 tells nothing about which accounts exist). The account
+// counts only attempts the source limits let through: one address alone
+// cannot lock somebody out, and rotating addresses cannot guess faster
+// than this.
+export function staffSignInBuckets(ip: string, email: string): { source: SignInBucket[]; account: SignInBucket } {
+  const windowSec = SIGN_IN_WINDOW_SEC;
+  return {
+    source: [
+      { scope: "staff-signin", key: `${ip}|${email}`, limit: 8, windowSec },
+      { scope: "staff-signin-ip", key: ip, limit: 30, windowSec },
+      { scope: "staff-signin-net", key: signInNetwork(ip), limit: 60, windowSec },
+    ],
+    account: { scope: "staff-signin-account", key: email, limit: 20, windowSec },
+  };
+}
 
 export function normalizeStaffEmail(raw: string): string {
   return raw.trim().toLowerCase();
@@ -87,7 +153,7 @@ export async function createStaff(input: NewStaff): Promise<CreateStaffOutcome> 
   if (!(await findRole(input.roleId))) return { ok: false, error: "role" };
 
   const now = new Date();
-  const doc: StaffDoc = {
+  const doc: StaffDoc & StaffPasswordIssue = {
     _id: randomUUID(),
     email,
     name: input.name.trim().slice(0, 200) || email,
@@ -95,6 +161,7 @@ export async function createStaff(input: NewStaff): Promise<CreateStaffOutcome> 
     roleId: input.roleId,
     isActive: true,
     mustChangePassword: input.mustChangePassword,
+    ...(input.mustChangePassword ? { passwordIssuedAt: now } : {}),
     lastLoginAt: null,
     createdBy: input.createdBy,
     createdAt: now,
@@ -110,10 +177,17 @@ export async function createStaff(input: NewStaff): Promise<CreateStaffOutcome> 
   return { ok: true, staff: doc };
 }
 
+// `mustChangePassword` true: a generated password, which starts its
+// GENERATED_PASSWORD_TTL_HOURS from now; false: the person's own, which
+// never expires.
 export async function setStaffPassword(staffId: string, password: string, mustChangePassword: boolean): Promise<void> {
+  const passwordHash = await hashPassword(password);
+  const now = new Date();
   await (await collection("staff")).updateOne(
     { _id: staffId },
-    { $set: { passwordHash: await hashPassword(password), mustChangePassword, updatedAt: new Date() } },
+    mustChangePassword
+      ? { $set: { passwordHash, mustChangePassword: true, passwordIssuedAt: now, updatedAt: now } }
+      : { $set: { passwordHash, mustChangePassword: false, updatedAt: now }, $unset: { passwordIssuedAt: "" } },
   );
 }
 

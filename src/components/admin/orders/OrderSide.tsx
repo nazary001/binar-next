@@ -3,9 +3,11 @@
 import { ArrowPathIcon, ArrowUpTrayIcon, ChevronRightIcon, LockClosedIcon, TrashIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import type { ExchangeQueueDto, QueueEntryAnswer } from "../integrations/types";
+import type { BasPushOutcome, ExchangeQueueDto, QueueEntryAnswer } from "../integrations/types";
+import { mailtoHref } from "../leads/links";
 import { adminApi, errorMessage } from "../lib/api";
 import { countOf, cx, formatDate, formatDateTime, formatMoney, formatPhone } from "../lib/format";
+import { OWNER_ROLE_ID } from "../lib/permissions";
 import { invalidate } from "../lib/query";
 import { useStaff } from "../shell/StaffProvider";
 import { Badge } from "../ui/Badge";
@@ -19,7 +21,7 @@ import { AccountTypeBadge, ErpStateBadge, PaymentStatusBadge, ReturnStatusBadge 
 import { toast } from "../ui/Toast";
 import { COLOR_TRANSITION, FOCUS_RING_INSET, TEXT, TONES } from "../ui/tokens";
 import { orderErrorText, orderKey, paymentKindOf, refreshOrderViews } from "./shared";
-import { ORDER_NOTE_MAX, type NoteAnswer, type OrderDetail } from "./types";
+import { ORDER_NOTE_MAX, type NoteAnswer, type OrderDetail, type StaffNoteDto } from "./types";
 
 // The right column of an order page: who ordered, the money, the exchange
 // with the accounting system, the internal notes and the returns.
@@ -68,14 +70,19 @@ export function ClientCard({ order }: { order: OrderDetail }) {
     value: customer.phone ? <span className="tabular-nums">{formatPhone(customer.phone)}</span> : <Muted>Не вказано</Muted>,
     copy: customer.phone || undefined,
   });
+  // A link only for one plain address: the checkout accepts "?" and "&" in
+  // an e-mail, which would add hidden headers to a mailto: link.
+  const mailHref = customer.email ? mailtoHref(customer.email) : null;
   items.push({
     label: "E-mail",
-    value: customer.email ? (
-      <a href={`mailto:${customer.email}`} className={LINK}>
+    value: !customer.email ? (
+      <Muted>Не вказано</Muted>
+    ) : mailHref ? (
+      <a href={mailHref} className={LINK}>
         {customer.email}
       </a>
     ) : (
-      <Muted>Не вказано</Muted>
+      <span className="break-all">{customer.email}</span>
     ),
     copy: customer.email || undefined,
   });
@@ -92,7 +99,8 @@ export function PaymentCard({ order }: { order: OrderDetail }) {
   const kind = paymentKindOf(order);
   const payment = order.payment;
   const b2b = order.channel === "b2b";
-  const pastDue = b2b && order.paymentDue !== null && order.today > order.paymentDue && kind !== "paid" && order.status !== "cancelled";
+  // The server's rule (the one payment=overdue and the overview count with).
+  const pastDue = order.pastDue;
   const note =
     payment?.kind === "overdue"
       ? `${countOf(payment.days, ["день", "дні", "днів"])} після терміну`
@@ -148,6 +156,26 @@ const BAS_ERRORS: Record<string, string> = {
   forbidden: "Вашій ролі не дозволено керувати обміном з BAS.",
 };
 
+// What sending came to, in the words of the queue tab of the integrations
+// section (BasQueueTab). In the push mode the entry is posted to the BAS
+// address at once and `push` says how that went: BAS took it (with its
+// number, when it gave one), or the post failed and the entry waits in the
+// queue. Without `push` (the pull mode) the order waits for BAS's next
+// exchange. `again` = an entry sent before went back to the queue.
+function announceSent(title: string, push: BasPushOutcome | undefined, again: boolean): void {
+  if (push?.ok) {
+    toast.success(`${title} надіслано на адресу BAS, і BAS його прийняв${push.number ? `: №${push.number}` : ""}`);
+  } else if (push) {
+    toast.error(
+      `${title} ${again ? "знову в черзі" : "додано в чергу BAS"}, але надіслати на адресу BAS не вдалося: ${push.error ?? "невідома помилка"}`,
+    );
+  } else {
+    toast.success(
+      `${title} ${again ? "повторно передано" : "передано"} в чергу обміну з BAS: BAS забере його під час наступного обміну`,
+    );
+  }
+}
+
 export function ErpCard({ order }: { order: OrderDetail }) {
   const { can } = useStaff();
   const [busy, setBusy] = useState(false);
@@ -159,10 +187,11 @@ export function ErpCard({ order }: { order: OrderDetail }) {
 
   const send = async () => {
     setBusy(true);
+    const title = `Замовлення №${order.number}`;
     try {
       const queued = await adminApi<QueueEntryAnswer>("/integrations/bas/queue", { method: "POST", body: { kind: "order", entityId: order.id } });
       if (queued.ok) {
-        toast.success("Замовлення передано в чергу обміну з BAS");
+        announceSent(title, queued.data.push, false);
         return;
       }
       // Sent before: an entry BAS refused (or already took) goes back to
@@ -181,7 +210,7 @@ export function ErpCard({ order }: { order: OrderDetail }) {
         toast.error(errorMessage(retried, BAS_ERRORS));
         return;
       }
-      toast.success("Замовлення повторно передано в чергу обміну з BAS");
+      announceSent(title, retried.data.push, true);
     } finally {
       setBusy(false);
       invalidate(orderKey(order.id));
@@ -233,8 +262,12 @@ export function ErpCard({ order }: { order: OrderDetail }) {
 
 // --- internal notes -------------------------------------------------------------------------
 
+// A member of staff removes their own notes; an owner also removes a
+// colleague's (the API holds the same rule and answers 403 "not-author"
+// to anybody else).
 export function NotesCard({ order, canEdit }: { order: OrderDetail; canEdit: boolean }) {
   const { me } = useStaff();
+  const isOwner = me.roleId === OWNER_ROLE_ID;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -256,16 +289,19 @@ export function NotesCard({ order, canEdit }: { order: OrderDetail; canEdit: boo
     toast.success("Нотатку додано");
   };
 
-  const remove = async (noteId: string) => {
+  const remove = async (note: StaffNoteDto) => {
+    const own = note.by.id === me.id;
     const yes = await confirmDialog({
-      title: "Видалити нотатку?",
-      text: "Колеги більше не побачать її в замовленні.",
+      title: own ? "Видалити нотатку?" : "Видалити нотатку колеги?",
+      text: own
+        ? "Колеги більше не побачать її в замовленні."
+        : `Автор нотатки: ${note.by.name || "співробітник"}. Колеги більше не побачать її в замовленні; у журналі залишиться запис про видалення з іменем автора.`,
       confirmLabel: "Видалити",
       tone: "danger",
     });
     if (!yes) return;
-    setRemoving(noteId);
-    const result = await adminApi(`${orderKey(order.id)}/notes/${encodeURIComponent(noteId)}`, { method: "DELETE" });
+    setRemoving(note.id);
+    const result = await adminApi(`${orderKey(order.id)}/notes/${encodeURIComponent(note.id)}`, { method: "DELETE" });
     setRemoving(null);
     invalidate(orderKey(order.id));
     if (!result.ok) {
@@ -296,14 +332,14 @@ export function NotesCard({ order, canEdit }: { order: OrderDetail; canEdit: boo
                 </p>
                 <p className={cx(TEXT.body, "mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]")}>{note.text}</p>
               </div>
-              {canEdit && note.by.id === me.id && (
+              {canEdit && (note.by.id === me.id || isOwner) && (
                 <IconButton
                   size="sm"
                   variant="danger"
                   icon={TrashIcon}
                   label="Видалити нотатку"
                   loading={removing === note.id}
-                  onClick={() => void remove(note.id)}
+                  onClick={() => void remove(note)}
                   className="-mr-1 -mt-1"
                 />
               )}

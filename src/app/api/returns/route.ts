@@ -1,20 +1,29 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { RETURN_DELIVERY, RETURN_REASONS, RETURN_SOLUTIONS } from "@/components/platform/orders/data";
 import { handler, HttpError, json, parseBody, requirePartner } from "@/server/http";
-import { mutationStamp } from "@/server/repos/orders";
+import { announceReturn, mutationStamp } from "@/server/repos/orders";
 import { createReturn } from "@/server/repos/returns";
+import { shopSettings } from "@/server/shop-settings";
 import { zId, zQty } from "@/server/validate";
+
+// After the answer the request is posted to the accounting system (up to 10
+// s): that work needs more than a short default limit.
+export const maxDuration = 60;
 
 // POST /api/returns { id?, orderId, lines: [{ itemId, qty, reason }],
 // solution, delivery } -> 201 { ok: true, return, at } (the stored request,
 // status "Створено", dated the company's today; `at` = when it was stored).
 // "Оформити повернення" of the order details page. The server re-checks
 // the page's rule: the order offers a return today (received / completed,
-// inside the return window, goods left to return), every line is one of
-// the order's lines still free to return, at most the quantity left.
+// inside the shop's return window, settings shop.returnWindowDays, goods
+// left to return), every line is one of the order's lines still free to
+// return, at most the quantity left.
 // `id` is the browser's proposal (max + 1 of the requests it knows); the
 // request always gets the next number of the sequence (the same number when
 // the browser's view is current) and the browser adopts the answer.
+// After the answer (after()) the request gets its first history entry and
+// is queued for the accounting system (repos/orders.ts announceReturn).
 // Errors: 400 "bad-request" (a reason / solution / delivery outside the
 // wizard's options, a malformed body), 400 "lines" (a line that is not on
 // the order, or twice), 401 / 403 (not a partner), 404 "not-found" (no
@@ -38,10 +47,15 @@ const Body = z
 export const POST = handler(async (request) => {
   const partner = await requirePartner();
   const input = await parseBody(request, Body);
-  const outcome = await createReturn(partner.clientId, partner.user._id, input);
+  // The return window is the one staff set in the panel, shorter or longer
+  // than the default; the request flow applies it under the order's lock.
+  const { returnWindowDays } = await shopSettings();
+  const outcome = await createReturn(partner.clientId, partner.user._id, input, returnWindowDays);
   if (!outcome.ok) {
     const status = outcome.error === "not-found" ? 404 : outcome.error === "lines" ? 400 : 409;
     throw new HttpError(status, outcome.error);
   }
+  const storedAt = new Date();
+  after(() => announceReturn(outcome.ret.id, partner.user, storedAt));
   return json({ ok: true, return: outcome.ret, at: mutationStamp() }, 201);
 });

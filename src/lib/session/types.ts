@@ -46,8 +46,20 @@ export type SessionData = {
 
 export type SessionDomain = keyof SessionData;
 
+// The shop rules the browser applies itself, as staff set them in the
+// panel (settings group "shop"): the free-delivery limit of the cart
+// meter (UAH) and the return window of the cabinet (days after the order
+// date). The same for every visitor, guests included.
+export type ShopConfig = {
+  freeDeliveryLimit: number;
+  returnWindowDays: number;
+};
+
 export type SessionBootstrap = {
   // The signed-in account (passwordHash is always ""), or null.
   account: Account | null;
   data: SessionData;
+  // Always sent by the server; optional for a bootstrap built elsewhere
+  // (the readers fall back to the values in code without it).
+  config?: ShopConfig;
 };

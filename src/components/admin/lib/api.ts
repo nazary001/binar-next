@@ -41,9 +41,63 @@ export async function adminApi<T = unknown>(path: string, options: ApiOptions = 
   return watch(await api<T>(`${ADMIN_API}${path}`, options));
 }
 
+export type UploadProgressOptions = {
+  // 0..1 while the body goes out (the last call is 1, once the server has
+  // answered). Given, the request goes by XMLHttpRequest: fetch reports no
+  // upload progress.
+  onProgress?: (fraction: number) => void;
+  // Aborts the request; the answer is then { ok: false, error: "aborted" }.
+  signal?: AbortSignal;
+};
+
+// The answer of a refused or broken request, in the shape of ApiResult.
+function failed(status: number, error: string, data: Record<string, unknown> = {}): ApiFailure {
+  return { ok: false, status, error, data };
+}
+
+// The XMLHttpRequest twin of the fetch below: same form, same answer
+// shape, the same lost-session handling (watch), plus progress.
+function uploadWithProgress<T>(path: string, form: FormData, { onProgress, signal }: UploadProgressOptions): Promise<ApiResult<T>> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve(failed(0, "aborted"));
+      return;
+    }
+    const request = new XMLHttpRequest();
+    request.open("POST", `${ADMIN_API}${path}`);
+    request.withCredentials = true;
+    request.responseType = "json";
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress?.(Math.min(1, event.loaded / event.total));
+    };
+    const onAbort = () => request.abort();
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const finish = (result: ApiResult<T>) => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve(result.ok ? result : watch(result));
+    };
+    request.onerror = () => finish(failed(0, "network"));
+    request.onabort = () => finish(failed(0, signal?.aborted ? "aborted" : "network"));
+    request.onload = () => {
+      const body: unknown = request.response;
+      const record = body !== null && typeof body === "object" ? (body as Record<string, unknown>) : {};
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(1);
+        finish({ ok: true, status: request.status, data: body as T });
+        return;
+      }
+      const error = typeof record.error === "string" ? record.error : request.status >= 500 ? "server" : "http";
+      finish(failed(request.status, error, record));
+    };
+    request.send(form);
+  });
+}
+
 // Sends files (multipart/form-data): `form` holds the files and any plain
-// fields the route expects. Same answer shape as `adminApi`.
-export async function adminUpload<T = unknown>(path: string, form: FormData): Promise<ApiResult<T>> {
+// fields the route expects. Same answer shape as `adminApi`. With
+// `onProgress` (or `signal`) it reports how far the upload is.
+export async function adminUpload<T = unknown>(path: string, form: FormData, options: UploadProgressOptions = {}): Promise<ApiResult<T>> {
+  if (options.onProgress || options.signal) return uploadWithProgress<T>(path, form, options);
   let response: Response;
   try {
     response = await fetch(`${ADMIN_API}${path}`, {
@@ -78,6 +132,7 @@ export function adminUrl(path: string): string {
 
 const MESSAGES: Record<string, string> = {
   network: "Немає зв'язку із сервером. Перевірте інтернет і спробуйте ще раз.",
+  aborted: "Надсилання скасовано.",
   server: "Сталася помилка на сервері. Спробуйте ще раз.",
   http: "Сервер відповів помилкою. Спробуйте ще раз.",
   unauthorized: "Сесію завершено. Увійдіть ще раз.",

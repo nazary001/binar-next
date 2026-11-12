@@ -6,6 +6,8 @@
 // Shared by the routes, src/server/mail and the screens. Types and plain
 // constants only: no "use client", no server import.
 
+import type { Permission } from "../lib/permissions";
+
 // --- messages ---------------------------------------------------------------
 
 // Mirrors OutboxDoc["kind"] (src/server/db/collections.ts); the server
@@ -18,12 +20,14 @@ export type OutboxKind =
   | "order-placed"
   | "order-status"
   | "staff-invite"
-  | "staff-password";
+  | "staff-password"
+  | "return-status";
 
 export const OUTBOX_KINDS: readonly OutboxKind[] = [
   "lead",
   "order-placed",
   "order-status",
+  "return-status",
   "employee-invite",
   "email-changed",
   "password-reset",
@@ -35,11 +39,29 @@ export const OUTBOX_KIND_LABELS: Record<OutboxKind, string> = {
   lead: "Заявка з сайту",
   "order-placed": "Нове замовлення",
   "order-status": "Статус замовлення",
+  "return-status": "Рішення щодо повернення",
   "employee-invite": "Запрошення співробітника",
   "email-changed": "Зміна e-mail",
   "password-reset": "Відновлення пароля",
   "staff-invite": "Доступ до панелі",
   "staff-password": "Пароль до панелі",
+};
+
+// What a message shows besides its delivery: a lead's contact, an order,
+// a customer's account. Reading the outbox needs integrations.view; the
+// payload, the one-line summary and the rendered message of a kind need
+// the view permission of the record it is about as well. Without it the
+// panel gets the delivery facts only (to, state, attempts, errors).
+export const OUTBOX_KIND_PERMISSION: Record<OutboxKind, Permission> = {
+  lead: "leads.view",
+  "order-placed": "orders.view",
+  "order-status": "orders.view",
+  "return-status": "returns.view",
+  "employee-invite": "customers.view",
+  "email-changed": "customers.view",
+  "password-reset": "customers.view",
+  "staff-invite": "staff.manage",
+  "staff-password": "staff.manage",
 };
 
 // Kinds whose stored message cannot be mailed: the mail must carry a
@@ -55,6 +77,27 @@ export function isRenderableKind(kind: OutboxKind): boolean {
 // After this many failed attempts the mailer stops trying by itself;
 // "Надіслати ще раз" (retry) starts the count again.
 export const MAIL_MAX_ATTEMPTS = 5;
+
+// The runs nobody asked for (after a request, the panel's sweep, the cron
+// route; src/server/mail/deliver.ts AUTOMATIC_RUN) send only messages
+// written between these two ages; older ones wait for staff ("Надіслати
+// всі, що очікують" and the message's own buttons ignore the window).
+export const MAIL_AUTO_MIN_AGE_MS = 2 * 60_000;
+export const MAIL_AUTO_MAX_AGE_DAYS = 7;
+
+// Whether a waiting message goes out without staff:
+// - "yes": the automatic runs send it (or try again after a pause);
+// - "old": written more than MAIL_AUTO_MAX_AGE_DAYS ago;
+// - "stopped": MAIL_MAX_ATTEMPTS failed attempts, the mailer gave up;
+// - "expired": what it announces is no longer valid (expiresAt passed).
+// null for a message that is sent or cannot be mailed from the outbox.
+export type OutboxAutoSend = "yes" | "old" | "stopped" | "expired";
+
+export const OUTBOX_AUTO_SEND_LABELS: Record<Exclude<OutboxAutoSend, "yes">, string> = {
+  old: "Не надсилається автоматично: лист старший за 7 днів",
+  stopped: "Не надсилається автоматично: усі спроби вичерпано",
+  expired: "Не надсилається: термін дії листа минув",
+};
 
 // - pending: waits for the mailer (never tried yet);
 // - sent: delivered to the provider (or marked as handled by hand);
@@ -93,7 +136,12 @@ export type OutboxRow = {
   // Set on messages that must not outlive what they announce.
   expiresAt: string | null;
   // One line from the payload: the lead's contact, the order number, ...
+  // ("" when the reader may not see the record: `restricted`).
   summary: string;
+  // The reader lacks OUTBOX_KIND_PERMISSION[kind]: the delivery facts only.
+  restricted: boolean;
+  // Waiting messages (pending, failed): whether they go out on their own.
+  autoSend: OutboxAutoSend | null;
 };
 
 // GET /api/admin/outbox?kind=lead,order-placed&state=failed&q=<recipient>&from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&limit=20&sort=-createdAt
@@ -131,14 +179,31 @@ export type MailDeliveryDto = {
 export type OutboxDetailAnswer = {
   ok: true;
   message: OutboxRow;
-  // The stored payload as is (no message ever holds a live secret).
+  // The stored payload as is (no message ever holds a live secret); {}
+  // when the message is `restricted`.
   payload: Record<string, unknown>;
-  // null for an unrenderable kind or when the payload cannot be rendered
-  // (`previewError` says why).
+  // A sent message is shown as it went out; one still waiting, as it
+  // would be mailed now. null for an unrenderable kind, a restricted
+  // message, or when the payload cannot be rendered (`previewError`, a
+  // key of MAIL_PREVIEW_ERROR_LABELS, says why).
   preview: MailPreview | null;
   previewError: string | null;
+  // The delivered message carried a secret (the temporary password of a
+  // staff access mail): the preview shows PREVIEW_SECRET_MASK in its place.
+  previewMasked: boolean;
   // Newest first, at most 20.
   deliveries: MailDeliveryDto[];
+};
+
+// What the preview shows instead of a secret the delivered mail carried.
+export const PREVIEW_SECRET_MASK = "********";
+
+// Why a message cannot be shown, in the words of the mail page.
+export const MAIL_PREVIEW_ERROR_LABELS: Record<string, string> = {
+  "secret-required":
+    "Лист містив одноразове посилання для відновлення пароля. Посилання ніде не зберігається, тому показати лист не можна: тут лишається лише запис про надсилання.",
+  template: "Лист не вдалося скласти з даних повідомлення: можливо, замовлення, заявку чи компанію вже видалено.",
+  restricted: "Ваша роль не має доступу до даних, про які цей лист, тому видно лише, кому і коли його надсилали.",
 };
 
 // The outcome of one run of the mailer.
@@ -184,7 +249,7 @@ export const MAIL_MISSING_LABELS: Record<MailMissing, string> = {
   provider: "Не обрано сервіс надсилання",
   apiKey: "Не вказано ключ API",
   from: "Не вказано адресу відправника",
-  webhookUrl: "Не вказано адресу webhook",
+  webhookUrl: "Не вказано адресу webhook або вона не підходить (лише https://, не адреса внутрішньої мережі)",
   secretsKey: "Збережений ключ не відкривається: на сервері змінився ключ шифрування, введіть ключ API ще раз",
 };
 
@@ -211,6 +276,7 @@ export const MAIL_ERROR_LABELS: Record<string, string> = {
   address: "Адреса одержувача не є e-mail",
   template: "Лист не вдалося скласти з даних повідомлення",
   "secret-required": "Цей лист можна надіслати лише в момент створення",
+  "private-address": "Адреса webhook веде у внутрішню мережу, туди сайт листів не надсилає: вкажіть зовнішню адресу https://",
 };
 
 // --- settings ---------------------------------------------------------------
@@ -248,16 +314,21 @@ export type MailSettingsAnswer = {
 };
 
 // Where the staff notices go: the general settings' inboxes (edited on the
-// settings page, shown on the mail page). GET and PUT of the mail settings
-// answer MailSettingsView.
-export type MailInboxes = { leads: string; orders: string[] };
-export type MailSettingsView = MailSettingsAnswer & { inboxes: MailInboxes };
+// settings page, shown on the mail page). `leads` is the address the lead
+// notices really go to: the settings' one, else the site's own
+// (leadsIsDefault). GET and PUT of the mail settings answer
+// MailSettingsView; a PUT that removed the stored key because the provider
+// or the webhook's origin changed says keyDropped.
+export type MailInboxes = { leads: string; leadsIsDefault: boolean; orders: string[] };
+export type MailSettingsView = MailSettingsAnswer & { inboxes: MailInboxes; keyDropped?: boolean };
 
 // PUT /api/admin/integrations/mail/settings: any subset of the fields.
-// `apiKey`: a new key to seal; "" removes the stored one; absent keeps it.
+// `apiKey`: a new key to seal; "" removes the stored one; absent keeps it,
+// except when the provider changes or the webhook's address moves to
+// another origin: the key belongs to where it was typed for and goes too.
 // Refusals: 400 "bad-request" (shape), 400 "fields" + { fields: { from |
-// replyTo | webhookUrl | apiKey: "format" | "https" | "credentials" } },
-// 503 "secrets-key". Answer: MailSettingsAnswer.
+// replyTo | webhookUrl | apiKey: "format" | "https" | "credentials" |
+// "private" } }, 503 "secrets-key". Answer: MailSettingsView.
 export type MailSettingsInput = Partial<
   Pick<
     MailSettingsDto,
@@ -267,8 +338,9 @@ export type MailSettingsInput = Partial<
 
 export const MAIL_FIELD_ERRORS: Record<string, string> = {
   format: "Перевірте формат",
-  https: "Потрібна адреса https:// (http:// лише для localhost)",
+  https: "Потрібна адреса https://",
   credentials: "Не додавайте логін і пароль в адресу: вкажіть ключ у полі «Ключ API»",
+  private: "Адреса внутрішньої мережі не підходить: вкажіть зовнішню адресу https://",
 };
 
 // POST /api/admin/integrations/mail/test  { to: "someone@example.com" }
@@ -312,6 +384,20 @@ export type OrderStatusPayload = {
   ttn?: string;
 };
 
+// Written by src/server/admin/repos/returns.ts when staff decide on a
+// return request (approved, rejected, completed), to the e-mail of the
+// account that sent the request, else of the company's admin. `label` is
+// the status as the cabinet names it; `reason` comes with a refusal and
+// `refundAmount` (UAH) with a completed request when staff recorded one.
+export type ReturnStatusPayload = {
+  returnId: string;
+  orderNumber?: string;
+  status: "approved" | "rejected" | "completed";
+  label?: string;
+  reason?: string;
+  refundAmount?: number;
+};
+
 // Written by src/server/repos/users.ts noteEmailChange.
 export type EmailChangedPayload = { login: string; userId: string; from: string; to: string };
 
@@ -323,9 +409,13 @@ export type EmployeeInvitePayload = { company: string; employeeId: string; clien
 // A member of staff got access to the panel / a new password. The
 // password itself is never stored: a flow that wants it in the mail sends
 // the message with sendNow(..., { password }).
-export type StaffInvitePayload = { staffId: string; name?: string; email?: string; roleName?: string };
-export type StaffPasswordPayload = { staffId: string; name?: string; email?: string; byAdmin?: boolean };
+// sendNow adds `secretMailed: "password"` when the delivered mail carried
+// the password, so the panel shows that mail (password masked) and not
+// the variant without it.
+export type StaffInvitePayload = { staffId: string; name?: string; email?: string; roleName?: string; secretMailed?: "password" };
+export type StaffPasswordPayload = { staffId: string; name?: string; email?: string; byAdmin?: boolean; secretMailed?: "password" };
 
-// Written by src/server/repos/users.ts createPasswordReset. Mailed only
-// through sendNow(..., { resetToken }) at the moment the link is made.
+// Written by the reset request (src/app/api/auth/reset/request) through
+// sendNow(..., { resetToken }) at the moment the link is made: the stored
+// copy is the record of that one send and never goes out again.
 export type PasswordResetPayload = { login: string; userId: string };

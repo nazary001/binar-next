@@ -48,6 +48,11 @@ import { CONTROL, COLOR_TRANSITION, FOCUS_RING, type ControlSize } from "./token
 //   rel="noreferrer"> (links to the storefront are always external, so the
 //   site boots from a full load). A disabled or loading link renders as an
 //   inert span.
+// - download (with href): a plain same-tab <a download> (true, or the file
+//   name to save as): "Експорт CSV" downloads where it is, no new tab.
+// - plain (with href): a plain same-tab <a>, neither next/link nor a new
+//   tab. tel:, mailto: and sms: addresses get it on their own (they open
+//   the phone or the mail program in place).
 // - type: "button" by default (never an accidental submit).
 // - onClick, onKeyDown, title, id, tabIndex, form, name, value and aria-*
 //   go to the element (so a Button can be the trigger of a DropdownMenu or
@@ -101,9 +106,31 @@ type CommonProps = AriaProps & {
 
 export type ButtonProps = CommonProps &
   (
-    | { href?: undefined; external?: undefined; type?: "button" | "submit" | "reset"; form?: string; name?: string; value?: string }
-    | { href: string; external?: boolean; type?: undefined; form?: undefined; name?: undefined; value?: undefined }
+    | {
+        href?: undefined;
+        external?: undefined;
+        download?: undefined;
+        plain?: undefined;
+        type?: "button" | "submit" | "reset";
+        form?: string;
+        name?: string;
+        value?: string;
+      }
+    | {
+        href: string;
+        external?: boolean;
+        download?: boolean | string;
+        plain?: boolean;
+        type?: undefined;
+        form?: undefined;
+        name?: undefined;
+        value?: undefined;
+      }
   );
+
+// Addresses a browser opens in place with another program, never through
+// the client router.
+const IN_PLACE = /^(tel|mailto|sms):/i;
 
 // Hover classes are separate from the resting look, so a disabled or busy
 // button simply does not get them (no specificity fight with `disabled:`).
@@ -177,6 +204,8 @@ export function Button(props: ButtonProps) {
     ref,
     href,
     external,
+    download,
+    plain,
     type,
     form,
     name,
@@ -240,6 +269,20 @@ export function Button(props: ButtonProps) {
         </span>
       );
     }
+    if (download !== undefined && download !== false) {
+      return (
+        <a
+          {...rest}
+          ref={ref as Ref<HTMLAnchorElement>}
+          href={href}
+          download={download === true ? "" : download}
+          onClick={handleClick}
+          className={classes}
+        >
+          {content}
+        </a>
+      );
+    }
     if (external) {
       return (
         <a
@@ -251,6 +294,13 @@ export function Button(props: ButtonProps) {
           onClick={handleClick}
           className={classes}
         >
+          {content}
+        </a>
+      );
+    }
+    if (plain || IN_PLACE.test(href)) {
+      return (
+        <a {...rest} ref={ref as Ref<HTMLAnchorElement>} href={href} onClick={handleClick} className={classes}>
           {content}
         </a>
       );

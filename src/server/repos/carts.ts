@@ -8,9 +8,10 @@ import { collection } from "../db/collections";
 // stays the working copy; carts[userId] is the durable copy of a signed-in
 // account. PUT /api/cart writes it (debounced by the cart store), the
 // session bootstrap sends it back, and placing an order empties it
-// (package E). A stored cart only ever holds products that exist: unknown
-// ids are dropped on the way in, and on the way out too, so a product that
-// later leaves the catalog leaves the cart with the next session answer.
+// (package E). A stored cart only ever holds products the shop sells:
+// unknown and archived ids are dropped on the way in, and on the way out
+// too, so a product that later leaves the catalog leaves the cart with the
+// next session answer.
 
 function isLine(value: unknown): value is CartLine {
   if (typeof value !== "object" || value === null) return false;
@@ -33,13 +34,18 @@ export function normalizeCartLines(lines: readonly unknown[], known: ReadonlySet
     .map(([id, qty]) => ({ id, qty: Math.min(qty, CART_MAX_QTY) }));
 }
 
-// Which of these ids are products (`_id` in `products`). Every id is a
-// plain string here (isLine), never an operator object.
+// Which of these ids are products of the shop (`_id` in `products`, not
+// archived: a product staff took out of the shop, archivedAt a date, leaves
+// every cart with the next save or session answer, as the catalog snapshot
+// leaves it out). Every id is a plain string here (isLine), never an
+// operator object.
 async function existingProductIds(lines: readonly CartLine[]): Promise<Set<string>> {
   const ids = [...new Set(lines.map((line) => line.id))];
   if (ids.length === 0) return new Set();
   const products = await collection("products");
-  const docs = await products.find({ _id: { $in: ids } }, { projection: { _id: 1 } }).toArray();
+  const docs = await products
+    .find({ _id: { $in: ids }, archivedAt: { $not: { $type: "date" } } }, { projection: { _id: 1 } })
+    .toArray();
   return new Set(docs.map((doc) => doc._id));
 }
 

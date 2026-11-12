@@ -15,7 +15,7 @@ import { newId } from "../../ids";
 import { kyivToday } from "../../time";
 import { countApiKeys } from "../keys";
 import { queueCounts } from "./queue";
-import { kyivMidnight } from "./values";
+import { kyivDayEnd, kyivMidnight } from "./values";
 
 // The journal of the exchanges (collection `exchange_log`): one row per
 // call of the machine API, written by bas/handler.ts, and the reads the
@@ -79,7 +79,7 @@ export function logFilter(input: LogFilter): Filter<ExchangeLogDoc> {
   if (input.from || input.to) {
     const at: { $gte?: Date; $lt?: Date } = {};
     if (input.from) at.$gte = kyivMidnight(input.from);
-    if (input.to) at.$lt = new Date(kyivMidnight(input.to).getTime() + 86_400_000);
+    if (input.to) at.$lt = kyivDayEnd(input.to);
     filter.at = at;
   }
   if (input.q) filter.$or = [{ batchId: input.q }, { "actor.name": input.q }, { error: input.q }];
@@ -89,11 +89,12 @@ export function logFilter(input: LogFilter): Filter<ExchangeLogDoc> {
 async function lastCall(entity: BasEntity): Promise<BasLastCall | null> {
   const doc = await (await collection("exchangeLog")).findOne(
     { system: "bas", entity },
-    { sort: { at: -1 }, projection: { at: 1, action: 1, status: 1, counts: 1, error: 1 } },
+    { sort: { at: -1 }, projection: { at: 1, direction: 1, action: 1, status: 1, counts: 1, error: 1 } },
   );
   if (!doc) return null;
   return {
     at: doc.at.toISOString(),
+    direction: doc.direction,
     action: doc.action,
     status: doc.status,
     counts: { ...EMPTY_COUNTS, ...doc.counts },

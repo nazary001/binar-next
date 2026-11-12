@@ -42,7 +42,10 @@ const COPY = {
 // panels (lg:hidden twins next to the untouched desktop panels); after an
 // order the visible title takes the focus and the page scrolls so the
 // whole panel (incl. its button) shows when it fits.
-export function CheckoutClient() {
+//
+// `npSearch` (the shop's switch, read by the page): the form searches Nova
+// Poshta's real cities, branches and postomats instead of its fixed lists.
+export function CheckoutClient({ npSearch = false }: { npSearch?: boolean }) {
   const cart = useCart();
   const { clear, checkout, issues } = cart;
   const prices = usePartnerPrices();
@@ -102,7 +105,7 @@ export function CheckoutClient() {
   }, [placed]);
 
   // Stock gate on arrival (checkout spec 2.13 / S15): a stale cart opened
-  // straight on /checkout (sold-out / promo lines) gets the stock check
+  // straight on /checkout (sold-out / unpriced lines) gets the stock check
   // before anything is ordered. "checkout" tells the cart that closing the
   // stock sheet only dismisses it (the "Кошик" h2 of the phone lines takes
   // the focus) instead of opening the cart sheet over the form.
@@ -277,7 +280,7 @@ export function CheckoutClient() {
           emptiedRef.current = true;
         }}
       />
-      <CheckoutForm subtotal={subtotal} onSubmit={place} />
+      <CheckoutForm subtotal={subtotal} onSubmit={place} npSearch={npSearch} />
       <p className="sr-only" aria-live="polite">
         Сума замовлення {formatPrice(subtotal)}
       </p>
@@ -320,9 +323,10 @@ function adoptServerStock(data: Record<string, unknown>, soldOut: boolean) {
       else delete copy.preorder;
       next = copy;
     }
-    // The stock rule (cart/data.ts checkStock) flags an unavailable or a
-    // promo line.
-    if (refused.has(product.id) && next.available && next.oldPrice === undefined) next = { ...next, available: false };
+    // The stock rule (cart/data.ts checkStock) flags an unavailable or an
+    // unpriced line; a refused line the answer still calls available is
+    // marked unavailable so the stock flow opens for it.
+    if (refused.has(product.id) && next.available) next = { ...next, available: false };
     return next;
   };
   const listing = listingProducts();

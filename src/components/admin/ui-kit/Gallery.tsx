@@ -13,6 +13,7 @@ import { ChoiceDemo, ComboboxDemo, FieldDemo, FormDemo, HeightsDemo, InputsDemo,
 import { ConfirmDemo, DrawerDemo, MenuPopoverDemo, ModalDemo, ToastPaletteDemo } from "./LayersDemo";
 import { MediaDemo } from "./MediaDemo";
 import { AvatarTooltipDemo, BadgesDemo, ButtonsDemo, SpinnerSkeletonDemo, TonesDemo } from "./PrimitivesDemo";
+import { CardsMoreDemo, DataTableMoreDemo, FiltersMoreDemo, FormsMoreDemo, LayersMoreDemo, SecretDemo, TabsMoreDemo, UploadMoreDemo } from "./Wave3Demo";
 
 // The gallery of the admin UI kit (/admin/ui-kit, development only): one
 // long page, a section per file of src/components/admin/ui, every
@@ -50,7 +51,10 @@ const CONTENTS: { group: string; items: { id: string; label: string }[] }[] = [
       { id: "taginput", label: "TagInput" },
       { id: "dateinput", label: "DateInput" },
       { id: "form", label: "Form" },
+      { id: "forms-more", label: "Форми: нове" },
+      { id: "secret", label: "OneTimeSecret" },
       { id: "media", label: "Медіа" },
+      { id: "upload-more", label: "Медіа: нове" },
     ],
   },
   {
@@ -58,10 +62,14 @@ const CONTENTS: { group: string; items: { id: string; label: string }[] }[] = [
     items: [
       { id: "page", label: "Page" },
       { id: "card", label: "Card" },
+      { id: "cards-more", label: "Плитки: нове" },
       { id: "keyvalue", label: "KeyValue" },
       { id: "tabs", label: "Tabs" },
+      { id: "tabs-more", label: "Tabs: нове" },
       { id: "datatable", label: "DataTable" },
       { id: "datatable-states", label: "Стани таблиці" },
+      { id: "datatable-more", label: "DataTable: нове" },
+      { id: "filters-more", label: "Фільтри і BulkBar" },
       { id: "states", label: "States" },
       { id: "timeline", label: "Timeline" },
       { id: "status", label: "Статуси" },
@@ -73,6 +81,7 @@ const CONTENTS: { group: string; items: { id: string; label: string }[] }[] = [
     items: [
       { id: "modal", label: "Modal" },
       { id: "drawer", label: "Drawer" },
+      { id: "layers-more", label: "Шари: нове" },
       { id: "confirm", label: "ConfirmDialog" },
       { id: "dropdown", label: "DropdownMenu" },
       { id: "popover", label: "Popover" },
@@ -159,18 +168,26 @@ export function Gallery({ mountHosts = false }: { mountHosts?: boolean }) {
         <ChoiceDemo />
         <TagDateDemo />
         <FormDemo />
+        <FormsMoreDemo />
+        <SecretDemo />
         <MediaDemo />
+        <UploadMoreDemo />
         <PageDemo />
         <CardsDemo />
+        <CardsMoreDemo />
         <KeyValueDemo />
         <TabsDemo />
+        <TabsMoreDemo />
         <DataTableDemo />
+        <DataTableMoreDemo />
+        <FiltersMoreDemo />
         <StatesDemo />
         <TimelineDemo />
         <StatusDemo />
         <ChartsDemo />
         <ModalDemo />
         <DrawerDemo />
+        <LayersMoreDemo />
         <ConfirmDemo />
         <MenuPopoverDemo />
         <ToastPaletteDemo />

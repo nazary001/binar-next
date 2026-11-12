@@ -3,7 +3,7 @@ import { audit } from "@/server/admin/audit";
 import { HttpError, adminHandler, json, parseBody } from "@/server/admin/http";
 import { listQuery } from "@/server/admin/list";
 import { createApiKey, listApiKeys, toApiKeyDto } from "@/server/integrations/keys";
-import { kyivWallTime } from "@/server/integrations/bas/values";
+import { kyivDayEnd } from "@/server/integrations/bas/values";
 import { zRequiredText } from "@/server/validate";
 
 // GET  /api/admin/integrations/keys?page=&limit=&sort= [integrations.view]
@@ -18,12 +18,13 @@ export const GET = adminHandler("integrations.view", async ({ url }) => {
 
 const MAX_YEARS = 5;
 
-// "YYYY-MM-DD" = valid through that day (Kyiv); a date-time = that moment.
+// "YYYY-MM-DD" = valid through that day (Kyiv): until the next Kyiv day
+// starts (a clock-change day lasts 23 or 25 hours); a date-time = that
+// moment.
 function expiryOf(raw: string): Date | null {
-  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-  if (day) {
-    const end = kyivWallTime(Number(day[1]), Number(day[2]), Number(day[3]));
-    return Number.isNaN(end.getTime()) ? null : new Date(end.getTime() + 86_400_000);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const end = kyivDayEnd(raw);
+    return Number.isNaN(end.getTime()) ? null : end;
   }
   const at = new Date(raw);
   return Number.isNaN(at.getTime()) ? null : at;

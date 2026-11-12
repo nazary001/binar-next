@@ -13,10 +13,14 @@
 // called on boot when the hint cookie is present, when a tab becomes
 // visible again after a while, and after the server refused a mutation
 // (the server's state then replaces the optimistic one).
+//
+// The answer's `config` (the shop rules, the same for every visitor) goes
+// to lib/session/config.ts first, signed in or not.
 import * as authStore from "@/components/auth/store";
 import type { Account } from "@/components/auth/data";
 import { api } from "@/lib/api/client";
 import { clearAccountCache, writeDomain } from "./cache";
+import { applyShopConfig, shopConfigConfirmed } from "./config";
 import type { SessionBootstrap, SessionData, SessionDomain } from "./types";
 
 type Applier = (value: unknown, account: Account) => void;
@@ -55,6 +59,7 @@ export function dropLocalSession(): void {
 
 export function applyBootstrap(bootstrap: SessionBootstrap): void {
   lastAppliedAt = Date.now();
+  if (bootstrap.config !== undefined) applyShopConfig(bootstrap.config);
   const account = bootstrap.account;
   if (!account) {
     dropLocalSession();
@@ -90,4 +95,22 @@ export function refreshSession(): Promise<RefreshOutcome> {
     inflight = null;
   });
   return inflight;
+}
+
+let configAsked = false;
+
+// A visitor without a session never asks GET /api/session on its own (no
+// hint cookie: AuthProvider skips the boot request on purpose, so
+// anonymous page views cost no request). The readers of the shop rules
+// (the cart when it opens) call this instead: at most one request per page
+// load, none while a session request is on its way or once an answer
+// brought the rules (every signed-in boot does). Only the rules are taken
+// from this answer: a sign-in finishing meanwhile must not be undone by a
+// "signed out" answer that was read before it.
+export function ensureShopConfig(): void {
+  if (configAsked || inflight || shopConfigConfirmed()) return;
+  configAsked = true;
+  void api<SessionBootstrap>("/api/session").then((result) => {
+    if (result.ok && result.data.config !== undefined) applyShopConfig(result.data.config);
+  });
 }

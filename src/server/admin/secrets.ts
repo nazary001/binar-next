@@ -68,8 +68,9 @@ export function openSecret(sealed: string | null | undefined): string | null {
   }
 }
 
-// What the panel shows instead of a stored secret: its last characters.
+// What the panel shows instead of a stored secret: its last four
+// characters when it is long (a carrier or mail key), nothing of a short one
+// (four characters of a password are too much to show every viewer).
 export function secretHint(plain: string): string {
-  const tail = plain.slice(-4);
-  return plain.length > 8 ? `****${tail}` : "****";
+  return plain.length >= 20 ? `****${plain.slice(-4)}` : "****";
 }

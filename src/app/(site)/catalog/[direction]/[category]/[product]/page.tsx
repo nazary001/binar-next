@@ -7,7 +7,7 @@ import {
   type Product,
 } from "@/components/catalog/data";
 import { ProductPageView } from "@/components/product/ProductPageView";
-import { getProductPage, listProductPaths } from "@/server/repos/catalog";
+import { getProductPage, getProductSeo, listProductPaths } from "@/server/repos/catalog";
 
 // A product has exactly one canonical path (productHref); any other
 // direction/category pair in the URL is a 404, not a duplicate page.
@@ -29,16 +29,27 @@ export async function generateMetadata({
   const { direction, category, product: productId } = await params;
   const dir = CATALOG_DIRECTIONS.find((d) => d.slug === direction);
   const card = dir && findCategory(dir, category);
-  const product = (await getProductPage(productId))?.product;
-  if (!dir || !card || !product || !belongsHere(product, dir.slug, card.slug)) {
+  const page = await getProductPage(productId);
+  const product = page?.product;
+  if (!dir || !card || !page || !product || !belongsHere(product, dir.slug, card.slug)) {
     return {};
   }
+  // The SEO tab of the product editor may set either text; an empty one
+  // keeps what the page composes itself. The root layout's title template
+  // applies to both.
+  const seo = await getProductSeo(product.id);
   return {
-    title: `${product.title} — ${card.label}`,
-    description: `${product.title} (${product.volume}, ${product.brand}) у каталозі Binar 2000: ${card.label.toLowerCase()}. B2B-постачання з кастомізацією під бренд.`,
+    title: seo?.title ?? `${product.title} — ${card.label}`,
+    description:
+      seo?.description ??
+      `${product.title} (${product.volume}, ${product.brand}) у каталозі Binar 2000: ${card.label.toLowerCase()}. B2B-постачання з кастомізацією під бренд.`,
     alternates: {
       canonical: `/catalog/${dir.slug}/${card.slug}/${product.id}`,
     },
+    // A product hidden in the panel keeps its page for a direct link but
+    // stays out of search engines (and of the sitemap); its links to
+    // listed products may still be followed.
+    ...(page.listed ? {} : { robots: { index: false, follow: true } }),
   };
 }
 

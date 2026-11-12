@@ -162,12 +162,14 @@ export const ATTENTION_META: Record<AttentionKey, { label: string; permission: P
     permission: "returns.view",
     href: "/admin/returns?status=created,review",
   },
-  // Partner orders, not cancelled, not paid, that are stored as overdue
-  // (payment "overdue", or "partial" with an overdue remainder) or whose
-  // due date is before the company's today (the demo company's fixed day,
-  // else today in Kyiv), and that still owe money. `total` = what they owe,
-  // computed as the cabinet does: the overdue remainder of a partial
-  // payment, else the total less what was paid.
+  // The orders of overdueOrdersFilter (src/server/admin/repos/orders.ts),
+  // the rule the list this row links to filters by: partner orders, not
+  // cancelled, that still owe money and are stored as overdue (payment
+  // "overdue", or "partial" with an overdue remainder) or whose due date is
+  // before the company's today (the demo company's fixed day, else today
+  // in Kyiv). `total` = what they owe, computed as the cabinet does: the
+  // overdue remainder of a partial payment, else the total less what was
+  // paid.
   overduePayments: {
     label: "Прострочені оплати",
     permission: "orders.view",

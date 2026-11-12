@@ -11,6 +11,7 @@ import {
   type BasReturnPacket,
   type BasSpecDto,
   type BasSpecEndpoint,
+  type BasSpecPush,
 } from "@/components/admin/integrations/types";
 import {
   AckEnvelope,
@@ -30,6 +31,7 @@ import {
   StockItem,
   describeIssues,
 } from "./contract";
+import { PUSH_TIMEOUT_MS } from "./push";
 
 // The contract of the machine API as data: the documentation page of the
 // panel (GET /api/admin/integrations/bas/spec) renders it for the BAS
@@ -235,7 +237,7 @@ const DEFINITIONS: Definition[] = [
     acceptFlag: "acceptPrices",
     title: "Ціни",
     description:
-      "Ціна товару за типом ціни, у гривнях. Ціна базового типу стає ціною на сайті (а під час акції - звичайною ціною, від якої рахується знижка).",
+      "Ціна товару за типом ціни, у гривнях. Ціна типу з роллю «Базова» стає ціною на сайті. Поки на товар діє акція, яку задав менеджер, акційна ціна лишається, а базова стає закресленою старою ціною; якщо базова ціна опускається до акційної або нижче, акція завершується, і ціною на сайті стає базова. Ціна типу з роллю «Індивідуальна» - прайс партнерів: від неї сайт рахує ціну партнера мінус знижку його компанії.",
     query: [],
     request: {
       batchId: BATCH,
@@ -248,7 +250,11 @@ const DEFINITIONS: Definition[] = [
       { externalId: `${G.product}:${G.priceBase}`, status: "updated" },
       { externalId: `УН-00005301:${G.pricePartner}`, status: "created" },
     ]),
-    notes: ["externalId рядка відповіді: <productExternalId або sku>:<priceTypeExternalId>."],
+    notes: [
+      "externalId рядка відповіді: <productExternalId або sku>:<priceTypeExternalId>.",
+      "Ролі типів цін задають у панелі. Нова роль «Базова» діє з наступного надсилання цін; роль «Індивідуальна» діє одразу для цін, які вже надіслано.",
+      "Ціна партнера: власна партнерська ціна товару з панелі, якщо її вказано; інакше ціна індивідуального типу мінус знижка компанії; без такої ціни (або з ціною 0) - ціна на сайті мінус знижка (під час акції - від старої ціни).",
+    ],
     check: { envelope: BatchEnvelope, item: PriceItem },
   },
   {
@@ -342,7 +348,7 @@ const DEFINITIONS: Definition[] = [
     acceptFlag: "acceptLedger",
     title: "Взаєморозрахунки",
     description:
-      "Рядки акту звірки за одним договором: залишок на початок, замовлення, рахунки, оплати, повернення; plus збільшує борг, minus зменшує. replace: true спершу прибирає записи договору від дати from, яких немає в пакеті.",
+      "Рядки акту звірки за одним договором: залишок на початок, замовлення, рахунки, оплати, повернення; plus збільшує борг, minus зменшує. replace: true після запису пакета прибирає записи договору від дати from, яких немає в пакеті.",
     query: [],
     request: {
       batchId: BATCH,
@@ -369,11 +375,17 @@ const DEFINITIONS: Definition[] = [
         },
       ],
     },
-    response: pushAnswer([
-      { externalId: G.ledger1, status: "unchanged" },
-      { externalId: G.ledger2, status: "created" },
-    ]),
-    notes: ["Невідомий договір: відповідь 404, пакет не запам'ятовується (спершу надішліть клієнтів, потім повторіть)."],
+    response: {
+      ...pushAnswer([
+        { externalId: G.ledger1, status: "unchanged" },
+        { externalId: G.ledger2, status: "created" },
+      ]),
+      replace: { done: true, removed: 0 },
+    },
+    notes: [
+      "Невідомий договір: відповідь 404, пакет не запам'ятовується (спершу надішліть клієнтів, потім повторіть).",
+      "replace: true прибирає записи лише тоді, коли всі рядки пакета прийнято. Якщо хоч один рядок має помилку (не пройшов перевірку, повторює інший, не записався), жоден запис періоду не видаляється, а відповідь містить replace: { done: false, reason: \"items-failed\" }. Виправте рядок і надішліть період ще раз з новим batchId: з тим самим batchId сайт поверне збережену відповідь.",
+    ],
     check: { envelope: LedgerEnvelope, item: LedgerItem },
   },
   {
@@ -545,6 +557,43 @@ const ERRORS: BasSpecDto["errors"] = [
   { status: 500, code: "server", meaning: "Помилка сайту; повторіть пізніше." },
 ];
 
+// The push mode (push.ts) from the side of BAS: what arrives at its
+// address. The texts follow the code there; keep them together.
+const PUSH: BasSpecPush = {
+  description:
+    "Необов'язковий режим для BAS, що приймає замовлення за власною адресою (HTTP-сервіс бази). Коли в налаштуваннях обміну обрано «Сайт ще й надсилає замовлення», вказано адресу і обмін увімкнено, сайт сам робить POST на цю адресу щоразу, як замовлення або заявка на повернення потрапляє в чергу. Тіло - той самий пакет, що видає GET /orders (GET /returns). Черга при цьому працює як завжди і лишається запасним шляхом.",
+  headers: [
+    { name: "Content-Type", value: "application/json", description: "Тіло - JSON у UTF-8 без BOM." },
+    {
+      name: "Authorization",
+      value: "Basic <base64 від логін:пароль>",
+      description: "Лише коли в налаштуваннях вказано логін; пароль зберігається на сайті зашифрованим.",
+    },
+    {
+      name: "Idempotency-Key",
+      value: "q-3f9a1c2b7d4e",
+      description:
+        "Ідентифікатор запису черги: однаковий для кожної спроби того самого замовлення. Повтор із тим самим ключем не має створювати документ удруге.",
+    },
+    { name: "User-Agent", value: "binar-bas-push/1", description: "Щоб відрізнити запити сайту в журналі веб-сервера." },
+  ],
+  examples: [
+    { label: "Тіло: нове замовлення", body: { kind: "order", packet: ORDER_PACKET } },
+    { label: "Тіло: заявка на повернення", body: { kind: "return", packet: RETURN_PACKET } },
+    { label: "Тіло: перевірка з'єднання", body: { kind: "ping" } },
+    { label: "Відповідь BAS (тіло необов'язкове)", body: { externalId: G.order, number: "ЗП-000777" } },
+  ],
+  rules: [
+    "Будь-яка відповідь 2xx означає «прийнято»: запис черги стає підтвердженим і більше не видається в GET /orders. Якщо тіло відповіді - JSON з externalId та (або) number, сайт зберігає їх так само, як після POST /orders/ack.",
+    `Відповідь не 2xx, переадресація (сайт її не виконує), відсутність відповіді за ${PUSH_TIMEOUT_MS / 1000} секунд або помилка з'єднання: запис лишається в черзі зі станом «очікує», текстом помилки й лічильником спроб. BAS забирає його звичайним GET /orders (GET /returns) і підтверджує через /ack, тож замовлення не губиться.`,
+    "Автоматичних повторів за розкладом немає: наступну спробу робить менеджер кнопкою «Повторити» на вкладці «Черга». Кожна спроба йде з тим самим Idempotency-Key.",
+    "Перевірка з'єднання в налаштуваннях надсилає { \"kind\": \"ping\" } на збережену адресу; відповідь 2xx означає, що адресу, логін і пароль налаштовано правильно.",
+    "Адреса - лише https, без логіна й пароля в самій адресі і не з внутрішньої мережі (10.x, 192.168.x тощо): сайт працює в інтернеті. Ім'я сервера, яке веде на таку адресу, теж не підходить: сайт перевіряє, куди воно веде, під час кожного з'єднання.",
+    "Пароль належить адресі, для якої його ввели: якщо адресу змінити на інший сервер (інший домен, порт або схему) і не ввести пароль заново, збережений пароль видаляється.",
+    "Кожна спроба записується в журнал обміну: яке замовлення чи повернення, результат і тривалість. Ні пакет, ні пароль у журнал не потрапляють.",
+  ],
+};
+
 const STATUS_MAP: BasSpecDto["statusMap"] = [
   { bas: "new", site: "new", label: "Нове" },
   { bas: "awaiting_payment", site: "new", label: "Нове, очікує оплату" },
@@ -646,6 +695,38 @@ const PULL_SAMPLE = `// Нові замовлення сайту: забрати
     КонецЦикла;
 КонецПроцедуры`;
 
+const RECEIVE_SAMPLE = `// Режим надсилання: HTTP-сервіс розширення, метод POST шаблону /orders.
+// Сайт надсилає { kind, packet } (або { kind: "ping" } для перевірки).
+Функция ЗаказыСайтаPOST(Запрос)
+    Чтение = Новый ЧтениеJSON;
+    Чтение.УстановитьСтроку(Запрос.ПолучитьТелоКакСтроку(КодировкаТекста.UTF8));
+    Данные = ПрочитатьJSON(Чтение);
+    Чтение.Закрыть();
+    Ответ = Новый HTTPСервисОтвет(200);
+    Ответ.Заголовки.Вставить("Content-Type", "application/json; charset=utf-8");
+    Если Данные.kind = "ping" Тогда
+        Ответ.УстановитьТелоИзСтроки("{""ok"": true}");
+        Возврат Ответ;
+    КонецЕсли;
+    Попытка
+        // Ваша обробка: той самий пакет, що з GET /orders. Ключ повтору -
+        // заголовок Idempotency-Key: за ним знаходять уже створений документ.
+        Документ = СоздатьИлиНайтиДокументСайта(Данные.kind, Данные.packet,
+            Запрос.Заголовки.Получить("Idempotency-Key"));
+    Исключение
+        // Не 2xx: замовлення лишається в черзі сайту, його заберуть звичайним запитом.
+        Ответ = Новый HTTPСервисОтвет(500);
+        Ответ.УстановитьТелоИзСтроки(КраткоеПредставлениеОшибки(ИнформацияОбОшибке()));
+        Возврат Ответ;
+    КонецПопытки;
+    Запись = Новый ЗаписьJSON;
+    Запись.УстановитьСтроку();
+    ЗаписатьJSON(Запись, Новый Структура("externalId, number",
+        Строка(Документ.УникальныйИдентификатор()), Документ.Номер));
+    Ответ.УстановитьТелоИзСтроки(Запись.Закрыть());
+    Возврат Ответ;
+КонецФункции`;
+
 function publicEndpoint(definition: Definition): BasSpecEndpoint {
   const { check: _check, queryExample: _example, ...endpoint } = definition;
   void _check;
@@ -662,10 +743,12 @@ export function basSpec(): BasSpecDto {
     errors: ERRORS,
     statusMap: STATUS_MAP,
     endpoints: DEFINITIONS.map(publicEndpoint),
+    push: PUSH,
     codeSamples: [
       { title: "Запит до сайту", language: "bsl", code: REQUEST_SAMPLE },
       { title: "Надсилання товарів", language: "bsl", code: PUSH_SAMPLE },
       { title: "Черга нових замовлень", language: "bsl", code: PULL_SAMPLE },
+      { title: "Прийом замовлень від сайту (режим надсилання)", language: "bsl", code: RECEIVE_SAMPLE },
     ],
   };
 }

@@ -177,6 +177,8 @@ export type ReturnPatchBody = {
 
 // POST /api/admin/returns/<id>/notes [returns.edit] { text } -> { ok, note }
 // DELETE /api/admin/returns/<id>/notes/<noteId> [returns.edit] -> { ok }
+//   the author removes a note, and so does an owner (403 "not-author" for
+//   anybody else)
 export type ReturnNoteBody = { text: string };
 
 // The section's wording of refusals (on top of the panel's shared ones in
@@ -186,6 +188,7 @@ export const RETURN_ERRORS: Record<string, string> = {
   conflict: "Заявку тим часом змінили. На сторінці вже актуальні дані: перевірте їх і повторіть дію.",
   state: "Цю дію зараз виконати не можна: стан заявки змінився. Оновіть сторінку.",
   "not-found": "Заявку на повернення не знайдено: можливо, адреса неточна.",
+  "not-author": "Видалити нотатку може лише той, хто її написав, або власник.",
 };
 
 export const RETURN_STATE_REASONS: Record<string, string> = {

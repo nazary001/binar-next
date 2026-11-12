@@ -1,12 +1,13 @@
 import "server-only";
 import type { Filter } from "mongodb";
-import type { MediaUsageItem } from "@/components/admin/media/types";
+import { MEDIA_ORDER_FOLDER, type MediaUsageItem } from "@/components/admin/media/types";
 import { escapeRegex } from "../admin/list";
 import {
   collection,
   type B2bOrderDoc,
   type BlogPostDoc,
   type MaterialFileDoc,
+  type MediaDoc,
   type OrderDoc,
   type ProductDoc,
 } from "../db/collections";
@@ -133,4 +134,47 @@ export async function mediaUsage(id: string): Promise<MediaUsageItem[]> {
     orderUsage(pattern),
   ]);
   return groups.flat();
+}
+
+// --- the order documents ------------------------------------------------------------
+//
+// The library also keeps the papers of the partners' orders (invoices,
+// waybills): the order screen and BAS file them in the folder "orders",
+// and an order document may point at any other file too. Those files
+// belong to the orders permissions, not to the editors of public content
+// (src/app/api/admin/media/library.ts says who may do what with them).
+
+// Any field value that may hold a reference to a stored file.
+const ANY_REFERENCE = /^media:|\/api\/(?:admin\/)?media\//;
+const REFERENCE_ID = /^media:([A-Za-z0-9][A-Za-z0-9_-]{0,63})$|\/api\/(?:admin\/)?media\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})(?:$|[/?#])/;
+
+// True when an order document points at the file `id`.
+export async function usedByOrders(id: string): Promise<boolean> {
+  const orders = await collection("orders");
+  const found = await orders.countDocuments({ "documents.file": mediaReferencePattern(id) } as Filter<OrderDoc>, { limit: 1 });
+  return found > 0;
+}
+
+// True for a file of the folder "orders" and for any file an order
+// document points at.
+export async function isOrderDocumentFile(media: Pick<MediaDoc, "_id" | "folder">): Promise<boolean> {
+  return media.folder === MEDIA_ORDER_FOLDER || (await usedByOrders(media._id));
+}
+
+// The ids of the files order documents point at that are kept outside the
+// folder "orders" (the files of that folder need no list).
+export async function orderDocumentsOutsideFolder(): Promise<string[]> {
+  const orders = await collection("orders");
+  const values: unknown[] = await orders.distinct("documents.file", { "documents.file": ANY_REFERENCE } as Filter<OrderDoc>);
+  const ids = new Set<string>();
+  for (const value of values) {
+    const match = typeof value === "string" ? REFERENCE_ID.exec(value) : null;
+    const id = match?.[1] ?? match?.[2];
+    if (id) ids.add(id);
+  }
+  if (ids.size === 0) return [];
+  const outside = await (await collection("media"))
+    .find({ _id: { $in: [...ids] }, folder: { $ne: MEDIA_ORDER_FOLDER } }, { projection: { _id: 1 } })
+    .toArray();
+  return outside.map((media) => media._id);
 }

@@ -106,19 +106,28 @@ export type StockIssue = {
   resolved: boolean;
 };
 
-// Stock check at checkout. There is no backend yet, so the mock treats
-// two things as «sold out while you were shopping»: products flagged
-// unavailable in the feed, and PROMO lines (the item with an oldPrice —
-// a sale running out is the realistic demo case; add the «-25%» shampoo
-// from /catalog and press «Оформити замовлення» to see the modal).
-// Retail only: a B2B partner orders on request, so an unavailable or
-// preorder line is «Під замовлення» (B2BStatusLine) and stays orderable,
-// and the partner price row has no promo - nothing ever sells out there.
+// Whether the shop can sell a product: it has a price above zero. A
+// product made in the admin panel or sent by the accounting system starts
+// at 0 and waits for a manager to price it; until then nobody can order it
+// (checkStock below) and the public catalog shows it out of stock
+// (server/repos/catalog.ts).
+export function hasPrice(product: Pick<Product, "price">): boolean {
+  return typeof product.price === "number" && Number.isFinite(product.price) && product.price > 0;
+}
+
+// Stock check at checkout: the one rule of the cart drawer, the checkout
+// gate and placeOrder (server/repos/orders.ts runs it over the database's
+// fields). A line is «sold out while you were shopping» when
+// - its product has no price (hasPrice), for every buyer;
+// - retail only: its product is unavailable. A B2B partner orders on
+//   request, so an unavailable or preorder line is «Під замовлення»
+//   (B2BStatusLine) and stays orderable.
+// A promo (an oldPrice) is a price, not a stock state: a promo item sells
+// like any other.
 export function checkStock(entries: CartEntry[], mode: PriceMode = "retail"): StockIssue[] {
-  if (mode === "partner") return [];
   const inCart = new Set(entries.map((e) => e.line.id));
   return entries.flatMap((entry) => {
-    const soldOut = !entry.product.available || entry.product.oldPrice !== undefined;
+    const soldOut = !hasPrice(entry.product) || (mode === "retail" && !entry.product.available);
     if (!soldOut) return [];
     return [
       {
@@ -132,17 +141,16 @@ export function checkStock(entries: CartEntry[], mode: PriceMode = "retail"): St
   });
 }
 
-// The closest in-stock alternative: same title + volume first (the
-// designer's alternative shampoo photo lives on «shampoo-alt-1», so it
-// wins among equals), then the same subcategory, then anything in
-// stock — never a promo, never something already in the cart.
+// The closest alternative on sale (available and priced): same title +
+// volume first (the designer's alternative shampoo photo lives on
+// «shampoo-alt-1», so it wins among equals), then the same subcategory,
+// then anything on sale - never something already in the cart.
 export function suggestReplacement(
   product: Product,
   inCart: Set<string>,
 ): Product | undefined {
   const pool = allProducts().filter(
-    (p) =>
-      p.id !== product.id && p.available && p.oldPrice === undefined && !inCart.has(p.id),
+    (p) => p.id !== product.id && p.available && hasPrice(p) && !inCart.has(p.id),
   );
   const score = (p: Product) =>
     (p.title === product.title && p.volume === product.volume ? 4 : 0) +

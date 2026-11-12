@@ -17,6 +17,7 @@ import { DIRECTIONS, materialDownloadPath, type Direction } from "@/components/m
 import { collection, type MaterialCategoryDoc, type MaterialFileDoc, type MediaDoc } from "../../db/collections";
 import { newId } from "../../ids";
 import { findMedia } from "../../media/store";
+import { isOrderDocumentFile } from "../../media/usage";
 import { HttpError, notFound } from "../http";
 import { contains, idParam, oneOf } from "../list";
 
@@ -250,9 +251,14 @@ async function assertCategoryExists(id: string, field = "category"): Promise<voi
   if (found === 0) throw fieldError({ [field]: "unknown" });
 }
 
+// The upload a material file stores. The download route hands it to
+// whoever the material lets in (a guest, when it is not locked), so a
+// paper of an order (an invoice, a waybill: media/usage.ts) can never
+// become one, whoever asks.
 async function requireMedia(mediaId: string): Promise<MediaDoc> {
   const media = await findMedia(mediaId);
   if (!media) throw fieldError({ mediaId: "unknown" });
+  if (await isOrderDocumentFile(media)) throw fieldError({ mediaId: "order-document" });
   return media;
 }
 

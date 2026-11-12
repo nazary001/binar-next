@@ -4,7 +4,8 @@
 
 import { ArrowUpTrayIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { useState } from "react";
-import { MEDIA_FOLDERS, MEDIA_IMAGE_TYPES, type MediaAccess, type MediaDto, type MediaFolder } from "../../media/types";
+import { MEDIA_FOLDERS, MEDIA_IMAGE_TYPES, MEDIA_ORDER_FOLDER, type MediaAccess, type MediaDto, type MediaFolder } from "../../media/types";
+import { useStaff } from "../../shell/StaffProvider";
 import { invalidate, useAdminQuery } from "../../lib/query";
 import { cx, formatBytes, qs } from "../../lib/format";
 import { Button } from "../Button";
@@ -104,6 +105,10 @@ function Tile({ media, selected, onSelect, onPick }: { media: MediaDto; selected
 }
 
 export function MediaPicker({ open, onClose, onPick, folder, kind = "image", access = "public", title = "Медіатека" }: MediaPickerProps) {
+  const { can } = useStaff();
+  // The order papers answer an empty list to a role without orders.view, so
+  // the folder is not offered to it (as on the media screen).
+  const folderOptions = can("orders.view") ? FOLDER_OPTIONS : FOLDER_OPTIONS.filter((option) => option.value !== MEDIA_ORDER_FOLDER);
   const [q, setQ] = useState("");
   const [shownFolder, setShownFolder] = useState<MediaFolder | null>(folder ?? null);
   const [page, setPage] = useState(1);
@@ -208,7 +213,7 @@ export function MediaPicker({ open, onClose, onPick, folder, kind = "image", acc
                   setShownFolder(next);
                   setPage(1);
                 }}
-                options={FOLDER_OPTIONS}
+                options={folderOptions}
                 placeholder="Усі папки"
                 clearable
                 className="min-[640px]:w-[220px]"

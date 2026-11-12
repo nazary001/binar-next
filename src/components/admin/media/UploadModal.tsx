@@ -14,7 +14,7 @@ import { Spinner } from "../ui/Spinner";
 import { toast } from "../ui/Toast";
 import { TEXT, TONES } from "../ui/tokens";
 import { prepareForUpload, sendMedia } from "./transfer";
-import { MEDIA_FOLDERS, MEDIA_MAX_BYTES, type MediaAccess, type MediaDto, type MediaFolder } from "./types";
+import { MEDIA_FOLDERS, MEDIA_MAX_BYTES, MEDIA_ORDER_FOLDER, type MediaAccess, type MediaDto, type MediaFolder } from "./types";
 
 // "Завантажити файли": several files at once into one folder with one
 // access. Files are chosen, dropped or pasted, wait in a list (the folder
@@ -81,6 +81,7 @@ export function UploadModal({
   onClose,
   folder: startFolder,
   files: startFiles,
+  orderFolder,
 }: {
   open: boolean;
   onClose: () => void;
@@ -88,7 +89,11 @@ export function UploadModal({
   folder: MediaFolder;
   // Files dropped on the library before the dialog opened.
   files: File[];
+  // The folder of order papers is offered (orders.edit; the server refuses
+  // an upload into it otherwise).
+  orderFolder: boolean;
 }) {
+  const folderOptions = orderFolder ? FOLDER_OPTIONS : FOLDER_OPTIONS.filter((option) => option.value !== MEDIA_ORDER_FOLDER);
   const [folder, setFolder] = useState<MediaFolder>(startFolder);
   const [access, setAccess] = useState<MediaAccess>("public");
   const [items, setItems] = useState<Item[]>([]);
@@ -181,7 +186,7 @@ export function UploadModal({
           label="Папка"
           value={folder}
           onChange={setFolder}
-          options={FOLDER_OPTIONS}
+          options={folderOptions}
           disabled={running}
           hint="Лише для порядку в медіатеці: за папкою файл потім легко знайти."
           className="min-[640px]:max-w-[320px]"

@@ -2,6 +2,8 @@
 //   [--password <password>] [--test]
 // npm run admin:create:dev -- ...   (the same against the development database)
 // npm run admin:create -- --roles   (prints the role ids)
+// npm run admin:create -- --reset --email <e-mail> [--password <password>]
+//   (a new password for an account that exists, see below)
 //
 // Creates a member of staff who may sign in at /admin (collection `staff`).
 // The first account of a database should be an owner (the default role).
@@ -11,14 +13,23 @@
 // value on the command line (it stays out of the shell history).
 // The built-in roles are written first, so the script also works on a
 // database that has never seen the panel.
+//
+// A generated password opens the account for GENERATED_PASSWORD_TTL_HOURS
+// only. --reset is the way back in for somebody whose password ran out (or
+// was lost) when nobody else can press "reset password" in the panel: the
+// account gets a new password that has to be replaced at the next sign-in,
+// and its open sessions are ended.
 import { OWNER_ROLE_ID } from "@/components/admin/lib/permissions";
+import { GENERATED_PASSWORD_TTL_HOURS } from "@/components/admin/staff/types";
 import {
   STAFF_PASSWORD_MIN,
   createStaff,
   ensureSystemRoles,
+  findStaffByEmail,
   generatedStaffPassword,
   isStaffEmail,
   normalizeStaffEmail,
+  setStaffPassword,
 } from "@/server/admin/staff";
 import { PASSWORD_MAX_LENGTH } from "@/server/auth/password";
 import { closeClient, getDb } from "@/server/db/client";
@@ -51,16 +62,28 @@ async function main() {
   if (!email) fail("--email is required");
   if (!isStaffEmail(email)) fail(`--email "${email}" is not a valid e-mail`);
 
-  const name = (arg("name") ?? "").replace(/\s+/g, " ");
-  if (!name) fail('--name is required ("Name Surname")');
-
-  const roleId = arg("role") || OWNER_ROLE_ID;
-
   const given = arg("password") ?? (process.env.ADMIN_CREATE_PASSWORD || undefined);
   if (given !== undefined && (given.length < STAFF_PASSWORD_MIN || given.length > PASSWORD_MAX_LENGTH)) {
     fail(`the password must be ${STAFF_PASSWORD_MIN} to ${PASSWORD_MAX_LENGTH} characters long`);
   }
   const password = given || generatedStaffPassword();
+  const holds = `it opens the account for ${GENERATED_PASSWORD_TTL_HOURS} hours and has to be replaced at the first sign-in`;
+
+  if (process.argv.includes("--reset")) {
+    const staff = await findStaffByEmail(email);
+    if (!staff) fail(`no member of staff with ${email}; nothing was changed`);
+    await setStaffPassword(staff._id, password, true);
+    const ended = await (await collection("staffSessions")).deleteMany({ staffId: staff._id });
+    console.log(`New password for ${email} in "${db.databaseName}" (${ended.deletedCount} open session(s) ended)`);
+    if (!given) console.log(`  password (shown once, not stored anywhere in plain text): ${password}`);
+    console.log(`  ${holds}`);
+    return;
+  }
+
+  const name = (arg("name") ?? "").replace(/\s+/g, " ");
+  if (!name) fail('--name is required ("Name Surname")');
+
+  const roleId = arg("role") || OWNER_ROLE_ID;
 
   const created = await createStaff({
     email,
@@ -82,6 +105,7 @@ async function main() {
   console.log(`  signs in at /admin with: ${email}`);
   console.log(`  role: ${roleId}`);
   if (!given) console.log(`  password (shown once, not stored anywhere in plain text): ${password}`);
+  if (!process.argv.includes("--keep-password")) console.log(`  ${holds}`);
 }
 
 main()

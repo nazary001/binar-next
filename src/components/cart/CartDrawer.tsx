@@ -2,15 +2,17 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipsRow, QtyStepper, StatusLine } from "@/components/catalog/ProductCard";
 import { B2BStatusLine } from "@/components/catalog/B2BProductCard";
 import { InfoCircleIcon, XMarkIcon } from "@/components/catalog/icons";
 import { formatPrice, formatPriceWhole, productHref } from "@/components/catalog/data";
 import { RollingNumber } from "@/components/ui/RollingNumber";
+import { ensureShopConfig } from "@/lib/session/bootstrap";
+import { useShopConfig } from "@/lib/session/config";
 import { useCart } from "./CartProvider";
-import { FREE_DELIVERY_THRESHOLD, METER_MOTION, lineTotal, type CartEntry } from "./data";
+import { METER_MOTION, lineTotal, type CartEntry } from "./data";
 import { CartSheetPhone } from "./CartSheetPhone";
 import { CheckCircleIcon, DeliveryIcon, TrashIcon } from "./icons";
 import { LeavingRow, useLeavingRows } from "./LeavingRow";
@@ -152,10 +154,14 @@ function CartRow({ entry }: { entry: CartEntry }) {
 // sum rides above the knob in a brand chip (r12, 14/24 Medium), «0 ₴»
 // and «5 000 ₴ + info» sit under the chip row in #a5a5a5. Once the
 // threshold is reached (4329:40289) the fill is full, the chip reads
-// «5 000 ₴» over the knob and the right label disappears.
-function DeliveryMeter({ subtotal }: { subtotal: number }) {
-  const pct = Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100);
-  const reached = subtotal >= FREE_DELIVERY_THRESHOLD;
+// «5 000 ₴» over the knob and the right label disappears. `limit` = the
+// shop's free-delivery limit (useShopConfig; 5 000 until the session
+// answer brings the panel's value), above zero: a limit of 0 means free
+// delivery from the first hryvnia, and the drawer shows no meter at all
+// (nothing to count to), only the «Безкоштовна доставка» line.
+function DeliveryMeter({ subtotal, limit }: { subtotal: number; limit: number }) {
+  const pct = Math.min(100, (subtotal / limit) * 100);
+  const reached = subtotal >= limit;
   // The knob centre sits 4 px inside the fill end (clamped to the
   // track); the chip is centred on the knob but kept clear of the two
   // labels while the bar is still filling.
@@ -173,7 +179,7 @@ function DeliveryMeter({ subtotal }: { subtotal: number }) {
         style={{ left: chipLeft }}
       >
         <RollingNumber
-          value={reached ? FREE_DELIVERY_THRESHOLD : subtotal}
+          value={reached ? limit : subtotal}
           format={reached ? formatPriceWhole : formatPrice}
         />
       </span>
@@ -182,7 +188,7 @@ function DeliveryMeter({ subtotal }: { subtotal: number }) {
       </span>
       {!reached && (
         <span className="absolute right-0 top-4 flex items-center gap-1 text-[14px] font-medium leading-6 text-neutral-300">
-          {formatPriceWhole(FREE_DELIVERY_THRESHOLD)}
+          {formatPriceWhole(limit)}
           <InfoCircleIcon className="size-4 shrink-0" />
         </span>
       )}
@@ -190,8 +196,8 @@ function DeliveryMeter({ subtotal }: { subtotal: number }) {
         role="progressbar"
         aria-label="Прогрес до безкоштовної доставки"
         aria-valuemin={0}
-        aria-valuemax={FREE_DELIVERY_THRESHOLD}
-        aria-valuenow={Math.min(subtotal, FREE_DELIVERY_THRESHOLD)}
+        aria-valuemax={limit}
+        aria-valuenow={Math.min(subtotal, limit)}
         className="absolute inset-x-0 top-11 h-2 rounded-full bg-neutral-600"
       >
         <div className={`h-full rounded-full bg-brand ${METER_MOTION}`} style={{ width: `${pct}%` }} />
@@ -288,8 +294,14 @@ export function CartDrawer() {
     overlap ? DESKTOP_HEADER_H - B2C_HEADER_OVERLAP - 1 : DESKTOP_HEADER_H,
   );
   const fitted = fit < 1;
-  const reached = subtotal >= FREE_DELIVERY_THRESHOLD;
-  const remaining = Math.max(0, Math.round((FREE_DELIVERY_THRESHOLD - subtotal) * 100) / 100);
+  const { freeDeliveryLimit } = useShopConfig();
+  const reached = subtotal >= freeDeliveryLimit;
+  const remaining = Math.max(0, Math.round((freeDeliveryLimit - subtotal) * 100) / 100);
+  // A visitor without a session has no session answer to bring the shop's
+  // limit: the first opening of the cart asks for it (once per page).
+  useEffect(() => {
+    if (open) ensureShopConfig();
+  }, [open]);
 
   // Escape / scroll lock / focus trap / focus restore. The sticky header
   // stays visible above the scrim's top edge (the sheet hangs from it, as
@@ -416,7 +428,7 @@ export function CartDrawer() {
               <RollingNumber value={subtotal} format={formatPrice} className="text-title-lg text-white" />
             </div>
 
-            <DeliveryMeter subtotal={subtotal} />
+            {freeDeliveryLimit > 0 && <DeliveryMeter subtotal={subtotal} limit={freeDeliveryLimit} />}
 
             <div className="flex items-center gap-3">
               <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-white">

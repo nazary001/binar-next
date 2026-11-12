@@ -1,4 +1,4 @@
-import { parseMediaRef } from "@/components/admin/media/types";
+import { MEDIA_ORDER_FOLDER, parseMediaRef } from "@/components/admin/media/types";
 import { canDownloadMaterial } from "@/components/materials/data";
 import { getSession } from "@/server/auth/session";
 import { fail, handler } from "@/server/http";
@@ -17,7 +17,8 @@ import { zId } from "@/server/validate";
 // signed-in account; unknown id -> 404. External `url` files are never
 // downloaded through the site (404). A file kept in the media library
 // (storagePath "media:<id>") is streamed by this route itself, after the
-// same check, as a private download; a missing one is 404.
+// same check, as a private download; a missing one, and a file of the
+// folder of order papers, is 404.
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -60,7 +61,9 @@ export const GET = handler<Context>(async (_request, { params }) => {
   const mediaId = parseMediaRef(location);
   if (mediaId) {
     const stored = await readMedia(mediaId);
-    if (!stored) return fail(404, "not-found");
+    // A paper of an order never leaves through a material, even when a
+    // record points at one (the panel refuses to make such a record).
+    if (!stored || stored.meta.folder === MEDIA_ORDER_FOLDER) return fail(404, "not-found");
     return mediaResponse(stored.meta, stored.bytes, { cache: "private", download: true });
   }
   return new Response(null, {

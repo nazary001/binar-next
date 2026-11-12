@@ -134,8 +134,12 @@ export type StaffNoteDto = { id: string; at: string; by: { id: string; name: str
 //   status        one or several ORDER_STATUSES ("status=new&status=blocked"
 //                 or "status=new,blocked")
 //   payment       one or several PAYMENT_KINDS; "awaiting" includes shop
-//                 orders with nothing recorded, "overdue" includes partial
-//                 payments with an overdue remainder
+//                 orders with nothing recorded; "overdue" = the partner
+//                 orders, not cancelled, that still owe money and are
+//                 stored as late (payment "overdue", or a partial payment
+//                 with an overdue remainder) or are past their due date by
+//                 the company's today (the overview's "Прострочені оплати"
+//                 counts the same orders; see OrderRow.pastDue)
 //   from, to      order date "YYYY-MM-DD", inclusive
 //   clientId      partner company (clients._id)
 //   managerId     staff._id, or "none" for orders without a manager
@@ -180,6 +184,10 @@ export type OrderRow = {
   payment: PaymentState | null;
   // Due date of a partner order ("YYYY-MM-DD"); null for shop orders.
   paymentDue: string | null;
+  // A partner order, not cancelled, past its due date by its company's
+  // today (a demo company lives on a fixed day) that still owes money:
+  // payment=overdue lists it whatever its stored payment says.
+  pastDue: boolean;
   total: number;
   // Number of lines.
   itemsCount: number;
@@ -370,7 +378,9 @@ export type OrderPatchBody = {
 };
 
 // POST /api/admin/orders/<id>/notes [orders.edit] -> { ok, note }.
-// DELETE /api/admin/orders/<id>/notes/<noteId> [orders.edit] -> { ok }.
+// DELETE /api/admin/orders/<id>/notes/<noteId> [orders.edit] -> { ok }:
+// the author removes a note, and so does an owner (403 "not-author" for
+// anybody else).
 export type OrderNoteBody = { text: string };
 export type NoteAnswer = { ok: true; note: StaffNoteDto };
 
@@ -422,4 +432,5 @@ export const ORDER_ERRORS: Record<string, string> = {
   conflict: "Замовлення тим часом змінили. На сторінці вже актуальні дані: перевірте їх і повторіть дію.",
   state: "Цю дію зараз виконати не можна: стан замовлення змінився. Оновіть сторінку.",
   "not-found": "Замовлення не знайдено: можливо, адреса неточна.",
+  "not-author": "Видалити нотатку може лише той, хто її написав, або власник.",
 };

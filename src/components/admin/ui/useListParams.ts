@@ -21,6 +21,11 @@ import { useRef } from "react";
 //   ...}). A value equal to its default is dropped from the URL, and
 //   `queryString` fills the defaults back in for the API.
 // - keep: names `reset()` leaves alone (a view switch, a tab).
+// - exclude: names that live in the same address but are not the list's
+//   own (a drawer's ?id, the ?tab of the page around): left out of
+//   `queryString` and `params`, so opening a drawer does not change the
+//   cache key and reload the table; set() and reset() leave them as they
+//   are (close the drawer with its own hook, lib/hooks useAddressParam).
 //
 // Returns
 // - params: every value in effect (defaults, then the URL; repeated names
@@ -46,6 +51,7 @@ export type ListPatch = Record<string, ListPatchValue>;
 export type ListParamsOptions = {
   defaults?: Record<string, string>;
   keep?: string[];
+  exclude?: string[];
 };
 
 export type ListParams = {
@@ -79,7 +85,9 @@ export function useListParams(options: ListParamsOptions = {}): ListParams {
   const search = useSearchParams();
   const current = search.toString();
   const defaults: Record<string, string> = { ...options.defaults };
-  const keep = options.keep ?? [];
+  const exclude = options.exclude ?? [];
+  // Excluded names survive a reset like kept ones: they are not the list's.
+  const keep = [...(options.keep ?? []), ...exclude];
 
   // Two changes in the same tick (a search box and its debounce, a chip
   // and a select) must not overwrite each other: until the URL shows the
@@ -125,12 +133,13 @@ export function useListParams(options: ListParamsOptions = {}): ListParams {
   };
 
   const params: Record<string, string> = { ...defaults };
-  for (const name of new Set(search.keys())) params[name] = search.getAll(name).join(",");
+  for (const name of new Set(search.keys())) if (!exclude.includes(name)) params[name] = search.getAll(name).join(",");
 
   const page = positiveInt(get("page"), 1);
   const limit = positiveInt(get("limit"), 20);
 
   const query = new URLSearchParams(current);
+  for (const name of exclude) query.delete(name);
   for (const [name, value] of Object.entries(defaults)) if (!query.has(name) && value !== "") query.set(name, value);
   query.set("page", String(page));
   query.set("limit", String(limit));
