@@ -131,7 +131,13 @@ function toEntry(doc: StoredProduct): CatalogEntry {
 async function loadSnapshot(): Promise<CatalogEntry[]> {
   const products = await collection("products");
   const docs = await products
-    .find({}, { projection: { partnerPrice: 0, createdAt: 0, updatedAt: 0, seed: 0 } })
+    // An archived product (archivedAt is a date, set in the admin panel) is
+    // out of the shop: no listing, no page. Without the field, or with
+    // null (restored), it stays.
+    .find(
+      { archivedAt: { $not: { $type: "date" } } },
+      { projection: { partnerPrice: 0, createdAt: 0, updatedAt: 0, seed: 0 } },
+    )
     .sort({ sort: 1, _id: 1 })
     .toArray();
   return docs.map((doc) => toEntry(doc as StoredProduct));

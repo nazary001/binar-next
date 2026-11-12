@@ -1,9 +1,13 @@
-// npm run db:setup
+// npm run db:setup       - the live database (.env.local)
+// npm run db:setup:dev   - the development copy (.env.development.local)
 //
-// Creates the collections, validators and indexes of the `binar` database
-// (src/server/db/setup.ts). Safe to run again at any time. Uses the admin
-// connection when MONGODB_ADMIN_URI is set: changing a validator needs
-// collMod, which the site's runtime user does not have.
+// Creates the collections, validators and indexes of the database
+// (src/server/db/setup.ts) and what the admin panel needs to exist: the
+// built-in staff roles and the system buyer groups. Safe to run again at
+// any time. Uses the admin connection when MONGODB_ADMIN_URI is set:
+// changing a validator needs collMod, which the site's runtime user does
+// not have.
+import { ensureAdminDefaults } from "@/server/admin/defaults";
 import { closeClient, getDb } from "@/server/db/client";
 import { ensureSchema } from "@/server/db/setup";
 
@@ -16,6 +20,7 @@ async function main() {
       `${row.collection.padEnd(22)} ${row.created ? "created" : "exists "}  validator: ${row.validator.padEnd(8)} indexes: ${row.indexes}`,
     );
   }
+  for (const line of await ensureAdminDefaults()) console.log(line);
   console.log(`\nDatabase "${db.databaseName}" is ready (${report.length} collections).`);
 }
 

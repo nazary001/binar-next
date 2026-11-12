@@ -9,9 +9,16 @@
     "lint": "eslint",
     "db:setup": "tsx --conditions=react-server --env-file=.env.local scripts/db-setup.ts",
     "db:seed": "tsx --conditions=react-server --env-file=.env.local scripts/db-seed.ts",
-    "user:create": "tsx --conditions=react-server --env-file=.env.local scripts/create-user.ts"
+    "user:create": "tsx --conditions=react-server --env-file=.env.local scripts/create-user.ts",
+    "db:clone-dev": "tsx --conditions=react-server --env-file=.env.local scripts/db-clone-dev.ts",
+    "db:setup:dev": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.development.local scripts/db-setup.ts",
+    "db:seed:dev": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.development.local scripts/db-seed.ts",
+    "user:create:dev": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.development.local scripts/create-user.ts",
+    "admin:create": "tsx --conditions=react-server --env-file=.env.local scripts/create-admin.ts",
+    "admin:create:dev": "tsx --conditions=react-server --env-file=.env.local --env-file=.env.development.local scripts/create-admin.ts"
   },
   "dependencies": {
+    "@heroicons/react": "2.2.0",
     "@vercel/functions": "^3.11.1",
     "mongodb": "^7.8.0",
     "next": "16.2.6",

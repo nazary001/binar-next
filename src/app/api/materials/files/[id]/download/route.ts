@@ -1,6 +1,8 @@
+import { parseMediaRef } from "@/components/admin/media/types";
 import { canDownloadMaterial } from "@/components/materials/data";
 import { getSession } from "@/server/auth/session";
 import { fail, handler } from "@/server/http";
+import { mediaResponse, readMedia } from "@/server/media/store";
 import { getMaterialFile } from "@/server/repos/materials";
 import { zId } from "@/server/validate";
 
@@ -13,7 +15,9 @@ import { zId } from "@/server/validate";
 // everything outside its agreement (partnerLocked). Allowed -> 302 to the
 // stored location; refused -> 401 for a guest (sign in first), 403 for a
 // signed-in account; unknown id -> 404. External `url` files are never
-// downloaded through the site (404).
+// downloaded through the site (404). A file kept in the media library
+// (storagePath "media:<id>") is streamed by this route itself, after the
+// same check, as a private download; a missing one is 404.
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -27,6 +31,8 @@ const SITE = "http://site.invalid";
 const VISIBLE_ASCII = /^[\x21-\x7e]+$/;
 
 function storageLocation(path: string): string | null {
+  // The media library form, never a redirect target: streamed below.
+  if (parseMediaRef(path)) return path;
   if (!VISIBLE_ASCII.test(path)) return null;
   let url: URL;
   try {
@@ -50,6 +56,12 @@ export const GET = handler<Context>(async (_request, { params }) => {
   const session = await getSession();
   if (!canDownloadMaterial(file, session ? session.user.type : null)) {
     return session ? fail(403, "forbidden") : fail(401, "unauthorized");
+  }
+  const mediaId = parseMediaRef(location);
+  if (mediaId) {
+    const stored = await readMedia(mediaId);
+    if (!stored) return fail(404, "not-found");
+    return mediaResponse(stored.meta, stored.bytes, { cache: "private", download: true });
   }
   return new Response(null, {
     status: 302,

@@ -44,7 +44,10 @@ export type OrderDocument = {
   title: string;
   date: string;
   sizeMb: number;
-  format: "PDF";
+  // The file type shown on the tile: "PDF" for everything the site
+  // generates; a paper staff attach in the admin panel may be another
+  // type ("DOCX", "XLSX", "JPG").
+  format: string;
   ready: boolean;
   pendingNote?: string;
   href: string;

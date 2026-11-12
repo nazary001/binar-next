@@ -1683,3 +1683,61 @@ label {
     scroll-padding-bottom: var(--phone-bottom-bar, 0px);
   }
 }
+
+/* === Staff area (/admin) ===
+   The admin panel lives in the same app but is not a Figma canvas: it
+   renders at zoom 1 with its own responsive layout. Its root element
+   carries `data-admin` (src/app/admin/layout.tsx), which switches the
+   desktop zoom off (specificity 0,1,1 beats the plain `html` rule above,
+   and no admin page renders `data-canvas="shop"`). PlatformChrome renders
+   no public header or footer there. Admin breakpoints are arbitrary
+   variants (`min-[1024px]:`) or the untouched `xl:` / `2xl:` - the
+   `--breakpoint-*` overrides in @theme must not be extended. */
+html:has([data-admin]) {
+  zoom: 1;
+  scroll-padding-top: 88px;
+}
+[data-admin] :where(h1, h2, h3, h4, [id]) {
+  scroll-margin-top: 88px;
+}
+/* Phones break long words anywhere (rule above); table cells, ids and
+   numbers of the panel must stay whole. */
+@media (max-width: 639px) {
+  [data-admin] :where(td, th, code, [data-nowrap]) :where(span, p, label),
+  [data-admin] :where([data-nowrap]) {
+    overflow-wrap: normal;
+  }
+}
+/* Thin scrollbars for the panel's own scroll areas (side menu, tables,
+   drawers). */
+[data-admin] .admin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-stroke-subtle) transparent;
+}
+[data-admin] .admin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+[data-admin] .admin-scroll::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--color-stroke-subtle);
+}
+[data-admin] .admin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* The loading shimmer of table rows and cards. */
+@keyframes admin-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.admin-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #ececed 25%, #f5f5f5 37%, #ececed 63%);
+  background-size: 400% 100%;
+  animation: admin-shimmer 1.4s ease infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-skeleton {
+    animation: none;
+  }
+}

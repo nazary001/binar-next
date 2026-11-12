@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { isAdminRoute } from "@/lib/admin-route";
 import { dropLocalSession, refreshSession, sessionAgeMs } from "@/lib/session/bootstrap";
 import { clearAccountCache } from "@/lib/session/cache";
 import { hasSessionHint } from "@/lib/session/hint";
@@ -119,6 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // left behind (expired cookie, an old browser-only account) and its
   // cached data are removed. A tab that comes back after a while asks again.
   useEffect(() => {
+    // The staff area has its own session and never needs the customer's:
+    // a page opened there leaves the storefront session alone.
+    if (isAdminRoute(window.location.pathname)) return;
     retryPendingSignOut();
     if (hasSessionHint()) {
       void refreshSession();
@@ -191,8 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <AuthDrawer />
-      <WelcomeModal />
+      {/* No account drawer or welcome card over the staff area. */}
+      {!isAdminRoute(pathname) && <AuthDrawer />}
+      {!isAdminRoute(pathname) && <WelcomeModal />}
     </AuthContext.Provider>
   );
 }

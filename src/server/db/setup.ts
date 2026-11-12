@@ -50,6 +50,12 @@ const SPECS: Record<string, Spec> = {
     indexes: [
       { key: { loginKeys: 1 }, name: "loginKeys_unique", unique: true },
       { key: { clientId: 1 }, name: "clientId" },
+      // The staff area's customer list (newest first, by type).
+      { key: { createdAt: -1 }, name: "created" },
+      { key: { type: 1, createdAt: -1 }, name: "type_created" },
+      // Its other sorts: by name and by the last sign-in.
+      { key: { "person.fullName": 1 }, name: "fullName" },
+      { key: { lastLoginAt: -1 }, name: "lastLogin" },
     ],
   },
   [COLLECTION.sessions]: {
@@ -92,6 +98,8 @@ const SPECS: Record<string, Spec> = {
   [COLLECTION.outbox]: {
     indexes: [
       { key: { sentAt: 1, createdAt: 1 }, name: "pending" },
+      // The notice of a form submission, found from the lead's page.
+      { key: { "payload.leadId": 1 }, name: "lead", partialFilterExpression: { kind: "lead" } },
       // Only messages that carry `expiresAt` (password-reset notices) expire.
       { key: { expiresAt: 1 }, name: "ttl", expireAfterSeconds: 0 },
     ],
@@ -109,6 +117,18 @@ const SPECS: Record<string, Spec> = {
       creditLimits: { bsonType: "array" },
       demoToday: { bsonType: ["string", "null"] },
     }),
+    indexes: [
+      // One company per ERP client (the exchange upserts by this id).
+      {
+        key: { externalId: 1 },
+        name: "externalId_unique",
+        unique: true,
+        partialFilterExpression: { externalId: { $type: "string" } },
+      },
+      // The staff area's company filters (buyer group, manager).
+      { key: { groupId: 1 }, name: "groupId" },
+      { key: { managerId: 1 }, name: "managerId" },
+    ],
   },
   [COLLECTION.counterparties]: {
     validator: schema(["_id", "clientId", "name", "contracts"], {
@@ -117,7 +137,17 @@ const SPECS: Record<string, Spec> = {
       name: str,
       contracts: { bsonType: "array" },
     }),
-    indexes: [{ key: { clientId: 1, sort: 1 }, name: "client_sort" }],
+    indexes: [
+      { key: { clientId: 1, sort: 1 }, name: "client_sort" },
+      {
+        key: { externalId: 1 },
+        name: "externalId_unique",
+        unique: true,
+        partialFilterExpression: { externalId: { $type: "string" } },
+      },
+      // The exchange finds a contract by its ERP id (settlements, clients).
+      { key: { "contracts.externalId": 1 }, name: "contract_externalId" },
+    ],
   },
   [COLLECTION.employees]: {
     validator: schema(["_id", "clientId", "status"], {
@@ -148,6 +178,14 @@ const SPECS: Record<string, Spec> = {
     indexes: [
       { key: { listed: 1, sort: 1 }, name: "listing" },
       { key: { directionSlug: 1, categorySlug: 1, sort: 1 }, name: "category" },
+      // The ERP exchange finds a product by its GUID or by the article.
+      {
+        key: { externalId: 1 },
+        name: "externalId_unique",
+        unique: true,
+        partialFilterExpression: { externalId: { $type: "string" } },
+      },
+      { key: { "details.sku": 1 }, name: "sku" },
     ],
   },
   [COLLECTION.carts]: {
@@ -171,6 +209,38 @@ const SPECS: Record<string, Spec> = {
     indexes: [
       { key: { clientId: 1, date: -1, _id: -1 }, name: "client_date" },
       { key: { userId: 1, createdAt: -1 }, name: "user_created" },
+      // The staff area's order list: every company and channel, newest
+      // first, narrowed by channel or status; plus the parcels by waybill.
+      { key: { createdAt: -1, _id: -1 }, name: "created" },
+      { key: { channel: 1, createdAt: -1, _id: -1 }, name: "channel_created" },
+      { key: { status: 1, createdAt: -1, _id: -1 }, name: "status_created" },
+      {
+        key: { "shipment.ttn": 1 },
+        name: "shipment_ttn",
+        partialFilterExpression: { "shipment.ttn": { $type: "string" } },
+      },
+      // The delivery section: parcels newest first, and the ones due for a
+      // status refresh.
+      {
+        key: { "shipment.createdAt": -1, _id: -1 },
+        name: "shipment_created",
+        partialFilterExpression: { shipment: { $type: "object" } },
+      },
+      {
+        key: { "shipment.carrier": 1, "shipment.checkedAt": 1 },
+        name: "shipment_track",
+        partialFilterExpression: { "shipment.ttn": { $type: "string" } },
+      },
+      // Orders of a manager; orders waiting for a cancel decision; the
+      // business day the overview groups by; the ERP document of an order.
+      { key: { managerId: 1, createdAt: -1 }, name: "manager_created" },
+      { key: { "cancel.request": 1 }, name: "cancel_request", partialFilterExpression: { "cancel.request": true } },
+      { key: { date: -1, _id: -1 }, name: "date" },
+      {
+        key: { "erp.externalId": 1 },
+        name: "erp_externalId",
+        partialFilterExpression: { "erp.externalId": { $type: "string" } },
+      },
     ],
   },
   [COLLECTION.returns]: {
@@ -187,6 +257,9 @@ const SPECS: Record<string, Spec> = {
       { key: { orderId: 1 }, name: "orderId" },
       // The cabinet's list order (repos/orders.ts RETURN_SORT).
       { key: { clientId: 1, createdAt: -1, _id: -1 }, name: "client_created" },
+      // The staff area's list of every company's requests.
+      { key: { createdAt: -1, _id: -1 }, name: "created" },
+      { key: { status: 1, createdAt: -1, _id: -1 }, name: "status_created" },
     ],
   },
   [COLLECTION.counters]: {},
@@ -206,7 +279,11 @@ const SPECS: Record<string, Spec> = {
   },
   [COLLECTION.blogPosts]: {
     validator: schema(["_id", "title", "sort"], { _id: str, title: str, sort: num }),
-    indexes: [{ key: { sort: 1 }, name: "sort" }],
+    indexes: [
+      { key: { sort: 1 }, name: "sort" },
+      // Public posts (the storefront) and drafts (the panel's counters).
+      { key: { status: 1, publishedAt: -1 }, name: "status_published" },
+    ],
   },
   [COLLECTION.leads]: {
     validator: schema(["_id", "kind", "source", "payload", "createdAt"], {
@@ -216,7 +293,157 @@ const SPECS: Record<string, Spec> = {
       payload: { bsonType: "object" },
       createdAt: date,
     }),
-    indexes: [{ key: { createdAt: -1 }, name: "created" }],
+    indexes: [
+      { key: { createdAt: -1 }, name: "created" },
+      { key: { status: 1, createdAt: -1 }, name: "status_created" },
+      { key: { kind: 1, createdAt: -1 }, name: "kind_created" },
+      // The form submissions of an account (its page in the staff area).
+      { key: { userId: 1, createdAt: -1 }, name: "user_created" },
+    ],
+  },
+
+  // --- staff area (admin panel) ---------------------------------------------
+  [COLLECTION.staff]: {
+    validator: schema(["_id", "email", "name", "passwordHash", "roleId", "isActive", "createdAt", "updatedAt"], {
+      _id: str,
+      email: { bsonType: "string", minLength: 3 },
+      name: str,
+      passwordHash: str,
+      roleId: str,
+      isActive: bool,
+      mustChangePassword: bool,
+      createdAt: date,
+      updatedAt: date,
+    }),
+    indexes: [
+      { key: { email: 1 }, name: "email_unique", unique: true },
+      // Members of a role (the counts on the roles page, the role filter).
+      { key: { roleId: 1 }, name: "roleId" },
+    ],
+  },
+  [COLLECTION.staffSessions]: {
+    validator: schema(["_id", "staffId", "createdAt", "expiresAt"], {
+      _id: str,
+      staffId: str,
+      createdAt: date,
+      lastSeenAt: date,
+      expiresAt: date,
+    }),
+    indexes: [
+      { key: { expiresAt: 1 }, name: "ttl", expireAfterSeconds: 0 },
+      { key: { staffId: 1 }, name: "staffId" },
+    ],
+  },
+  [COLLECTION.staffRoles]: {
+    validator: schema(["_id", "name", "permissions"], {
+      _id: str,
+      name: { bsonType: "string", minLength: 1 },
+      permissions: { bsonType: "array", items: str },
+    }),
+  },
+  [COLLECTION.auditLog]: {
+    validator: schema(["_id", "at", "actor", "action", "summary"], {
+      _id: str,
+      at: date,
+      actor: { bsonType: "object" },
+      action: str,
+      summary: str,
+    }),
+    indexes: [
+      { key: { at: -1 }, name: "at" },
+      { key: { "entity.type": 1, "entity.id": 1, at: -1 }, name: "entity_at" },
+      { key: { "actor.id": 1, at: -1 }, name: "actor_at" },
+      { key: { action: 1, at: -1 }, name: "action_at" },
+    ],
+  },
+  [COLLECTION.settings]: {
+    validator: schema(["_id", "value", "updatedAt"], { _id: str, value: { bsonType: "object" }, updatedAt: date }),
+  },
+  [COLLECTION.media]: {
+    validator: schema(["_id", "kind", "filename", "contentType", "size", "access", "createdAt"], {
+      _id: str,
+      kind: { enum: ["image", "file"] },
+      filename: str,
+      contentType: str,
+      size: num,
+      access: { enum: ["public", "private"] },
+      createdAt: date,
+    }),
+    indexes: [
+      { key: { folder: 1, createdAt: -1 }, name: "folder_created" },
+      { key: { createdAt: -1 }, name: "created" },
+      { key: { sha256: 1 }, name: "sha256" },
+    ],
+  },
+  [COLLECTION.mediaBlobs]: {},
+  [COLLECTION.priceTypes]: {
+    validator: schema(["_id", "name"], { _id: str, name: { bsonType: "string", minLength: 1 } }),
+    indexes: [
+      {
+        key: { externalId: 1 },
+        name: "externalId_unique",
+        unique: true,
+        partialFilterExpression: { externalId: { $type: "string" } },
+      },
+    ],
+  },
+  [COLLECTION.customerGroups]: {
+    validator: schema(["_id", "name"], { _id: str, name: { bsonType: "string", minLength: 1 } }),
+  },
+  [COLLECTION.ledger]: {
+    validator: schema(["_id", "clientId", "externalId", "docType", "docDate", "amount", "impact"], {
+      _id: str,
+      clientId: str,
+      externalId: str,
+      docType: { enum: ["opening_balance", "order", "invoice", "payment", "return"] },
+      docDate: date,
+      amount: num,
+      impact: { enum: ["plus", "minus"] },
+    }),
+    indexes: [
+      { key: { externalId: 1 }, name: "externalId_unique", unique: true },
+      { key: { clientId: 1, docDate: -1 }, name: "client_date" },
+      { key: { orderId: 1 }, name: "orderId" },
+    ],
+  },
+  [COLLECTION.apiKeys]: {
+    validator: schema(["_id", "name", "hash", "scopes", "isActive", "createdAt"], {
+      _id: str,
+      name: str,
+      hash: str,
+      scopes: { bsonType: "array", items: str },
+      isActive: bool,
+      createdAt: date,
+    }),
+    indexes: [{ key: { hash: 1 }, name: "hash_unique", unique: true }],
+  },
+  [COLLECTION.exchangeLog]: {
+    indexes: [
+      { key: { expiresAt: 1 }, name: "ttl", expireAfterSeconds: 0 },
+      { key: { at: -1 }, name: "at" },
+      { key: { system: 1, entity: 1, at: -1 }, name: "system_entity_at" },
+    ],
+  },
+  [COLLECTION.exchangeBatches]: {
+    indexes: [{ key: { expiresAt: 1 }, name: "ttl", expireAfterSeconds: 0 }],
+  },
+  [COLLECTION.exchangeQueue]: {
+    validator: schema(["_id", "seq", "kind", "entityId", "state", "createdAt"], {
+      _id: str,
+      seq: num,
+      kind: { enum: ["order", "return"] },
+      entityId: str,
+      state: { enum: ["pending", "acked", "error"] },
+      createdAt: date,
+    }),
+    indexes: [
+      { key: { seq: 1 }, name: "seq_unique", unique: true },
+      { key: { state: 1, seq: 1 }, name: "state_seq" },
+      { key: { kind: 1, entityId: 1 }, name: "entity_unique", unique: true },
+    ],
+  },
+  [COLLECTION.carrierCache]: {
+    indexes: [{ key: { expiresAt: 1 }, name: "ttl", expireAfterSeconds: 0 }],
   },
 };
 

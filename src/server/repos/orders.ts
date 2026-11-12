@@ -1,5 +1,6 @@
 import "server-only";
 import type { Collection, Filter } from "mongodb";
+import { parseMediaRef } from "@/components/admin/media/types";
 import type { CartEntry, CartLine } from "@/components/cart/data";
 import { cartSubtotal, checkStock } from "@/components/cart/data";
 import type { Product } from "@/components/catalog/data";
@@ -268,6 +269,8 @@ const VISIBLE_ASCII = /^[\x21-\x7e]+$/;
 
 export function fileLocation(path: string | null | undefined): string | null {
   if (typeof path !== "string" || !VISIBLE_ASCII.test(path)) return null;
+  // A file of the media library ("media:<id>"): the routes stream it.
+  if (parseMediaRef(path)) return path;
   let url: URL;
   try {
     url = new URL(path, SITE);
