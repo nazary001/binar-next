@@ -38,7 +38,11 @@ import { useHydrated } from "./useHydrated";
 // trap, <html> scroll lock and focus return (useModalBehavior), and the
 // height fit of the other overlays (useFitZoom: the card is zoomed so the
 // whole master fits inside 40-px gutters on a short desktop window
-// instead of scrolling).
+// instead of scrolling). So from 640 the card never scrolls and does not
+// clip: a select menu at the bottom of the slot (the one-select «Скасувати
+// замовлення») draws over the card's edge and the scrim instead of being
+// cut with no visible scroll (designer 2026-11-13, C33: «меню викидати
+// поверх модалки»).
 //
 // Phones (< 640, system spec A6 / DECISIONS D7), ONE DOM for both widths:
 // - phone="card" (default, the D7 short modal): card = viewport - 48 (342 at
@@ -47,13 +51,15 @@ import { useHydrated } from "./useHydrated";
 //   16/24 #343435 16 under the title, actions stacked 8 apart; the card is
 //   at most 100dvh - 48 tall and scrolls inside, the title row and the
 //   actions row stay pinned (sticky) while it overflows, the actions then
-//   get a 1-px #d2d2d2 top line. align="top" starts the card 24 from the
+//   get a 1-px #d2d2d2 top line; a card that scrolls shows a scroll
+//   indicator on the right (C33: thin, #d2d2d2 on a transparent track). align="top" starts the card 24 from the
 //   top (cards whose slot holds inputs: the keyboard never covers them).
 // - phone="sheet" (tables, > 3 fields, unbounded lists, the cancel order
 //   radios): the same nodes become the full-screen sheet of ui/Sheet.tsx -
 //   66-px bar with a one-line Title Large title (+ `shortTitle` below 375)
 //   and the 48 cross box, body px 24 pt 24, actions = the sheet footer.
-// The desktop strings (`sm:` = 640) are today's values, untouched.
+// The desktop strings (`sm:` = 640) are today's values, untouched, but
+// for the card's overflow (C33, above).
 
 export type Modal718CardProps = {
   title: ReactNode;
@@ -121,8 +127,13 @@ export function Modal718Card({
   // actions row WITH its bottom padding. sticky / z / bg are phone-only:
   // the rows are flex items, so a z-index would make them stacking contexts
   // on desktop too and change how Chrome rasterises the button labels.
+  // Scrolling (designer 2026-11-13, C33): from 640 the card is never a
+  // scroller (the height fit keeps the whole master in the window), so a
+  // select menu near the bottom of the slot opens over the card's edge
+  // instead of being cut by it; below 640 the card scrolls and shows the
+  // thin #d2d2d2 indicator on the right (the native overlay one on phones).
   const cardClass = [
-    "group/m718 scrollbar-hidden relative w-full shrink-0 overflow-y-auto overscroll-contain rounded-[32px] border border-stroke-default bg-white text-neutral-900 outline-none sm:rounded-[48px] sm:py-[59px]",
+    "group/m718 relative w-full shrink-0 overflow-y-auto overscroll-contain rounded-[32px] border border-stroke-default bg-white text-neutral-900 outline-none [scrollbar-color:var(--color-stroke-subtle)_transparent] [scrollbar-width:thin] sm:overflow-visible sm:rounded-[48px] sm:py-[59px]",
     sheet
       ? "max-sm:h-dvh max-sm:max-h-dvh max-sm:rounded-none max-sm:border-0 max-sm:transition-[opacity,translate] max-sm:duration-[400ms] max-sm:ease-[cubic-bezier(0.22,1,0.36,1)] max-sm:starting:-translate-y-3 max-sm:starting:opacity-0 motion-reduce:transition-none max-sm:motion-reduce:transition-none"
       : "",

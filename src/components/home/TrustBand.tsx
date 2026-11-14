@@ -15,8 +15,11 @@ export function TrustBand() {
   return (
     // Mobile (Figma 3094:5041): the heading block carries pt-60 and NO
     // bottom padding — the 48-px gap to the first case card comes from
-    // the Cases section's own pt-12.
-    <section className="lg-pad-x px-6 pt-[60px] sm:px-10 lg:py-[160px]">
+    // the Cases section's own pt-12. Desktop gutters are the header's line
+    // (lg-head-x: h2 1384:12745 at x=80, icons ending at 1360 on the 1440
+    // master), since the designer asked on 2026-11-11 to align the content
+    // with the header.
+    <section className="lg-head-x px-6 pt-[60px] sm:px-10 lg:py-[160px]">
       <div className="flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
         {/* Figma 1384:12745: 42/48/-0.84 (NOT the global text-h2 token
             which is 44/48). Single-occurrence size override on this

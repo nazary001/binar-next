@@ -1,7 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import type { MouseEvent, ReactNode } from "react";
 import { ChevronDown16, ChevronSideIcon, MagnifierIcon } from "@/components/catalog/icons";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { SortIcon } from "../orderIcons";
 import { InfoHeadIcon } from "../ui";
 import { PAGE_SIZES } from "./data";
@@ -9,12 +11,14 @@ import { useDismiss, useListbox } from "@/components/ui/useListbox";
 
 // Pieces shared by the two list tables of «Мої замовлення» (4573:37244)
 // and «Мої повернення» (5192:78615): the search field, the dark table
-// head, the 0.5-px row hairline, the 42-px row icon buttons and the
-// pager row.
+// head, the 0.5-px row hairline, the 42-px row icon buttons, the
+// whole-row open and the pager row.
 
 export { useDismiss };
 
-// «Search» (4573:37262): 364 x 46 pill, 1-px #8e8e8f ring, magnifier.
+// «Search» (4573:37262): 364 x 46 pill, 1-px #8e8e8f ring, magnifier, no
+// fill: it shows the #f5f5f5 cabinet surface, as the master draws it (the
+// designer dropped the white fill on 2026-11-11, C30).
 export function SearchField({
   value,
   onChange,
@@ -32,7 +36,7 @@ export function SearchField({
         onChange={(e) => onChange(e.target.value)}
         placeholder="Пошук"
         aria-label={label}
-        className="h-[46px] w-full rounded-[50px] border border-stroke-default bg-white pl-4 pr-12 text-[16px] leading-6 text-neutral-900 outline-none transition-colors duration-200 placeholder:text-neutral-500 focus:border-neutral-800 [&::-webkit-search-cancel-button]:hidden"
+        className="h-[46px] w-full rounded-[50px] border border-stroke-default bg-transparent pl-4 pr-12 text-[16px] leading-6 text-neutral-900 outline-none transition-colors duration-200 placeholder:text-neutral-500 focus:border-neutral-800 [&::-webkit-search-cancel-button]:hidden"
       />
       <MagnifierIcon className="pointer-events-none absolute right-4 top-1/2 size-6 -translate-y-1/2 text-neutral-700" />
     </div>
@@ -46,6 +50,10 @@ export function SearchField({
 // fill #BBBBBC, the sorted «Дата» of the default list included; the
 // sort order itself is exposed through aria-sort. A sortable head lights
 // its glyph white on hover.
+// `info` = the explanation of the label: the info glyph is an InfoTip that
+// shows it in the Figma «Tooltip» chip 4634:65682 on hover / focus
+// (designer 2026-11-11, C23; catalog/tips.ts). A sortable head is a
+// button, so it never takes an info glyph (no button inside a button).
 export function Head({
   children,
   className = "",
@@ -57,7 +65,7 @@ export function Head({
   className?: string;
   sort?: "asc" | "desc" | null;
   onSort?: () => void;
-  info?: boolean;
+  info?: string;
 }) {
   const inner = (
     <>
@@ -67,9 +75,13 @@ export function Head({
           <SortIcon className="size-[18px] text-[#bbbbbc] transition-colors duration-200 group-hover:text-white" />
         </span>
       )}
-      {info && (
+      {info && !onSort && (
         <span className="flex items-start pl-2 pr-1">
-          <InfoHeadIcon className="size-[18px] text-[#bbbbbc]" />
+          <InfoTip
+            label={typeof children === "string" ? children : ""}
+            text={info}
+            icon={<InfoHeadIcon className="size-[18px] text-[#bbbbbc]" />}
+          />
         </span>
       )}
     </>
@@ -109,6 +121,66 @@ export const DIVIDER =
 // «Icon button» 42 x 42 (p-10, r26, 24-px glyph) of the list rows.
 export const ROW_ICON_BUTTON =
   "inline-flex size-[42px] cursor-pointer items-center justify-center rounded-[26px] text-neutral-900 transition-colors duration-200 hover:bg-bg-subtle hover:text-brand";
+
+// Whole-row open (designer 2026-11-13, C32: open the order page on a click
+// on the row, not only on the chevron): a click anywhere on a list row
+// opens the row's page, the chevron link's target. The row leaves alone:
+// - its own controls (the documents button, the chevron link, anything
+//   interactive inside), which keep their action without stopPropagation;
+// - a click that ends a text selection in the row (an order number copied
+//   by dragging over it); a double click opens the page on its first click;
+// - clicks coming from a portal (a dialog opened from the row bubbles
+//   through the React tree, not through the row's DOM).
+// Ctrl / Cmd / Shift-click and the middle button open the page in a new
+// tab, as on a link. The chevron <Link> stays the row's keyboard stop (Tab,
+// Enter), so the <tr> takes no tabindex or role. Usage:
+//   const openRow = useRowOpen();
+//   <tr className={ROW_OPEN} {...openRow(`/orders/${id}`)}> ... <Link className={ROW_CHEVRON}>
+const ROW_CONTROL =
+  "a, button, input, select, textarea, label, summary, [role='button'], [role='link'], [role='checkbox'], [role='combobox']";
+
+export function useRowOpen() {
+  const router = useRouter();
+  return (href: string) => {
+    const onRowSpace = (e: MouseEvent<HTMLTableRowElement>) => {
+      const row = e.currentTarget;
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target || !row.contains(target)) return false;
+      const control = target.closest(ROW_CONTROL);
+      return !(control && row.contains(control));
+    };
+    const newTab = () => window.open(href, "_blank", "noopener");
+    return {
+      onClick: (e: MouseEvent<HTMLTableRowElement>) => {
+        if (e.defaultPrevented || !onRowSpace(e)) return;
+        const selection = window.getSelection();
+        const selecting =
+          selection !== null &&
+          !selection.isCollapsed &&
+          selection.rangeCount > 0 &&
+          selection.getRangeAt(0).intersectsNode(e.currentTarget);
+        if (selecting) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey) newTab();
+        else router.push(href);
+      },
+      // A middle press on row space would start the browser's autoscroll
+      // (Windows), which swallows the auxclick: on a row it means "open in
+      // a new tab", as on a link.
+      onMouseDown: (e: MouseEvent<HTMLTableRowElement>) => {
+        if (e.button === 1 && onRowSpace(e)) e.preventDefault();
+      },
+      onAuxClick: (e: MouseEvent<HTMLTableRowElement>) => {
+        if (e.button === 1 && !e.defaultPrevented && onRowSpace(e)) newTab();
+      },
+    };
+  };
+}
+
+// The clickable row: pointer cursor, and its chevron shows its own hover
+// look (ROW_ICON_BUTTON: #f8f8f8 disc, brand glyph) while the pointer is
+// anywhere on the row. No row tint: the masters draw no row hover state.
+export const ROW_OPEN = "group/row cursor-pointer";
+export const ROW_CHEVRON = `${ROW_ICON_BUTTON} group-hover/row:bg-bg-subtle group-hover/row:text-brand`;
 
 export type Sort = { key: "date" | "total"; dir: "asc" | "desc" };
 

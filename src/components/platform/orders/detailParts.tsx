@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { KeyValueList, type KeyValueRow } from "@/components/ui/KeyValueList";
 import { PRODUCT_LINE_LIST, PRODUCT_LINE_TOTAL, ProductLine } from "@/components/ui/ProductLine";
 import { DocumentRowList, DotIcon, InfoHeadIcon } from "../ui";
@@ -349,14 +350,19 @@ export function DocumentsCard({ title, documents }: { title: string; documents: 
 
 // One 38-px row of the summary card: «Body/Medium» label in #777779
 // (with the 18-px info glyph 8 px after it) and the value on the right.
+// `info` = the explanation of the label: the glyph is an InfoTip that shows
+// it in the Figma «Tooltip» chip 4634:65682 on hover / focus (designer
+// 2026-11-11, C23; catalog/tips.ts).
 // Phones let a value that does not fit beside its label (the 182-px
 // «Частково оплачено» badge in a 294-px card) drop to its own line.
-export function SummaryRow({ label, info, children }: { label: string; info?: boolean; children: ReactNode }) {
+export function SummaryRow({ label, info, children }: { label: string; info?: string; children: ReactNode }) {
   return (
     <div className="flex h-[38px] items-center justify-between gap-4 max-sm:h-auto max-sm:min-h-[38px] max-sm:flex-wrap max-sm:gap-y-1">
       <span className="flex shrink-0 items-center gap-2">
         <span className="whitespace-nowrap text-[16px] leading-6 text-neutral-500">{label}</span>
-        {info && <InfoHeadIcon className="size-[18px] text-neutral-500" />}
+        {info && (
+          <InfoTip label={label} text={info} icon={<InfoHeadIcon className="size-[18px] text-neutral-500" />} />
+        )}
       </span>
       {children}
     </div>

@@ -2,14 +2,22 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useState } from "react";
-import { CartIcon, InfoCircleIcon } from "./icons";
+import { InfoTip } from "@/components/ui/InfoTip";
+import { CartIcon } from "./icons";
 import { QtyStepper } from "./QtyStepper";
 import { ChipsRow } from "./ChipsRow";
 import { TagIcon } from "@/components/product/icons";
 import { discountPercent, formatPrice, productHref, type Product } from "./data";
-import { useCart } from "@/components/cart/CartProvider";
 import { useCatalogAdd } from "./phoneParts";
-import { CART_DISC_IN_CART, CartDiscBody, cartDiscLabel, useCartDisc } from "./CartDisc";
+import { TIPS } from "./tips";
+import {
+  CART_DISC_HOVER,
+  CART_DISC_IN_CART,
+  CartDiscBody,
+  CartDiscRing,
+  cartDiscLabel,
+  useCartDisc,
+} from "./CartDisc";
 
 // The two B2C product-card layouts share every content atom:
 //
@@ -22,8 +30,10 @@ import { CART_DISC_IN_CART, CartDiscBody, cartDiscLabel, useCartDisc } from "./C
 //   left, price + stepper + cart pinned right, a #d2d2d2 hairline
 //   under the row.
 //
-// Both share the same variants: Variant2 = whole-card hover (ONLY the
-// cart button changes, outlined -> solid brand with a white glyph) and
+// Both share the same variants: Variant2 = hover (ONLY the cart button
+// changes, outlined -> solid brand with a white glyph and the rotating
+// «У КОШИК» ring, 2766:4534; the designer asked on 2026-11-11 for the
+// hover zone to be the button alone, not the whole card or row) and
 // — on the grid card — Variant3 = out of stock («НЕМАЄ В НАЯВНОСТІ» in
 // #d92d20, desaturated photo, inert gray cart).
 //
@@ -39,9 +49,11 @@ export type Tone = "dark" | "light";
 // Status row — Caption_uppercase 14/24 Medium: availability in
 // positive-green (negative-red when out of stock), a 4-px dot
 // separator centred in a 12-px box, then the price-type note with the
-// info glyph (both #777779; white on the dark band).
+// info glyph (both #777779; white on the dark band). The glyph is an
+// InfoTip: hover / keyboard focus shows what the retail price is in the
+// Figma «Tooltip» chip 4634:65682 (designer 2026-11-11, C23; ./tips.ts).
 // Phones (system spec 3.1.1 / A27): the eyebrow 12/20 Medium uppercase,
-// the (i) glyph hidden (it explains nothing on touch). `noteOnPhone=
+// the (i) glyph hidden (TR-32). `noteOnPhone=
 // false` (the list row) keeps only the availability below 640: every
 // public price is retail, and the 160-px row column cannot hold the note
 // without an orphan dot.
@@ -79,7 +91,7 @@ export function StatusLine({
         <span className={`flex items-center gap-1 whitespace-nowrap ${muted} ${noteOnPhone ? "" : "max-lg:hidden"}`}>
           <StatusDot gate="-mr-0.5 lg:hidden" colour={dot} />
           <span className={STATUS_TEXT}>роздрібна ціна</span>
-          <InfoCircleIcon className="size-4 shrink-0 max-lg:hidden" />
+          <InfoTip label="роздрібна ціна" text={TIPS.retailB2C} className="max-lg:hidden" />
         </span>
       </div>
     </div>
@@ -103,8 +115,11 @@ export { QtyStepper, ChipsRow };
 // Price — Caption/Large 32/28 Bold. A promotional price renders in
 // brand-orange with the regular price struck through beside it in
 // Body/Extra Large 22/28 (#777779), 16-px gap (Figma 4329:51657).
-// `compact` keeps just the orange price (the 328-px grid card has no
-// room for the struck one — its photo carries the «-25%» chip instead).
+// `compact` is the grid card: there the regular price is struck through
+// in Caption 14/24 Medium (#777779) and stacked 4 px ABOVE the orange
+// price, out of flow, so the card and its price row keep their height
+// (the «discount» variant of «B2C :: Product card», 3991:52356 at top -16
+// in the 52-px price row; asked for by the designer on 2026-11-11).
 export function PriceTag({
   product,
   tone = "dark",
@@ -120,6 +135,21 @@ export function PriceTag({
     : tone === "light"
       ? "text-white"
       : "text-neutral-900";
+  const oldTone = tone === "light" ? "text-neutral-400" : "text-neutral-500";
+  if (compact) {
+    return (
+      <span className="relative flex whitespace-nowrap">
+        {sale && product.oldPrice !== undefined && (
+          <s className={`absolute bottom-full left-0 mb-1 text-[14px] font-medium leading-6 ${oldTone}`}>
+            {formatPrice(product.oldPrice)}
+          </s>
+        )}
+        <span className={`text-[32px] font-bold leading-7 tracking-[-0.64px] ${color}`}>
+          {formatPrice(product.price)}
+        </span>
+      </span>
+    );
+  }
   return (
     <span className="flex items-center gap-4 whitespace-nowrap">
       <span
@@ -127,12 +157,8 @@ export function PriceTag({
       >
         {formatPrice(product.price)}
       </span>
-      {sale && !compact && product.oldPrice !== undefined && (
-        <s
-          className={`text-[22px] font-normal leading-7 tracking-[0.22px] ${
-            tone === "light" ? "text-neutral-400" : "text-neutral-500"
-          }`}
-        >
+      {sale && product.oldPrice !== undefined && (
+        <s className={`text-[22px] font-normal leading-7 tracking-[0.22px] ${oldTone}`}>
           {formatPrice(product.oldPrice)}
         </s>
       )}
@@ -176,36 +202,32 @@ export function PriceAndQty({
   );
 }
 
-// Cart button — outlined by default; the whole-card hover fills it
-// brand-orange with a white glyph (Variant2). Out of stock: inert gray
-// fill, no border (Variant3). On the dark band the ring and glyph are
-// white («Icon button decorative», 4329:51423). Click adds `qty` of the
-// product to the cart and slides the drawer open.
-// Phones (D3 / A27): touch has no hover, so the dark-tone disc shows the
-// hover look as its default (brand fill, white glyph; not when out of
-// stock). `feedback="toast"` (the catalog cards and rows) adds without
-// opening the cart sheet below 640 and shows the «Додано у кошик» toast
-// (DECISIONS O-11); `onAdded` then runs (the card resets its stepper).
+// Cart button: outlined by default on every width (phones too: the
+// designer asked on 2026-11-11 for the drawn outlined style instead of
+// the solid brand disc the phone build showed at rest). The pointer ON
+// THE DISC (not the card or row around it) fills it brand-orange with a
+// white glyph and fades in the rotating «У КОШИК» ring (Variant2,
+// 2766:4534, CartDisc.tsx). Out of stock: inert gray fill, no border, no
+// ring (Variant3). On the dark band the outline, glyph and ring are white
+// («Icon button decorative», 4329:51423). Click adds `qty` of the
+// product to the cart WITHOUT opening it, on every width: the product
+// flies into the header cart (useCatalogAdd + cart/flyToCart.ts; designer
+// 2026-11-11), the disc pops into its in-cart look; phones also show the
+// «Додано у кошик» toast (DECISIONS O-11) and then run `onAdded` (the
+// phone card / row resets its stepper).
 export function CartButton({
   product,
   out,
   tone = "dark",
   qty = 1,
-  feedback = "drawer",
   onAdded,
 }: {
   product: Product;
   out: boolean;
   tone?: Tone;
   qty?: number;
-  // "drawer" opens the cart (the PDP hero); "toast" = the catalog cards
-  // (the drawer from 640, the toast below); "silent" = the «Купують
-  // разом» band: adds without opening the cart anywhere, the disc's check
-  // + count bubble (and the phone toast) are the feedback.
-  feedback?: "drawer" | "toast" | "silent";
   onAdded?: () => void;
 }) {
-  const { add } = useCart();
   const catalogAdd = useCatalogAdd();
   // In the cart already (and purchasable): brand fill + check + count
   // bubble on every width; the tap pops the disc (CartDisc.tsx).
@@ -216,8 +238,8 @@ export function CartButton({
     : inCart > 0
       ? CART_DISC_IN_CART
       : tone === "light"
-        ? "border-white text-white group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white"
-        : "border-neutral-900 text-neutral-900 group-hover/card:border-brand group-hover/card:bg-brand group-hover/card:text-white max-lg:border-brand max-lg:bg-brand max-lg:text-white";
+        ? `border-white text-white ${CART_DISC_HOVER}`
+        : `border-neutral-900 text-neutral-900 ${CART_DISC_HOVER}`;
   return (
     <button
       ref={ref}
@@ -225,12 +247,12 @@ export function CartButton({
       aria-label={cartDiscLabel(product.title, inCart)}
       disabled={out}
       onClick={() => {
-        if (feedback === "drawer") add(product.id, qty);
-        else if (catalogAdd(product.id, qty, feedback === "silent")) onAdded?.();
+        if (catalogAdd(product.id, qty, { el: ref.current, image: product.image })) onAdded?.();
         pop();
       }}
-      className={`relative flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${look}`}
+      className={`group/disc relative flex size-[52px] shrink-0 cursor-pointer items-center justify-center rounded-[26px] border transition-colors duration-300 max-lg:focus-visible:outline-none max-lg:focus-visible:ring-2 max-lg:focus-visible:ring-brand max-lg:focus-visible:ring-offset-2 ${look}`}
     >
+      {!out && <CartDiscRing tone={tone} />}
       <CartDiscBody inCart={inCart} tone={tone} idle={<CartIcon className="size-6" />} />
     </button>
   );
@@ -252,12 +274,12 @@ export function SaleChip({ product }: { product: Product }) {
 // Grid card — Figma «B2C :: Product card» (328×612). The photo and the
 // title link to the product page; the stepper and cart stay buttons.
 // Phones (D3 / TR-16, the Blog / Direction card shell 3176:5541): one
-// column, a 1-px #343435 ring r32, the photo 206 tall r32 sliding under
-// the top ring (object-contain on the #d5d5d5 studio backdrop: no bands,
-// no crop), content px / pb 24 incl. the ring (23 + 1), status / title
-// (Title Large, 2 lines) / chips 12 apart, then the price (Stat 30/36
-// SemiBold, O-15; the struck old price 14/20 beside it on a promo) and
-// the action row: stepper left, the 52 brand cart disc right.
+// column, a 1-px #343435 ring r32, the photo 206 tall r32 at the full card
+// width (object-contain on the #d5d5d5 studio backdrop: no bands, no
+// crop), content px / pb 24, status / title (Title Large, 2 lines) /
+// chips 12 apart, then the price (Stat 30/36 SemiBold, O-15; the struck
+// old price 14/20 beside it on a promo) and the action row: stepper
+// left, the 52 cart disc right.
 // The title link is a 40-px target on a 28-px line (6 + 28 + 6 with
 // negative margins: no layout change), clamped to 2 lines on phones.
 export const CARD_TITLE_LINK =
@@ -265,6 +287,13 @@ export const CARD_TITLE_LINK =
 // The list-row flavour: 16/22 names, 9 + 22 + 9 = 40.
 export const ROW_TITLE_LINK =
   "max-lg:-my-[9px] max-lg:py-[9px] max-lg:line-clamp-2 max-lg:[text-wrap:pretty]";
+// The phone card's 1-px #343435 ring is a pseudo-element painted OVER the
+// photo, like Figma's inside stroke of 3176:5541 (drawn above the
+// children). The box border it replaces lay under the pulled-up photo,
+// which covered the top edge and cut into the corner arcs (designer
+// 2026-11-11: «лінія врізалась»). No hit testing; desktop has no ring.
+export const PHONE_CARD_RING =
+  "max-lg:relative max-lg:rounded-[32px] max-lg:after:pointer-events-none max-lg:after:absolute max-lg:after:inset-0 max-lg:after:rounded-[32px] max-lg:after:border max-lg:after:border-neutral-800";
 
 export function PhonePrice({ product, size }: { product: Product; size: "stat" | "amount" }) {
   const sale = discountPercent(product) !== null;
@@ -290,7 +319,7 @@ export function ProductCard({ product }: { product: Product }) {
   const href = productHref(product);
 
   return (
-    <article className="group/card @container flex h-full flex-col rounded-[32px] border border-neutral-800 lg:gap-8 lg:rounded-none lg:border-0 lg:py-6">
+    <article className={`@container flex h-full flex-col ${PHONE_CARD_RING} lg:gap-8 lg:py-6`}>
       {/* bg-bg-product under the photo + object-contain on top: every
           card shares the same studio-gray backdrop, and product PNGs of
           any aspect (or with transparency) lay over it without cropping
@@ -302,7 +331,7 @@ export function ProductCard({ product }: { product: Product }) {
       <Link
         href={href}
         aria-label={product.title}
-        className="relative block h-[206px] w-full shrink-0 overflow-clip rounded-[32px] bg-bg-product max-lg:-mt-px lg:aspect-[655/656] lg:h-auto lg:rounded-[40px]"
+        className="relative block h-[206px] w-full shrink-0 overflow-clip rounded-[32px] bg-bg-product lg:aspect-[655/656] lg:h-auto lg:rounded-[40px]"
       >
         <img
           src={product.image}
@@ -314,7 +343,7 @@ export function ProductCard({ product }: { product: Product }) {
         <SaleChip product={product} />
       </Link>
 
-      <div className="flex flex-1 flex-col gap-6 px-[23px] pb-[23px] pt-6 lg:gap-8 lg:p-0">
+      <div className="flex flex-1 flex-col gap-6 px-6 pb-6 pt-6 lg:gap-8 lg:p-0">
         <div className="flex flex-col gap-3 lg:gap-4">
           <StatusLine out={out} />
           <h3 className="text-title-lg text-neutral-900">
@@ -329,7 +358,7 @@ export function ProductCard({ product }: { product: Product }) {
             block is flexible, so short titles leave the gap above). */}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-y-3 max-lg:hidden">
           <PriceAndQty product={product} qty={qty} onQty={setQty} out={out} compact />
-          <CartButton product={product} out={out} qty={qty} feedback="toast" />
+          <CartButton product={product} out={out} qty={qty} />
         </div>
 
         {/* Phones: price on its own line, the action row under it. */}
@@ -337,7 +366,7 @@ export function ProductCard({ product }: { product: Product }) {
           <PhonePrice product={product} size="stat" />
           <div className="flex items-center justify-between gap-4">
             <QtyStepper qty={qty} onQty={setQty} disabled={out} />
-            <CartButton product={product} out={out} qty={qty} feedback="toast" onAdded={() => setQty(1)} />
+            <CartButton product={product} out={out} qty={qty} onAdded={() => setQty(1)} />
           </div>
         </div>
       </div>
@@ -356,7 +385,7 @@ export function ProductRow({ product }: { product: Product }) {
   const href = productHref(product);
 
   return (
-    <article className="group/card w-full">
+    <article className="w-full">
       <div className="py-6">
         <div className="flex items-start gap-4 sm:items-center sm:gap-8">
           {/* Same uniform backdrop as the grid card (see above). Phones use a
@@ -397,19 +426,19 @@ export function ProductRow({ product }: { product: Product }) {
                 phones get the full-width cluster below (see next block). */}
             <div className="hidden flex-wrap items-center gap-4 sm:flex lg:flex-nowrap lg:gap-8">
               <PriceAndQty product={product} qty={qty} onQty={setQty} out={out} />
-              <CartButton product={product} out={out} qty={qty} feedback="toast" />
+              <CartButton product={product} out={out} qty={qty} />
             </div>
           </div>
         </div>
 
         {/* Phones: the price (22/28 SemiBold, the struck old price under
-            it on a promo) left, the stepper + the 52 brand disc right; the
+            it on a promo) left, the stepper + the 52 cart disc right; the
             disc always ends at the content edge (233.5 px at 320). */}
         <div className="mt-4 flex items-center justify-between gap-4 sm:hidden">
           <PhonePrice product={product} size="amount" />
           <div className="flex shrink-0 items-center gap-4">
             <QtyStepper qty={qty} onQty={setQty} disabled={out} />
-            <CartButton product={product} out={out} qty={qty} feedback="toast" onAdded={() => setQty(1)} />
+            <CartButton product={product} out={out} qty={qty} onAdded={() => setQty(1)} />
           </div>
         </div>
       </div>

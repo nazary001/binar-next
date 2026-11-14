@@ -15,16 +15,19 @@ import { DESKTOP_QUERY } from "./ui/useMediaQuery";
 
 // Phone menu sheet primitives (Figma phone menu 3117:13578 / stack
 // 3117:13841): the full-width white overlay under the 66-px header bar,
-// a px-24 py-60 stack of label groups, 14/20 Medium rows with a trailing
-// arrow-up-right, 1-px #d2d2d2 dividers and the full-width Button/Small.
+// a px-24 py-60 stack of label groups, Bold 16/20 rows 24 apart with a
+// trailing arrow-up-right, 1-px #d2d2d2 dividers and the full-width
+// Button/Large (the designer's master as updated on 2026-11-14, rows
+// 5491:10593: «шрифти дуже малі», «Кнопка завузька»; the older master
+// had 14/20 Medium rows and a Button/Small).
 // One implementation for the public menu (Header.tsx, #mobile-nav) and
 // the cabinet menu (platform/CabinetMenu.tsx, #cabinet-nav), so both
 // share the overlay, motion, lock, rows and CTA dock.
 
 // The routes whose pages sit on the shop canvas (their route layouts set
 // data-canvas="shop"): the shop and the B2B cabinet. The public menu
-// switches to the natural-scroll stack, active rows and the in-page
-// "Контакти" anchor only there; the landing routes keep their frozen menu.
+// shows active rows and the in-page "Контакти" anchor only there; the
+// landing routes keep "/#contacts" and no active row.
 const SHOP_OR_CABINET =
   /^\/(?:catalog|checkout|materials|dashboard|orders|assortment|profile)(?:\/|$)/;
 
@@ -43,19 +46,22 @@ const SHEET =
 const SHEET_OPEN = "pointer-events-auto translate-y-0 opacity-100";
 const SHEET_CLOSED = "pointer-events-none -translate-y-3 opacity-0";
 // Focus not obscured: a focused row scrolled into view stops above the
-// docked CTA (dock 16 + 42 + 16 = 74, plus 16).
-const SHEET_SCROLL_PAD = "scroll-pb-[90px] [@media(max-height:499px)]:scroll-pb-0";
+// docked CTA (dock 16 + 52 + 16 = 84, plus 16).
+const SHEET_SCROLL_PAD = "scroll-pb-[100px] [@media(max-height:499px)]:scroll-pb-0";
 
-// The stack: rows span the content width at every phone width (24-px
-// gutters, no cap), natural 14/20 type (no zoom), the overlay scrolls.
+// The stack, on every route: rows span the content width at every phone
+// width (24-px gutters, no cap), natural type, the overlay scrolls when
+// the stack is taller than the window and the CTA docks at its bottom.
+// The landing routes used to zoom the whole stack to fit the window
+// height, which shrank the type to ~11.5 pt in iPhone Safari (designer
+// 2026-11-14, «шрифти дуже малі»): no zoom any more.
 const STACK = "flex min-h-full w-full flex-col gap-12 px-6 py-[60px]";
-// The landing routes keep the frozen stack: centred 480 column and the
-// whole stack zoomed to fit the screen height (useFitZoom(706, 66)).
-const LANDING_STACK =
-  "mx-auto flex min-h-full w-full max-w-[480px] flex-col gap-12 px-6 py-[60px] sm:px-10";
 
+// Bold 16/20 #4a4a4c rows (3117:13578). `gap-2` between the label and the
+// arrow keeps the longest row, «Засоби та інвентар для прибирання» (284.5
+// px in Bold 16), on one line down to a 360-px phone.
 const ROW =
-  "group/link flex w-full cursor-pointer items-center justify-between gap-3 py-4 -my-4 text-left text-body-sm font-medium transition-[color,opacity,translate] duration-300 active:opacity-70 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+  "group/link flex w-full cursor-pointer items-center justify-between gap-2 py-3 -my-3 text-left text-[16px] font-bold leading-[20px] transition-[color,opacity,translate] duration-300 active:opacity-70 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 const ROW_ACTIVE = "text-brand";
 const ROW_IDLE = "text-neutral-700 hover:text-brand";
 
@@ -136,8 +142,6 @@ export function Burger({ open }: { open: boolean }) {
 //   canvas (the overlay is lg:hidden there);
 // - on close, focus that was inside the sheet (or dropped to <body>)
 //   returns to `returnFocus` (the burger) without scrolling.
-// `landingZoom` (public menu on landing routes only): render the frozen
-// landing stack zoomed by this factor instead of the natural-scroll one.
 export function PhoneMenuSheet({
   id,
   open,
@@ -145,7 +149,6 @@ export function PhoneMenuSheet({
   label,
   returnFocus,
   inertSelector = MENU_INERT,
-  landingZoom,
   children,
 }: {
   id: string;
@@ -154,7 +157,6 @@ export function PhoneMenuSheet({
   label: string;
   returnFocus: RefObject<HTMLElement | null>;
   inertSelector?: string;
-  landingZoom?: number;
   children: ReactNode;
 }) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -217,7 +219,6 @@ export function PhoneMenuSheet({
     if (open) onCloseRef.current();
   }, [pathname, open]);
 
-  const landing = landingZoom !== undefined;
   return (
     <div
       id={id}
@@ -225,24 +226,22 @@ export function PhoneMenuSheet({
       aria-hidden={!open}
       inert={!open}
       style={{ top: "var(--site-header-h, 92px)" }}
-      className={`${SHEET} ${landing ? "" : SHEET_SCROLL_PAD} ${open ? SHEET_OPEN : SHEET_CLOSED}`}
+      className={`${SHEET} ${SHEET_SCROLL_PAD} ${open ? SHEET_OPEN : SHEET_CLOSED}`}
     >
-      <nav
-        aria-label={label}
-        className={landing ? LANDING_STACK : STACK}
-        style={landing && landingZoom < 1 ? { zoom: landingZoom } : undefined}
-      >
+      <nav aria-label={label} className={STACK}>
         {children}
       </nav>
     </div>
   );
 }
 
+// A label + rows column: rows 24 apart (5491:10593 / 3117:14259).
 export function PhoneMenuGroup({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-8">{children}</div>;
+  return <div className="flex flex-col gap-6">{children}</div>;
 }
 
-// Group label: 14/20 Medium #777779.
+// Group label: 14/20 Medium #777779, 32 above the first row (3117:14242:
+// the group's 24-px gap + mb-2).
 export function PhoneMenuLabel({
   open,
   delay = 80,
@@ -255,7 +254,7 @@ export function PhoneMenuLabel({
   return (
     <p
       style={delayStyle(open, delay)}
-      className={`text-body-sm font-medium text-neutral-500 transition-[opacity,translate] duration-300 motion-reduce:transition-none ${
+      className={`mb-2 text-body-sm font-medium text-neutral-500 transition-[opacity,translate] duration-300 motion-reduce:transition-none ${
         open ? IN : OUT_UP
       }`}
     >
@@ -264,9 +263,9 @@ export function PhoneMenuLabel({
   );
 }
 
-// A menu row: 14/20 Medium #4a4a4c (active: brand + aria-current="page")
-// with a trailing glyph, 20 tall on a 52 pitch; `py-4 -my-4` makes the
-// tap target the full 52 without moving a pixel. The keyboard ring sits
+// A menu row: Bold 16/20 #4a4a4c (active: brand + aria-current="page")
+// with a trailing glyph, 20 tall on a 44 pitch; `py-3 -my-3` makes the
+// tap target the full 44 without moving a pixel. The keyboard ring sits
 // 2 px outside that box (in the gutter), clear of the label at x 24. Renders a Next Link for
 // "/..." hrefs, a plain <a> for "#..." (native in-page scroll) and a
 // button without an href. `stayOnCurrent`: the row of the page you are on
@@ -349,26 +348,23 @@ export function PhoneMenuDivider({ open, delay }: { open: boolean; delay: number
   );
 }
 
-// The full-width CTA at the end of the stack. `sticky` (default) docks it
-// at the sheet bottom (DOCK above); the landing menu passes false and
-// keeps the plain in-flow wrapper.
+// The full-width CTA at the end of the stack, docked at the sheet bottom
+// (DOCK above) on every route.
 export function PhoneMenuCtaDock({
   open,
   delay = 560,
-  sticky = true,
   children,
 }: {
   open: boolean;
   delay?: number;
-  sticky?: boolean;
   children: ReactNode;
 }) {
   return (
     <div
       style={delayStyle(open, delay)}
-      className={`${sticky ? DOCK : ""} transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+      className={`${DOCK} transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
         open ? IN : OUT_UP
-      }`.trim()}
+      }`}
     >
       {children}
     </div>

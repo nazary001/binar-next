@@ -17,6 +17,7 @@ import {
   type PopupPosition,
   computePos,
 } from "@/components/ui/ItemsPopup";
+import { type PhoneCard, PhoneCardStack } from "@/components/ui/PhoneCardStack";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 
@@ -163,6 +164,34 @@ const COLUMNS: ZoneCard[][] = [
   ],
 ];
 
+// The hotels catalog with one zone ticked. The value must be one of the
+// hotels facet values (HOTEL_ZONES in catalog/data.ts); CatalogClient drops
+// anything else, so the «СПА» tile passes the facet's Latin «SPA».
+const zoneHref = (zone: string) => `/catalog/hotels?zone=${encodeURIComponent(zone)}`;
+
+// Phone zone stack (Figma 3117:14393, redrawn by the designer on
+// 2026-11-13), in the design order: photo, two text tiles, photo, text,
+// photo, catalog button. Each zone tile opens the catalog filtered by
+// that zone (designer 2026-11-11, C37); the button keeps the plain
+// /catalog link of the desktop CTA. Photos: Ванна кімната and СПА are
+// anchored to the bottom (Figma object-bottom), Номер гостя uses the
+// exact Figma fill box.
+const PHONE_ZONES: PhoneCard[] = [
+  { kind: "photo", label: "Ванна кімната", href: zoneHref("Ванна кімната"), image: "/figma-export/hotels/zone-bathroom.png", objectPosition: "50% 100%" },
+  { kind: "text", label: "Басейни", href: zoneHref("Басейни") },
+  { kind: "text", label: "Зона рецепції", href: zoneHref("Зона рецепції") },
+  { kind: "photo", label: "СПА", href: zoneHref("SPA"), image: "/figma-export/hotels/zone-spa.png", objectPosition: "50% 100%" },
+  { kind: "text", label: "Конференц-зали", href: zoneHref("Конференц-зали") },
+  {
+    kind: "photo",
+    label: "Номер гостя",
+    href: zoneHref("Номер гостя"),
+    image: "/figma-export/hotels/zone-room.png",
+    crop: { left: "0%", top: "-48.54%", width: "100%", height: "165.05%" },
+  },
+  { kind: "cta", label: "Переглянути каталог", href: "/catalog" },
+];
+
 // The "ДЕТАЛІ"-ring icon button previously lived here; it moved to
 // ui/DetailsIconButton.tsx so the catalog category banners (instances
 // of the same Figma component set) can share it. Imported above as
@@ -201,14 +230,20 @@ function cardActivationProps(onSelect: (el: HTMLDivElement) => void) {
 // look used in frame 1333:7764 "While howering". Three things change
 // when the user mouses over a card:
 //
-//   1. The 1-px stroke-default outline is replaced by a 6-px brand
-//      ring. We render the ring as a `position: absolute` sibling
-//      sitting on top of the photo (DOM order = z-order), instead of
-//      via the card's own `border`, because the photo fills the
-//      rounded card edge-to-edge and would obscure any
-//      box-shadow/inset effect drawn under it. Keeping the ring as
-//      an overlay also avoids the 5-px content shift a `border-6`
-//      utility would cause on hover.
+//   1. The card edge is replaced by a 6-px brand ring. We render the
+//      ring as a `position: absolute` sibling sitting on top of the
+//      photo (DOM order = z-order), instead of via the card's own
+//      `border`, because the photo fills the rounded card edge-to-edge
+//      and would obscure any box-shadow/inset effect drawn under it.
+//      Keeping the ring as an overlay also avoids the 5-px content
+//      shift a `border-6` utility would cause on hover. Figma draws
+//      the 6-px stroke INSIDE the card box, so its outer edge is the
+//      card edge: the designer noted on 2026-11-11 that the lines did
+//      not match on hover (the ring sat 1 px inside a grey hairline).
+//      The white card's ring is now pulled out over its 1-px hairline
+//      (HoverRing outset) and the photo card has no hairline at all
+//      (C12), so the ring covers the card edge exactly; the hovered
+//      card lifts to z-10 so no neighbour's seam paints over it.
 //
 //   2. For image cards only: a square `mix-blend-mode: saturation`
 //      overlay sized to the card (+6 px top/bottom, with `aspect-
@@ -230,11 +265,16 @@ function cardActivationProps(onSelect: (el: HTMLDivElement) => void) {
 // on TOP of the card photo (CSS `border` would be drawn before the
 // `<img inset-0 />` and stay hidden underneath). Sits inside every
 // card; opacity fades in/out with the parent .group's :hover state.
-function HoverRing() {
+// Figma hover (1127:5789 family) puts the stroke inside the card box,
+// so the ring's outer edge must be the card edge: white cards draw a
+// 1-px CSS border outside their padding box, so their ring is pulled
+// out by that pixel (`outset`, -inset-px) to cover it exactly; photo
+// cards have no border, so inset-0 already is the card edge.
+function HoverRing({ outset = false }: { outset?: boolean }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+      className={`pointer-events-none absolute ${outset ? "-inset-px" : "inset-0"} rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
     />
   );
 }
@@ -248,33 +288,28 @@ function ImageCard({
   return (
     <div
       {...cardActivationProps(onSelect)}
-      // Figma mobile master 3117:14389 renders EVERY zone card (image cards
-      // included, and the СПА `tall` one) as a uniform 206-px tile — the
-      // photo fills it as a background. Only at lg do the image cards grow
-      // to their distinct master heights (655 tall / 393 standard, per the
-      // updated grid 3677:35700), so those heights are re-pinned at lg: and
-      // mobile stays identical.
-      className={`group relative flex min-h-[206px] cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] border border-stroke-default p-10 ${
+      // Desktop-only card (the phone layout renders PHONE_ZONES through
+      // the shared PhoneCardStack): the updated grid 3677:35700 heights,
+      // 655 for the tall СПА photo and 393 for the others.
+      // No outline on a photo card (designer 2026-11-11: «обводку там де
+      // є фото не потрібно»); the white cards keep theirs. hover:z-10
+      // lifts the hovered card over its neighbours' seams (see HoverRing).
+      className={`group relative flex cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] p-10 hover:z-10 ${
         tall ? "lg:h-[655px]" : "lg:h-[393px]"
       } w-full`}
     >
       {/* No own border-radius on the photo: the card is `overflow-clip`
-          + rounded, so it already clips the photo to its INNER rounded
-          edge (card radius minus the 1px border). Giving the <img> its
-          own rounded-40 made the image corner 1px looser than the
-          border's inner curve, so the two radii didn't line up and a
-          thin gap showed at each corner. Letting the parent clip handle
-          it makes the photo edge sit flush against the border. */}
+          + rounded, so it already clips the photo to the card's rounded
+          edge (the card has no border, so the clip IS the card edge and
+          the hover ring at inset-0 lines up with it exactly). */}
       <img
         src={image}
         alt=""
         aria-hidden
         loading="lazy"
         decoding="async"
-        // Figma anchors the photo to its bottom inside the compact mobile
-        // tile; the desktop master centres it in the taller card, so restore
-        // object-center at lg to keep desktop byte-for-byte identical.
-        className="absolute inset-0 size-full object-cover object-bottom lg:object-center"
+        // The desktop master centres the photo in the card.
+        className="absolute inset-0 size-full object-cover object-center"
       />
       {/* Figma 1127:6470 — `aspect-[526/526] bg-[#151511] mix-blend-
           saturation top-[-6px] bottom-[-6px] left-1/2 -translate-x-1/2`.
@@ -296,10 +331,9 @@ function ImageCard({
         className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
       />
       <HoverRing />
-      {/* Figma mobile label row is full-width inside the p-40 card with a
-          gap-32 (gap-8) to the icon; the 313-px cap is a desktop-only
-          constraint, re-pinned at lg so desktop is unchanged. */}
-      <div className="relative flex w-full items-center gap-8 lg:max-w-[313px]">
+      {/* Desktop label row: gap-32 (gap-8) to the icon, capped at the
+          master's 313 px. */}
+      <div className="relative flex w-full max-w-[313px] items-center gap-8">
         <p className="flex-1 text-button-lg text-white">{label}</p>
         <IconButton variant="light" />
       </div>
@@ -315,18 +349,22 @@ function CompactCard({
   return (
     <div
       {...cardActivationProps(onSelect)}
-      // Figma mobile master 3117:14389 sizes the compact tile at the uniform
-      // 206-px / rounded-40 / p-40 grid height (min-height so a 2-line label
-      // can still grow it). Desktop pins the updated master's two bento
-      // heights at lg (lg:min-h-0 lets them win over the taller mobile
-      // min-height): 393 full tile, or 197 for the stacked half tiles
-      // (196.5 in Figma; 197 + the -mt-px seam overlap keeps the pair at
-      // the 393 row height).
-      className={`group relative flex min-h-[206px] w-full cursor-pointer flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default bg-white p-10 lg:min-h-0 ${
+      // Desktop-only card (the phone layout renders PHONE_ZONES through
+      // the shared PhoneCardStack): the updated master's two bento
+      // heights, 393 full tile, or 197 for the stacked half tiles (196.5
+      // in Figma; 197 + the -mt-px seam overlap keeps the pair at the 393
+      // row height).
+      // No overflow-clip: the card holds only the label row and the ring,
+      // and a clip would cut the outset ring back to the padding box.
+      // z-[1] keeps this white card's hairline on top where a photo card
+      // that comes later in the DOM overlaps it by the 1-px seam (as in
+      // Figma, where the white card's stroke sits next to the photo);
+      // hover:z-10 lifts the hovered card over every neighbour.
+      className={`group relative z-[1] flex w-full cursor-pointer flex-col justify-end rounded-[40px] border border-stroke-default bg-white p-10 hover:z-10 ${
         half ? "lg:h-[197px]" : "lg:h-[393px]"
       }`}
     >
-      <HoverRing />
+      <HoverRing outset />
       <div className="relative flex items-center gap-8">
         <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
           {label}
@@ -352,22 +390,18 @@ function CtaCard({ label, onActivate }: { label: string; onActivate?: () => void
       // but that reads noticeably darker than the cards it sits beside. A
       // transparent 1px border is kept by default so the hover adds no 1px
       // layout shift.
-      // Figma mobile master (3130:19000 "Button catalog") sizes the CTA
-      // tile at the compact 131px — same as the desktop bento tile.
-      // Updated desktop master uses the same shared "Button catalog"
-      // component (1217:2497): px-40 row with the label pinned LEFT and
-      // the orange circle pinned RIGHT (justify-between) — the old
-      // centred pill+circle group is gone, so mobile and desktop now
-      // share one layout.
+      // Desktop master uses the shared "Button catalog" component
+      // (1217:2497): a 131-px px-40 row with the label pinned LEFT and the
+      // orange circle pinned RIGHT (justify-between). The phone catalog
+      // button is the PhoneCardStack «cta» tile.
       className="group flex h-[131px] w-full cursor-pointer items-center justify-between rounded-[40px] border border-transparent bg-[#343435] px-10 transition-colors duration-300 hover:border-stroke-default hover:bg-white"
     >
-      {/* max-w keeps the mobile master's 2-line "Переглянути / каталог"
-          wrap; at lg the 394-px card fits the label on one line. */}
-      <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900 max-lg:max-w-[140px]">
+      {/* The 394-px card fits the label on one line. */}
+      <span className="text-button-lg text-white transition-colors duration-300 group-hover:text-neutral-900">
         {label}
       </span>
-      {/* Orange circle button + arrow sit at the 52-px master size on
-          every viewport, matching the IconButton. */}
+      {/* Orange circle button + arrow at the 52-px desktop master size,
+          matching the IconButton. */}
       <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
         <img
           src={ARROW_WHITE}
@@ -518,11 +552,9 @@ export function ZonesGrid() {
     // removed (see hotels/Hero.tsx) the next section's flat border-t
     // provides ONE clean uniformly-thin line across the entire width.
     // Padding is 160px top + 130px sides at the design master.
-    // Mobile pb-[66px]: the 7-card stack collapses 6 seams by 1px each
-    // (-mt-px keeps the borders reading as single hairlines like Figma),
-    // so the extra 6px on the bottom padding compensates the collapsed
-    // seams and keeps the master's section height.
-    <section className="lg-pad-x bg-white px-6 pt-[60px] pb-[66px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
+    // Phone (3117:14389, 1582 tall): pt-60 + header 176 + gap 48 + stack
+    // 1238 + pb-60; the phone tiles are 16 px apart, no seams to compensate.
+    <section className="lg-pad-x bg-white px-6 pt-[60px] pb-[60px] sm:px-10 sm:py-20 lg:-mt-px lg:rounded-tl-[48px] lg:rounded-tr-[48px] lg:border-l lg:border-r lg:border-t lg:border-stroke-default lg:pb-0 lg:pt-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row lg:items-start lg:gap-8">
           <h2 className="flex-1 text-neutral-900">
@@ -539,6 +571,14 @@ export function ZonesGrid() {
           </p>
         </div>
 
+        {/* Phone (< 640): Figma 3117:14393, the shared phone stack the
+            designer redrew on 2026-11-13. Every zone tile links to the hotels
+            catalog with that zone's filter (designer 2026-11-11: the cards
+            must be clickable and open the catalog filtered); the items
+            panel below is desktop-only. The gap-12 above is the design's
+            48-px pt. */}
+        <PhoneCardStack className="lg:hidden" cards={PHONE_ZONES} />
+
         {/* The ref lets the document-level mousemove listener decide
             whether the cursor is inside the grid (and therefore the
             popup should stay open). Close-on-leave is handled in the
@@ -548,49 +588,27 @@ export function ZonesGrid() {
             moment the mouse crossed that bound. */}
         <div
           ref={gridRef}
-          // Figma mobile master 3117:14389 stacks all cards as ONE
-          // 340-wide column with 0 spacing (borders touch, seams collapse
-          // to 1px like the desktop grid). Hence gap-0 on the mobile grid;
-          // the sm 2-col tablet step and the lg 3-col desktop grid are
-          // untouched (lg:gap-0 was already the desktop value).
-          className="relative grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:items-start lg:gap-0"
+          // Desktop-only 3-column bento (lg = 640, the start of the desktop
+          // canvas); the phone layout shows the PhoneCardStack above.
+          className="relative hidden lg:grid lg:grid-cols-3 lg:items-start lg:gap-0"
         >
           {COLUMNS.map((col, i) => (
-            // lg grid is gap-0, so adjacent card borders touch and a shared
+            // The grid is gap-0, so adjacent card borders touch and a shared
             // seam reads as 2px (1px + 1px), looking thicker than the outer
             // 1px edges. Pull every column after the first 1px LEFT so its
             // cards' left borders land ON the previous column's right
             // borders -> the vertical seam collapses to a single 1px line.
-            // On mobile the columns stack vertically, so the same overlap
-            // is applied UPWARD (-mt-px) to collapse the column-to-column
-            // seam; sm:mt-0 cancels it from the 2-col tablet step onward (it
-            // persists through lg) so the desktop side-by-side row, which
-            // only needs the horizontal lg:-ml-px overlap, is untouched.
-            //
-            // Tablet (640..1023, no master): the three manual column stacks
-            // become `sm:contents` so their cards flatten into the outer
-            // sm:grid-cols-2 grid and auto-place row by row. Six zone cards
-            // fill three tidy 2-up rows and the CTA (sm:col-span-2 below)
-            // caps them full-width, so nothing is orphaned and no cell is
-            // left empty (the old 3-stacks-in-2-cols left a dead quadrant).
-            // lg:flex restores the exact desktop column stacks.
             <div
               key={i}
-              className={`flex flex-col gap-0 sm:contents lg:flex lg:flex-col lg:gap-0${i > 0 ? " -mt-px sm:mt-0 lg:-ml-px" : ""}`}
+              className={`flex flex-col${i > 0 ? " -ml-px" : ""}`}
             >
               {col.map((card, j) => (
                 // Same overlap vertically: every card after the first in its
                 // column is pulled 1px UP so its top border sits on the
-                // previous card's bottom border (1px seam, not 2px). On
-                // mobile the cards stack flush in one column, so the wrapper
-                // is a real block (not display:contents) and the -mt-px
-                // overlap applies there too; sm:mt-0 cancels it at the 2-col
-                // tablet step where cards are gap-spaced instead. The CTA
-                // spans both tablet columns so the 7 items tessellate; at lg
-                // the wrapper is a flex child again so col-span is ignored.
+                // previous card's bottom border (1px seam, not 2px).
                 <div
                   key={j}
-                  className={`block${j > 0 ? " -mt-px sm:mt-0 lg:-mt-px" : ""}${card.kind === "cta" ? " sm:col-span-2" : ""}`}
+                  className={j > 0 ? "-mt-px" : undefined}
                 >
                   <ZoneRenderer
                     card={card}

@@ -111,7 +111,12 @@ function DrawerGroup({
 // The hairlines are CSS borders (Figma strokes sit inside the box), so
 // pl/pt are 59 + 1: «Фільтри» at 60/60, a 362-px content column.
 // H2 «Фільтри» + the 32-px close mark, then the collapsible checkbox
-// groups. Toggles apply instantly; X, the scrim and Escape close.
+// groups. Toggles apply instantly; X, the scrim and Escape close. As in
+// the catalog sheet (designer 2026-11-11: "fix the header so the cross is
+// always at hand"), the head is sticky inside the scrolling sheet from
+// 640 too: the 60-px top inset lives in the head (a sticky child pins at
+// the scroller's padding edge) and a 24-px white band under the title
+// (pb-6, cancelled by -mb-6 at rest) is the edge the groups slide under.
 //
 // Phones (< 640, materials spec 2.9 / system A5 + T5a): the same DOM as a
 // full-screen sheet over the header (z 60): the 66-px bar (sticky inside
@@ -184,13 +189,13 @@ export function MaterialsFiltersDrawer({
         aria-modal="true"
         aria-label={COPY.title}
         tabIndex={-1}
-        className={`absolute bottom-0 right-0 top-0 flex flex-col overflow-y-auto overscroll-contain bg-white px-6 outline-none transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] max-lg:w-full max-lg:scroll-pb-[122px] max-lg:transition-[opacity,translate] max-lg:will-change-[opacity,translate] motion-reduce:transition-none max-lg:motion-reduce:transition-none lg:top-[var(--site-header-h,92px)] lg:w-[502px] lg:max-w-[92vw] lg:gap-16 lg:rounded-tl-[48px] lg:border-l lg:border-t lg:border-stroke-subtle lg:pb-20 lg:pl-[59px] lg:pr-20 lg:pt-[59px] ${
+        className={`absolute bottom-0 right-0 top-0 flex flex-col overflow-y-auto overscroll-contain bg-white px-6 outline-none transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] max-lg:w-full max-lg:scroll-pb-[122px] max-lg:transition-[opacity,translate] max-lg:will-change-[opacity,translate] motion-reduce:transition-none max-lg:motion-reduce:transition-none lg:top-[var(--site-header-h,92px)] lg:w-[502px] lg:max-w-[92vw] lg:gap-16 lg:rounded-tl-[48px] lg:border-l lg:border-t lg:border-stroke-subtle lg:scroll-pt-[131px] lg:pb-20 lg:pl-[59px] lg:pr-20 lg:pt-0 ${
           open
             ? "translate-x-0 max-lg:translate-y-0 max-lg:opacity-100"
             : "translate-x-full max-lg:translate-x-0 max-lg:-translate-y-3 max-lg:opacity-0"
         }`}
       >
-        <div className="flex w-full items-center justify-between max-lg:sticky max-lg:top-0 max-lg:z-[1] max-lg:-mx-6 max-lg:h-[66px] max-lg:w-auto max-lg:shrink-0 max-lg:gap-2 max-lg:bg-white max-lg:pl-6 max-lg:pr-3">
+        <div className="flex w-full items-center justify-between max-lg:sticky max-lg:top-0 max-lg:z-[1] max-lg:-mx-6 max-lg:h-[66px] max-lg:w-auto max-lg:shrink-0 max-lg:gap-2 max-lg:bg-white max-lg:pl-6 max-lg:pr-3 lg:sticky lg:top-0 lg:z-[1] lg:-mb-6 lg:bg-white lg:pb-6 lg:pt-[59px]">
           <h2
             ref={titleRef}
             tabIndex={-1}

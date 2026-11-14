@@ -124,10 +124,17 @@ function DrawerSection({
 // 502-px right-side sheet under the sticky header (rounded-tl-48,
 // #d2d2d2 left/top hairlines inside the box, pl-60 pr-80 pt-60 pb-80,
 // 64-px section rhythm) over a blurred #343435/50 scrim. H2 «Фільтри» +
-// 32-px close mark, the «Скинути фільтрацію» text button (only while a
-// filter is checked: the hotel frame draws it with «Ванна кімната»
-// ticked, the ЗІЗ / Прибирання frames have nothing ticked and no reset
-// row), then the collapsible checkbox sections. Checkbox toggles apply
+// 32-px close mark, the «Скинути фільтрацію» text button, then the
+// collapsible checkbox sections. The reset row is always there (designer
+// 2026-11-11: "we lost the reset-filters button"; it used to show only
+// while a filter was checked, after the ЗІЗ / Прибирання frames that have
+// nothing ticked and no row); with nothing ticked it is a disabled button
+// faded to 50 %, like the phone sheet's «Скинути». The head («Фільтри» +
+// the cross) is sticky inside the scrolling sheet so the cross stays in
+// reach (designer 2026-11-11); the sheet's 60-px top inset lives in the
+// head for that (a sticky child pins at the scroller's padding edge), and
+// a 24-px white band under the title (pb-6, cancelled by -mb-6 at rest)
+// is the clean edge the groups slide under. Checkbox toggles apply
 // instantly (no apply button in any sheet; the page's chips / count
 // react live); the sheet closes via X, the scrim or Escape. The Figma
 // hotel frame starts its scrim at y 106 (a slip): the sheet is pinned
@@ -189,13 +196,15 @@ export function FiltersDrawer({
         aria-modal="true"
         aria-label="Фільтри"
         style={{ top: "var(--site-header-h, 92px)" }}
-        // pl/pt 59 + the 1-px border = the master's 60 (Figma strokes
-        // sit inside the 502-px box): content column 362 at x+60.
-        className={`absolute bottom-0 right-0 flex w-[502px] max-w-[92vw] flex-col gap-10 overflow-y-auto overscroll-contain rounded-tl-[48px] border-l border-t border-stroke-subtle bg-white px-6 py-10 transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:gap-16 lg:pb-20 lg:pl-[59px] lg:pr-20 lg:pt-[59px] ${
+        // pl 59 + the 1-px border = the master's 60 (Figma strokes sit
+        // inside the 502-px box): content column 362 at x+60. The top 59
+        // is the sticky head's padding (lg:pt-0 here); scroll-pt keeps a
+        // focused checkbox below the pinned head (59 + 48 + 24).
+        className={`absolute bottom-0 right-0 flex w-[502px] max-w-[92vw] flex-col gap-10 overflow-y-auto overscroll-contain rounded-tl-[48px] border-l border-t border-stroke-subtle bg-white px-6 py-10 transition-[translate] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate] lg:scroll-pt-[131px] lg:gap-16 lg:pb-20 lg:pl-[59px] lg:pr-20 lg:pt-0 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full items-center justify-between lg:sticky lg:top-0 lg:z-[1] lg:-mb-6 lg:bg-white lg:pb-6 lg:pt-[59px]">
           <h2 className="text-[32px] font-bold leading-9 tracking-[-0.64px] text-neutral-900 lg:text-h2 lg:leading-[48px] lg:tracking-[-0.88px]">
             Фільтри
           </h2>
@@ -210,16 +219,15 @@ export function FiltersDrawer({
           </button>
         </div>
 
-        {hasActive && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="flex cursor-pointer items-center gap-[2px] self-start text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
-          >
-            Скинути фільтрацію
-            <XMarkIcon className="size-4 shrink-0" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={!hasActive}
+          className="flex items-center gap-[2px] self-start text-button-md text-neutral-700 transition-[color,opacity] duration-200 enabled:cursor-pointer enabled:hover:text-brand disabled:cursor-default disabled:opacity-50"
+        >
+          Скинути фільтрацію
+          <XMarkIcon className="size-4 shrink-0" />
+        </button>
 
         {sections.map((section) => (
           <DrawerSection

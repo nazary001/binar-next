@@ -225,11 +225,16 @@ export function Hero() {
             with a border on top/right/bottom and rounded RIGHT corners,
             sitting BELOW the photo band (order-2). px-24 py-48, gap-48
             between the two inner groups. Desktop (lg) restores the
-            original bordered hero-left column unchanged. */}
+            bordered left column. */}
         {/* py-[47px]: Figma renders the card's 1px borders INSIDE its
             750px box, so the CSS border-box needs 47+1 per edge to keep
-            both the total height and the 48px visual padding exact. */}
-        <div className="hero-left order-2 flex flex-1 flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-[47px] sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20">
+            both the total height and the 48px visual padding exact.
+            Desktop: the copy starts on the header's line (x=80 on the
+            Home master 1384:12636, the designer asked on 2026-11-11 to
+            align the content with the header); the padding is that
+            gutter minus the card's 1px left border, while the card itself
+            still bleeds to the screen's left edge. */}
+        <div className="order-2 flex flex-1 flex-col gap-12 rounded-tr-[32px] rounded-br-[32px] border-y border-r border-stroke-default px-6 py-[47px] sm:gap-16 sm:px-8 sm:py-14 lg:order-none lg:gap-[88px] lg:rounded-br-[48px] lg:rounded-tr-[48px] lg:border lg:border-stroke-default lg:pb-10 lg:pr-8 lg:pt-20 lg:[padding-left:calc(var(--lg-head-x)-1px)]">
           <div className="flex w-full flex-col gap-8 sm:gap-12 lg:max-w-[575px] lg:gap-14">
             <div className="flex flex-col gap-4 sm:gap-6">
               <Reveal as="h1" className="text-h1 text-neutral-900">
@@ -267,14 +272,15 @@ export function Hero() {
             </Reveal>
           </div>
 
-          <div className="flex w-full flex-col gap-10 lg:max-w-[711px]">
+          <div className="flex w-full flex-col gap-10">
             <div className="flex flex-col gap-4">
               <p className="text-title-sm text-neutral-900 lg:max-w-[575px]">
                 Працюємо без перебоїв з 2000 року для
               </p>
-              {/* Line extends past the column's lg:pr-8 (32px) so it reaches
-                  the photo's left edge — matches Figma's Vector 59 width
-                  (711px on 1440 master, ≈ left-col - 130 px-padding). */}
+              {/* Line runs from the text line and extends past the column's
+                  lg:pr-8 (32px) so it reaches the card's right border (the
+                  photo's left edge) at every width, as Vector 59 did on the
+                  1440 master before the copy moved to x=80. */}
               {/* max-lg:-mb-px: Figma's divider is a zero-height stroke, so
                   the 1-px line must not consume layout space on mobile. */}
               <div

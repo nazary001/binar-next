@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useCart } from "@/components/cart/CartProvider";
+import { DetailsCircleText } from "@/components/ui/DetailsIconButton";
 import { RollingNumber } from "@/components/ui/RollingNumber";
 
 const bubbleCount = (n: number) => (n > 99 ? "99+" : String(n));
@@ -80,6 +81,34 @@ export function cartDiscLabel(title: string, inCart: number, preorder = false): 
 
 // The in-cart look of a disc on any tone (hover gives the same fill).
 export const CART_DISC_IN_CART = "border-brand bg-brand text-white";
+
+// The hover look of a disc, on the disc itself only (designer
+// 2026-11-11: the hover zone is the button, not the whole card or row):
+// brand fill, white glyph (2766:4534). Tailwind gates `hover:` behind
+// `(hover: hover)`, so touch screens never keep it after a tap. A disc
+// button carries `group/disc` for the ring below.
+export const CART_DISC_HOVER = "hover:border-brand hover:bg-brand hover:text-white";
+
+// The rotating «У КОШИК» ring of the hover state (2766:4534): the Figma
+// text-path I2766:4586;1127:5860 is a radius-36 circle around the 52-px
+// disc, the same «Icon button decorative» family as the «ДЕТАЛІ» ring
+// (ui/DetailsIconButton.tsx: 9-px Regular, a 14-s spin that stops under
+// reduced motion). It fades in while the pointer is on the disc or the disc has
+// keyboard focus, in-cart discs included; it never takes the pointer.
+// Render it as the button's FIRST child so the count bubble paints above.
+// `tone="light"` = the white ring of the dark band.
+const CART_RING_TEXT = "У КОШИК · У КОШИК · У КОШИК · У КОШИК · ";
+
+export function CartDiscRing({ tone = "dark" }: { tone?: "dark" | "light" }) {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -inset-[18px] opacity-0 transition-opacity duration-300 group-hover/disc:opacity-100 group-focus-visible/disc:opacity-100 motion-reduce:transition-none"
+    >
+      <DetailsCircleText variant={tone} text={CART_RING_TEXT} radius={36} />
+    </span>
+  );
+}
 
 // 24-px check: a 2.25-px round stroke; `pathLength` 24 lets the draw
 // animation run the dash offset from 24 (hidden) to 0 (drawn).

@@ -2,22 +2,26 @@
 import Link from "next/link";
 import { SocialButton } from "./ui/SocialButton";
 import { FooterScrollUpSlot } from "./ScrollUpDock";
+import { SITE_CONTACTS } from "@/lib/site-contacts";
 
+// Phone, e-mail, address and the social profiles are the company's real
+// contacts from the shared SITE_CONTACTS (the designer asked on
+// 2026-11-11 to replace the Figma placeholders with real data).
 const SOCIALS = [
   {
-    href: "https://facebook.com/binar2000",
+    href: SITE_CONTACTS.socials.facebook,
     label: "Facebook",
     src: "/figma-export/footer-facebook.svg",
     iconClass: "h-[23px] w-[14px]",
   },
   {
-    href: "https://instagram.com/binar2000",
+    href: SITE_CONTACTS.socials.instagram,
     label: "Instagram",
     src: "/figma-export/footer-instagram.svg",
     iconClass: "h-[24px] w-[24px]",
   },
   {
-    href: "https://t.me/binar2000",
+    href: SITE_CONTACTS.socials.telegram,
     label: "Telegram",
     src: "/figma-export/footer-telegram.svg",
     iconClass: "h-[20px] w-[24px]",
@@ -28,20 +32,17 @@ const CONTACTS = [
   {
     n: "01.",
     label: "Телефон *",
-    value: "+38 (089) 739-08-30",
-    href: "tel:+380897390830",
+    ...SITE_CONTACTS.phone,
   },
   {
     n: "02.",
     label: "Email",
-    value: "info@binar-2000.com",
-    href: "mailto:info@binar-2000.com",
+    ...SITE_CONTACTS.email,
   },
   {
     n: "03.",
     label: "Адреса",
-    value: "Україна, м. Київ, вул. Хрещатик, 1",
-    href: "https://maps.google.com/?q=Київ+Хрещатик+1",
+    ...SITE_CONTACTS.address,
   },
 ];
 
@@ -194,23 +195,35 @@ export function Footer() {
                     <span className="text-title-lg font-semibold text-white transition-colors duration-300 group-hover:text-brand">
                       {link.label}
                     </span>
-                    <span className="relative size-10 shrink-0">
-                      <img
-                        src="/figma-export/footer-arrow-circle.svg"
-                        alt=""
+                    {/* Round arrow icon: the two Figma exports
+                        (footer-arrow-circle.svg 40 x 40, footer-arrow-inner.svg
+                        32 x 32) inlined with currentColor, so it turns brand
+                        orange together with the label on hover (the designer
+                        asked on 2026-11-11). Geometry and strokes are the
+                        exported ones. */}
+                    <span className="relative size-10 shrink-0 text-white transition-colors duration-300 group-hover:text-brand">
+                      <svg
                         aria-hidden
-                        loading="lazy"
-                        decoding="async"
-                        className="absolute inset-0 size-full"
-                      />
-                      <img
-                        src="/figma-export/footer-arrow-inner.svg"
-                        alt=""
+                        viewBox="0 0 40 40"
+                        fill="none"
+                        className="absolute inset-0 size-full overflow-visible"
+                      >
+                        <circle cx="20" cy="20" r="19.4215" stroke="currentColor" strokeWidth="1.15709" />
+                      </svg>
+                      <svg
                         aria-hidden
-                        loading="lazy"
-                        decoding="async"
+                        viewBox="0 0 32 32"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                         className="absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2"
-                      />
+                      >
+                        <path d="M22.3281 9.13977L9.6709 22.8598" />
+                        <path d="M22.7077 18.5602L22.3281 9.13977" />
+                        <path d="M12.9077 9.51936L22.3281 9.13977" />
+                      </svg>
                     </span>
                   </Link>
                 </li>

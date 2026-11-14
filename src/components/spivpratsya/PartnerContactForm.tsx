@@ -190,13 +190,18 @@ export function PartnerContactForm() {
       className="relative w-full overflow-hidden bg-white px-6 pb-[60px] pt-[96px] sm:px-10 sm:py-20 lg:py-0"
     >
       {/* === Side ghost-product decorations — lg only ===
-          Anchored to the section's left/right edges with Figma's offsets
-          (30 / 0 / 97 px). Sits 402 px below the section's top in the
-          design. On smaller viewports there is no horizontal room for
-          216-px decorative cards next to the form, so we hide them. */}
+          Docked to the form card (the designer asked on 2026-11-11 for
+          the illustrations to sit flush against the form container): the
+          box is the master's 1440 frame (1870:6184) centred on the
+          section like the form, so Figma's offsets from its left/right
+          edges (30 / 0 / 97 px) put Group 65 / 64 on the card's edges
+          (246 / 1194 of the frame) at every window width. Sits 402 px
+          below the section's top in the design. On smaller viewports
+          there is no horizontal room for 216-px decorative cards next to
+          the form, so we hide them. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 hidden lg:block"
+        className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-[1440px] -translate-x-1/2 lg:block"
       >
         {/* LEFT group — Frame 1870:6185. The exported SVGs are the
             un-flipped base glyphs; Figma renders the left group as the

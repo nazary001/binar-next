@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { TIPS } from "@/components/catalog/tips";
 import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -197,7 +198,7 @@ export function ReturnDetailsView({ id }: { id: string }) {
               ]}
               groups={[
                 <>
-                  <SummaryRow label="Статус повернення" info>
+                  <SummaryRow label="Статус повернення" info={TIPS.returnStatus}>
                     <ReturnStatusBadge status={ret.status} />
                   </SummaryRow>
                   <SummaryRow label="Номер замовлення">

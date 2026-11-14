@@ -115,31 +115,29 @@ function roleValue(text: string): string {
   return ROLES.find((r) => r.label.toLowerCase() === t || r.value === t)?.value ?? text.trim();
 }
 
-// «Ваші дані» - each tab draws its own frame's card (the Empty copies
-// repeat the split):
-//   Співробітники 4868:31397 / 4929:64685 (364 x 356): white r24, gap 16;
-//     head h-60 px-24 pt-24 pb-8 with Title/Medium 22/28 and the brand
-//     «Адміністратор» pill (sm, 122 x 30); four fields 316 wide (ПІБ,
-//     Посада, Номер телефону, Електронна пошта), gap 24, pb-24;
-//   Контрагенти 4868:30978 / 4929:64216 (364 x 426): the same head with
-//     the title only and five fields - «Роль» (4868:30983) between ПІБ
-//     and Посада.
+// «Ваші дані» - one card on both desktop tabs (variant "desktop"):
+// Співробітники 4868:31397 / 4929:64685 and, since the designer redrew the
+// Контрагенти column like it on 2026-11-13, 5474:45054 (C35; the old
+// 426-px Контрагенти card without the pill and with «Роль», 4868:30978,
+// is gone) - 364 x 356: white r24, gap 16; head h-60 px-24 pt-24 pb-8
+// with Title/Medium 22/28 and the brand «Адміністратор» pill (sm,
+// 122 x 30); four fields 316 wide (ПІБ, Посада, Номер телефону,
+// Електронна пошта), gap 24, pb-24.
 // Phones (variant "account"): one fixed card for every group - white r32,
 // the title (Title Large) with the pill (wrapping under it at 320) AND the
-// "Роль" field.
+// "Роль" field (profile spec 2.3; «Роль» is phone-only now).
 export function YouCard({
   account,
   variant,
   onSaved,
 }: {
   account: Account;
-  variant: "counterparties" | "employees" | "account";
+  variant: "desktop" | "account";
   onSaved?: () => void;
 }) {
   const p = account.person;
   const phone = variant === "account";
-  const withRole = variant !== "employees";
-  const withPill = variant !== "counterparties";
+  const withRole = phone;
   return (
     <section
       aria-labelledby="profile-you"
@@ -159,11 +157,9 @@ export function YouCard({
         >
           {COPY.you.title}
         </h2>
-        {withPill && (
-          <StatusPill tone="brand" size="sm">
-            {COPY.you.role}
-          </StatusPill>
-        )}
+        <StatusPill tone="brand" size="sm">
+          {COPY.you.role}
+        </StatusPill>
       </div>
       <div className="flex flex-col gap-6 px-6 pb-6">
         <AutoSaveField

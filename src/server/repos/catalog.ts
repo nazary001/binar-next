@@ -68,6 +68,8 @@ const PUBLIC_FIELDS = [
   "retailPrice",
   "fxPrice",
   "preorder",
+  // The lead time the «Під замовлення» (i) names (C23); not sensitive.
+  "leadTimeDays",
 ] as const satisfies readonly (keyof Product)[];
 
 const PUBLIC_FIELD_SET: ReadonlySet<string> = new Set(PUBLIC_FIELDS);
@@ -187,9 +189,10 @@ async function loadSnapshot(): Promise<CatalogEntry[]> {
   return entries;
 }
 
-// v3: entries no longer carry the page content. A new key part, so no
-// entry cached in an older shape is served after a deploy.
-const cachedSnapshot = unstable_cache(loadSnapshot, ["catalog:v3"], {
+// v3: entries no longer carry the page content; v4: products carry
+// leadTimeDays. A new key part, so no entry cached in an older shape is
+// served after a deploy.
+const cachedSnapshot = unstable_cache(loadSnapshot, ["catalog:v4"], {
   tags: [TAG.catalog],
   revalidate: PUBLIC_REVALIDATE_SECONDS,
 });

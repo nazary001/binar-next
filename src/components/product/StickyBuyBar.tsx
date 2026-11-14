@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import { Button } from "@/components/ui/Button";
 import { StickyBar } from "@/components/ui/StickyBar";
 import { b2bPrices, discountPercent, formatPrice, type Product } from "@/components/catalog/data";
@@ -32,7 +32,8 @@ export function StickyBuyBar({
   product: Product;
   mode: "b2c" | "b2b";
   qty: number;
-  onAdd: () => void;
+  // Receives the click: the flight to the header cart starts on the button.
+  onAdd: (e: MouseEvent<HTMLElement>) => void;
   ctaRef: RefObject<HTMLDivElement | null>;
 }) {
   const [ctaOut, setCtaOut] = useState(false);

@@ -13,7 +13,9 @@ const COPY = {
 // What visitors and retail (B2C) customers see on a partner-cabinet route
 // (orders, returns, dashboard, profile, assortment): the page title, one
 // line on where the page lives and «Увійти» («Кабінет» once signed in)
-// opening the account drawer. No Figma frame draws it. They get the
+// opening the account drawer. A sign-in started here stays on this page
+// (the visitor came for this order); the header «Увійти» goes to the
+// dashboard (designer, 2026-11-13). No Figma frame draws it. They get the
 // public chrome, so the block sits on the shop gutter (80 at 1710,
 // `.lg-shop-pad-x`) under the header logo. The session lives in
 // localStorage: nothing renders until the client knows who is signed in,
@@ -32,7 +34,7 @@ export function SignInPrompt({ title, text }: { title: ReactNode; text: ReactNod
     <div className="mt-12 flex flex-col items-start gap-4 rounded-r-[32px] border-y border-r border-stroke-default px-6 py-[47px] lg-shop-pad-x lg:mt-0 lg:gap-6 lg:rounded-none lg:border-0 lg:py-20">
       <h1 className="text-h2 text-neutral-900">{title}</h1>
       <p className="text-[16px] leading-6 text-neutral-800 lg:text-body-sm lg:text-neutral-500">{text}</p>
-      <Button type="button" size="responsive" className="max-lg:mt-4" onClick={() => openAuth()}>
+      <Button type="button" size="responsive" className="max-lg:mt-4" onClick={() => openAuth("auto", { stay: true })}>
         {user ? COPY.cabinet : COPY.signIn}
       </Button>
     </div>

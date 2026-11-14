@@ -223,24 +223,26 @@ const DECOR_VARIANTS: Record<string, DecorVariant> = {
 function DecorStack({ variant }: { variant: keyof typeof DECOR_VARIANTS }) {
   const v = DECOR_VARIANTS[variant];
   return (
-    // Anchored to the section's BOTTOM, not its top, so the decoration
-    // stays glued to the form regardless of heading height. Figma master
-    // (home) puts the decoration's BOTTOM 168 px above section bottom
-    // (8 px above active card bottom + 160 px section pb). Hotels /
-    // cleaning / protect use longer heading text that pushes the deck
-    // down by 40-80 px; with `top: 834` (the old anchor) the decoration
-    // didn't follow and appeared visibly HIGHER on those pages relative
-    // to the form. `bottom: 168` keeps the relative gap to the active
-    // card constant across every variant.
+    // Docked to the form card (the designer asked on 2026-11-11 for the
+    // illustrations to sit flush against the form container). Figma
+    // master (home 1384:12870): Group 49 / 50 span 0..246 and 1194..1440
+    // of the 1440 frame, the card 246..1194, and both end at y 1128, the
+    // active card's bottom. So the box is that 1440 frame centred on the
+    // section like the deck (the section's gutters are symmetric, so its
+    // centre is the card's centre at every window width), and its bottom
+    // is the section's 160 px lg bottom padding = the card's bottom.
+    // Anchoring to the bottom, not the top, keeps it on the card whatever
+    // the heading height (hotels / cleaning / protect push the deck down
+    // by 40-80 px).
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 hidden lg:block"
-      style={{ bottom: "168px", height: "294px" }}
+      className="pointer-events-none absolute left-1/2 hidden w-[1440px] -translate-x-1/2 lg:block"
+      style={{ bottom: "160px", height: "294px" }}
     >
-      {/* Left stack (Figma Group 49 / 65) — anchored at the section's
-          LEFT edge. The top frame sits at left:0 with a 30-px gap on
-          its right (216-wide inside the 246-wide group); the bottom
-          row is 97 (left) + 149 (right). */}
+      {/* Left stack (Figma Group 49 / 65): anchored at the 1440 box's
+          LEFT edge, its right edge on the card. The top frame has a
+          30-px gap on its left (216-wide inside the 246-wide group, so
+          it touches the card); the bottom row is 97 (left) + 149 (right). */}
       <div className="absolute" style={{ left: "0", width: "246px", height: "294px" }}>
         <img
           src={v.leftTop}
@@ -267,10 +269,10 @@ function DecorStack({ variant }: { variant: keyof typeof DECOR_VARIANTS }) {
           style={{ left: "97px", top: "147px", width: "149px", height: "147px" }}
         />
       </div>
-      {/* Right stack (Figma Group 50 / 64) — mirror of left, anchored
-          at the section's RIGHT edge. Top frame: 30-px right gutter;
-          bottom row: wider 149 sits to the LEFT (closer to the form),
-          narrower 97 sits flush to the section's right edge. */}
+      {/* Right stack (Figma Group 50 / 64): mirror of left, anchored
+          at the 1440 box's RIGHT edge, its left edge on the card. Top
+          frame: 30-px right gutter; bottom row: wider 149 sits to the
+          LEFT (on the form), narrower 97 flush to the box's right edge. */}
       <div className="absolute" style={{ right: "0", width: "246px", height: "294px" }}>
         <img
           src={v.rightTop}

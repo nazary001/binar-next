@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TIPS } from "@/components/catalog/tips";
 import { Button } from "@/components/ui/Button";
 import { RadioGroup } from "@/components/ui/ChoiceRow";
 import { KeyValueList } from "@/components/ui/KeyValueList";
@@ -118,7 +119,7 @@ export function CancelOrderModal({
       }
     >
       <div className="flex flex-col gap-2 max-lg:hidden">
-        <SummaryRow label="Статус замовлення" info>
+        <SummaryRow label="Статус замовлення" info={TIPS.orderStatus}>
           <OrderStatusBadge status={order.status} />
         </SummaryRow>
         <SummaryRow label="Створив замовлення">
@@ -127,7 +128,7 @@ export function CancelOrderModal({
         <SummaryRow label="Контрагент">
           <SummaryLink clip>{order.counterparty}</SummaryLink>
         </SummaryRow>
-        <SummaryRow label="Статус оплати" info>
+        <SummaryRow label="Статус оплати" info={TIPS.paymentStatus}>
           <PaymentBadge kind={paymentKind(order)} />
         </SummaryRow>
       </div>

@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 import {
   useEffect,
   useId,
@@ -22,13 +21,10 @@ import { useAuth, type AuthEntry } from "./AuthProvider";
 import {
   COPY,
   DIALOG_LABEL,
-  PROFILE_HREF,
-  REGIONS,
   formatPhone,
   formatTimer,
   hasErrors,
   isMismatch,
-  roleLabel,
   validateSetPassword,
   validateSignIn,
   validateSignUp,
@@ -56,9 +52,11 @@ import { CheckmarkCircleIcon, EyeIcon, EyeSlashIcon, GoogleGIcon, WarningIcon } 
 //                + «паролі не збігаються»: both password
 //                  fields red, 81-px repeat field          5420:38248
 //                + «account exists» alert 436 x 80     5420:38238
-//   account      the signed-in summary (no master; kept from the first
-//                build): a partner gets «Перейти в профіль» -> /profile,
-//                and «Вийти» is the site's only sign-out for everyone
+//   account      the retail customer's signed-in summary (no master;
+//                kept from the first build): contacts + «Вийти». A
+//                partner never sees it (designer, 2026-11-13): «Увійти»
+//                takes them to /dashboard and they sign out from the
+//                cabinet header menu
 // Every field is the checkout «<TextField>» with the Figma FormHelperText
 // box (`muiHelper`): 46 tall, 65 with one message line, 81 with two.
 // No frame draws a close control: on desktop the drawer closes on the
@@ -396,7 +394,7 @@ function Screens({
   titleRef: RefObject<HTMLElement | null>;
   closeRef: RefObject<HTMLButtonElement | null>;
 }) {
-  const { user, closeAuth, signOut, finishRegistration } = useAuth();
+  const { user, closeAuth, signOut, signedIn } = useAuth();
   const phone = usePhone();
   const [screen, setScreen] = useState<Screen>(initial);
   const [busy, setBusy] = useState(false);
@@ -537,10 +535,10 @@ function Screens({
     try {
       const result = await api.signIn(login, password);
       if (result.ok) {
-        // A partner's first login (CRM account not yet welcomed) opens
-        // «Вітаємо на платформі» instead of just closing the drawer.
-        if (result.account.type === "b2b" && !result.account.welcomed) finishRegistration();
-        else closeAuth();
+        // The drawer closes; a partner goes to the dashboard (unless the
+        // page opened the drawer) and a first login opens «Вітаємо на
+        // платформі» there (AuthProvider.signedIn).
+        signedIn(result.account);
       } else if (result.error === "empty") {
         setSigninErrors(result.fields);
         requestFocus("invalid");
@@ -944,56 +942,31 @@ function Screens({
           </form>
         )}
 
-        {screen === "account" && user && (
-          <AccountScreen user={user} onSignOut={signOut} onLeave={closeAuth} phone={phone} />
-        )}
+        {screen === "account" && user && <AccountScreen user={user} onSignOut={signOut} phone={phone} />}
       </div>
     </div>
   );
 }
 
-// Signed-in summary in the drawer's own typography. A partner's full
-// profile is the «Мій профіль» page, linked first; «Вийти» stays here for
-// everyone (no other screen signs out). A retail customer has no company
-// and no profile page, so only the contact rows and «Вийти» show. The
-// two buttons stack 24 apart like «send again» (5420:38222).
+// The retail customer's signed-in summary in the drawer's own typography:
+// they have no company, no profile page and no cabinet (no retail design),
+// so the contact rows and «Вийти» (their only sign-out) are all it holds.
+// Partners never get here (designer, 2026-11-13): «Увійти» leads them to
+// the dashboard, «Мій профіль» / «Вийти» live in the cabinet header menu.
 // Phones (no master): the filled card r32 (3085:3974) with key / value
 // rows between 1-px #d2d2d2 lines (14/20 Medium label, 8, 16/24 value),
-// empty rows left out, and "Вийти" above the primary "Перейти в профіль".
+// empty rows left out.
 function AccountScreen({
   user,
   onSignOut,
-  onLeave,
   phone,
 }: {
   user: Account;
   onSignOut: () => void;
-  onLeave: () => void;
   phone: boolean;
 }) {
   const t = COPY.account;
-  // «м. Київ» already names the city: the city joins the region label
-  // only when it is a different place («Львівська область, Дрогобич»).
-  const { region, city } = user.company;
-  const companyRows: [string, string][] =
-    user.type === "b2b"
-      ? [
-          [t.company, user.company.name],
-          [t.edrpou, user.company.edrpou],
-          [
-            t.region,
-            [REGIONS.find((r) => r.value === region)?.label, city !== region ? city : null]
-              .filter(Boolean)
-              .join(", "),
-          ],
-          [
-            t.role,
-            `${roleLabel(user.person.role)}${user.person.position ? `, ${user.person.position}` : ""}`,
-          ],
-        ]
-      : [];
   const rows: [string, string][] = [
-    ...companyRows,
     [t.phone, formatPhone(user.person.phone || user.phone)],
     [t.email, user.person.email],
   ];
@@ -1001,8 +974,7 @@ function AccountScreen({
   return (
     <div className="flex flex-col gap-6 lg:gap-10">
       <TitleBlock title={t.title} subtitle={`${t.signedInAs} ${user.person.fullName}`} />
-      <div className="flex flex-col gap-4 rounded-[32px] bg-bg-subtle p-6 lg:rounded-3xl">
-        {user.logo && <img src={user.logo} alt={t.logoAlt} className="size-16 rounded-xl object-cover" />}
+      <div className="rounded-[32px] bg-bg-subtle p-6 lg:rounded-3xl">
         <dl className="flex flex-col max-lg:divide-y max-lg:divide-stroke-subtle lg:gap-4">
           {shown.map(([label, value]) => (
             <div key={label} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0 lg:gap-0.5 lg:py-0">
@@ -1016,22 +988,9 @@ function AccountScreen({
           ))}
         </dl>
       </div>
-      <div className="flex flex-col gap-2 max-lg:mt-2 lg:gap-6">
-        {user.type === "b2b" && (
-          <div className="flex w-full max-lg:order-last">
-            <Button href={PROFILE_HREF} size="small" variant="accent" fullWidth onClick={onLeave} data-autofocus>
-              {t.profile}
-            </Button>
-          </div>
-        )}
-        <WideButton
-          variant="outlinedDark"
-          onClick={onSignOut}
-          data-autofocus={user.type !== "b2b" || undefined}
-        >
-          {t.signOut}
-        </WideButton>
-      </div>
+      <WideButton variant="outlinedDark" onClick={onSignOut} data-autofocus wrapClassName="max-lg:mt-2">
+        {t.signOut}
+      </WideButton>
     </div>
   );
 }

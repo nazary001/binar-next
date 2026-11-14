@@ -17,16 +17,18 @@ export function BlogCard({ post }: { post: BlogPost }) {
   return (
     <Link
       href={`/blog/${post.slug}`}
-      className="group flex h-full cursor-pointer flex-col rounded-[32px] border border-neutral-800 lg:gap-6 lg:rounded-none lg:border-0 lg:py-6"
+      className="group flex h-full cursor-pointer flex-col max-lg:relative max-lg:rounded-[32px] max-lg:after:pointer-events-none max-lg:after:absolute max-lg:after:inset-0 max-lg:after:rounded-[32px] max-lg:after:border max-lg:after:border-neutral-800 lg:gap-6 lg:py-6"
     >
-      {/* max-lg:-mt-px + pb-[47px] below: Figma's 432px card counts its
-          stroke INSIDE (image at y0 under the border, excerpt->bottom gap
-          48 incl the stroke); border-box adds 2px, so the image slides
-          under the top border and the bottom pad gives one px back. */}
+      {/* Figma's 432px card counts its stroke INSIDE and paints it OVER the
+          image (image at y0 at the full card width, excerpt->bottom gap 48
+          incl the stroke), so the 1-px ring is the `after:` layer above,
+          not a box border: the border lay under the image pulled up over
+          it, which hid the top edge and cut into the corner arcs
+          (designer 2026-11-11: «лінія врізалась»). */}
       {/* A post whose cover upload is gone keeps the box (the grid stays
           even) with a quiet fill instead of a broken picture. */}
       <div
-        className={`relative h-[206px] w-full shrink-0 overflow-hidden rounded-[32px] max-lg:-mt-px sm:rounded-[40px] lg:aspect-auto lg:h-[336px]${post.image ? "" : " bg-bg-subtle"}`}
+        className={`relative h-[206px] w-full shrink-0 overflow-hidden rounded-[32px] sm:rounded-[40px] lg:aspect-auto lg:h-[336px]${post.image ? "" : " bg-bg-subtle"}`}
       >
         {post.image ? (
           <img
@@ -40,7 +42,7 @@ export function BlogCard({ post }: { post: BlogPost }) {
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 px-6 pb-[47px] pt-6 lg:p-0">
+      <div className="flex flex-1 flex-col gap-4 px-6 pb-12 pt-6 lg:p-0">
         <div className="flex items-end justify-between gap-4">
           <span className="text-[12px] font-medium uppercase leading-5 text-brand lg:text-[14px] lg:leading-6">
             {post.categoryLabel}

@@ -7,10 +7,16 @@ import { DetailsIconButton } from "@/components/ui/DetailsIconButton";
 // the /catalog direction banners and the direction-page subcategory
 // carousel: p-40 / rounded-40 photo card, blurred #151511 blob for
 // label legibility, white Button/Large label + the ДЕТАЛІ arrow
-// button. Hover per the Platform frame 4329:39250 / banner 4329:39265
-// (ctx/4329-39265.md): 6-px brand ring, photo desaturation, the arrow
-// button filled brand with a white arrow. No rotating text ring there
-// (that one belongs to the hotels landing zones only).
+// button. Hover per the Platform frame 4329:39250 / banner 4329:39265:
+// 6-px brand ring, photo desaturation, the arrow button filled brand
+// with a white arrow AND the rotating «ДЕТАЛІ» text ring around it (the
+// designer on 2026-11-11: "our circle that spins on hover" belongs here
+// too; the 4329:39265 render shows it, its ctx export omits the layer).
+// `active` holds the same look while the pointer is in the banner's
+// popover (data-active; /catalog banners, designer 2026-11-11): the
+// popover opens at the pointer, so CSS :hover alone would drop the look
+// the moment the pointer crosses into it. From 640 only, where the
+// popover exists: a tap on a phone tile must not paint the hover look.
 export function ZoneCard({
   href,
   label,
@@ -19,6 +25,7 @@ export function ZoneCard({
   bg,
   className,
   onMouseEnter,
+  active,
   phonePad = "tile",
 }: {
   href: string;
@@ -31,6 +38,7 @@ export function ZoneCard({
   bg?: string;
   className?: string;
   onMouseEnter?: MouseEventHandler<HTMLAnchorElement>;
+  active?: boolean;
   // Phones (< 640): the master zone tile (3130:18944) carries a 1-px
   // #8e8e8f ring inside its box; "tile" = the 342 x 206 banner with the
   // master's 40 padding (24 below 360, so the label column keeps room for
@@ -46,6 +54,7 @@ export function ZoneCard({
     <Link
       href={href}
       onMouseEnter={onMouseEnter}
+      data-active={active || undefined}
       className={`group relative flex cursor-pointer flex-col items-center justify-end overflow-clip rounded-[40px] p-10 max-lg:border max-lg:border-stroke-default ${phone} ${className ?? ""}`}
     >
       {bg && (
@@ -87,7 +96,7 @@ export function ZoneCard({
           card's overflow-clip trims the bleed). */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-[-6px] bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100"
+        className="pointer-events-none absolute inset-[-6px] bg-[#151511] opacity-0 transition-opacity duration-300 [mix-blend-mode:saturation] group-hover:opacity-100 lg:group-data-[active]:opacity-100"
       />
       {/* Figma I4329:39265;1127:5898: soft blurred dark blob pinned to the
           bottom edge (l/r -63, bottom -67, h 137, blur 22.15, 80 %). */}
@@ -98,7 +107,7 @@ export function ZoneCard({
       {/* 6-px brand hover ring painted ABOVE the photo. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute inset-0 rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:group-data-[active]:opacity-100"
       />
       <span className="relative flex w-full items-center gap-6">
         {/* overflowWrap inline: the unlayered phone rule `span {
@@ -108,7 +117,7 @@ export function ZoneCard({
         <span className="flex-1 text-button-lg text-white" style={{ overflowWrap: "normal" }}>
           {label}
         </span>
-        <DetailsIconButton variant="light" ring={false} />
+        <DetailsIconButton variant="light" />
       </span>
     </Link>
   );

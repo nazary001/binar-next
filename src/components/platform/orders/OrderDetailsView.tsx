@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { TIPS } from "@/components/catalog/tips";
 import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
 import { usePhone } from "@/components/ui/useMediaQuery";
@@ -329,7 +330,7 @@ export function OrderDetailsView({ id }: { id: string }) {
               ]}
               groups={[
                 <>
-                  <SummaryRow label="Статус замовлення" info>
+                  <SummaryRow label="Статус замовлення" info={TIPS.orderStatus}>
                     <OrderStatusBadge status={order.status} />
                   </SummaryRow>
                   <SummaryRow label="Номер замовлення">
@@ -346,7 +347,7 @@ export function OrderDetailsView({ id }: { id: string }) {
                   </SummaryRow>
                 </>,
                 <>
-                  <SummaryRow label="Статус оплати" info>
+                  <SummaryRow label="Статус оплати" info={TIPS.paymentStatus}>
                     <PaymentBadge kind={paymentKind(order)} />
                   </SummaryRow>
                   <SummaryRow label="Тип оплати">

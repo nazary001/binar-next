@@ -9,6 +9,7 @@ import {
   type PopupPosition,
   computePos,
 } from "@/components/ui/ItemsPopup";
+import { type PhoneCard, PhoneCardStack } from "@/components/ui/PhoneCardStack";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
@@ -168,12 +169,18 @@ const COL_3: Card[] = [
 
 // 6-px brand border that fades in on card hover (the hotels/protect
 // "HoverRing"). Each card is `relative` + `group` so this hugs the
-// card's rounded edge and lights up on hover.
-function HoverRing() {
+// card's rounded edge and lights up on hover. Figma hover (1127:5789
+// family) draws the stroke INSIDE the card box, so its outer edge is the
+// card edge (designer 2026-11-11: the lines did not match on hover).
+// White cards draw a 1-px CSS border outside their padding box, so their
+// ring is pulled out by that pixel (`outset`, -inset-px) to cover it
+// exactly; photo cards have no border, so inset-0 is the edge. Only the
+// desktop bento (lg+) uses it, hence the single 40 radius.
+function HoverRing({ outset = false }: { outset?: boolean }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 rounded-[28px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:rounded-[40px]"
+      className={`pointer-events-none absolute ${outset ? "-inset-px" : "inset-0"} rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
     />
   );
 }
@@ -221,10 +228,14 @@ function PhotoCardEl({
   crop?: { left: string; top: string; width: string; height: string };
   className?: string;
 }) {
+  // No outline on a photo card (designer 2026-11-11: «обводку там де є
+  // фото не потрібно»): the clip is the card edge, so the inset-0 ring
+  // lines up with it; hover:z-10 lifts the hovered card over the seams
+  // of its neighbours.
   return (
     <Link
       href={CARD_HREF}
-      className={`group relative flex cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
+      className={`group relative flex cursor-pointer flex-col justify-end overflow-clip rounded-[28px] p-6 hover:z-10 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
     >
       {crop ? (
         // Exact Figma fill placement (percent box relative to the card)
@@ -281,13 +292,17 @@ function TextCardEl({ title, className }: { title: string; className?: string })
   // (Figma 2532 row sits p-10 from the card bottom). The title stays
   // neutral-900 on hover (user direction - no brand tint on text); the
   // hover affordances are the ring, the brand arrow fill and the items
-  // panel that opens beside the card.
+  // panel that opens beside the card. No overflow-clip (nothing here
+  // needs clipping, and it would cut the outset ring back to the padding
+  // box). z-[1] keeps this card's hairline above a photo card that
+  // overlaps it at the 1-px seam later in the DOM; hover:z-10 lifts the
+  // hovered card over every neighbour.
   return (
     <Link
       href={CARD_HREF}
-      className={`group relative flex cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-7 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
+      className={`group relative z-[1] flex cursor-pointer flex-col justify-end rounded-[28px] border border-stroke-default bg-white p-7 hover:z-10 sm:p-8 lg:rounded-[40px] lg:p-10 ${className ?? ""}`}
     >
-      <HoverRing />
+      <HoverRing outset />
       <div className="relative flex w-full items-center gap-4 sm:gap-8">
         <p className="flex-1 text-button-lg text-neutral-900">{title}</p>
         <CardArrow tone="dark" />
@@ -374,8 +389,8 @@ function Column({
           // ~132 px - refuse to shrink to their basis and grow, pushing
           // column 1 to ~795 px and breaking the 786-px alignment. With
           // min-h-0 each card stays exactly on its flex-basis (the 1-px
-          // content overflow on the short cards is clipped from the empty
-          // top padding, the bottom-pinned row stays fully visible).
+          // content overflow on the short cards lands in the empty top
+          // padding, the bottom-pinned row stays fully visible).
           // `lg:-mt-px` on cards 2+ overlaps the card above so the
           // touching 1px borders collapse to a single line.
           className={`flex w-full lg:[flex-basis:var(--lg-basis)] lg:min-h-0 lg:shrink-0 lg:grow-0${
@@ -393,139 +408,48 @@ function Column({
   );
 }
 
-// === Mobile-only stack (Figma 3166:8824) ===
-// Below lg the bento collapses to a single column of uniform 190-px
-// cards (16-px gaps -> 206-px pitch) capped by the catalog CTA. Image
-// cards carry a photo + dark blur halo + white label/arrow; outline
-// cards are plain white with a dark label/arrow; the CTA is a
-// neutral-800 pill with the brand-orange arrow.
-type MobileItem =
-  | {
-      kind: "image";
-      label: string;
-      image: string;
-      // Exact Figma fill placement inside the 342x206 tile (the master
-      // does NOT centre-cover: each photo has its own crop window).
-      crop: { left: string; top: string; width: string; height: string };
-    }
-  | { kind: "outline"; label: string }
-  | { kind: "cta"; label: string };
-
-const MOBILE_ITEMS: MobileItem[] = [
+// === Mobile-only stack (Figma 3166:8824, tile list 5492:10594) ===
+// Below lg the bento collapses to the shared phone stack the designer
+// redrew on 2026-11-13 (C47..C50 on this frame: 16-px gaps, 42-px arrow
+// discs, 24 padding with 131-px centred text tiles, radius 32; see
+// ui/PhoneCardStack): 206-px photo tiles, 131-px outlined text tiles and
+// the catalog button. Same order, labels and links as before.
+const MOBILE_ITEMS: PhoneCard[] = [
   {
-    kind: "image",
+    kind: "photo",
     label: "Тапочки (стандарт / кастом)",
+    href: CARD_HREF,
     image: "/figma-export/spivpratsya/cover-tapochki.png",
-    // Figma 3166:8829
+    // Figma 3166:8829: each photo has its own crop window in the 342x206
+    // tile (the tile box did not change in the 13.11 redesign).
     crop: { left: "0%", top: "-26.25%", width: "100%", height: "127.5%" },
   },
-  { kind: "outline", label: "Галантерея та витратні матеріали" },
-  { kind: "outline", label: "Текстиль і комплектація номерів" },
-  { kind: "outline", label: "PROTECT (ЗІЗ, одноразовий одяг)" },
-  { kind: "outline", label: "HoReCa Hygiene (гігієна, прибирання)" },
+  { kind: "text", label: "Галантерея та витратні матеріали", href: CARD_HREF },
+  { kind: "text", label: "Текстиль і комплектація номерів", href: CARD_HREF },
+  { kind: "text", label: "PROTECT (ЗІЗ, одноразовий одяг)", href: CARD_HREF },
+  { kind: "text", label: "HoReCa Hygiene (гігієна, прибирання)", href: CARD_HREF },
   // The master's label here is a broken copy-paste ("PROTECT Брендування
-  // та пакуванняЗІЗ, одноразовий одяг)") — we keep the intended clean
+  // та пакуванняЗІЗ, одноразовий одяг)"): we keep the intended clean
   // category name.
-  { kind: "outline", label: "Брендування та пакування" },
+  { kind: "text", label: "Брендування та пакування", href: CARD_HREF },
   {
-    kind: "image",
+    kind: "photo",
     label: "Міні-косметика та аксесуари",
+    href: CARD_HREF,
     image: "/figma-export/spivpratsya/cover-cosmetics.png",
     // Figma 3166:8833
     crop: { left: "0%", top: "-10.04%", width: "100%", height: "170%" },
   },
   {
-    kind: "image",
+    kind: "photo",
     label: "Оснащення ванної (включно з Valera)",
+    href: CARD_HREF,
     image: "/figma-export/spivpratsya/cover-bathroom.png",
     // Figma 3166:8837
     crop: { left: "-28.35%", top: "-17.68%", width: "156.76%", height: "282.21%" },
   },
-  { kind: "cta", label: "Переглянути каталог" },
+  { kind: "cta", label: "Переглянути каталог", href: CATALOG_HREF },
 ];
-
-function MobileArrow({ tone }: { tone: "light" | "dark" }) {
-  return (
-    <span
-      className={`flex size-[52px] shrink-0 items-center justify-center rounded-[26px] border ${
-        tone === "light" ? "border-white" : "border-neutral-900"
-      }`}
-    >
-      <img
-        src={tone === "light" ? ARROW_WHITE : ARROW_DARK}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        className="size-[16.5px]"
-      />
-    </span>
-  );
-}
-
-function MobileItemCard({ item, first }: { item: MobileItem; first?: boolean }) {
-  if (item.kind === "cta") {
-    return (
-      <Link
-        href={CATALOG_HREF}
-        // Figma 3167:4969: the label+disc cluster is centred as a group,
-        // which lands the 140-wide 2-line label at x40 and the orange
-        // disc at x248..300 — px-[40px] + justify-between reproduces both
-        // anchors on the 342 card (probe: label x64, disc x272..323 abs).
-        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-neutral-800 px-[40px] py-[15px]"
-      >
-        <p className="max-w-[140px] text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-white">
-          {item.label}
-        </p>
-        <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
-          <img src={ARROW_WHITE} alt="" aria-hidden loading="lazy" decoding="async" className="size-[16.5px]" />
-        </span>
-      </Link>
-    );
-  }
-  const isImage = item.kind === "image";
-  return (
-    <Link
-      href={CARD_HREF}
-      className={`relative flex h-[206px] w-full flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default p-[40px] ${
-        first ? "" : "-mt-px"
-      } ${isImage ? "" : "bg-white"}`}
-    >
-      {item.kind === "image" && (
-        <>
-          <img
-            src={item.image}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="absolute max-w-none"
-            style={{
-              left: item.crop.left,
-              top: item.crop.top,
-              width: item.crop.width,
-              height: item.crop.height,
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute bottom-[-61.5px] left-[-57.5px] h-[137px] w-[507px] bg-[#151511] opacity-80 blur-[22px]"
-          />
-        </>
-      )}
-      <div className="relative flex w-full items-center gap-8">
-        <p
-          className={`flex-1 text-[16px] font-semibold leading-[22px] tracking-[0.16px] ${
-            isImage ? "text-white" : "text-neutral-900"
-          }`}
-        >
-          {item.label}
-        </p>
-        <MobileArrow tone={isImage ? "light" : "dark"} />
-      </div>
-    </Link>
-  );
-}
 
 export function Coverage() {
   const [active, setActive] = useState<Card | null>(null);
@@ -607,23 +531,17 @@ export function Coverage() {
   }, [active]);
 
   return (
-    // Mobile (3166:8820): pt-60 / title-36 / gap-48 / stack / pb-60.
-    // pb-[67px] = 60 + 7: the 8-tile stack collapses 7 seams by 1px each
-    // (-mt-px de-doubling below), so the section compensates to keep the
-    // master's 1983-px total.
-    <section className="lg-pad-x flex w-full flex-col gap-12 bg-white px-6 pb-[67px] pt-[60px] sm:gap-14 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]">
+    // Mobile (3166:8820, 1736 tall): pt-60 / title-36 / gap-48 / stack
+    // 1532 / pb-60. The tiles are 16 px apart now (no seams to compensate).
+    <section className="lg-pad-x flex w-full flex-col gap-12 bg-white px-6 pb-[60px] pt-[60px] sm:gap-14 sm:px-10 sm:py-20 lg:gap-[120px] lg:py-[160px]">
       <h2 className="text-h2-light text-neutral-900 max-w-[640px]">
         Що ми <span className="text-h2">закриваємо?</span>
       </h2>
 
-      {/* MOBILE (<lg) — Figma 3166:8824: a single column of uniform 206-px
-          cards that TOUCH (0 gap, borders de-doubled via -mt-px) followed by
-          the 131-px catalog CTA. No hover panel on touch layouts. */}
-      <div className="flex flex-col gap-0 lg:hidden">
-        {MOBILE_ITEMS.map((item, i) => (
-          <MobileItemCard key={item.label} item={item} first={i === 0} />
-        ))}
-      </div>
+      {/* MOBILE (<lg): Figma 3166:8824, the shared phone stack (16-px gaps,
+          photo / text tiles, catalog button). No hover panel on touch
+          layouts. The section is white, so the text tiles read white. */}
+      <PhoneCardStack className="lg:hidden" cards={MOBILE_ITEMS} />
 
       {/* DESKTOP (lg+) — the Figma 1440 bento grid, hidden below lg. */}
       <div

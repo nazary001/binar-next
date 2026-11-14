@@ -15,17 +15,26 @@ import { dropLocalSession, refreshSession, sessionAgeMs } from "@/lib/session/bo
 import { clearAccountCache } from "@/lib/session/cache";
 import { hasSessionHint } from "@/lib/session/hint";
 import { markWelcomed, retryPendingSignOut, signOut as apiSignOut } from "./api";
-import { PROFILE_HREF, RESET_QUERY_PARAM, type Account } from "./data";
+import { DASHBOARD_HREF, PROFILE_HREF, RESET_QUERY_PARAM, type Account } from "./data";
 import { currentAccount, getServerSnapshot, getSnapshot, subscribe } from "./store";
 import { AuthDrawer } from "./AuthDrawer";
 import { WelcomeModal } from "./WelcomeModal";
 
 // Which screen the drawer opens on (Figma «Authorisation NEW» 5420:38169).
-// `auto` = «Sign in» for visitors, the signed-in summary for an account;
-// `account` = the summary (after «Перейти в профіль» for a customer);
-// `reset` = «Створіть новий пароль», opened by the (mocked) e-mailed
-// link `/?reset=<token>`.
+// `auto` = «Sign in» for visitors, the signed-in summary for a retail
+// customer; `account` = that summary (after «Перейти в профіль» for a
+// retail customer); `reset` = «Створіть новий пароль», opened by the
+// (mocked) e-mailed link `/?reset=<token>`. A signed-in partner has no
+// summary (designer, 2026-11-13): `auto` / `account` take them to the
+// dashboard instead of opening the drawer.
 export type AuthEntry = "auto" | "account" | "reset";
+
+export type OpenAuthOptions = {
+  // A sign-in started by the page itself (the cabinet SignInPrompt, the
+  // materials padlock) keeps that page; any other partner sign-in (the
+  // header «Увійти») lands on the dashboard.
+  stay?: boolean;
+};
 
 type AuthContextValue = {
   user: Account | null;
@@ -36,14 +45,15 @@ type AuthContextValue = {
   entry: AuthEntry;
   // The token of the reset link the drawer was opened with.
   resetToken: string | null;
-  openAuth: (entry?: AuthEntry) => void;
+  openAuth: (entry?: AuthEntry, options?: OpenAuthOptions) => void;
   closeAuth: () => void;
   signOut: () => void;
-  // Partner first login: the drawer closes and the
-  // «Вітаємо на платформі Binar-2000» modal (4573:35590) takes over.
-  // The retail sign-up (5420:38224) does not use it; kept for the
-  // partner onboarding (Figma 4260:38821).
-  finishRegistration: () => void;
+  // A successful «Увійти»: the drawer closes; a partner goes to the
+  // dashboard (C27, «після кнопки увійти діректимо на Дашборд») unless
+  // the page opened the drawer with `stay`. A partner's first login (CRM
+  // account not yet welcomed) opens the «Вітаємо на платформі Binar-2000»
+  // modal (4573:35590) over the page it lands on. A retail customer stays.
+  signedIn: (account: Account) => void;
   welcomeOpen: boolean;
   closeWelcome: () => void;
   // «Перейти в профіль»: closes the modal; a partner goes to «Мій
@@ -74,24 +84,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [entry, setEntry] = useState<AuthEntry>("auto");
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(null);
+  // Set per open: the page opened the drawer and a sign-in keeps it.
+  const [stayAfterSignIn, setStayAfterSignIn] = useState(false);
+  // A partner's first sign-in redirected to the dashboard: the welcome
+  // card opens with the new page.
+  const [welcomeAfterNav, setWelcomeAfterNav] = useState(false);
 
   // A route change (a link inside the sheet, Back, the logo) closes the
   // account sheet and the welcome card in the same commit as the new page
   // (render-phase adjustment, as Header / PlatformHeader do for their
-  // menus); the welcome card is not marked as seen then.
+  // menus); the welcome card is not marked as seen then. The one route
+  // change that opens it is the first-login redirect to the dashboard.
   const pathname = usePathname();
   const [overlayPath, setOverlayPath] = useState(pathname);
   if (overlayPath !== pathname) {
     setOverlayPath(pathname);
     setOpen(false);
-    setWelcomeOpen(false);
+    setWelcomeOpen(welcomeAfterNav);
+    setWelcomeAfterNav(false);
   }
 
-  const openAuth = useCallback((next: AuthEntry = "auto") => {
-    setEntry(next);
-    setOpenCount((c) => c + 1);
-    setOpen(true);
-  }, []);
+  // A signed-in partner never gets the drawer summary (designer,
+  // 2026-11-13): «Кабінет» anywhere leads to the dashboard. The account is
+  // read from the store, so the callback stays stable.
+  const openAuth = useCallback(
+    (next: AuthEntry = "auto", options?: OpenAuthOptions) => {
+      if (next !== "reset" && currentAccount(getSnapshot())?.type === "b2b") {
+        if (window.location.pathname !== DASHBOARD_HREF) router.push(DASHBOARD_HREF);
+        return;
+      }
+      setStayAfterSignIn(options?.stay ?? false);
+      setEntry(next);
+      setOpenCount((c) => c + 1);
+      setOpen(true);
+    },
+    [router],
+  );
 
   // The reset link: `/?reset=<token>` opens the drawer on «Створіть новий
   // пароль» once the page has hydrated, and the token leaves the address
@@ -135,15 +163,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
+  // A partner signs out from the cabinet header menu or the phone cabinet
+  // menu: the platform shell gives way to the public chrome and the pressed
+  // control goes with it, so focus would drop to <body>; the page title
+  // (CabinetPageHead h1, tabIndex -1) takes it, else the header logo.
   const signOut = useCallback(() => {
     apiSignOut();
     setOpen(false);
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && active.isConnected) return;
+      const target =
+        document.querySelector<HTMLElement>("main h1[tabindex='-1']") ??
+        document.querySelector<HTMLElement>("body > header a");
+      target?.focus({ preventScroll: true });
+    });
   }, []);
 
-  const finishRegistration = useCallback(() => {
-    setOpen(false);
-    setWelcomeOpen(true);
-  }, []);
+  const signedIn = useCallback(
+    (account: Account) => {
+      const welcome = account.type === "b2b" && !account.welcomed;
+      setOpen(false);
+      if (account.type === "b2b" && !stayAfterSignIn && pathname !== DASHBOARD_HREF) {
+        setWelcomeAfterNav(welcome);
+        router.push(DASHBOARD_HREF);
+        return;
+      }
+      setWelcomeOpen(welcome);
+    },
+    [pathname, router, stayAfterSignIn],
+  );
 
   const closeWelcome = useCallback(() => {
     markWelcomed();
@@ -167,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       openAuth,
       closeAuth,
       signOut,
-      finishRegistration,
+      signedIn,
       welcomeOpen,
       closeWelcome,
       goToProfile,
@@ -181,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       openAuth,
       closeAuth,
       signOut,
-      finishRegistration,
+      signedIn,
       welcomeOpen,
       closeWelcome,
       goToProfile,

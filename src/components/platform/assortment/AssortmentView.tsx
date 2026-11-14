@@ -16,7 +16,9 @@ import {
   PlusIcon,
 } from "@/components/catalog/icons";
 import { formatPrice, productHref, productsPlural } from "@/components/catalog/data";
+import { TIPS } from "@/components/catalog/tips";
 import { usePartnerPrices } from "@/components/catalog/CatalogRegistry";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { RollingNumber } from "@/components/ui/RollingNumber";
 import { SortIcon } from "@/components/platform/orderIcons";
 import { PAGE_SIZES } from "@/components/platform/orders/data";
@@ -219,18 +221,23 @@ function RowStepper({ qty, onQty, name }: { qty: number; onQty: (n: number) => v
 // «<TableHead>»: p-16 (the cells right of «Товар» sit 2 px further in -
 // the master's head columns are 414 / 72 while the rows are 412 / 74, so
 // the labels keep their master x over the row columns).
+// `info` = the explanation of the label: the info glyph is an InfoTip that
+// shows it in the Figma «Tooltip» chip 4634:65682 on hover / focus
+// (designer 2026-11-11, C23; catalog/tips.ts). The sort glyph and the info
+// glyph never share a head: a sortable head is a button, and the (i) is a
+// button of its own (no button inside a button).
 function Head({
   children,
   className = "",
   shifted = false,
-  info = false,
+  info,
   sort,
   onSort,
 }: {
   children?: ReactNode;
   className?: string;
   shifted?: boolean;
-  info?: boolean;
+  info?: string;
   sort?: Sort;
   onSort?: () => void;
 }) {
@@ -245,7 +252,11 @@ function Head({
           {onSort ? (
             <SortIcon className={`size-[18px] ${sort ? "text-brand" : "text-[#bbbbbc]"}`} />
           ) : (
-            <InfoHeadIcon className="size-[18px] text-[#bbbbbc]" />
+            <InfoTip
+              label={typeof children === "string" ? children : ""}
+              text={info ?? ""}
+              icon={<InfoHeadIcon className="size-[18px] text-[#bbbbbc]" />}
+            />
           )}
         </span>
       )}
@@ -315,13 +326,13 @@ function TableHeadRow({
         <Head className="w-[204px]" shifted>
           Доступність товару
         </Head>
-        <Head className="w-[150px]" shifted info>
+        <Head className="w-[150px]" shifted info={TIPS.wholesale}>
           Оптова ціна
         </Head>
-        <Head className="w-[170px]" shifted info>
+        <Head className="w-[170px]" shifted info={TIPS.retailB2B}>
           Роздрібна ціна
         </Head>
-        <Head className="w-[140px]" shifted info>
+        <Head className="w-[140px]" shifted info={TIPS.partner}>
           Ваша ціна
         </Head>
         <Head className="w-[140px]" shifted>

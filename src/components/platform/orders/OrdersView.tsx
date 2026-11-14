@@ -6,6 +6,7 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ChevronSideIcon } from "@/components/catalog/icons";
+import { TIPS } from "@/components/catalog/tips";
 import {
   CabinetPage,
   CabinetPageHead,
@@ -34,7 +35,18 @@ import {
   type ReturnStatus,
 } from "./data";
 import { DocumentsModal } from "./DocumentsModal";
-import { CELL, DIVIDER, Head, Pager, ROW_ICON_BUTTON, SearchField, type Sort } from "./listParts";
+import {
+  CELL,
+  DIVIDER,
+  Head,
+  Pager,
+  ROW_CHEVRON,
+  ROW_ICON_BUTTON,
+  ROW_OPEN,
+  SearchField,
+  useRowOpen,
+  type Sort,
+} from "./listParts";
 import { OrderRecordRow, PhoneList, PhoneToolbar } from "./listPhone";
 import { inPeriod, sortRows, useListState, type Filters } from "./listState";
 import { PaymentCell } from "./PaymentCell";
@@ -52,7 +64,8 @@ import { useCounterpartyNames, useOrders, useOrdersToday, useReturns } from "./s
 //   filter row (pb-32): 364-px search left, three selects right (364
 //     period, 234 counterparty, 234 status), gap 16;
 //   table: white r24, #343435 head row (pt-8, px-24, heads p-16 14/24
-//     SemiBold white with sort / info glyphs), 0.5-px #d2d2d2 dividers,
+//     SemiBold white with sort / info glyphs; the info glyph explains its
+//     status on hover / focus, C23), 0.5-px #d2d2d2 dividers,
 //     rows px-24 with cells px-16 py-24;
 //     orders: № (16 SemiBold), date, sum, counterparty (underlined,
 //       fills), order badge, payment chip + caption, the 42-px documents
@@ -60,7 +73,11 @@ import { useCounterpartyNames, useOrders, useOrdersToday, useReturns } from "./s
 //       to /orders/<id>;
 //     returns (head 5192:78639): «Замовлення №», «Дата», «Сума
 //       повернення», «Контрагент», «Статус повернення», «Документи», 90-px
-//       rows with the return badge and the two 42-px buttons;
+//       rows with the return badge and the two 42-px buttons (the chevron
+//       to /orders/returns/<id>);
+//     a click anywhere on a row opens the chevron's page (designer
+//       2026-11-13, C32; listParts useRowOpen), the documents button keeps
+//       its dialog and the chevron stays the keyboard stop;
 //   pager row 100, or the empty row 4990:72302 («Замовлень ще немає»,
 //     frame 4929:63067, no pager) for an account without orders.
 // Sorting, filters, search and pagination run over the company's orders
@@ -149,6 +166,7 @@ function OrdersTable({
   empty: "none" | "noOrders" | "noMatches";
 }) {
   const sortOf = (key: Sort["key"]) => (sort.key === key ? sort.dir : null);
+  const openRow = useRowOpen();
   return (
     <div className="overflow-x-auto rounded-3xl bg-white">
       <table className="w-full min-w-[1180px] border-separate border-spacing-0">
@@ -163,7 +181,7 @@ function OrdersTable({
               Сума
             </Head>
             <Head className="pt-2">Контрагент</Head>
-            <Head className={`w-[196px] pt-2 ${INFO_HEAD} [&>span]:pl-[14px]`} info>
+            <Head className={`w-[196px] pt-2 ${INFO_HEAD} [&>span]:pl-[14px]`} info={TIPS.orderStatus}>
               Статус замовлення
             </Head>
             <Head className="w-[244px] pt-2 [&>span]:pl-[18px]">Статус оплати</Head>
@@ -189,7 +207,7 @@ function OrdersTable({
             <TableEmptyRow colSpan={10} title="Замовлень не знайдено" text="Змініть пошук або умови фільтрів." />
           )}
           {orders.map((order) => (
-            <tr key={order.id} className={ORDER_ROW}>
+            <tr key={order.id} className={`${ORDER_ROW} ${ROW_OPEN}`} {...openRow(`/orders/${order.id}`)}>
               <td aria-hidden className="w-6 p-0" />
               <td className={`${CELL} whitespace-nowrap text-[16px] font-semibold leading-6 text-neutral-900`}>
                 {order.number}
@@ -218,7 +236,7 @@ function OrdersTable({
                 </button>
               </td>
               <td className={CELL}>
-                <Link href={`/orders/${order.id}`} aria-label={`Деталі замовлення №${order.number}`} className={ROW_ICON_BUTTON}>
+                <Link href={`/orders/${order.id}`} aria-label={`Деталі замовлення №${order.number}`} className={ROW_CHEVRON}>
                   <ChevronSideIcon mirrored className="size-6" />
                 </Link>
               </td>
@@ -245,6 +263,7 @@ function ReturnsTable({
   empty: "none" | "noReturns" | "noMatches";
 }) {
   const sortOf = (key: Sort["key"]) => (sort.key === key ? sort.dir : null);
+  const openRow = useRowOpen();
   return (
     <div className="overflow-x-auto rounded-3xl bg-white">
       <table className="w-full min-w-[1180px] border-separate border-spacing-0">
@@ -259,7 +278,7 @@ function ReturnsTable({
               Сума повернення
             </Head>
             <Head className="pt-2">Контрагент</Head>
-            <Head className={`w-[196px] pt-2 ${INFO_HEAD} [&>span]:pl-[13px]`} info>
+            <Head className={`w-[196px] pt-2 ${INFO_HEAD} [&>span]:pl-[13px]`} info={TIPS.returnStatus}>
               Статус повернення
             </Head>
             <Head className={`w-[130px] pt-2 ${DOCS_HEAD}`}>Документи</Head>
@@ -279,7 +298,7 @@ function ReturnsTable({
             <TableEmptyRow colSpan={9} title="Повернень не знайдено" text="Змініть пошук або умови фільтрів." />
           )}
           {rows.map(({ ret, order, total }) => (
-            <tr key={ret.id} className={ROW}>
+            <tr key={ret.id} className={`${ROW} ${ROW_OPEN}`} {...openRow(`/orders/returns/${ret.id}`)}>
               <td aria-hidden className="w-6 p-0" />
               <td className={`${CELL} whitespace-nowrap text-[16px] font-semibold leading-6 text-neutral-900`}>
                 {order?.number ?? ""}
@@ -313,7 +332,7 @@ function ReturnsTable({
                 <Link
                   href={`/orders/returns/${ret.id}`}
                   aria-label={`Деталі повернення за замовленням №${order?.number ?? ""}`}
-                  className={ROW_ICON_BUTTON}
+                  className={ROW_CHEVRON}
                 >
                   <ChevronSideIcon mirrored className="size-6" />
                 </Link>
@@ -355,7 +374,6 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
         <SearchField value={s.query} onChange={s.setQuery} label="Пошук замовлень" />
         <div className={SELECTS}>
           <Select
-            bg="white"
             label={`Період: ${rangeLabel}`}
             value={s.period}
             options={PERIOD_OPTIONS}
@@ -364,7 +382,6 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
             className="lg:w-[364px]"
           />
           <Select
-            bg="white"
             label="Контрагент"
             value={s.counterparty}
             options={[{ value: "all", label: "Усі контрагенти" }, ...counterparties.map((c) => ({ value: c, label: c }))]}
@@ -372,7 +389,6 @@ function OrdersTab({ orders, hasHistory }: { orders: Order[]; hasHistory: boolea
             className="lg:w-[234px]"
           />
           <Select
-            bg="white"
             label="Статус замовлення"
             value={s.status}
             options={[
@@ -475,7 +491,6 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
         <SearchField value={s.query} onChange={s.setQuery} label="Пошук повернень" />
         <div className={SELECTS}>
           <Select
-            bg="white"
             label={`Період: ${rangeLabel}`}
             value={s.period}
             options={PERIOD_OPTIONS}
@@ -484,7 +499,6 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
             className="lg:w-[364px]"
           />
           <Select
-            bg="white"
             label="Контрагент"
             value={s.counterparty}
             options={[{ value: "all", label: "Усі контрагенти" }, ...counterparties.map((c) => ({ value: c, label: c }))]}
@@ -492,7 +506,6 @@ function ReturnsTab({ orders, returns, hasHistory }: { orders: Order[]; returns:
             className="lg:w-[234px]"
           />
           <Select
-            bg="white"
             label="Статус повернення"
             value={s.status}
             options={[

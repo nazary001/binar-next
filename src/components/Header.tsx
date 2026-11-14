@@ -15,19 +15,12 @@ import {
   PhoneMenuRow,
   PhoneMenuSheet,
 } from "./PhoneMenu";
+import { CartIcon } from "./catalog/icons";
 import { Button } from "./ui/Button";
 import { RollingNumber } from "./ui/RollingNumber";
 import { useCart } from "./cart/CartProvider";
 import { useAuth } from "./auth/AuthProvider";
-import { useFitZoom } from "./cart/useFitZoom";
-
-// Landing routes only: the phone menu stack height in the master
-// (3117:13841): py-60 x 2 + label group + links + button = 706 px under
-// the 66-px bar of an 844 screen. Shorter phones get the stack zoomed to
-// fit. Shop / cabinet routes use the natural-scroll menu with the docked
-// CTA instead (PhoneMenu.tsx).
-const MOBILE_MENU_DESIGN_H = 706;
-const MOBILE_HEADER_H = 66;
+import { DASHBOARD_HREF } from "@/components/auth/data";
 
 type NavLink = {
   href: string;
@@ -46,9 +39,13 @@ const TOP_LINKS: NavLink[] = [
 
 const CONTACTS_LINK: NavLink = { href: "/#contacts", label: "Контакти" };
 
-// Mobile menu (Figma 3117:13578) lists the directions by their full
-// product names under the "Напрями" label, then a second group of links.
-const MOBILE_DIRECTIONS: NavLink[] = [
+// The three direction pages by their full product names (phone menu
+// master 3117:13578): the phone menu lists them under the "Напрями"
+// label (then a second group of links), and the desktop «Напрями»
+// dropdown shows the same three rows. Same titles and pages as
+// CATALOG_DIRECTIONS in catalog/data.ts; the 3-item list here keeps the
+// catalog data out of the header.
+const DIRECTIONS: NavLink[] = [
   { href: "/hotels", label: "Усе для готелів" },
   { href: "/protect", label: "Засоби індивідуального захисту" },
   { href: "/cleaning", label: "Засоби та інвентар для прибирання" },
@@ -62,10 +59,13 @@ const MOBILE_LINKS: NavLink[] = [
   CONTACTS_LINK,
 ];
 
-// On shop / cabinet routes the menu "Контакти" row scrolls to the page's
-// own footer (every public page renders footer#contacts) instead of
-// leaving the shop for "/"; the landing routes keep "/#contacts".
-const SHOP_CONTACTS_HREF = "#contacts";
+// «Контакти» as an in-page fragment: every page that renders this header
+// also renders footer#contacts (SiteShell renders Header and Footer
+// together), so the link scrolls the current page's own footer instead
+// of leaving it for "/". The desktop nav uses it on every route; the
+// phone menu on shop / cabinet routes (its landing routes keep
+// "/#contacts").
+const IN_PAGE_CONTACTS_HREF = "#contacts";
 
 // A top-level route link is "active" when the current path is inside it.
 // Anchor links (/#...) never highlight — only real routes like /blog or
@@ -75,74 +75,45 @@ function isActiveRoute(href: string, pathname: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-// heroicons-outline/chevron (Figma 616:3451, exported 1:1): an ~11×6
-// filled glyph inside a 16-px box. The export is the OPEN state's
-// point-up orientation; the closed trigger rotates it 180° to point
-// down. fill=currentColor so it tracks the trigger colour
-// (neutral-700 ↔ brand) for free.
-function CatalogChevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden
-      className={`shrink-0 transition-[rotate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        open ? "" : "rotate-180"
-      }`}
-    >
-      <path
-        d="M7.72463 5.08224C7.91871 4.95407 8.18268 4.97583 8.35354 5.14669L13.3535 10.1467C13.5488 10.342 13.5488 10.6585 13.3535 10.8537C13.1583 11.049 12.8418 11.049 12.6465 10.8537L8.00002 6.20724L3.35354 10.8537C3.15828 11.049 2.84177 11.049 2.64651 10.8537C2.45125 10.6585 2.45125 10.342 2.64651 10.1467L7.64651 5.14669L7.72463 5.08224Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-// «cart bold» glyph (Figma 3917:40132, exported 1:1): a 17.23x20.03
-// vector inside a 24-px box, inset 1.55 left / 2.1 top per the master.
-// White fill + 1-px white stroke exactly as exported; currentColor so
-// it rides the orange circle's text-white.
-function CartIcon() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className="shrink-0"
-    >
-      <g transform="translate(1.545, 2.1)">
-        <path
-          d="M6.375 16.2334C7.42295 16.2337 8.2724 17.0829 8.27246 18.1309C8.27246 19.1789 7.42298 20.029 6.375 20.0293C5.32679 20.0293 4.47656 19.1791 4.47656 18.1309C4.47662 17.0827 5.32683 16.2334 6.375 16.2334ZM15.3291 16.2334C16.377 16.2337 17.2265 17.0829 17.2266 18.1309C17.2266 19.1789 16.3771 20.029 15.3291 20.0293C14.2809 20.0293 13.4307 19.1791 13.4307 18.1309C13.4307 17.0827 14.2809 16.2334 15.3291 16.2334ZM5.74512 0C5.88319 0 5.99512 0.111929 5.99512 0.25V2.90527C5.99512 3.04334 6.10705 3.15527 6.24512 3.15527H16.9766C17.1146 3.15527 17.2266 3.2672 17.2266 3.40527V12.0156C17.2266 12.1537 17.1146 12.2656 16.9766 12.2656H6.24512C6.10705 12.2656 5.99512 12.3776 5.99512 12.5156V13.3896C5.99512 13.5277 6.10705 13.6396 6.24512 13.6396H16.9766C17.1146 13.6396 17.2266 13.7516 17.2266 13.8896V14.9082C17.2266 15.0463 17.1146 15.1582 16.9766 15.1582H4.72656C4.58849 15.1582 4.47656 15.0463 4.47656 14.9082V1.76855C4.47656 1.63048 4.36463 1.51855 4.22656 1.51855H0.25C0.111929 1.51855 0 1.40663 0 1.26855V0.25C0 0.111929 0.111929 0 0.25 0H5.74512Z"
-          fill="currentColor"
-          stroke="currentColor"
-        />
-      </g>
-    </svg>
-  );
-}
-
 const badgeCount = (n: number) => (n > 99 ? "99+" : String(n));
 
 // The header cart button: the 42-px brand disc inside a 48-px hit box
 // with the count badge (hidden while the cart is empty; the count rolls
 // with the cart's steppers, ui/RollingNumber.tsx).
+// `data-cart-target` / `data-cart-disc` are where an added product flies
+// to and what bumps when it lands (cart/flyToCart.ts: adding to the cart
+// no longer opens it, designer 2026-11-11).
+// The glyph is Figma «cart bold» 3917:40132, the shared catalog/icons
+// CartIcon (fill only, 24-px box, white via the disc's text-white). The
+// header used to keep its own copy with an extra 1-px stroke that
+// swelled the handle and wheels and closed the gap under the basket
+// (designer 2026-11-11: «Іконка поплила»).
+// The badge is the master's «Counter» 3917:40133: a 20-px circle at the
+// box's top-right (x 28, y 0), 1.5-px white ring, Manrope Bold 12. One
+// and two digit counts stay inside that circle (no side padding: the
+// widest pair, «20», is 15 px + the 3-px ring), so the badge never grows
+// left over the basket; only «99+» widens into a pill.
 export function CartTrigger({ count, onOpen }: { count: number; onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
+      data-cart-target
       aria-label={count > 0 ? `Відкрити кошик, товарів: ${count}` : "Відкрити кошик"}
       className="relative size-12 shrink-0 cursor-pointer"
     >
-      <span className="absolute left-1/2 top-1/2 flex size-[42px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[26px] bg-brand text-white transition-transform duration-200 active:scale-95">
-        <CartIcon />
+      <span
+        data-cart-disc
+        className="absolute left-1/2 top-1/2 flex size-[42px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[26px] bg-brand text-white transition-transform duration-200 active:scale-95"
+      >
+        <CartIcon className="size-6 shrink-0" />
       </span>
       {count > 0 && (
-        <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-[1.5px] border-white bg-neutral-900 px-1 text-[12px] font-bold leading-none text-white">
+        <span
+          className={`absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full border-[1.5px] border-white bg-neutral-900 text-[12px] font-bold leading-none text-white ${
+            count > 99 ? "px-1" : ""
+          }`}
+        >
           <RollingNumber value={count} format={badgeCount} />
         </span>
       )}
@@ -180,10 +151,16 @@ export function usePublishHeaderHeight() {
 
 export function Header() {
   const [catalogOpen, setCatalogOpen] = useState(false);
+  // The desktop «Напрями» dropdown; at most one of it and the «Каталог»
+  // mega-menu is open (menubar-style).
+  const [directionsOpen, setDirectionsOpen] = useState(false);
+  const closeDesktopMenus = useCallback(() => {
+    setCatalogOpen(false);
+    setDirectionsOpen(false);
+  }, []);
   const [mobileOpen, setMobileOpen] = useState(false);
   // Stable: PhoneMenuSheet and the rows call it; the logo wrapper too.
   const closeMenu = useCallback(() => setMobileOpen(false), []);
-  const menuFit = useFitZoom(MOBILE_MENU_DESIGN_H, MOBILE_HEADER_H, "(max-width: 639px)");
   const { count: cartCount, open: cartOpen, openCart } = useCart();
   const { user, open: authOpen, welcomeOpen, openAuth } = useAuth();
   const pathname = usePathname();
@@ -191,22 +168,37 @@ export function Header() {
   // Focus target when the phone menu closes, and the auth sheet's opener
   // when the menu's account row opens it.
   const burgerRef = useRef<HTMLButtonElement | null>(null);
-  // Shop / cabinet routes get the natural-scroll phone menu (docked CTA,
-  // active rows, in-page "Контакти"); landing routes keep the frozen one.
+  // Shop / cabinet routes get active rows and the in-page "Контакти" in
+  // the phone menu; landing routes keep "/#contacts" and no active row.
+  // The menu itself (rows, scrolling, docked CTA) is the same everywhere.
   const shop = isShopOrCabinetRoute(pathname);
 
   // Safety net: a client-side navigation (logo, a menu row, Back, any
-  // route change) always dismisses the mega-menu and the phone menu even
-  // when no close handler fired. Render-phase adjustment (the
-  // React-endorsed "derive state from a changed prop" pattern) instead of
-  // an effect, so the closed state paints in the same commit as the new
-  // page.
+  // route change) always dismisses the mega-menu, the «Напрями» dropdown
+  // and the phone menu even when no close handler fired. Render-phase
+  // adjustment (the React-endorsed "derive state from a changed prop"
+  // pattern) instead of an effect, so the closed state paints in the same
+  // commit as the new page.
   const [menuPathname, setMenuPathname] = useState(pathname);
   if (menuPathname !== pathname) {
     setMenuPathname(pathname);
     setCatalogOpen(false);
+    setDirectionsOpen(false);
     setMobileOpen(false);
   }
+  // The desktop «Напрями» trigger (its "/" and other-route forms share
+  // these, see the nav). Orange while its dropdown is open and on a
+  // direction page, like «Каталог» on /catalog.
+  const onDirectionPage = DIRECTIONS.some((d) => isActiveRoute(d.href, pathname));
+  const directionsTriggerProps = {
+    onClick: () => setDirectionsOpen(false),
+    "aria-expanded": directionsOpen,
+    "aria-haspopup": true,
+    "aria-controls": "directions-menu",
+    className: `block cursor-pointer text-button-md transition-colors duration-200 hover:text-brand ${
+      directionsOpen || onDirectionPage ? "text-brand" : "text-neutral-700"
+    }`,
+  } as const;
   // An overlay opening while the phone menu is open (the cart from a
   // toast action, the auth sheet, the welcome modal) closes the menu in
   // the same commit, so the overlay never opens under the z-45 sheet and
@@ -228,20 +220,21 @@ export function Header() {
     openAuth();
   };
 
-  // Close the «Каталог» mega-menu on outside pointerdown OR Escape.
-  // The outside test is against the whole <header> because the sheet
-  // renders INSIDE it (see CatalogMenu) — any press on the page below
-  // dismisses the menu before the pressed link navigates.
+  // Close the «Каталог» mega-menu and the «Напрями» dropdown on outside
+  // pointerdown OR Escape. The outside test is against the whole <header>
+  // because both panels render INSIDE it (see CatalogMenu): any press on
+  // the page below dismisses them before the pressed link navigates.
+  const desktopMenuOpen = catalogOpen || directionsOpen;
   useEffect(() => {
-    if (!catalogOpen) return;
+    if (!desktopMenuOpen) return;
     const onPointer = (e: PointerEvent) => {
       const el = headerRef.current;
       if (el && e.target instanceof Node && !el.contains(e.target)) {
-        setCatalogOpen(false);
+        closeDesktopMenus();
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCatalogOpen(false);
+      if (e.key === "Escape") closeDesktopMenus();
     };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -249,7 +242,7 @@ export function Header() {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [catalogOpen]);
+  }, [desktopMenuOpen, closeDesktopMenus]);
 
 
   usePublishHeaderHeight();
@@ -269,11 +262,18 @@ export function Header() {
     <>
     <header
       ref={headerRef}
-      // Leaving the header block (bar OR the mega-menu sheet hanging
-      // from it) closes the catalog — the hover chain trigger → sheet
-      // stays inside this one element, so no bridge/timer is needed.
-      onMouseLeave={() => setCatalogOpen(false)}
-      className="sticky top-0 z-50 bg-white"
+      // Leaving the header block (bar OR the mega-menu sheet / «Напрями»
+      // dropdown hanging from it) closes both: the hover chain trigger ->
+      // panel stays inside this one element, so no timer is needed.
+      // The white cap above the bar (`before:`, designer 2026-11-14: «меню
+      // було крайнім верхнім елементом»): in-app browsers (Telegram,
+      // Instagram) stick the header below their own bar's inset and keep
+      // painting the scrolled page above it; the cap paints that strip
+      // white. In a normal browser it sits above the viewport (or above the
+      // document at the top), adds no scroll height (negative overflow) and
+      // takes no pointer events, so hover and taps are unchanged.
+      onMouseLeave={closeDesktopMenus}
+      className="sticky top-0 z-50 bg-white before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-screen before:bg-white before:content-['']"
     >
       {/* Mobile (Figma 3082:3661): the header bar is exactly 66 px tall
           with the 100x33.45 logo and the 24-px burger vertically centred.
@@ -299,33 +299,95 @@ export function Header() {
               Figma «Text button» has two variants — Default (#4a4a4c) and
               Variant2 (#f85a0b). The hover state on every nav link is
               a colour swap to brand orange. NO pill background, NO
-              padding shift on hover. The «Напрями» trigger uses the
-              same swap and additionally rotates its chevron when the
-              dropdown is open. */}
+              padding shift on hover. The «Каталог» trigger uses the
+              same swap and stays orange while its menu is open; it is
+              text only, no chevron (master 129:1279, designer
+              2026-11-11). */}
           <ul className="flex items-center gap-[35px]">
-            {/* «Напрями» is a plain link in the new header (Figma
-                3603:11434) — the three direction pages moved into the
-                «Каталог» mega-menu, so this now points at the home
-                Directions section. Hovering any non-trigger item
-                dismisses an open catalog, menubar-style. */}
-            <li onMouseEnter={() => setCatalogOpen(false)}>
-              <Link
-                href="/#segments"
-                className="block cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
+            {/* «Напрями»: hover drops the three direction pages (designer
+                2026-11-11: «Випадайка десь пропала із напрямками»); a
+                click goes to the home Напрями section. On "/" the trigger
+                is a plain fragment link, because a Next Link to the URL
+                you are already on ("/#segments") does nothing on a repeat
+                click (same as «Контакти», below); elsewhere it is a Link
+                to "/#segments" (the section only exists on the home page).
+                The header master 129:1279 draws no open state, so the
+                panel follows the site's «<Menu>» recipe (4329:41026, see
+                checkout/fields.tsx): white, r 24, the soft 2/6 shadow,
+                Medium 16/22 #1d1d1f rows, px-16 py-12, 0.5-px #d2d2d2
+                lines between rows; hover / current page in brand like the
+                nav links. It hangs 8 px under the 92-px bar (the 22-px
+                label sits at y 35, so 35 + 8 = 43 px down from the label;
+                that transparent padding is the hover bridge, inside the
+                <li> and the <header>, so no mouseleave fires on the way
+                down) and reveals like the mega-menu (CatalogMenu: 300 ms,
+                fade + 12-px slide). Hovering any other item swaps or
+                dismisses it, menubar-style. */}
+            <li
+              className="relative"
+              onMouseEnter={() => {
+                setCatalogOpen(false);
+                setDirectionsOpen(true);
+              }}
+            >
+              {pathname === "/" ? (
+                <a href="#segments" {...directionsTriggerProps}>
+                  Напрями
+                </a>
+              ) : (
+                <Link href="/#segments" {...directionsTriggerProps}>
+                  Напрями
+                </Link>
+              )}
+              <div
+                id="directions-menu"
+                aria-hidden={!directionsOpen}
+                inert={!directionsOpen}
+                className={`absolute left-0 top-full w-max pt-[43px] transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,translate] motion-reduce:transition-none ${
+                  directionsOpen
+                    ? "pointer-events-auto translate-y-0 opacity-100"
+                    : "pointer-events-none -translate-y-3 opacity-0"
+                }`}
               >
-                Напрями
-              </Link>
+                <ul className="overflow-clip rounded-3xl bg-white shadow-[0px_2px_6px_0px_rgba(29,29,31,0.1)]">
+                  {DIRECTIONS.map((d) => {
+                    const current = isActiveRoute(d.href, pathname);
+                    return (
+                      <li
+                        key={d.href}
+                        className="[&+&]:shadow-[inset_0_0.5px_0_var(--color-stroke-subtle)]"
+                      >
+                        <Link
+                          href={d.href}
+                          onClick={() => setDirectionsOpen(false)}
+                          aria-current={current ? "page" : undefined}
+                          className={`block cursor-pointer whitespace-nowrap px-4 py-3 text-button-md transition-colors duration-200 hover:text-brand ${
+                            current ? "text-brand" : "text-neutral-900"
+                          }`}
+                        >
+                          {d.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </li>
             <li>
               {/* Hover opens the mega-menu; CLICK navigates to /catalog
                   (the Figma prototype wires the menu's click to the
                   catalog listing page). The trigger stays brand-orange
                   while the menu is open OR while /catalog is the
-                  current route — the catalog-page master (3603:11640)
-                  shows it orange with the chevron down. */}
+                  current route. Text only, like every nav item of the
+                  header master 129:1279 (the old catalog master's
+                  chevron is gone: designer 2026-11-11, «стрілку
+                  забираємо»). */}
               <Link
                 href="/catalog"
-                onMouseEnter={() => setCatalogOpen(true)}
+                onMouseEnter={() => {
+                  setDirectionsOpen(false);
+                  setCatalogOpen(true);
+                }}
                 onClick={() => setCatalogOpen(false)}
                 aria-expanded={catalogOpen}
                 aria-haspopup="true"
@@ -333,18 +395,17 @@ export function Header() {
                 aria-current={
                   isActiveRoute("/catalog", pathname) ? "page" : undefined
                 }
-                className={`flex cursor-pointer items-center gap-[2px] text-button-md transition-colors duration-200 hover:text-brand ${
+                className={`block cursor-pointer text-button-md transition-colors duration-200 hover:text-brand ${
                   catalogOpen || isActiveRoute("/catalog", pathname)
                     ? "text-brand"
                     : "text-neutral-700"
                 }`}
               >
                 Каталог
-                <CatalogChevron open={catalogOpen} />
               </Link>
             </li>
             {TOP_LINKS.map((link) => (
-              <li key={link.href} onMouseEnter={() => setCatalogOpen(false)}>
+              <li key={link.href} onMouseEnter={closeDesktopMenus}>
                 <Link
                   href={link.href}
                   aria-current={
@@ -360,13 +421,20 @@ export function Header() {
                 </Link>
               </li>
             ))}
-            <li onMouseEnter={() => setCatalogOpen(false)}>
-              <Link
-                href={CONTACTS_LINK.href}
+            <li onMouseEnter={closeDesktopMenus}>
+              {/* A plain fragment link, not a Next Link: the browser starts
+                  the (CSS smooth) scroll in the click's own frame, scrolls
+                  again on every repeat click (a Link to the URL you are
+                  already on, "/#contacts", did nothing the second time and
+                  refetched the page first) and never leaves /blog,
+                  /catalog... for the home page. Designer 2026-11-11: «При
+                  кліку щось не відразу спрацьовує». */}
+              <a
+                href={IN_PAGE_CONTACTS_HREF}
                 className="block cursor-pointer text-button-md text-neutral-700 transition-colors duration-200 hover:text-brand"
               >
                 {CONTACTS_LINK.label}
-              </Link>
+              </a>
             </li>
           </ul>
 
@@ -376,23 +444,32 @@ export function Header() {
               frames) replaced the old «Отримати пропозицію» CTA with the
               Button/Small «Увійти» (98 x 42, #1d1d1f, 16/22 medium). The
               pill opens the account drawer (Figma «Authorisation NEW»
-              5420:38169); once signed in it reads «Кабінет» and opens
-              the account summary (the masters keep the same header). */}
+              5420:38169); once signed in it reads «Кабінет» (the masters
+              keep the same header): a partner's pill is a link to the
+              dashboard (designer 2026-11-13: the partner never sees the
+              account drawer), a retail customer's opens the account
+              summary. */}
           <div
             className="flex items-center gap-4"
-            onMouseEnter={() => setCatalogOpen(false)}
+            onMouseEnter={closeDesktopMenus}
           >
-            <Button
-              type="button"
-              size="small"
-              onClick={() => {
-                setCatalogOpen(false);
-                openAuth();
-              }}
-              aria-label={user ? "Відкрити особистий кабінет" : "Увійти до кабінету"}
-            >
-              {user ? "Кабінет" : "Увійти"}
-            </Button>
+            {user?.type === "b2b" ? (
+              <Button href={DASHBOARD_HREF} size="small" onClick={closeDesktopMenus}>
+                Кабінет
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="small"
+                onClick={() => {
+                  closeDesktopMenus();
+                  openAuth();
+                }}
+                aria-label={user ? "Відкрити особистий кабінет" : "Увійти до кабінету"}
+              >
+                {user ? "Кабінет" : "Увійти"}
+              </Button>
+            )}
             {/* Cart icon-button (Figma 3917:40130): 48-px hit box, 42-px
                 brand circle (r 26) with the white cart glyph, 20-px
                 counter badge at the top-right — #1d1d1f fill, 1.5-px
@@ -438,22 +515,24 @@ export function Header() {
           become the containing block of `position: fixed` descendants and
           clamp the overlay to the bar. px-24 py-60, gap-48 between the
           label group / divider / link group / divider / full-width button;
-          Manrope Medium 14/20 rows (#4a4a4c) with a trailing arrow. On
-          landing routes the stack keeps its fit zoom; on shop / cabinet
-          routes it scrolls with the CTA docked at the bottom. */}
+          Manrope Bold 16/20 rows (#4a4a4c) 24 apart with a trailing arrow
+          and the Button/Large CTA (designer 2026-11-14: «шрифти дуже малі»,
+          «Кнопка завузька»). On every route the stack keeps its natural
+          size (no fit zoom), scrolls on a short window and docks the CTA
+          at the bottom. The second group keeps «Матеріали» and the account
+          row, which the master does not show. */}
       <PhoneMenuSheet
         id="mobile-nav"
         open={mobileOpen}
         onClose={closeMenu}
         label="Мобільна навігація"
         returnFocus={burgerRef}
-        landingZoom={shop ? undefined : menuFit}
       >
         <PhoneMenuGroup>
           <PhoneMenuLabel open={mobileOpen} delay={80}>
             Напрями
           </PhoneMenuLabel>
-          {MOBILE_DIRECTIONS.map((s, i) => (
+          {DIRECTIONS.map((s, i) => (
             <PhoneMenuRow
               key={s.href}
               href={s.href}
@@ -474,7 +553,7 @@ export function Header() {
           {MOBILE_LINKS.map((link, i) => (
             <PhoneMenuRow
               key={link.href}
-              href={shop && link === CONTACTS_LINK ? SHOP_CONTACTS_HREF : link.href}
+              href={shop && link === CONTACTS_LINK ? IN_PAGE_CONTACTS_HREF : link.href}
               open={mobileOpen}
               delay={320 + i * 50}
               active={shop && isActiveRoute(link.href, pathname)}
@@ -486,23 +565,37 @@ export function Header() {
           ))}
           {/* The account entry (the mobile menu master 3117:13841
               predates the account area; the row keeps the link
-              styling). Closes the menu, then opens the sheet. */}
-          <PhoneMenuRow
-            open={mobileOpen}
-            delay={320 + MOBILE_LINKS.length * 50}
-            ariaHaspopup="dialog"
-            onClick={openAuthFromMenu}
-          >
-            {user ? "Особистий кабінет" : "Увійти"}
-          </PhoneMenuRow>
+              styling). A signed-in partner's row links to the
+              dashboard (no account sheet for partners, designer
+              2026-11-13); otherwise it closes the menu, then opens the
+              sheet. */}
+          {user?.type === "b2b" ? (
+            <PhoneMenuRow
+              href={DASHBOARD_HREF}
+              open={mobileOpen}
+              delay={320 + MOBILE_LINKS.length * 50}
+              onClick={closeMenu}
+            >
+              Особистий кабінет
+            </PhoneMenuRow>
+          ) : (
+            <PhoneMenuRow
+              open={mobileOpen}
+              delay={320 + MOBILE_LINKS.length * 50}
+              ariaHaspopup="dialog"
+              onClick={openAuthFromMenu}
+            >
+              {user ? "Особистий кабінет" : "Увійти"}
+            </PhoneMenuRow>
+          )}
         </PhoneMenuGroup>
 
         <PhoneMenuDivider open={mobileOpen} delay={520} />
 
-        <PhoneMenuCtaDock open={mobileOpen} delay={560} sticky={shop}>
+        <PhoneMenuCtaDock open={mobileOpen} delay={560}>
           <Button
             href="/#contact-form"
-            size="small"
+            size="largeFixed"
             onClick={closeMenu}
             className="w-full [&>span]:flex-1"
           >

@@ -252,10 +252,11 @@
    `viewport + shift`, so pick N large enough that
    `(N - copies_per_shift) × copy_width ≥ widest viewport you target`.
    `linear` timing keeps speed constant so logos enter / exit the soft
-   edge fades at the same pace at all times. The `:hover` pause is a
-   small UX nicety so visitors can examine a specific client mark, and
-   `will-change: transform` lifts the marquee onto the compositor for a
-   silky-smooth animation regardless of how many logos are in the list. */
+   edge fades at the same pace at all times. The marquees never pause
+   on hover: nothing in them is clickable, so the designer asked on
+   2026-11-11 to keep them moving under the mouse. `will-change:
+   transform` lifts the marquee onto the compositor for a silky-smooth
+   animation regardless of how many logos are in the list. */
 
 @keyframes marquee {
   from { transform: translateX(0); }
@@ -266,21 +267,6 @@
   animation: marquee var(--marquee-duration, 35s) linear infinite;
   will-change: transform;
   backface-visibility: hidden;
-}
-
-.animate-marquee:hover {
-  animation-play-state: paused;
-}
-
-/* On touch devices `:hover` is sticky after a tap — it would freeze the
-   marquee permanently the moment a user accidentally taps a logo. Keep
-   the marquee running unconditionally where coarse pointers are the
-   primary input, so the only place the hover-to-pause behaviour applies
-   is fine pointers (mouse). */
-@media (hover: none) {
-  .animate-marquee:hover {
-    animation-play-state: running;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -550,10 +536,23 @@
        zoom keeps the layout viewport at exactly 1440, so max() picks
        the Figma master's constant 130 px. */
     --lg-pad-x: max(130px, calc((100% - 1440px) / 2 + 130px));
+    /* The header's line: the designer asked on 2026-11-11 to align the
+       Home content with the site header («вирівняти контент по шапці
+       сайту»), and the Home master 1384:12631 now puts the hero copy,
+       Directions, WhyUs, the AboutUs heading / mission column and
+       TrustBand at x=80 = the header logo (80-px gutters, 1280 wide on
+       the 1440 frame). The header keeps 80 px at every width, so this is
+       a plain 80 up to a 1710 window and above it centres the column the
+       same way `.lg-shop-pad-x` does (nothing is designed wider). */
+    --lg-head-x: max(80px, calc((100% - 1710px) / 2 + 80px));
   }
   .lg-pad-x {
     padding-left: var(--lg-pad-x);
     padding-right: var(--lg-pad-x);
+  }
+  .lg-head-x {
+    padding-left: var(--lg-head-x);
+    padding-right: var(--lg-head-x);
   }
   .lg-pad-l {
     padding-left: var(--lg-pad-x);
@@ -596,7 +595,9 @@
   .hero-left {
     /* Same growing gutter as `.lg-pad-x`: the text column stays at
        the Figma x=130 line of the centred 1440 column while the
-       card's left edge bleeds to the screen edge on wide screens. */
+       card's left edge bleeds to the screen edge on wide screens.
+       The Home hero no longer uses it: its copy sits on the header
+       line (`--lg-head-x`) since 2026-11-11. */
     padding-left: var(--lg-pad-x);
   }
 

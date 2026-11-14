@@ -277,8 +277,8 @@ function TextDropdown<T extends string | number>({
 // (4329:39472 / B2B 4329:56409).
 // `mode="b2b"` is the signed-in platform listing (Figma «Каталог ::
 // B2B» 4329:56124): B2B cards with the wholesale / retail / partner
-// prices, the light #e8e8e9 view switcher, rows 80 px apart on a
-// 32-px block padding.
+// prices, rows 80 px apart on a 32-px block padding. The light #e8e8e9
+// view switcher is the same in both modes (designer 2026-11-11).
 export function CatalogClient({
   direction,
   fixedSubcategory,
@@ -499,31 +499,28 @@ export function CatalogClient({
             setShown(PHONE_BATCH);
           }}
           label={COPY.search}
+          // The partner's pill is transparent: on the desktop cabinet slab
+          // the grey shows through it (4329:56125); the phone page is white.
+          surface={b2b ? "none" : "white"}
           className={`min-w-0 flex-1 lg:min-w-auto lg:flex-initial ${b2b ? "lg:w-[495px]" : "lg:w-[calc((100%-64px)/3)]"}`}
         />
 
         <div className="flex items-center gap-2 lg:gap-4">
-          {/* Card/list view switch — a black 32-px-radius pill holding two
-              52-px icon buttons; the active one fills brand-orange. */}
-          {/* The B2B «Switcher» (3917:35178) is the light #e8e8e9 pill
-              with dark inactive glyphs; the B2C one is black with white
-              glyphs. The active button fills brand in both. */}
-          <div
-            className={`flex items-center rounded-[32px] max-lg:hidden ${
-              b2b ? "bg-[#e8e8e9]" : "bg-neutral-900"
-            }`}
-          >
+          {/* Card/list view switch — the «Switcher» (3917:35178, linked by
+              the designer on 2026-11-11 as 4329:39608): a light #e8e8e9
+              (Colour/Neutral/50) 32-px-radius pill holding two 52-px icon
+              buttons, the same for visitors, retail customers and
+              partners (it was black with white glyphs for B2C). Active =
+              brand fill with a white glyph (Icons/Inverted); inactive =
+              #777779 glyph (Icons/Subtle), brand on hover. */}
+          <div className="flex items-center rounded-[32px] bg-[#e8e8e9] max-lg:hidden">
             <button
               type="button"
               aria-label="Вид картками"
               aria-pressed={view === "cards"}
               onClick={() => setView("cards")}
               className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] transition-colors duration-200 ${
-                view === "cards"
-                  ? "bg-brand text-white"
-                  : b2b
-                    ? "text-neutral-900 hover:text-brand"
-                    : "text-white hover:text-white/70"
+                view === "cards" ? "bg-brand text-white" : "text-neutral-500 hover:text-brand"
               }`}
             >
               <CardViewIcon className="size-6" />
@@ -534,11 +531,7 @@ export function CatalogClient({
               aria-pressed={view === "list"}
               onClick={() => setView("list")}
               className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[26px] transition-colors duration-200 ${
-                view === "list"
-                  ? "bg-brand text-white"
-                  : b2b
-                    ? "text-neutral-900 hover:text-brand"
-                    : "text-white hover:text-white/70"
+                view === "list" ? "bg-brand text-white" : "text-neutral-500 hover:text-brand"
               }`}
             >
               <ListViewIcon className="size-6" />

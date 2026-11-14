@@ -51,9 +51,12 @@ const readZoom = () => {
 // z-[35]: above the page's own popups (catalog sort menu z-30) but under every
 // z-40 overlay (cart / auth / filter drawers, the materials preview panel).
 // At an equal z-40 the dock, mounted after the page, painted over them.
-// Used by the desktop flight layers and the touch CornerFab alike.
+// Used by the desktop flight layers and the touch CornerFab alike; the
+// bottom offset lives on each of them (the phone FAB rides above a pinned
+// phone bottom bar, the flight layers do not), one `bottom` utility per
+// element so no two compete.
 const LAYER_BOX =
-  "fixed bottom-5 right-5 z-[35] size-[100px] sm:bottom-8 sm:right-8 sm:size-[110px] lg:size-[130px]";
+  "fixed right-5 z-[35] size-[100px] sm:right-8 sm:size-[110px] lg:size-[130px]";
 
 // prefers-reduced-motion, tracked live and mirrored into a ref by callers that
 // need it inside a rAF loop without re-subscribing.
@@ -257,7 +260,7 @@ function DockFlight() {
       <div
         ref={ringRef}
         aria-hidden
-        className={`${LAYER_BOX} pointer-events-none ${fade} ${vis} ${
+        className={`${LAYER_BOX} bottom-5 pointer-events-none sm:bottom-8 ${fade} ${vis} ${
           docked ? "" : "mix-blend-difference"
         }`}
       >
@@ -270,7 +273,7 @@ function DockFlight() {
       <div
         ref={btnRef}
         inert={!visible}
-        className={`${LAYER_BOX} flex items-center justify-center pointer-events-none will-change-transform ${fade} ${vis}`}
+        className={`${LAYER_BOX} bottom-5 flex items-center justify-center pointer-events-none will-change-transform sm:bottom-8 ${fade} ${vis}`}
       >
         <ScrollToTopButton showRing={false} className="pointer-events-auto" />
       </div>
@@ -279,9 +282,10 @@ function DockFlight() {
 }
 
 // ---------------------------------------------------------------------------
-// TOUCH / MOBILE hand-off. A fixed corner FAB that only ever changes OPACITY -
-// never position - so it is immune to the touch-scroll desync that made the
-// flight jump. It fades in once you have scrolled down and fades back out as the
+// TOUCH / MOBILE hand-off. A fixed corner FAB that only ever changes OPACITY on
+// scroll - its position never follows the scroll (it only steps up above a
+// pinned phone bottom bar while one is shown) - so it is immune to the
+// touch-scroll desync that made the flight jump. It fades in once you have scrolled down and fades back out as the
 // footer (and its own static ring, FooterScrollUpSlot) comes up, so the two
 // never both sit on screen. Footer proximity is read with an IntersectionObserver
 // (async, compositor-friendly); the scroll threshold is a passive listener that
@@ -340,18 +344,24 @@ function CornerFab() {
   }, []);
 
   const show = scrolledDown && !footerNear;
-  const fade = reduced ? "" : "transition-opacity duration-300 ease-out";
+  // `bottom` eases too, so the FAB glides up with a phone bottom bar that
+  // slides in instead of jumping (none under reduced motion).
+  const fade = reduced ? "" : "transition-[opacity,bottom] duration-300 ease-out";
   const vis = show ? "opacity-100" : "pointer-events-none opacity-0";
 
-  // Shop canvases below 640 never show the FAB: no shop / cabinet phone
-  // layout has a floating button, and its 100-px box sat on the cards'
-  // cart discs, steppers, sort controls and sticky bars and swallowed
-  // their taps. The footer ring stays the way up there; the landing keeps
-  // the FAB.
+  // The FAB floats on the shop / cabinet phone pages too, like on the
+  // landing (designer 2026-11-14: «На каталозі кнопка "вгору" не плаває з
+  // контентом»). The two reasons it used to be hidden there are solved
+  // here instead: only the orange circle takes taps (`[&>span]:` below;
+  // the box, the ring and the arrow are pointer-events-none), so the ring
+  // no longer swallows taps on the cards' cart discs and steppers; and on
+  // a phone it rides 20 px above a pinned bottom bar (the product page's
+  // buy bar, the checkout summary...), whose height ui/StickyBar.tsx
+  // publishes as --phone-bottom-bar.
   return (
     <div
       inert={!show}
-      className={`${LAYER_BOX} flex items-center justify-center pointer-events-none max-lg:[:root:has([data-canvas=shop])_&]:hidden ${fade} ${vis}`}
+      className={`${LAYER_BOX} bottom-[calc(20px+var(--phone-bottom-bar,0px))] flex items-center justify-center pointer-events-none sm:bottom-8 ${fade} ${vis}`}
     >
       {/* Identical to the footer button - one scaled assembly (43px circle +
           ring), not the split blended layers the desktop flight uses. The ring
@@ -359,11 +369,12 @@ function CornerFab() {
           the page is light and the blend washed the text out over mid-tone
           backgrounds, so a dark colour keeps it readable. The FAB fades out
           before the dark TeamCta/footer band, so it is only ever over light
-          sections. */}
+          sections. Only the circle <span> takes taps; the click bubbles to
+          the <button>, which keeps its focus and accessible name. */}
       <ScrollToTopButton
         showRing
         ringColorClassName="text-neutral-900"
-        className="pointer-events-auto"
+        className="[&>span]:pointer-events-auto"
       />
     </div>
   );

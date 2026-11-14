@@ -15,12 +15,13 @@ const COPY = {
 // Load-more block of every phone list (D4 / TR-12, system spec A9; blog
 // master 3176:5601, BlogList.tsx): the counter "Показано N із M" (14/20
 // #777779, NOT a live region - the focus rule carries the change) 16
-// above the Button/Small "Показати більше" with the plus disc, centred.
-// Renders nothing once everything is shown (A-5), unless `onLess` is
-// given (dashboard payments): then the counter stays with "Приховати" and
-// the minus disc. Callers pass `onLess` only while the list is longer
-// than its first batch, and place the block 48 under the list
-// (`className="mt-12 lg:hidden"`).
+// above the bare Button/Small pill "Показати більше", centred, with no
+// plus disc (the designer asked on 2026-11-11 to remove the "+" from this
+// button everywhere). Renders nothing once everything is shown (A-5),
+// unless `onLess` is given (dashboard payments): then the counter stays
+// with a bare "Приховати" pill. Callers pass `onLess` only while the
+// list is longer than its first batch, and place the block 48 under the
+// list (`className="mt-12 lg:hidden"`).
 //
 // Focus (one rule for every list; A9 as amended by DECISIONS round 3):
 // after EVERY batch the first newly shown item takes the focus -
@@ -80,7 +81,6 @@ export function LoadMore({
       {more ? (
         <Button
           size="small"
-          plus
           onClick={() => {
             onMore();
             settleFocus("more");
@@ -91,7 +91,6 @@ export function LoadMore({
       ) : (
         <Button
           size="small"
-          minus
           onClick={() => {
             onLess?.();
             settleFocus("less");

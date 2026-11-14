@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { ArticleBlocks, PROSE_RHYTHM, type ArticleBlock } from "./ArticleBlocks";
 import type { BlogArticleBody } from "./data";
 import { FacebookIcon, InstagramIcon, TelegramIcon } from "./icons";
+import { SITE_CONTACTS } from "@/lib/site-contacts";
 
 const SITE_URL = "https://binar-2000.com";
 
@@ -10,6 +11,8 @@ const SITE_URL = "https://binar-2000.com";
 // hover via currentColor). Facebook + Telegram open a real share dialog for
 // the article; Instagram has no web share URL, so its button links to the
 // brand profile (matching the Figma icon order Facebook · Instagram · Telegram).
+// The profile is the company's real one, the same the footer links to
+// (lib/site-contacts.ts).
 function shareLinks(slug: string) {
   const url = `${SITE_URL}/blog/${slug}`;
   return [
@@ -21,7 +24,7 @@ function shareLinks(slug: string) {
     },
     {
       label: "Instagram",
-      href: "https://instagram.com/binar2000",
+      href: SITE_CONTACTS.socials.instagram,
       Icon: InstagramIcon,
       iconClass: "h-[23px] w-[24px]",
     },

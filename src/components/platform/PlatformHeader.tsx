@@ -1,16 +1,21 @@
 "use client";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { CartTrigger, usePublishHeaderHeight } from "@/components/Header";
 import { Logo } from "@/components/Logo";
 import { Burger } from "@/components/PhoneMenu";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PROFILE_HREF } from "@/components/auth/data";
 import { useCart } from "@/components/cart/CartProvider";
 import { ChevronDown16 } from "@/components/catalog/icons";
 import { CabinetMenu, CompanyAvatar } from "./CabinetMenu";
+import { KebabMenu } from "./ui/KebabMenu";
 
 const COPY = {
   account: "Особистий кабінет",
+  // The page title of «Мій профіль» (4868:30958).
+  profile: "Мій профіль",
+  signOut: "Вийти",
   openMenu: "Відкрити меню",
   closeMenu: "Закрити меню",
 } as const;
@@ -22,22 +27,25 @@ const COPY = {
 // «Mirotel LTD»: x 1433..1613 = 181 wide): 42 tall, 1-px #343435 ring
 // INSIDE the box (so pl-7 / pr-15 + the 1-px border = the master's 8 /
 // 16), r70, the 32-px round avatar 8 px before the 16/24 SemiBold
-// #343435 name, then 16 px to the 16-px chevron. The chip opens the
-// account summary of the auth drawer («Перейти в профіль» -> /profile
-// and «Вийти»), like the public header's «Кабінет» pill, so a partner
-// can sign out from every cabinet page.
+// #343435 name, then 16 px to the 16-px chevron. The designer dropped the
+// account-summary drawer for partners (2026-11-13, «Такого стану не
+// було»): the chip opens the design-system «<Menu>» (KebabMenu, 220-px
+// white r24 sheet 6 px under the chip, right edges aligned) with «Мій
+// профіль» (/profile) and «Вийти», so a partner can sign out from every
+// cabinet page; the chevron turns while it is open.
 // Phones (< 640, D1): the public phone bar's exact pixels (66 tall, px 24,
 // logo left, cart disc + burger right; Figma 3082:3661); the chip is
 // hidden and the burger opens the cabinet menu sheet (CabinetMenu, its
-// account row replaces the chip).
+// account row and «Вийти» row replace the chip).
 export function PlatformHeader() {
-  const { user, open: authOpen, entry: authEntry, welcomeOpen, openAuth } = useAuth();
+  const { user, open: authOpen, welcomeOpen, signOut } = useAuth();
   const { count, open: cartOpen, openCart } = useCart();
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   // Stable: PhoneMenuSheet's lock effect and the rows call it.
   const closeMenu = useCallback(() => setMenuOpen(false), []);
-  // Focus target when the menu closes and the account sheet's opener.
+  // Focus target when the menu closes.
   const burgerRef = useRef<HTMLButtonElement | null>(null);
 
   // The drawers hang from `--site-header-h`; the public header that
@@ -70,7 +78,9 @@ export function PlatformHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-white">
+      {/* The white cap above the bar (`before:`): the same in-app browser
+          fix as the public header (Header.tsx, designer 2026-11-14). */}
+      <header className="sticky top-0 z-50 bg-white before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-screen before:bg-white before:content-['']">
         <div className="flex h-[66px] items-center justify-between px-6 lg:h-[92px] lg:px-8">
           {/* A logo tap also closes the menu (display: contents keeps the
               logo the bar's flex item). */}
@@ -78,22 +88,31 @@ export function PlatformHeader() {
             <Logo />
           </span>
           <div className="flex items-center gap-2 lg:gap-4">
-            <button
-              type="button"
-              onClick={() => openAuth("account")}
-              aria-haspopup="dialog"
-              aria-expanded={authOpen && authEntry === "account"}
-              aria-label={trimmed ? `${COPY.account}: ${trimmed}` : COPY.account}
-              className="flex h-[42px] cursor-pointer items-center gap-2 rounded-[70px] border border-neutral-800 bg-white pl-[7px] pr-[11px] transition-colors duration-200 hover:bg-bg-subtle max-lg:hidden lg:gap-4 lg:pr-[15px]"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <CompanyAvatar user={user} />
-                <span className="hidden max-w-[220px] truncate text-[16px] font-semibold leading-6 text-neutral-800 sm:block">
-                  {company}
-                </span>
-              </span>
-              <ChevronDown16 className="size-4 shrink-0 text-neutral-900" />
-            </button>
+            <KebabMenu
+              label={trimmed ? `${COPY.account}: ${trimmed}` : COPY.account}
+              className="max-lg:hidden"
+              lastDivider={false}
+              items={[
+                { key: "profile", label: COPY.profile, onSelect: () => router.push(PROFILE_HREF) },
+                { key: "sign-out", label: COPY.signOut, onSelect: signOut },
+              ]}
+              triggerClassName="flex h-[42px] cursor-pointer items-center gap-2 rounded-[70px] border border-neutral-800 bg-white pl-[7px] pr-[11px] transition-colors duration-200 hover:bg-bg-subtle lg:gap-4 lg:pr-[15px]"
+              trigger={(open) => (
+                <>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <CompanyAvatar user={user} />
+                    <span className="hidden max-w-[220px] truncate text-[16px] font-semibold leading-6 text-neutral-800 sm:block">
+                      {company}
+                    </span>
+                  </span>
+                  <ChevronDown16
+                    className={`size-4 shrink-0 text-neutral-900 transition-transform duration-200 motion-reduce:transition-none ${
+                      open ? "rotate-180" : ""
+                    }`}
+                  />
+                </>
+              )}
+            />
             <CartTrigger count={count} onOpen={openCartFromBar} />
             <button
               ref={burgerRef}

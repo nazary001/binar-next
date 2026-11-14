@@ -95,7 +95,7 @@ function WideCard({
   const href = productHref(product);
 
   return (
-    <article className="group/card flex min-w-0 flex-1 flex-col gap-6 sm:flex-row sm:gap-8">
+    <article className="flex min-w-0 flex-1 flex-col gap-6 sm:flex-row sm:gap-8">
       <Link
         href={href}
         aria-label={product.title}
@@ -150,7 +150,7 @@ function WideCard({
                 tone="light"
                 className="@max-[340px]:gap-3"
               />
-              <B2BCartButton product={product} qty={qty} tone="light" feedback="silent" />
+              <B2BCartButton product={product} qty={qty} tone="light" />
             </>
           ) : (
             <>
@@ -162,10 +162,11 @@ function WideCard({
                 tone="light"
                 className="@max-[340px]:gap-3"
               />
-              {/* The discs add without opening the cart (feedback="silent"):
-                  the reader is still on the product page, the disc's check
-                  + count bubble and the header badge show the add. */}
-              <CartButton product={product} out={out} tone="light" qty={qty} feedback="silent" />
+              {/* The discs add without opening the cart, like every add
+                  (designer 2026-11-11): the reader stays on the product
+                  page, the product flies into the header cart and the
+                  disc's check + count bubble show what is taken. */}
+              <CartButton product={product} out={out} tone="light" qty={qty} />
             </>
           )}
         </div>
@@ -173,20 +174,22 @@ function WideCard({
         {/* Phones (D3 card anatomy): the price on its own line, then the
             action row - stepper left, the 52 cart disc right (justify-
             between: far more than 12 px from the plus glyph at 320). The
-            disc takes the brand fill of the phone cards (touch shows the
-            desktop hover look). */}
+            disc keeps its outlined resting look (white ring and glyph,
+            «Icon button decorative» 4329:51423) like every phone card: the
+            brand fill is the hover / in-cart state, not the default
+            (designer 2026-11-11, C41). */}
         <div className="flex flex-col gap-4 lg:hidden">
           {b2b ? (
             <B2BYourPrice product={product} tone="light" size="stat" />
           ) : (
             <PhonePrice product={product} tone="light" size="card" caption={false} />
           )}
-          <div className="flex items-center justify-between gap-4 [&>button:enabled]:border-brand [&>button:enabled]:bg-brand">
+          <div className="flex items-center justify-between gap-4">
             <QtyStepper qty={qty} onQty={setQty} tone="light" disabled={!b2b && out} editable={b2b} />
             {b2b ? (
-              <B2BCartButton product={product} qty={qty} tone="light" feedback="silent" />
+              <B2BCartButton product={product} qty={qty} tone="light" />
             ) : (
-              <CartButton product={product} out={out} tone="light" qty={qty} feedback="silent" />
+              <CartButton product={product} out={out} tone="light" qty={qty} />
             )}
           </div>
         </div>

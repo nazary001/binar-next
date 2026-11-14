@@ -1,9 +1,10 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useRouter } from "next/navigation";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { useCart } from "@/components/cart/CartProvider";
+import { useCatalogAdd } from "@/components/catalog/phoneParts";
 import { PriceAndQty, SaleChip, StatusLine } from "@/components/catalog/ProductCard";
 import { B2BPriceAndQty, B2BStatusLine } from "@/components/catalog/B2BProductCard";
 import { discountPercent, type Product } from "@/components/catalog/data";
@@ -338,7 +339,8 @@ export function ProductView({
   const [tab, setTab] = useState<TabId>("description");
   const b2b = mode === "b2b";
   const out = b2b ? Boolean(product.preorder) || !product.available : !product.available;
-  const { add, buyNow } = useCart();
+  const { buyNow } = useCart();
+  const catalogAdd = useCatalogAdd();
   const router = useRouter();
   // The in-flow phone CTA stack; the sticky buy bar observes it.
   const ctaRef = useRef<HTMLDivElement>(null);
@@ -348,7 +350,12 @@ export function ProductView({
   const onBuyNow = () => {
     if (buyNow(product.id, qty)) router.push("/checkout");
   };
-  const onAdd = () => add(product.id, qty);
+  // Every «Додати у кошик» (desktop row, phone CTA, phone sticky bar)
+  // adds without opening the cart: the product flies from the pressed
+  // button into the header cart (phones: plus the «Додано у кошик» toast).
+  const onAdd = (e: MouseEvent<HTMLElement>) => {
+    catalogAdd(product.id, qty, { el: e.currentTarget, image: product.image });
+  };
 
   // Phones: photo -> status 32 (gap-8; lg:gap-20 unchanged).
   return (
@@ -410,10 +417,11 @@ export function ProductView({
               </Button>
             ) : (
               <div className="ml-auto flex flex-wrap items-center gap-4 @max-[720px]:gap-3">
-                {/* «Додати у кошик» puts the chosen quantity in the cart and
-                    opens the drawer; «Купити зараз» adds it silently and
-                    goes to /checkout through the cart's stock check (a
-                    sold-out line opens the stock modal instead). */}
+                {/* «Додати у кошик» puts the chosen quantity in the cart
+                    without opening it: the product flies into the header
+                    cart (designer 2026-11-11); «Купити зараз» adds it
+                    silently and goes to /checkout through the cart's stock
+                    check (a sold-out line opens the stock modal instead). */}
                 <Button variant="outlinedDark" size="responsive" onClick={onBuyNow}>
                   Купити зараз
                 </Button>

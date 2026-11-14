@@ -70,7 +70,10 @@ function PublicMaterialsCategory({ category, files: folder }: FolderProps) {
   // The public skin is a guest's or a B2C customer's (a partner gets the
   // partner skin); the download route applies the same rule.
   const canDownload = (file: MaterialFile) => canDownloadMaterial(file, user ? user.type : null);
-  const signIn = () => openAuth();
+  // A sign-in started from a padlock stays on this folder (the visitor
+  // came for that file); the header «Увійти» goes to the dashboard
+  // (designer, 2026-11-13).
+  const signIn = () => openAuth("auto", { stay: true });
 
   return (
     <div className="px-6 pb-[60px] sm:px-10 lg-shop-pad-x lg:pb-20">

@@ -22,6 +22,12 @@ export const RESET_QUERY_PARAM = "reset";
 // have no profile page, their summary stays in the drawer.
 export const PROFILE_HREF = "/profile";
 
+// «Dashboard :: Admin» (5052:32106): where a partner lands after the
+// header «Увійти» and where a signed-in partner's «Кабінет» leads. The
+// designer (2026-11-13, C27): no account-summary drawer for partners,
+// «після кнопки увійти діректимо на Дашборд».
+export const DASHBOARD_HREF = "/dashboard";
+
 // «Завантажити лого компанії» accepts PNG / JPG up to 5 MB
 // (4573:35606); the stored copy is downscaled to this square.
 export const LOGO_MAX_BYTES = 5 * 1024 * 1024;
@@ -82,7 +88,7 @@ export const EMPTY_STATE: AuthState = { accounts: [], sessionId: null };
 
 export const EMPTY_COMPANY: CompanyData = { name: "", edrpou: "", region: "", city: "" };
 
-// Region labels for the partner rows of the signed-in summary.
+// Region labels (the partner profile forms, the admin's new customer).
 export const REGIONS = [
   "Київ",
   "Вінницька",
@@ -205,17 +211,13 @@ export const COPY = {
     lastName: "Введіть прізвище",
   },
   google: "Незабаром",
-  // The signed-in summary (no master; kept from the first build).
+  // The retail customer's signed-in summary (no master; kept from the
+  // first build). Partners never see it: they go to the dashboard and
+  // sign out from the cabinet header menu (designer, 2026-11-13).
   account: {
     title: "Особистий кабінет",
     signedInAs: "Ви увійшли як",
-    logoAlt: "Лого компанії",
-    profile: "Перейти в профіль",
     signOut: "Вийти",
-    company: "Компанія",
-    edrpou: "ЄДРПОУ",
-    region: "Регіон",
-    role: "Роль",
     phone: "Телефон",
     email: "Електронна пошта",
   },

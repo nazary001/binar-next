@@ -4,8 +4,8 @@ import {
   ItemsPanel,
   PANEL_H,
   PANEL_W,
-  type PopupPosition,
-  computePos,
+  type PointerPopupPosition,
+  computePointerPos,
 } from "@/components/ui/ItemsPopup";
 import { ZoneCard } from "./ZoneCard";
 import {
@@ -23,29 +23,31 @@ import {
 // blob keeping the label legible. Hover (per the Figma hover variant
 // AND the «Каталог :: ховер на напрям» frame 4329:39250): 6-px brand
 // ring, photo desaturation, orange arrow + «ДЕТАЛІ» ring — and the
-// shared dark items panel (Figma 4329:39318, 587 x 478) opens flush on
-// the banner's right edge, top-aligned, with the direction's category
-// chips (each opens its «Категорія» page) and a white-outlined
-// «Переглянути все» CTA.
+// shared dark items panel (Figma 4329:39318, 587 x 478) opens with the
+// direction's category chips (each opens its «Категорія» page) and a
+// white-outlined «Переглянути все» CTA. The panel opens with its top-left
+// corner on the pointer where it entered the banner (designer 2026-11-11:
+// on the banner's edge it opened too far from the pointer) and stays
+// there; it flips to the pointer's left / above it at the window's right /
+// bottom gutter (computePointerPos). The banner keeps its hover look while
+// the pointer is in its panel (ZoneCard `active`).
 const BANNER_IMAGES: Record<string, string> = {
   "/hotels": "/figma-export/catalog/banner-hotels.png",
   "/protect": "/figma-export/catalog/banner-protect.png",
   "/cleaning": "/figma-export/catalog/banner-cleaning.png",
 };
 
-// The popover touches its banner (no card gap), see computePos.
-const FLUSH = { cardGap: 0 };
-
 // Logical (pre-zoom) height of the panel's rendered content — lets
-// computePos clamp against the REAL height instead of the 624-px cap,
-// so the panel top-aligns with the banner like the Figma frame instead
-// of sliding up to reserve room it won't use.
+// computePointerPos test the REAL height against the bottom gutter
+// instead of the 624-px cap, so a short panel is not flipped above the
+// pointer to reserve room it won't use. The computed height is layout px
+// before the html zoom and before the 0.98 scale-in (a bounding rect read
+// mid-fade came out 2 % short, so a panel flipped above the pointer
+// ended ~10 px below it).
 function measurePanelH(panelEl: HTMLDivElement | null): number | undefined {
   const inner = panelEl?.firstElementChild;
   if (!inner) return undefined;
-  const zoom =
-    parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-  return inner.getBoundingClientRect().height / zoom;
+  return parseFloat(getComputedStyle(inner).height) || undefined;
 }
 
 // `gap="b2b"`: the platform frames (4329:56141) space the three 494-px
@@ -56,7 +58,7 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
   // Keep the LAST hovered direction around even when active goes back
   // to null, so the panel content stays correct during the fade-out.
   const [last, setLast] = useState<CatalogDirection | null>(null);
-  const [popupPos, setPopupPos] = useState<PopupPosition | null>(null);
+  const [popupPos, setPopupPos] = useState<PointerPopupPosition | null>(null);
   // True right after an EXPLICIT close (X / Escape / chip / CTA click).
   // The fading panel is pointer-events-none, so the browser immediately
   // fires mouseenter on whatever banner sits under the cursor — which
@@ -66,19 +68,28 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
   const [suppressed, setSuppressed] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const activeCardElRef = useRef<HTMLAnchorElement | null>(null);
+  // Client coords of the pointer when the panel opened (the corner it
+  // hangs from) and of its latest move (for the leave test on scroll).
+  const anchorRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
+  // The anchor is taken when the pointer enters a banner and does not
+  // follow later moves: a panel that followed the pointer could never be
+  // entered moving right / down, and would swallow the click on the
+  // banner. Re-entering the SAME banner from its own panel keeps it.
   const handleHover = useCallback(
     (dir: CatalogDirection) => (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (suppressed) return;
+      if (active?.slug === dir.slug) return;
+      anchorRef.current = { x: e.clientX, y: e.clientY };
+      lastPointerRef.current = anchorRef.current;
       setActive(dir);
       setLast(dir);
-      activeCardElRef.current = e.currentTarget;
       setPopupPos(
-        computePos(e.currentTarget, measurePanelH(panelRef.current), FLUSH),
+        computePointerPos(e.clientX, e.clientY, measurePanelH(panelRef.current)),
       );
     },
-    [suppressed],
+    [suppressed, active],
   );
 
   // Explicit dismiss — close AND ignore hover reopens until the
@@ -105,16 +116,16 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
     return () => document.removeEventListener("mousemove", onMove);
   }, [suppressed]);
 
-  // The first computePos runs before the panel content is measurable
-  // (the window may still show the PREVIOUS direction's chips). One
-  // frame later the real height is known — re-clamp so the panel
-  // top-aligns with the hovered banner exactly.
+  // The first computePointerPos runs before the panel content is
+  // measurable (the window may still show the PREVIOUS direction's
+  // chips). One frame later the real height is known: re-solve from the
+  // same anchor so the below / above choice uses it.
   useEffect(() => {
     if (!active) return;
     const id = requestAnimationFrame(() => {
-      const el = activeCardElRef.current;
+      const a = anchorRef.current;
       const h = measurePanelH(panelRef.current);
-      if (el && h) setPopupPos(computePos(el, h, FLUSH));
+      if (a && h) setPopupPos(computePointerPos(a.x, a.y, h));
     });
     return () => cancelAnimationFrame(id);
   }, [active]);
@@ -124,6 +135,10 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
   // margin on document mousemove — onMouseLeave on the row alone would
   // close the panel the moment the cursor crosses toward it, since the
   // fixed panel floats outside the row's bounding box). Escape closes.
+  // The panel is fixed at the pointer, so on scroll it stays where it
+  // opened and the same leave test runs with the last pointer position
+  // (the row moves away under a still pointer); a resize re-solves it
+  // from the anchor so it stays inside the window.
   useEffect(() => {
     if (!active) return;
     const MARGIN = 32;
@@ -132,57 +147,53 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
       x <= r.right + MARGIN &&
       y >= r.top - MARGIN &&
       y <= r.bottom + MARGIN;
-    const onMove = (e: MouseEvent) => {
+    const leaveTest = (x: number, y: number) => {
       const g = rowRef.current?.getBoundingClientRect();
       const p = panelRef.current?.getBoundingClientRect();
-      if (
-        (g && inside(g, e.clientX, e.clientY)) ||
-        (p && inside(p, e.clientX, e.clientY))
-      )
-        return;
+      if ((g && inside(g, x, y)) || (p && inside(p, x, y))) return;
       setActive(null);
+    };
+    const onMove = (e: MouseEvent) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      leaveTest(e.clientX, e.clientY);
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const pt = lastPointerRef.current;
+        if (pt) leaveTest(pt.x, pt.y);
+      });
+    };
+    const onResize = () => {
+      const a = anchorRef.current;
+      if (a) setPopupPos(computePointerPos(a.x, a.y, measurePanelH(panelRef.current)));
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") dismiss();
     };
     document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [active, dismiss]);
-
-  // Follow the active banner on scroll/resize so the panel stays glued
-  // to it (and inside the viewport via computePos clamping).
-  useEffect(() => {
-    if (!active) return;
-    let ticking = false;
-    const recalc = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        const el = activeCardElRef.current;
-        if (!el) return;
-        setPopupPos(computePos(el, measurePanelH(panelRef.current), FLUSH));
-      });
-    };
-    window.addEventListener("scroll", recalc, { passive: true });
-    window.addEventListener("resize", recalc);
-    return () => {
-      window.removeEventListener("scroll", recalc);
-      window.removeEventListener("resize", recalc);
-    };
-  }, [active]);
 
   return (
     <div
       ref={rowRef}
-      // Phones: the master photo tiles TOUCH (ZonesGrid 3117:14393, tiles
-      // 342 x 206 at a 206 pitch): no gap, the 1-px rings of neighbours
-      // overlap into one seam (-mt-px from the second tile on).
-      className={`relative flex flex-col lg:flex-row ${
+      // Phones: the 342 x 206 photo tiles stack 16 px apart, each with its
+      // own 1-px ring (designer 2026-11-11: "give a 16 vertical gap between
+      // the cards"; they used to touch like the ZonesGrid master 3117:14393,
+      // the rings overlapping into one seam). The lg: gaps win from 640.
+      className={`relative flex flex-col gap-4 lg:flex-row ${
         gap === "b2b" ? "lg:gap-[26px]" : "lg:gap-8"
       }`}
     >
@@ -193,24 +204,30 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
           label={dir.title}
           image={BANNER_IMAGES[dir.href]}
           onMouseEnter={handleHover(dir)}
-          className="h-[206px] w-full max-lg:[&+&]:-mt-px lg:h-[260px] lg:flex-1"
+          active={active?.slug === dir.slug}
+          className="h-[206px] w-full lg:h-[260px] lg:flex-1"
         />
       ))}
 
       {/* Hover items panel — the shared fixed-position window (same as
-          the hotels ZonesGrid / Coverage popups). Fades/scales in
-          beside the hovered banner and animates between banners via
-          the left/top/width/height transition. lg-only. inert while
+          the hotels ZonesGrid / Coverage popups). Fades and scales in
+          from the corner that sits on the pointer (transformOrigin); it
+          appears at the new pointer spot rather than gliding there, so
+          left / top are not transitioned. Reduced motion: opacity only.
+          Hit-testing follows the panel's rounded shape (the wrapper is
+          pointer-events-none, the panel itself takes the events while
+          open), so a click right where the pointer entered still lands
+          on the banner under the 40-px corner. lg-only. inert while
           closed: the faded panel keeps its last direction's links, which
           must leave the tab order along with the accessibility tree. */}
       <div
         ref={panelRef}
         aria-hidden={!active}
         inert={!active}
-        className={`fixed z-50 hidden transition-[opacity,translate,scale,left,top,width,height] duration-300 ease-out lg:block ${
+        className={`pointer-events-none fixed z-50 hidden transition-[opacity,translate,scale] duration-300 ease-out lg:block ${
           active
-            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-            : "pointer-events-none translate-y-1 scale-[0.98] opacity-0"
+            ? "translate-y-0 scale-100 opacity-100 [&>*]:pointer-events-auto"
+            : "translate-y-1 scale-[0.98] opacity-0 motion-reduce:translate-y-0 motion-reduce:scale-100"
         }`}
         style={{
           left: popupPos?.left ?? 0,
@@ -219,6 +236,7 @@ export function CategoryBanners({ gap = "b2c" }: { gap?: "b2c" | "b2b" } = {}) {
           // maxHeight (not height) so the panel sizes itself to its own
           // chip rows; the cap keeps it inside the viewport.
           maxHeight: popupPos?.height ?? PANEL_H,
+          transformOrigin: popupPos?.origin ?? "top left",
         }}
       >
         {last && (

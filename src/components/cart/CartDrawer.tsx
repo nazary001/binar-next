@@ -6,8 +6,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipsRow, QtyStepper, StatusLine } from "@/components/catalog/ProductCard";
 import { B2BStatusLine } from "@/components/catalog/B2BProductCard";
-import { InfoCircleIcon, XMarkIcon } from "@/components/catalog/icons";
+import { XMarkIcon } from "@/components/catalog/icons";
+import { TIPS } from "@/components/catalog/tips";
 import { formatPrice, formatPriceWhole, productHref } from "@/components/catalog/data";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { RollingNumber } from "@/components/ui/RollingNumber";
 import { ensureShopConfig } from "@/lib/session/bootstrap";
 import { useShopConfig } from "@/lib/session/config";
@@ -152,7 +154,9 @@ function CartRow({ entry }: { entry: CartEntry }) {
 // Free-delivery meter (4329:40052): a 436-px track (8 px, #616162) with
 // the brand fill and a 16-px white-ring knob at its end; the current
 // sum rides above the knob in a brand chip (r12, 14/24 Medium), «0 ₴»
-// and «5 000 ₴ + info» sit under the chip row in #a5a5a5. Once the
+// and «5 000 ₴ + info» sit under the chip row in #a5a5a5 (the info glyph
+// shows what the limit means on hover / focus, the Figma «Tooltip» chip
+// 4634:65682: designer 2026-11-11, C23; catalog/tips.ts). Once the
 // threshold is reached (4329:40289) the fill is full, the chip reads
 // «5 000 ₴» over the knob and the right label disappears. `limit` = the
 // shop's free-delivery limit (useShopConfig; 5 000 until the session
@@ -189,7 +193,7 @@ function DeliveryMeter({ subtotal, limit }: { subtotal: number; limit: number })
       {!reached && (
         <span className="absolute right-0 top-4 flex items-center gap-1 text-[14px] font-medium leading-6 text-neutral-300">
           {formatPriceWhole(limit)}
-          <InfoCircleIcon className="size-4 shrink-0" />
+          <InfoTip label="Безкоштовна доставка" text={TIPS.freeDelivery(limit)} />
         </span>
       )}
       <div

@@ -6,6 +6,8 @@ import { useId } from "react";
 // component set ("Property 1=Default/Hover, Fill=yes/no", 1127:5789).
 // Default shows an outlined arrow square; the parent card's .group
 // hover fills it brand-orange and fades in the rotating "ДЕТАЛІ" ring.
+// A .group that carries `data-active` (a /catalog banner whose popover
+// holds the pointer, catalog/ZoneCard) keeps the same hover look from 640.
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
 const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
@@ -28,10 +30,24 @@ const ARROW_DARK = "/figma-export/directions/arrow-up-right-dark.svg";
 // stretching the glyph shapes. (The earlier four-rep Bold version used
 // `spacingAndGlyphs`, which deformed the glyphs to fill the ring.)
 // Same approach as the ScrollToTopButton circle text.
+//
+// `text` and `radius` let another ring of the same Figma family reuse
+// this one: the catalog cart disc's «У КОШИК» ring is the text-path
+// I2766:4586;1127:5860, a radius-36 circle around the same 52-px disc
+// (catalog/CartDisc.tsx; asked for by the designer on 2026-11-11). The
+// defaults are the «ДЕТАЛІ» ring described above.
 const DETAILS_PATH_RADIUS = 32;
-const DETAILS_PATH_CIRCUMFERENCE = 2 * Math.PI * DETAILS_PATH_RADIUS;
+const DETAILS_TEXT = "ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ";
 
-export function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
+export function DetailsCircleText({
+  variant,
+  text = DETAILS_TEXT,
+  radius = DETAILS_PATH_RADIUS,
+}: {
+  variant: "light" | "dark";
+  text?: string;
+  radius?: number;
+}) {
   const pathId = useId();
   return (
     <svg
@@ -44,7 +60,7 @@ export function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
       <defs>
         <path
           id={pathId}
-          d={`M 44 ${44 - DETAILS_PATH_RADIUS} A ${DETAILS_PATH_RADIUS} ${DETAILS_PATH_RADIUS} 0 1 1 44 ${44 + DETAILS_PATH_RADIUS} A ${DETAILS_PATH_RADIUS} ${DETAILS_PATH_RADIUS} 0 1 1 44 ${44 - DETAILS_PATH_RADIUS}`}
+          d={`M 44 ${44 - radius} A ${radius} ${radius} 0 1 1 44 ${44 + radius} A ${radius} ${radius} 0 1 1 44 ${44 - radius}`}
           fill="none"
         />
       </defs>
@@ -66,10 +82,10 @@ export function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
       >
         <textPath
           href={`#${pathId}`}
-          textLength={DETAILS_PATH_CIRCUMFERENCE}
+          textLength={2 * Math.PI * radius}
           lengthAdjust="spacing"
         >
-          {"ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · ДЕТАЛІ · "}
+          {text}
         </textPath>
       </text>
     </svg>
@@ -91,9 +107,12 @@ export function DetailsCircleText({ variant }: { variant: "light" | "dark" }) {
 // 24px. Sizing the img to 16.5 keeps the stroke exactly as thin as the
 // design (the old size-6 / 24px rendered the arrow ~1.45x too big, so
 // its lines looked too thick).
-// `ring` (default true) draws the rotating text ring on hover. The catalog
-// banners pass false: their Platform hover frame 4329:39265 shows only the
-// accent-filled button (ctx/4329-39265.md), no ring.
+// `ring` (default true) draws the rotating text ring on hover. Every
+// caller shows it: the hotels landing zones, and since the designer's
+// 2026-11-11 note ("our circle that spins on hover") the catalog banners
+// and the direction carousel too (render 4329:39265 shows the ring; its
+// ctx export omits that layer). `ring={false}` stays for a card that
+// must not show it.
 export function DetailsIconButton({ variant, ring = true }: { variant: "light" | "dark"; ring?: boolean }) {
   return (
     <span className="relative size-[52px] shrink-0">
@@ -102,7 +121,7 @@ export function DetailsIconButton({ variant, ring = true }: { variant: "light" |
           radius reads as a consistent ring around the icon. Hidden by
           default; the parent card's :hover state fades it in. */}
       {ring && (
-        <span className="pointer-events-none absolute -inset-[18px] opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+        <span className="pointer-events-none absolute -inset-[18px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:group-data-[active]:opacity-100">
           <DetailsCircleText variant={variant} />
         </span>
       )}
@@ -110,7 +129,7 @@ export function DetailsIconButton({ variant, ring = true }: { variant: "light" |
       <span
         className={`absolute inset-0 flex items-center justify-center rounded-[26px] border transition-[background-color,border-color] duration-300 ${
           variant === "light" ? "border-white" : "border-neutral-900 bg-white"
-        } group-hover:border-brand group-hover:bg-brand`}
+        } group-hover:border-brand group-hover:bg-brand lg:group-data-[active]:border-brand lg:group-data-[active]:bg-brand`}
       >
         {/* Default arrow — fades out on hover. */}
         <img
@@ -119,7 +138,7 @@ export function DetailsIconButton({ variant, ring = true }: { variant: "light" |
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute size-[16.5px] transition-opacity duration-300 group-hover:opacity-0"
+          className="absolute size-[16.5px] transition-opacity duration-300 group-hover:opacity-0 lg:group-data-[active]:opacity-0"
         />
         {/* Hover arrow (always white, fades in over the orange fill). */}
         <img
@@ -128,7 +147,7 @@ export function DetailsIconButton({ variant, ring = true }: { variant: "light" |
           aria-hidden
           loading="lazy"
           decoding="async"
-          className="absolute size-[16.5px] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          className="absolute size-[16.5px] opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:group-data-[active]:opacity-100"
         />
       </span>
     </span>

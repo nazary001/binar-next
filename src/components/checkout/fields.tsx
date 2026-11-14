@@ -307,7 +307,9 @@ export function TextArea({
 }
 
 // Shared dropdown chrome for the select and the autocomplete. `data-flip`
-// (set by placePanel on phones) anchors it above the field instead.
+// (set by placePanel on phones) anchors it above the field instead. Inside
+// a cabinet modal (platform/ui/Modal718) the menu may hang over the card's
+// bottom edge from 640: the card does not clip it (designer 2026-11-13, C33).
 function Menu({
   id,
   open,

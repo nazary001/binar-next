@@ -3,8 +3,6 @@ import Link from "next/link";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 const ARROW_SRC = "/figma-export/hero/arrow-up-right.svg";
-const PLUS_SRC = "/figma-export/plus.svg";
-const MINUS_SRC = "/figma-export/minus.svg";
 
 type ButtonStyle = {
   // "responsive" renders the compact (small) button below lg and the
@@ -12,23 +10,19 @@ type ButtonStyle = {
   // master shows the small CTA but desktop keeps the large one.
   // "xsmall" is the 38-px Button/Small of the B2B dashboard (5052:32306
   // «Написати менеджеру»): px-24 py-8, Manrope Medium 14/22.
-  size?: "large" | "small" | "responsive" | "xsmall";
+  // "largeFixed" is Button/Large at every width, phones included (the
+  // phone menu CTA 3117:14325, designer 2026-11-14: «Кнопка завузька»).
+  size?: "large" | "small" | "responsive" | "xsmall" | "largeFixed";
   // "outlinedDark" is the Figma Button/Large «Outlined» on a white
   // surface (3865:19962 - the PDP «Купити зараз»): 1-px #343435 stroke,
   // dark label; hover inverts to the solid black pill.
   // "accent" is the brand-orange Button/Large (228:942 accent fill) the
   // cart drawer and stock modal use for «Оформити замовлення».
   variant?: "solid" | "outlined" | "outlinedDark" | "accent" | "light";
+  // The trailing orange square with the up-right arrow. The plus / minus
+  // squares of the «Показати більше» / «Приховати» buttons are gone: the
+  // designer asked for the bare pill everywhere (2026-11-11, C13).
   arrow?: boolean;
-  // Swap the trailing up-right arrow for a plus glyph (Figma 1327:4985 -
-  // the FAQ "Показати більше" button). Same orange square, plus icon.
-  plus?: boolean;
-  // Like `plus` but a minus glyph - the FAQ button uses this for its
-  // expanded "Приховати" state. Takes precedence over `plus` / `arrow`.
-  minus?: boolean;
-  // Hide the icon square below lg (bare pill on mobile, icon on desktop).
-  // The Figma mobile FAQ "Показати більше" button has no icon square.
-  iconDesktopOnly?: boolean;
   // Stretch the pill to the wrapper's full width (cart / modal CTAs).
   fullWidth?: boolean;
   // How a disabled <button> looks. "fade" (default) dims the whole
@@ -75,11 +69,12 @@ export type ButtonProps = ButtonAsLink | ButtonAsButton;
 // compete for the same property, and Tailwind's sort order let it beat
 // the outlined variants' stroke.
 const labelSize = {
-  // Below 640 every pill is the Figma mobile Button/Small (42 tall, Manrope
-  // Medium 16/22 - the phone menu CTA 3117:13578, hero 3082:3250); from 640
-  // the sm: values are the Figma Button/Large. The landing renders no
-  // size="large" Button below 640 (all are max-lg:/max-sm:hidden there), so
-  // the phone half only reaches the shop / cabinet phone layouts.
+  // Below 640 the "large" pill is the Figma mobile Button/Small (42 tall,
+  // Manrope Medium 16/22 - hero 3082:3250); from 640 the sm: values are the
+  // Figma Button/Large. The landing renders no size="large" Button below
+  // 640 (all are max-lg:/max-sm:hidden there), so the phone half only
+  // reaches the shop / cabinet phone layouts. The phone menu CTA is
+  // Button/Large on phones too (3117:14325), so it uses "largeFixed".
   large:
     "rounded-[24px] border px-[23px] py-[9px] text-button-md whitespace-nowrap sm:rounded-[25px] sm:px-[23px] sm:py-[14px] sm:text-button-lg",
   small:
@@ -91,6 +86,11 @@ const labelSize = {
   // 7 + 22 + 7 + 2 border = 38 (Figma py-8 without a stroke).
   xsmall:
     "rounded-[24px] border px-[23px] py-[7px] text-[14px] font-medium leading-[22px] whitespace-nowrap",
+  // Button/Large at every width: 14 + 22 + 14 + 2 border = 52, SemiBold
+  // 18/22, tracking 1 % (0.18 px). Explicit values, because the
+  // `text-button-lg` token is remapped to 16/22 on phones (globals.css).
+  largeFixed:
+    "rounded-[25px] border px-[23px] py-[14px] text-[18px] font-semibold leading-[22px] tracking-[0.18px] whitespace-nowrap",
 };
 
 const arrowWrap = {
@@ -99,6 +99,7 @@ const arrowWrap = {
   small: "size-[42px] rounded-[21px]",
   responsive: "size-[42px] rounded-[21px] lg:size-[52px] lg:rounded-[26px]",
   xsmall: "size-[38px] rounded-[19px]",
+  largeFixed: "size-[52px] rounded-[26px]",
 };
 
 // Figma `heroicons-outline/arrow-up-right` lives inside a 24-px (large)
@@ -115,15 +116,7 @@ const arrowIcon = {
   small: "size-[11px]",
   responsive: "size-[11px] lg:size-[16.5px]",
   xsmall: "size-[11px]",
-};
-
-// The plus (Figma 1327:4985) is an 18.75-px vector centred in the 52-px
-// orange square - slightly larger in its box than the arrow glyph.
-const plusIcon = {
-  large: "size-[13px] sm:size-[18.75px]",
-  small: "size-[13px]",
-  responsive: "size-[16px] lg:size-[18.75px]",
-  xsmall: "size-[13px]",
+  largeFixed: "size-[16.5px]",
 };
 
 // All transitions are colour-only — no slide, no rotate, no scale on
@@ -133,6 +126,12 @@ const plusIcon = {
 // the hover state shows pure white regardless of what's behind the
 // button, which matches Figma's hover variant and reads cleanly on
 // any section background.
+// `accent` hover is the opposite: Figma 4593:59578 (State=Hover,
+// Color=Accent) has NO fill, only the 1-px #f85a0b stroke and a #f85a0b
+// label, so the surface shows through (white in the modals and the empty
+// cart, #1d1d1f in the cart / order / checkout summaries). The white fill
+// it used to paint was dropped at the designer's request (2026-11-13:
+// «Тут ховер стан кнопки неправильний»), at every size.
 //
 // Hover triggers on TWO visible elements (the pill itself AND the
 // orange arrow circle), but NOT on the 8 px gap between them or any
@@ -154,7 +153,7 @@ const labelVariant = {
   outlinedDark:
     "bg-transparent border-neutral-800 text-neutral-900 transition-colors duration-300 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white peer-hover:border-neutral-900 peer-hover:bg-neutral-900 peer-hover:text-white",
   accent:
-    "border-transparent bg-brand text-white transition-colors duration-300 hover:border-brand hover:bg-white hover:text-brand peer-hover:border-brand peer-hover:bg-white peer-hover:text-brand",
+    "border-transparent bg-brand text-white transition-colors duration-300 hover:border-brand hover:bg-transparent hover:text-brand peer-hover:border-brand peer-hover:bg-transparent peer-hover:text-brand",
   light:
     "border-transparent bg-bg-subtle text-neutral-900 transition-colors duration-300 hover:bg-white peer-hover:bg-white",
 };
@@ -165,25 +164,13 @@ function ButtonInner({
   size,
   variant,
   arrow,
-  plus,
-  minus,
-  iconDesktopOnly,
   fullWidth,
   muted = false,
   children,
-}: Required<
-  Pick<
-    ButtonStyle,
-    "size" | "variant" | "arrow" | "plus" | "minus" | "iconDesktopOnly" | "fullWidth"
-  >
-> & {
+}: Required<Pick<ButtonStyle, "size" | "variant" | "arrow" | "fullWidth">> & {
   muted?: boolean;
   children: ReactNode;
 }) {
-  const showIcon = arrow || plus || minus;
-  const iconSrc = minus ? MINUS_SRC : plus ? PLUS_SRC : ARROW_SRC;
-  // Plus and minus share the same (larger) glyph box; only the arrow differs.
-  const iconClass = plus || minus ? plusIcon[size] : arrowIcon[size];
   // DOM order is arrow → pill so the pill can pick up the arrow's
   // hover state via Tailwind's `peer-hover:` (the `~` CSS sibling
   // combinator only looks at PRIOR peers, so the peer has to come
@@ -194,17 +181,17 @@ function ButtonInner({
   // between them keeps the wrapper's `cursor-default`.
   return (
     <>
-      {showIcon && (
+      {arrow && (
         <span
-          className={`peer order-2 ${iconDesktopOnly ? "max-lg:hidden " : ""}inline-flex cursor-pointer items-center justify-center bg-brand ${arrowWrap[size]}`}
+          className={`peer order-2 inline-flex cursor-pointer items-center justify-center bg-brand ${arrowWrap[size]}`}
         >
           <img
-            src={iconSrc}
+            src={ARROW_SRC}
             alt=""
             aria-hidden
             loading="lazy"
             decoding="async"
-            className={iconClass}
+            className={arrowIcon[size]}
           />
         </span>
       )}
@@ -233,9 +220,6 @@ export function Button(props: ButtonProps) {
   const size = props.size ?? "large";
   const variant = props.variant ?? "solid";
   const arrow = props.arrow ?? false;
-  const plus = props.plus ?? false;
-  const minus = props.minus ?? false;
-  const iconDesktopOnly = props.iconDesktopOnly ?? false;
   const fullWidth = props.fullWidth ?? false;
   const muted =
     props.disabledStyle === "solid" &&
@@ -247,9 +231,6 @@ export function Button(props: ButtonProps) {
       size={size}
       variant={variant}
       arrow={arrow}
-      plus={plus}
-      minus={minus}
-      iconDesktopOnly={iconDesktopOnly}
       fullWidth={fullWidth}
       muted={muted}
     >
@@ -262,9 +243,6 @@ export function Button(props: ButtonProps) {
       size: _size,
       variant: _variant,
       arrow: _arrow,
-      plus: _plus,
-      minus: _minus,
-      iconDesktopOnly: _iconDesktopOnly,
       fullWidth: _fullWidth,
       disabledStyle: _disabledStyle,
       className,
@@ -276,9 +254,6 @@ export function Button(props: ButtonProps) {
     void _size;
     void _variant;
     void _arrow;
-    void _plus;
-    void _minus;
-    void _iconDesktopOnly;
     void _fullWidth;
     void _children;
     return (
@@ -292,9 +267,6 @@ export function Button(props: ButtonProps) {
     size: _size,
     variant: _variant,
     arrow: _arrow,
-    plus: _plus,
-    minus: _minus,
-    iconDesktopOnly: _iconDesktopOnly,
     fullWidth: _fullWidth,
     disabledStyle: _disabledStyle,
     className,
@@ -306,9 +278,6 @@ export function Button(props: ButtonProps) {
   void _size;
   void _variant;
   void _arrow;
-  void _plus;
-  void _minus;
-  void _iconDesktopOnly;
   void _fullWidth;
   void _children;
   return (

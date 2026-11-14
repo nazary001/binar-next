@@ -197,8 +197,8 @@ export function Faq({
   const extraFaqs =
     extraFaqsProp ?? (faqs === DEFAULT_FAQS ? EXTRA_FAQS : []);
   const canExpand = showMoreButton && extraFaqs.length > 0;
-  // Toggle CTA state: minus + "Приховати" when open, plus + "Показати
-  // більше" when closed (or on the inert landing-page button, canExpand false).
+  // Toggle CTA label: "Приховати" when open, "Показати більше" when closed
+  // (or on the inert landing-page button, canExpand false).
   const showMinus = canExpand && expanded;
 
   return (
@@ -294,15 +294,16 @@ export function Faq({
       {/* === CTA button — Figma 1384:12949 ===
           On the home page it toggles the four extra questions and swaps its
           label to "Приховати". On landing pages that have no extra
-          questions it renders as the inert design element from Figma. */}
+          questions it renders as the inert design element from Figma.
+          A bare pill on every device, no plus / minus disc (198 x 52 on
+          desktop, 177 x 42 on the phone): the designer asked on 2026-11-11
+          to remove the "+" from this button everywhere. */}
       {showMoreButton && (
         <Button
           variant="solid"
           size="responsive"
-          // Figma mobile master shows a bare pill (no plus/minus icon square),
-          // so hide the icon below lg; desktop keeps it. moreButtonMobileOnly
-          // also hides the whole button on desktop for the hotels page.
-          iconDesktopOnly
+          // moreButtonMobileOnly hides the whole button on desktop for the
+          // hotels page.
           // Figma mobile: 60px between the last question and the button;
           // the section's gap-12 provides 48, mt-3 adds the missing 12.
           // Full string literals (not a template) so Tailwind's scanner
@@ -310,8 +311,6 @@ export function Faq({
           className={
             moreButtonMobileOnly ? "max-lg:mt-3 lg:hidden" : "max-lg:mt-3"
           }
-          plus={!showMinus}
-          minus={showMinus}
           onClick={canExpand ? () => setExpanded((v) => !v) : undefined}
           aria-expanded={canExpand ? expanded : undefined}
           aria-controls={canExpand ? "faq-more" : undefined}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type Ref } from "react";
+import { useId, type MouseEvent, type Ref } from "react";
 import { Button } from "@/components/ui/Button";
 import { QtyStepper } from "@/components/catalog/QtyStepper";
 import type { Product } from "@/components/catalog/data";
@@ -41,7 +41,8 @@ export function PhoneBuyBlock({
   qty: number;
   onQty: (next: number) => void;
   onBuyNow: () => void;
-  onAdd: () => void;
+  // Receives the click: the flight to the header cart starts on the button.
+  onAdd: (e: MouseEvent<HTMLElement>) => void;
   ctaRef: Ref<HTMLDivElement>;
 }) {
   const labelId = useId();

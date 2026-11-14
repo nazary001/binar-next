@@ -224,8 +224,19 @@ export function TeamTagsCloud() {
           and gets its slot in the bottom-up stagger. The CSS keyframe
           in globals.css drives every entry through the same eased
           curve so chips and polygons land in sync with the designer's
-          pile composition. */}
-      <div className="relative hidden h-full w-full lg:block">
+          pile composition.
+          The whole pile (chips, polygons and their p1-p4 positions, which
+          stay the Figma values) is drawn at 86 % around (110, 290): the
+          designer asked on 2026-11-11 for slightly smaller pills that do
+          not cut into the column lines. At 100 % the 4-final pose of
+          1327:6051 overflows the 220 x 373 frame («дизайн» / «логістика»
+          past the left line, «контроль якості» past the right one,
+          «персональний менеджер» 6 px under the bottom hairline). 0.86 is
+          the largest uniform factor that leaves >= 4 px on both sides
+          (the pile spans -12.9 .. 231.8); origin x 110 is the column
+          centre, origin y 290 keeps the bottom pill resting about 6 px
+          above the hairline. */}
+      <div className="relative hidden h-full w-full origin-[110px_290px] scale-[0.86] lg:block">
         {TAGS.map((t) => {
           let cls = "team-tag-cloud-prefall";
           if (phase === "falling") cls = "team-tag-cloud-falling";

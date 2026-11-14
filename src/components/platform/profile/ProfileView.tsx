@@ -19,11 +19,10 @@ import { useProfile } from "./store";
 // the platform shell. Content column right of the 104 rail (#f5f5f5,
 // r-tl 48, 1195 tall in both frames = the footer at 1287):
 //   title block 144 (H2 «Мій профіль» 44/48 + 14/24 tagline);
-//   body pl-40 pr-32 gap 26: the 364 left column (Співробітники: logo
-//   card 298, gap 26, «Ваші дані» 356 with the «Адміністратор» pill;
-//   Контрагенти: logo card 310, gap 26, «Ваші дані» 426 with a «Роль»
-//   field and no pill - each tab draws its own frame's column, the Empty
-//   copies 4929:64196 / 4929:64664 repeat the same split) and the 1144
+//   body pl-40 pr-32 gap 26: the 364 left column, the same on both tabs
+//   (logo card 298, gap 26, «Ваші дані» 356 with the «Адміністратор»
+//   pill and four fields: the designer redrew the Контрагенти column on
+//   2026-11-13, 5474:45043, like the Співробітники one, C35) and the 1144
 //   white r24 card: «Дані компанії» 220,
 //   «Безпека» 150, then pt-60 the tabs strip (54: «Контрагенти» 132 /
 //   «Співробітники» 143, 16/22 Medium, p-16, brand text + 2-px brand
@@ -192,8 +191,8 @@ export function ProfileView() {
         className="flex flex-col gap-6 px-6 [--field-surface:#fff] lg:flex-row lg:items-start lg:gap-[26px] lg:pl-10 lg:pr-8"
       >
         <div data-profile="left" className="flex flex-col gap-6 lg:w-[364px] lg:shrink-0 lg:gap-[26px]">
-          <LogoCard logo={user.logo} variant={tab} />
-          <YouCard account={user} variant={tab} />
+          <LogoCard logo={user.logo} variant="desktop" />
+          <YouCard account={user} variant="desktop" />
         </div>
         <div data-profile="main-card" className="flex min-w-0 flex-1 flex-col overflow-clip rounded-3xl bg-white">
           <CompanyBlock account={user} />

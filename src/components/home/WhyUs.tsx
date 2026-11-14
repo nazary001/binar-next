@@ -103,7 +103,10 @@ function FeatureBlock({ title, body, icon }: Feature) {
 
 export function WhyUs() {
   return (
-    <section className="lg-pad-x px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
+    // lg-head-x: the header's line (Home master 1384:12677: title row x=80,
+    // 1280 wide), since the designer asked on 2026-11-11 to align the
+    // content with the header.
+    <section className="lg-head-x px-6 py-[60px] sm:px-10 sm:py-20 lg:py-[160px]">
       <div className="flex flex-col gap-12 sm:gap-16 lg:gap-[120px]">
         <div className="flex flex-col items-start justify-between gap-6 sm:gap-8 lg:flex-row lg:items-center">
           <h2 className="max-w-[574px] text-h2-light text-neutral-900">
@@ -120,13 +123,13 @@ export function WhyUs() {
           </Button>
         </div>
 
-        {/* lg layout matches Figma Frame 1010106616 exactly: 3 cards x
-            340 px wide with 80 px between cards (divider sits in the
-            middle of each 80 px gap, like Figma's `w-0` divider siblings
-            inside flex gap-[40]+gap-[40]). To get that 340/80 layout
+        {/* lg layout matches the Home master's card grid (1384:12682): 3
+            cards x 373.33 px wide with 80 px between cards (divider sits
+            in the middle of each 80 px gap, like Figma's `w-0` divider
+            siblings inside flex gap-[40]+gap-[40]). To get that layout
             from a CSS grid we use `lg:gap-x-20` (80 px), which makes
-            each column = (100% - 2*80px) / 3 = 340 px on the 1180 px
-            master. The divider container is positioned absolute over
+            each column = (100% - 2*80px) / 3 = 373.33 px on the 1280 px
+            content width. The divider container is positioned absolute over
             the same wrapper so the dividers paint on the grid's
             vertical/horizontal axes without disturbing the card flow.
             gap-y-20 (80) matches Figma's 80 px row gap; the horizontal

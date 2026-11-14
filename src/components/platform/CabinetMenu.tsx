@@ -11,6 +11,7 @@ import {
   PhoneMenuSheet,
 } from "@/components/PhoneMenu";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PROFILE_HREF } from "@/components/auth/data";
 import { PersonIcon } from "@/components/auth/icons";
 import { MENU_INERT } from "@/components/cart/useModalBehavior";
 import { ChevronDown16 } from "@/components/catalog/icons";
@@ -20,7 +21,9 @@ import { companyInitials } from "./companyInitials";
 const COPY = {
   menu: "Меню кабінету",
   account: "Особистий кабінет",
+  profile: "Мій профіль",
   group: "Кабінет",
+  signOut: "Вийти",
   cta: "Зробити замовлення",
 } as const;
 
@@ -49,7 +52,7 @@ const SITE_ROWS = [
 const CABINET_INERT = `${MENU_INERT}, [data-cabinet-behind]`;
 
 // A-16 stagger: the cabinet menu is the section switcher, so it settles
-// fast - delay = 40 + k * 20 ms (k = 0 account row ... 13 the CTA dock).
+// fast - delay = 40 + k * 20 ms (k = 0 account row ... 14 the CTA dock).
 const delay = (k: number) => 40 + k * 20;
 
 type AvatarUser = { logo?: string; company: { name: string } } | null | undefined;
@@ -74,14 +77,17 @@ export function CompanyAvatar({ user }: { user: AvatarUser }) {
 
 // "Меню кабінету" - the phone menu sheet of the B2B cabinet (D1 as amended
 // by A-1; Figma phone menu 3117:13578 / stack 3117:13841), built on the
-// shared PhoneMenu primitives: natural 14/20 rows (no fit zoom), the
-// overlay scrolls and the CTA docks at the sheet bottom. Order: the
-// account row (avatar + company, opens the account summary), 48, the
-// "Кабінет" label + six section rows, 48 / divider / 48, the three site
-// rows, 48 / divider / 48, the full-width "Зробити замовлення".
+// shared PhoneMenu primitives: Bold 16/20 rows 24 apart and the
+// Button/Large CTA of the master as updated on 2026-11-14 (no fit zoom),
+// the overlay scrolls and the CTA docks at the sheet bottom. Order: the
+// account row (avatar + company, a link to «Мій профіль»), 48, the
+// "Кабінет" label + six section rows + "Вийти", 48 / divider / 48, the
+// three site rows, 48 / divider / 48, the full-width "Зробити замовлення".
+// The designer dropped the account-summary sheet for partners
+// (2026-11-13): "Вийти" is the phone's sign-out, like the desktop chip
+// menu; it signs out in place (the page shows its visitor view).
 // Closes on the cross, Escape, a route change, the 640 crossing
-// (PhoneMenuSheet), the logo, the cart disc and the account row
-// (PlatformHeader).
+// (PhoneMenuSheet), the logo, the cart disc (PlatformHeader) and a row.
 export function CabinetMenu({
   open,
   onClose,
@@ -91,17 +97,13 @@ export function CabinetMenu({
   onClose: () => void;
   burgerRef: RefObject<HTMLButtonElement | null>;
 }) {
-  const { user, openAuth } = useAuth();
+  const { user, signOut } = useAuth();
   const pathname = usePathname();
   const company = user?.company.name.trim() ?? "";
 
-  // The burger becomes the account sheet's opener (closing the sheet
-  // refocuses it, not a row of the closed, inert menu); the menu closes
-  // before the sheet opens.
-  const openAccount = () => {
-    burgerRef.current?.focus({ preventScroll: true });
+  const signOutFromMenu = () => {
     onClose();
-    openAuth("account");
+    signOut();
   };
 
   return (
@@ -114,12 +116,12 @@ export function CabinetMenu({
       inertSelector={CABINET_INERT}
     >
       <PhoneMenuRow
+        href={PROFILE_HREF}
         open={open}
         delay={delay(0)}
-        ariaLabel={company ? `${COPY.account}: ${company}` : COPY.account}
-        ariaHaspopup="dialog"
+        ariaLabel={company ? `${COPY.profile}: ${company}` : COPY.profile}
         trailing={<ChevronDown16 className="size-4 shrink-0 -rotate-90 text-neutral-900" />}
-        onClick={openAccount}
+        onClick={onClose}
       >
         <span className="flex min-w-0 items-center gap-3">
           <CompanyAvatar user={user} />
@@ -145,22 +147,26 @@ export function CabinetMenu({
             {r.label}
           </PhoneMenuRow>
         ))}
+        {/* An action, not a place: no trailing arrow. */}
+        <PhoneMenuRow open={open} delay={delay(8)} trailing={null} onClick={signOutFromMenu}>
+          {COPY.signOut}
+        </PhoneMenuRow>
       </PhoneMenuGroup>
 
-      <PhoneMenuDivider open={open} delay={delay(8)} />
+      <PhoneMenuDivider open={open} delay={delay(9)} />
 
       <PhoneMenuGroup>
         {SITE_ROWS.map((r, i) => (
-          <PhoneMenuRow key={r.href} href={r.href} open={open} delay={delay(9 + i)} onClick={onClose}>
+          <PhoneMenuRow key={r.href} href={r.href} open={open} delay={delay(10 + i)} onClick={onClose}>
             {r.label}
           </PhoneMenuRow>
         ))}
       </PhoneMenuGroup>
 
-      <PhoneMenuDivider open={open} delay={delay(12)} />
+      <PhoneMenuDivider open={open} delay={delay(13)} />
 
-      <PhoneMenuCtaDock open={open} delay={delay(13)}>
-        <Button href="/catalog" size="small" onClick={onClose} className="w-full [&>span]:flex-1">
+      <PhoneMenuCtaDock open={open} delay={delay(14)}>
+        <Button href="/catalog" size="largeFixed" onClick={onClose} className="w-full [&>span]:flex-1">
           {COPY.cta}
         </Button>
       </PhoneMenuCtaDock>

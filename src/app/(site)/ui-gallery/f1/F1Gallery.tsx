@@ -155,9 +155,9 @@ export function F1Gallery() {
             Оформити замовлення
           </Button>
         </div>
-        <Caption>large + plus, responsive, small, xsmall</Caption>
+        <Caption>large, responsive, small, xsmall</Caption>
         <div data-f1="btn-sizes" className="flex flex-wrap items-center gap-2">
-          <Button plus variant="outlinedDark">
+          <Button variant="outlinedDark">
             Показати більше
           </Button>
           <Button size="responsive" arrow>

@@ -11,9 +11,11 @@ import { Reveal } from "@/components/ui/Reveal";
 // headline (top-left) reveals up on each change while the large orange
 // hex tracks the active step's column and the rest stay small + grey.
 // Labels are NOT tinted orange - the Figma headline is neutral, only the
-// hex is brand. The loop pauses while the pointer is over the section (so
-// a step can be read / clicked) and while the section is scrolled out of
-// view; clicking a step still jumps to it.
+// hex is brand. The designer asked on 2026-11-11 for a walk that plays by
+// itself and is not clickable: the loop no longer pauses while the pointer
+// is over the section, and no step label, marker or phone row reacts to a
+// click or a tap. It still waits while the section is scrolled out of view
+// and stays on step 01 under prefers-reduced-motion.
 
 const STEPS = [
   "Запит",
@@ -150,21 +152,20 @@ function SmallHex() {
 export function HowItWorks() {
   // First paint matches Figma's "Default" variant (step 01 active). We
   // track `active` and `prev` (the OUTGOING step) in one state object so
-  // the headline can crossfade between them. `goTo` and the loop both
-  // carry the old active into `prev` (prev === active = no exit).
+  // the headline can swap between them. The loop carries the old active
+  // into `prev` (prev === active = no exit).
   const [{ active, prev }, setStep] = useState({ active: 0, prev: 0 });
-  const goTo = (i: number) => setStep((s) => ({ active: i, prev: s.active }));
   const sectionRef = useRef<HTMLElement>(null);
-  const pausedRef = useRef(false); // pointer is over the section
   const visibleRef = useRef(false); // section is in the viewport
 
-  // Loop the active step. Refs (not state) gate each tick so the single
-  // interval never re-creates and never goes stale. Respects
-  // prefers-reduced-motion (no auto-advance; the steps stay clickable).
+  // Loop the active step. A ref (not state) gates each tick so the single
+  // interval never re-creates and never goes stale. The pointer does not
+  // pause it (designer, 2026-11-11). Respects prefers-reduced-motion (no
+  // auto-advance; every step name stays readable in the band / the list).
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const id = window.setInterval(() => {
-      if (pausedRef.current || !visibleRef.current) return;
+      if (!visibleRef.current) return;
       setStep((s) => ({ active: (s.active + 1) % STEPS.length, prev: s.active }));
     }, STEP_MS);
     return () => window.clearInterval(id);
@@ -187,12 +188,6 @@ export function HowItWorks() {
   return (
     <section
       ref={sectionRef}
-      onMouseEnter={() => {
-        pausedRef.current = true;
-      }}
-      onMouseLeave={() => {
-        pausedRef.current = false;
-      }}
       className="relative w-full overflow-clip bg-white"
     >
       {/* === Title row — Figma 1870:6181 (py-160, lg-pad-x) ===
@@ -227,28 +222,34 @@ export function HowItWorks() {
             each change. Independent of the slot row below — this is
             the section's headline state. */}
         <div className="absolute" style={{ left: SLOT_X[0], top: 0 }}>
-          {/* incoming step — rises + fades in */}
+          {/* incoming step: rises + fades in once the outgoing one is
+              gone (280 ms delay, the name 90 ms after the number).
+              Reduced motion: no reveal, the swap is instant. */}
           <div className="flex items-baseline gap-4">
             <span
               key={`num-${active}`}
-              className="animate-[reveal-up_620ms_cubic-bezier(0.16,1,0.3,1)_both] whitespace-nowrap text-h1 font-bold tabular-nums text-neutral-900"
+              className="animate-[reveal-up_620ms_cubic-bezier(0.16,1,0.3,1)_280ms_both] whitespace-nowrap text-h1 font-bold tabular-nums text-neutral-900 motion-reduce:animate-none"
             >
               0{active + 1}.
             </span>
             <span
               key={`name-${active}`}
-              className="animate-[reveal-up_620ms_cubic-bezier(0.16,1,0.3,1)_90ms_both] whitespace-nowrap text-h1 font-light text-neutral-900"
+              className="animate-[reveal-up_620ms_cubic-bezier(0.16,1,0.3,1)_370ms_both] whitespace-nowrap text-h1 font-light text-neutral-900 motion-reduce:animate-none"
             >
               {STEPS[active]}
             </span>
           </div>
-          {/* outgoing step — stacked overlay, rolls up + fades out so the
-              two cross with no empty frame */}
+          {/* outgoing step: stacked overlay, rolls up + fades out in
+              280 ms. The swap is sequential: when the two used to cross,
+              both headlines showed on top of each other for ~300 ms
+              ("01/02" ghost text the designer flagged on 2026-11-11).
+              The hex glide and the line growth still start at the tick,
+              so the change reads as one motion. */}
           {prev !== active && (
             <div
               key={`prev-${active}`}
               aria-hidden
-              className="pointer-events-none absolute left-0 top-0 flex items-baseline gap-4 animate-[step-roll-out_520ms_cubic-bezier(0.4,0,0.2,1)_both]"
+              className="pointer-events-none absolute left-0 top-0 flex items-baseline gap-4 animate-[step-roll-out_280ms_cubic-bezier(0.4,0,0.2,1)_both] motion-reduce:hidden"
             >
               <span className="whitespace-nowrap text-h1 font-bold tabular-nums text-neutral-900">
                 0{prev + 1}.
@@ -262,20 +263,19 @@ export function HowItWorks() {
 
         {/* Six step labels at fixed slots. All stay mounted; the active
             step's label fades out (its name shows big in the headline),
-            so switching crossfades instead of popping. Clickable. */}
+            so switching crossfades instead of popping. Plain text: the
+            walk is not clickable (designer, 2026-11-11). */}
         {STEPS.map((step, i) => (
-          <button
+          <span
             key={i}
-            type="button"
-            onClick={() => goTo(i)}
             className={`absolute flex items-center gap-1 whitespace-nowrap font-normal text-[22px] leading-[28px] tracking-[0.22px] text-neutral-500 transition-opacity duration-500 ${
-              i === active ? "pointer-events-none opacity-0" : "cursor-pointer opacity-100"
+              i === active ? "opacity-0" : "opacity-100"
             }`}
             style={{ left: SLOT_X[i], top: LABEL_TOP }}
           >
             <span>0{i + 1}.</span>
             <span>{step}</span>
-          </button>
+          </span>
         ))}
 
         {/* Timeline: grey base rule (Figma Line 1) + an orange progress
@@ -297,14 +297,12 @@ export function HowItWorks() {
           }}
         />
 
-        {/* Six small grey hex markers at fixed slots (clickable). */}
+        {/* Six small grey hex markers at fixed slots (decorative). */}
         {SLOT_X.map((x, i) => (
-          <button
+          <span
             key={i}
-            type="button"
-            onClick={() => goTo(i)}
-            aria-label={`${STEPS[i]} (крок ${i + 1})`}
-            className="absolute flex h-10 w-10 cursor-pointer items-center justify-center"
+            aria-hidden
+            className="absolute flex h-10 w-10 items-center justify-center"
             style={{
               left: `calc(${x} + ${SMALL_HEX_HALF}px)`,
               top: LINE_TOP,
@@ -312,12 +310,12 @@ export function HowItWorks() {
             }}
           >
             <SmallHex />
-          </button>
+          </span>
         ))}
 
         {/* One large orange hex that GLIDES to the active step's column
             (instead of popping per slot), covering that step's small
-            marker. pointer-events-none so clicks pass to the markers. */}
+            marker. Decorative and inert (pointer-events-none). */}
         <span
           aria-hidden
           className="pointer-events-none absolute flex h-10 w-10 items-center justify-center"
@@ -347,7 +345,9 @@ export function HowItWorks() {
             active step is rendered large ("0N." SemiBold 40 + name Light
             40) with a brand-orange dot; the rest are small 22-px grey
             rows with a dark dot. The active step still auto-cycles (the
-            shared `active` state), so the big step walks down the list. */}
+            shared `active` state), so the big step walks down the list.
+            The rows are not tappable (designer, 2026-11-11); a tap used to
+            jump to the row and freeze the walk. */}
         <ul className="relative flex flex-col gap-12">
           {/* Vertical rail down the centre of the 24-px dot column. */}
           {/* Rail spans dot-centre to dot-centre (Figma Line 1 at x12.61,
@@ -360,13 +360,12 @@ export function HowItWorks() {
           {STEPS.map((s, i) => {
             const isActive = i === active;
             return (
-              <li key={s} className="relative">
-                <button
-                  type="button"
-                  onClick={() => goTo(i)}
-                  aria-pressed={isActive}
-                  className="flex w-full cursor-pointer items-center gap-8 text-left"
-                >
+              <li
+                key={s}
+                aria-current={isActive ? "step" : undefined}
+                className="relative"
+              >
+                <div className="flex w-full items-center gap-8">
                   {/* Figma mobile "Dot" (24x24, node 3167:4895/4932): a
                       pointy-side HEXAGON, not a circle — the active step
                       carries Polygon 24 (16 x 13.86, brand) and inactive
@@ -394,7 +393,7 @@ export function HowItWorks() {
                     </svg>
                   </span>
                   <FitStepLabel num={`0${i + 1}.`} name={s} active={isActive} />
-                </button>
+                </div>
               </li>
             );
           })}

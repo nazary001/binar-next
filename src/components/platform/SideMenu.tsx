@@ -16,7 +16,7 @@ import { CatalogueIcon, DashboardIcon, MaterialsIcon, SideMenuOrdersIcon } from 
 // Routes: Дашборд /dashboard, Каталог /catalog (also active on «Мій
 // асортимент» /assortment, opened from the catalog head), Замовлення
 // /orders (returns and detail pages live under it), Матеріали
-// /materials*; /profile (via the header chip's account summary) lights
+// /materials*; /profile (via the header chip's «Мій профіль» menu) lights
 // none. Hover (not drawn in Figma): #f8f8f8 tile + #1d1d1f glyph. The
 // rail is desktop-only (>= 640); phones switch sections from the header
 // burger's cabinet menu sheet (CabinetMenu, DECISIONS D1).

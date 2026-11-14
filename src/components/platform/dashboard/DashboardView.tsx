@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { TIPS } from "@/components/catalog/tips";
 import { Button } from "@/components/ui/Button";
 import { FitText } from "@/components/ui/FitText";
+import { InfoTip } from "@/components/ui/InfoTip";
 import type { Order } from "../orders/data";
-import { ROW_ICON_BUTTON } from "../orders/listParts";
+import { ROW_CHEVRON, ROW_OPEN, useRowOpen } from "../orders/listParts";
 import { paymentKind } from "../orders/payment";
 import { useCreditLimits, useOrders } from "../orders/store";
 import { useProfile } from "../profile/store";
@@ -54,8 +55,10 @@ import {
   RecentOrdersPhoneList,
 } from "./phoneParts";
 
-// «Dashboard» — Figma 5052:32106 (1710 x 1157) inside the platform shell.
-// The content surface (CabinetPage: #f5f5f5, r48 top-left, pb-40 here)
+// «Dashboard» - Figma 5052:32106 (1710 x 1157) inside the platform shell,
+// as reworked by the designer on 2026-11-13 in 5474:45951 (same size).
+// The content surface (CabinetPage: #f5f5f5, r48 top-left, pb-36 here:
+// 144 + the 831-px right column + 36 = the frame's 1011-px surface)
 // holds:
 //   title block 144 (CabinetPageHead): Light «Вітаю,» + Bold company,
 //     14/24 subtitle, Button/Large outlined «Замовити акт звірки» 229 +
@@ -70,8 +73,10 @@ import {
 //     замовлення» (title row 74 with Button/Small «Усі замовлення», white
 //     r24 table: #343435 head row pt-8 px-24, 0.5-px #d2d2d2 dividers,
 //     112-px rows with top-aligned cells);
-//   right: «Найближчі платежі» (title row 60, white r24 p-24 card of
-//     «Платіж» rows 447 x 114 + Button/Small «Показати ще N»), 24 px,
+//   right: «Найближчі платежі» (title row 60; 5474:46125, redrawn on
+//     2026-11-13: white r24 card with no padding of its own, «Платіж»
+//     rows 479 x 114 inset 8 with 4 px between them, then the
+//     Button/Small «Показати ще N» block pt-8 pb-24; card 436), 24 px,
 //     «Ваш менеджер» (title row 60, white r24 card: avatar row 108,
 //     contacts row 56 between 0.5-px dividers, Button/Small row 86).
 
@@ -150,6 +155,14 @@ function CreditUsage({ limit, used }: { limit: number; used: number }) {
     // Phones: the bar spans the whole tile content (-68 = icon 52 + gap
     // 16); a zero limit shows "Ліміт не встановлено" instead of an empty
     // bar and "Доступно: 0".
+    // The bar is the light rgba(241,241,242,0.63) track with the brand
+    // fill on top (5474:45996). Keep a space after every class in these
+    // template strings: Tailwind does not see a class glued to `${` (the
+    // track's class was glued and never generated, so only the orange
+    // fill showed; the designer flagged it, C28).
+    // «Доступно» on desktop is the brighter Colour/Neutral/100 #d2d2d2
+    // of the reworked frame (5474:46002, designer 2026-11-13, C29);
+    // phones keep #8e8e8f 14/20.
     <div className="flex flex-col items-start gap-3 max-lg:-ml-[68px]">
       <div
         role="progressbar"
@@ -158,13 +171,13 @@ function CreditUsage({ limit, used }: { limit: number; used: number }) {
         aria-valuemax={limit}
         aria-valuenow={used}
         aria-valuetext={`${formatSum(used)} із ${formatSum(limit)}`}
-        className={`h-[6px] w-full overflow-hidden rounded-lg bg-[rgba(241,241,242,0.63)]${limit === 0 ? " max-lg:hidden" : ""}`}
+        className={`h-[6px] w-full overflow-hidden rounded-lg bg-[rgba(241,241,242,0.63)] ${limit === 0 ? "max-lg:hidden" : ""}`}
       >
         <div className="h-full rounded-lg bg-brand" style={{ width: `${share * 100}%` }} />
       </div>
       <p
-        className={`whitespace-nowrap text-[14px] font-medium capitalize leading-5 text-neutral-400 lg:leading-6 lg:text-neutral-500${
-          limit === 0 ? " max-lg:hidden" : ""
+        className={`whitespace-nowrap text-[14px] font-medium capitalize leading-5 text-neutral-400 lg:leading-6 lg:text-stroke-subtle ${
+          limit === 0 ? "max-lg:hidden" : ""
         }`}
       >
         Доступно: {formatSum(Math.max(0, limit - used))}
@@ -176,7 +189,10 @@ function CreditUsage({ limit, used }: { limit: number; used: number }) {
 
 // ------------------------------------------------------- Recent orders
 
-function Head({ children, info, className = "" }: { children?: string; info?: boolean; className?: string }) {
+// `info` = the explanation of the label: the info glyph is an InfoTip that
+// shows it in the Figma «Tooltip» chip 4634:65682 on hover / focus
+// (designer 2026-11-11, C23; catalog/tips.ts).
+function Head({ children, info, className = "" }: { children?: string; info?: string; className?: string }) {
   return (
     <th scope="col" className={`p-0 pt-2 text-left align-top font-normal ${className}`}>
       {children && (
@@ -184,7 +200,11 @@ function Head({ children, info, className = "" }: { children?: string; info?: bo
           <span className="whitespace-nowrap text-[14px] font-semibold leading-6 text-white">{children}</span>
           {info && (
             <span className="flex items-start pl-2 pr-1">
-              <InfoHeadIcon className="size-[18px] text-[#bbbbbc]" />
+              <InfoTip
+                label={children}
+                text={info}
+                icon={<InfoHeadIcon className="size-[18px] text-[#bbbbbc]" />}
+              />
             </span>
           )}
         </span>
@@ -225,9 +245,14 @@ function rowHeight(i: number, last: boolean) {
 // is 1440 wide, and phones) shows the stacked list below instead of a
 // clipped, scrolling table (literal classes: @min-[1012px]:block on the
 // table, @min-[1012px]:hidden on the list).
+// A click anywhere on a row opens the order, like its chevron, through the
+// list tables' shared helper (designer 2026-11-13, C32; listParts
+// useRowOpen): the chevron stays the keyboard stop and lights up while the
+// pointer is on the row, a drag over the number selects it without
+// opening, Ctrl / middle click open a new tab.
 
 function RecentOrdersTable({ orders }: { orders: Order[] }) {
-  const router = useRouter();
+  const openRow = useRowOpen();
   return (
     <div className="hidden overflow-x-auto rounded-3xl bg-white @min-[1012px]:block">
       <table className="w-full table-fixed border-separate border-spacing-0">
@@ -247,10 +272,10 @@ function RecentOrdersTable({ orders }: { orders: Order[] }) {
             <Head>Замовлення №</Head>
             <Head>Дата</Head>
             <Head>Сума</Head>
-            <Head info>Статус замовлення</Head>
+            <Head info={TIPS.orderStatus}>Статус замовлення</Head>
             {/* The master's «Статус замовлення» head cell is 200 over 196-px
                 body cells, so this label sits 4 px right of its column. */}
-            <Head info className="[&>span]:pl-5">
+            <Head info={TIPS.paymentStatus} className="[&>span]:pl-5">
               Статус оплати
             </Head>
             <th className="p-0">
@@ -266,8 +291,8 @@ function RecentOrdersTable({ orders }: { orders: Order[] }) {
             return (
               <tr
                 key={order.id}
-                onClick={() => router.push(`/orders/${order.id}`)}
-                className="cursor-pointer"
+                {...openRow(`/orders/${order.id}`)}
+                className={ROW_OPEN}
                 // The head divider is inset 15, the row dividers 16 (5052:32173 / 5052:32206).
                 style={{ background: hairline(i === 0 ? 15 : 16), height: rowHeight(i, last) }}
               >
@@ -289,8 +314,7 @@ function RecentOrdersTable({ orders }: { orders: Order[] }) {
                   <Link
                     href={`/orders/${order.id}`}
                     aria-label={`Деталі замовлення №${order.number}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className={ROW_ICON_BUTTON}
+                    className={ROW_CHEVRON}
                   >
                     <ChevronRightIcon className="size-6" />
                   </Link>
@@ -340,8 +364,9 @@ function RecentOrdersList({ orders }: { orders: Order[] }) {
 
 // ------------------------------------------------------------ Payments
 
-// «Платіж» (4949:62452): Default = white, #343435 date tile with a brand
-// «до»; Протермінований = #ffe7e5, #d92d20 tile with a white «до» and the
+// «Платіж» (4949:62452): Default = white r24, #343435 date tile with a
+// brand «до»; Протермінований = #ffe7e5 r16 (the master as of 5474:45951,
+// 2026-11-13; it was r24 too), #d92d20 tile with a white «до» and the
 // «Протерміновано» chip (#ffbfba / #d92d20, 4949:62517). The tile hugs
 // its text (px-16: 60 / 58 / 59 px in the render).
 function PaymentRow({ payment, ref }: { payment: UpcomingPayment; ref?: Ref<HTMLAnchorElement> }) {
@@ -351,8 +376,8 @@ function PaymentRow({ payment, ref }: { payment: UpcomingPayment; ref?: Ref<HTML
     <Link
       ref={ref}
       href={`/orders/${payment.orderId}`}
-      className={`group flex items-center rounded-3xl py-4 pl-4 transition-colors duration-200 ${
-        overdue ? "bg-[#ffe7e5]" : "bg-white hover:bg-bg-subtle"
+      className={`group flex items-center py-4 pl-4 transition-colors duration-200 ${
+        overdue ? "rounded-2xl bg-[#ffe7e5]" : "rounded-3xl bg-white hover:bg-bg-subtle"
       }`}
     >
       {/* Tile + text grow (the master's flex-1 column) and the chip follows;
@@ -426,11 +451,17 @@ function Payments({ payments }: { payments: UpcomingPayment[] }) {
           Найближчі платежі
         </h2>
       </div>
-      <div className="flex flex-col rounded-3xl bg-white p-4 max-lg:hidden lg:p-6">
+      {/* 5474:46125 (redrawn 2026-11-13): the card has no padding; the
+          rows sit in a list inset 8 with 4 px between them (5474:46126 is
+          pt-8 px-8, card gap 4, button block pt-8 pb-24). The list's own
+          8-px bottom + the card gap put the button 12 under the last row
+          as in the frame, and keep an 8-px white margin under the last
+          row once the button is gone (everything shown). */}
+      <div className="flex flex-col gap-1 rounded-3xl bg-white max-lg:hidden">
         {payments.length === 0 ? (
-          <p className="py-4 text-[16px] leading-6 text-neutral-500">Найближчих платежів немає.</p>
+          <p className="px-6 py-10 text-[16px] leading-6 text-neutral-500">Найближчих платежів немає.</p>
         ) : (
-          <ul className="flex flex-col">
+          <ul className="flex flex-col gap-1 p-2">
             {shown.map((p, i) => (
               <li key={p.id}>
                 <PaymentRow
@@ -444,7 +475,7 @@ function Payments({ payments }: { payments: UpcomingPayment[] }) {
           </ul>
         )}
         {more > 0 && (
-          <div className="flex justify-center">
+          <div className="flex justify-center pb-6">
             <Button
               size="small"
               variant="outlinedDark"
@@ -575,7 +606,9 @@ export function DashboardView() {
   )}`;
 
   return (
-    <CabinetPage className="lg:pb-10">
+    // pb-36: the reworked right column is 831 tall (5474:46121), and the
+    // frame keeps its 1011-px content surface (144 + 831 + 36).
+    <CabinetPage className="lg:pb-9">
       <CabinetPageHead
         title={
           company ? (

@@ -33,7 +33,11 @@ const COPY = {
 // in: content blocks with their own 32-px vertical rhythm on the
 // 40 / 32 side gutters of the 12-column «B2B Platform» grid, the «До
 // каталогу» back crumb, the H2 title with its tagline, the «Мій
-// асортимент» link and the B2B listing.
+// асортимент» link and the B2B listing. From 640 the B2B skin sits on the
+// cabinet slab (Figma «Frame 1010106576» 4329:56130: #f5f5f5 with the
+// 48-px top-left corner, right of the rail and under the header, like
+// every cabinet page; designer 2026-11-11: "the background colour got
+// lost"); phones keep the white page (catalog-b2b 2.2 / A-11).
 type PageKind =
   | { kind: "root" }
   | { kind: "direction"; dir: CatalogDirection }
@@ -269,8 +273,13 @@ function PlatformView({ page }: { page: PageKind }) {
   // carry no padding of their own, the listing section opens with 48
   // and keeps 48 to the legal bar (D10 cabinet rhythm). The category
   // tagline (= the direction title) is the crumb label already.
+  // Desktop: the cabinet slab (#f5f5f5 = bg-cabinet, r48 top-left,
+  // flex-1 so it reaches the legal bar under a short listing), as
+  // CabinetPage draws it; not CabinetPage itself, which also paints the
+  // phone slab and adds a bottom padding the frame does not have (the
+  // listing block's own 32 is the bottom of 4329:56130).
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 flex-1 flex-col lg:rounded-tl-[48px] lg:bg-bg-cabinet">
       <PlatformTitle
         crumb={crumb}
         back={back}

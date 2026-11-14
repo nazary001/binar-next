@@ -196,23 +196,27 @@ export function AboutUs() {
           uses lg:-mt-[170px] to overlap into this buffer. */}
       {/* lg:pb-20 on the heading wrapper: Figma frame 1384:12696 is 384
           tall (160 top pad + 144 heading + 80 empty) before the 742 two-col
-          band, so the card reaches the master's 1296. */}
+          band, so the card reaches the master's 1296. The heading sits on
+          the header's line (lg-head-x, h2 1384:12697 at x=80) since the
+          designer asked on 2026-11-11 to align the content with the
+          header. */}
       <div className="hidden overflow-hidden bg-bg-subtle lg:block lg:rounded-[48px] lg:pb-[170px]">
-        <div className="px-6 pt-12 sm:px-12 sm:pt-16 lg-pad-x lg:pb-20 lg:pt-[160px]">
+        <div className="px-6 pt-12 sm:px-12 sm:pt-16 lg-head-x lg:pb-20 lg:pt-[160px]">
           <h2 className="max-w-[574px] text-h2-light text-neutral-900">
             <span className="text-h2-light">Binar 2000 - постачання для готелів </span>
             <span className="text-h2">по всій Україні з 2000 року</span>
           </h2>
         </div>
 
-        {/* Two-col area — drop lg-pad-x on the container so the right
+        {/* Two-col area: no gutter on the container so the right
             card can reach the viewport's right edge (Figma master has
             facts card at x=736..1440 with no right gutter). Each column
-            carries its own padding instead: left col adds the global
-            lg-pad-x left padding so its content lands at x=130 like
-            the heading, and the right card scales its right padding
-            with --lg-pad-x so the inner content area stays anchored
-            on ultra-wide viewports.
+            carries its own padding instead: left col adds the header-line
+            gutter (--lg-head-x) so its content lands at x=80 like the
+            heading (1384:12700, 80 / 544 in the unchanged 0..656 column),
+            and the right card (1384:12706, unchanged) scales its right
+            padding with --lg-pad-x so the inner content area stays
+            anchored on ultra-wide viewports.
 
             lg:min-h-[742px] mirrors Figma Frame 1010106618 — the two-col
             band is 742 px tall in the master with deliberate empty space
@@ -220,7 +224,7 @@ export function AboutUs() {
             ensures both cols share that height so the rounded card's
             left border can reach all the way down. */}
         <div className="flex flex-col gap-12 pt-12 sm:gap-16 sm:pt-16 lg:flex-row lg:min-h-[742px] lg:gap-20 lg:pt-[78px]">
-          <div className="flex flex-col gap-10 px-6 sm:gap-16 sm:px-12 lg:flex-[1_1_656px] lg:px-0 lg:pl-[var(--lg-pad-x)] lg:pr-8">
+          <div className="flex flex-col gap-10 px-6 sm:gap-16 sm:px-12 lg:flex-[1_1_656px] lg:px-0 lg:pl-[var(--lg-head-x)] lg:pr-8">
             <div className="flex flex-col gap-3 sm:gap-4">
               <MissionIcon />
               <h3 className="text-title-lg text-neutral-900">Наша місія</h3>

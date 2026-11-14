@@ -2,7 +2,8 @@
 // the viewport-aware position solver. Extracted from hotels/ZonesGrid
 // (click-to-open) so spivpratsya/Coverage (hover-to-open) and the
 // /catalog direction banners render the exact same window; all import
-// from here.
+// from here. The grids place it beside the card (computePos); the
+// catalog banners hang it from the pointer (computePointerPos).
 
 import Link from "next/link";
 import { Button } from "./Button";
@@ -158,8 +159,9 @@ export const PANEL_H = 624;
 // Visual breathing space around the panel — `24` of ACTUAL screen
 // pixels regardless of html zoom. The minimum margin to the viewport
 // edges and, by default, the gap between the panel and the hovered
-// card (the catalog banners pass `cardGap: 0`: the Figma popover
-// 4329:39318 sits flush on the banner's right edge, x 575 vs 575.33).
+// card (`cardGap` overrides it; the catalog banners passed 0 until the
+// designer asked on 2026-11-11 for the popover at the pointer, see
+// computePointerPos, which keeps the same 24-px window margin).
 // computePos() divides by `zoom` to express this in logical/pre-zoom
 // pixels for the rest of its math, so the rendered gap stays 24
 // visual px at 1024, 1440, 1920, 2560+.
@@ -316,4 +318,66 @@ export function computePos(
   }
 
   return { left, top, width, height };
+}
+
+// The /catalog direction banners (designer 2026-11-11: "tie the modal's
+// top-left corner to the cursor", it used to open on the banner's edge,
+// up to ~830 px from the pointer). The panel hangs from the pointer by its
+// top-left corner. It flips to the pointer's left (top-right corner on the
+// pointer) when it would cross the right gutter, and above it (bottom
+// corner on the pointer) when it would cross the bottom gutter; it never
+// rises under the sticky header (--site-header-h) and never leaves the
+// window. `origin` names the corner on the pointer, so the caller can grow
+// the panel's scale-in from it.
+//
+// clientX / clientY are visual px under the html zoom (like
+// getBoundingClientRect), so both are divided by the zoom; the result is
+// logical px for style.left/top, as in computePos.
+export type PointerPopupPosition = PopupPosition & {
+  origin: "top left" | "top right" | "bottom left" | "bottom right";
+};
+
+export function computePointerPos(
+  clientX: number,
+  clientY: number,
+  panelH: number = PANEL_H,
+): PointerPopupPosition {
+  const root = document.documentElement;
+  const cs = getComputedStyle(root);
+  const zoom = parseFloat(cs.zoom) || 1;
+  const x = clientX / zoom;
+  const y = clientY / zoom;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  const gap = PANEL_GAP_VISUAL / zoom;
+  // --site-header-h is logical px ("92px" on desktop), published on <html>
+  // by Header / PlatformHeader.
+  const minTop = (parseFloat(cs.getPropertyValue("--site-header-h")) || 0) + gap;
+  const maxBottom = vh - gap;
+
+  const width = Math.min(PANEL_W, vw - 2 * gap);
+  const height = Math.max(0, Math.min(panelH, maxBottom - minTop));
+
+  // On the 1710 shop canvas the 587-wide panel always fits on one side of
+  // any banner point; the clamp only matters on a much narrower window.
+  const toRight = x + width <= vw - gap;
+  const left = toRight ? x : Math.max(gap, x - width);
+
+  // Below the pointer when it fits, else above it; when neither fits,
+  // the side with more room, slid back inside the window.
+  const fitsBelow = y + height <= maxBottom;
+  const fitsAbove = y - height >= minTop;
+  const below = fitsBelow || (!fitsAbove && maxBottom - y >= y - minTop);
+  const top = Math.min(
+    maxBottom - height,
+    Math.max(minTop, below ? y : y - height),
+  );
+
+  return {
+    left,
+    top,
+    width,
+    height,
+    origin: `${below ? "top" : "bottom"} ${toRight ? "left" : "right"}`,
+  };
 }

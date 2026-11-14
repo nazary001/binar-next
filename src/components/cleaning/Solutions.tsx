@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { MobileCapCross } from "@/components/ui/MobileCapCross";
+import { type PhoneCard, PhoneCardStack } from "@/components/ui/PhoneCardStack";
 import { crossClips } from "@/components/ui/crossClips";
 
 const ARROW_WHITE = "/figma-export/hero/arrow-up-right.svg";
@@ -49,12 +50,18 @@ const COLUMNS: Category[][] = [
 ];
 
 // 6-px brand border that fades in on card hover — the same HoverRing
-// the hotels ZonesGrid and protect Solutions cards use.
-function HoverRing() {
+// the hotels ZonesGrid and protect Solutions cards use. Figma hover
+// (1127:5789 family) draws the stroke INSIDE the card box, so its outer
+// edge is the card edge (designer 2026-11-11: the lines did not match on
+// hover). White cards draw a 1-px CSS border outside their padding box,
+// so their ring is pulled out by that pixel (`outset`, -inset-px) to
+// cover it exactly; photo cards have no border, so inset-0 is the edge.
+// Only the desktop bento (lg+) uses it, hence the single 40 radius.
+function HoverRing({ outset = false }: { outset?: boolean }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 rounded-[28px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:rounded-[36px] lg:rounded-[40px]"
+      className={`pointer-events-none absolute ${outset ? "-inset-px" : "inset-0"} rounded-[40px] border-[6px] border-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
     />
   );
 }
@@ -113,11 +120,14 @@ function ImageCard({
   // (Button/Large 18px) and the hotels/protect hover treatment (brand
   // ring + photo desaturation + arrow fill). `fill` reproduces the
   // Figma stretch fill (whole photo squeezed into the box) - without
-  // it the photo covers the box with a centred crop.
+  // it the photo covers the box with a centred crop. No outline on a
+  // photo card (designer 2026-11-11: «обводку там де є фото не
+  // потрібно»): the clip is the card edge, so the inset-0 ring lines up
+  // with it; hover:z-10 lifts the hovered card over its neighbours' seams.
   return (
     <Link
       href="/#contact-form"
-      className={`group relative flex w-full cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] border border-stroke-default p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+      className={`group relative flex w-full cursor-pointer flex-col items-center justify-end overflow-clip rounded-[28px] p-6 hover:z-10 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
       <img
         src={image}
@@ -171,12 +181,16 @@ function OutlineCard({ label, tall }: { label: string; tall?: boolean }) {
   const heightClass = tall
     ? "h-[150px] sm:h-[180px] lg:h-[197px]"
     : "h-[100px] sm:h-[120px] lg:h-[131px]";
+  // No overflow-clip (nothing here needs clipping, and it would cut the
+  // outset ring back to the padding box). z-[1] keeps this card's
+  // hairline above a photo card that overlaps it at the 1-px seam later
+  // in the DOM; hover:z-10 lifts the hovered card over every neighbour.
   return (
     <Link
       href="/#contact-form"
-      className={`group relative flex w-full cursor-pointer flex-col justify-end overflow-clip rounded-[28px] border border-stroke-default bg-white p-6 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
+      className={`group relative z-[1] flex w-full cursor-pointer flex-col justify-end rounded-[28px] border border-stroke-default bg-white p-6 hover:z-10 sm:rounded-[36px] sm:p-8 lg:rounded-[40px] lg:p-10 ${heightClass}`}
     >
-      <HoverRing />
+      <HoverRing outset />
       <div className="relative flex w-full items-center gap-4 sm:gap-8">
         <p className="flex-1 text-button-lg text-neutral-900 transition-colors group-hover:text-brand">
           {label}
@@ -338,128 +352,29 @@ function CleaningDecorCluster() {
 }
 
 // === Mobile-only solutions stack (Figma 3165:6802 / 3165:6803) ===
-// Below lg the desktop bento grid collapses to a single column of
-// uniform 190-px cards (16-px gaps -> 206-px pitch, matching the Figma
-// frames) capped by the dark catalog CTA. Image cards carry a photo +
-// dark blur halo + white label/arrow; the outline cards are plain white
-// with a dark label/arrow (no illustration on the phone master); the
-// CTA is a #343435 pill with the brand-orange arrow.
-type MobileSolution =
-  | { kind: "image"; label: string; image: string; objectPosition?: string }
-  | { kind: "outline"; label: string }
-  | { kind: "cta"; label: string };
-
-// Card set mirrors the updated desktop master 3677:36114 in the desktop
-// column order.
-const MOBILE_SOLUTIONS: MobileSolution[] = [
+// Below lg the desktop bento grid collapses to the shared phone stack the
+// designer redrew on 2026-11-13 (ui/PhoneCardStack: 16-px gaps, 206-px
+// photo tiles, 131-px outlined text tiles, catalog button), in the order
+// of the 13.11 render of 3165:6803 (the same as the desktop columns).
+const MOBILE_SOLUTIONS: PhoneCard[] = [
   {
-    kind: "image",
+    kind: "photo",
     label: "Інвентар для прибирання",
+    href: "/#contact-form",
     image: "/figma-export/cleaning/card-equipment.png",
-    // The 206-px tile crops the portrait mop-bucket photo with
-    // object-bottom (a stretch would flatten it badly at 342x206).
-    objectPosition: "50% 100%",
+    // The 206-px tile covers with the portrait mop-bucket photo (a
+    // stretch would flatten it badly at 342x206). The 13.11 render shows
+    // the wall above the bucket rim and the floor under the label, so the
+    // cover is anchored at 75 % (rim near the top, floor line behind the
+    // label) instead of the bottom. The render zooms further out than
+    // this 395x556 asset allows (it seems to use a wider photo).
+    objectPosition: "50% 75%",
   },
-  { kind: "outline", label: "Професійна хімія" },
-  { kind: "outline", label: "Інші товари" },
-  { kind: "image", label: "Паперові вироби та диспенсери", image: "/figma-export/cleaning/card-paper.png" },
-  { kind: "cta", label: "Переглянути каталог" },
+  { kind: "text", label: "Професійна хімія", href: "/#contact-form" },
+  { kind: "text", label: "Інші товари", href: "/#contact-form" },
+  { kind: "photo", label: "Паперові вироби та диспенсери", href: "/#contact-form", image: "/figma-export/cleaning/card-paper.png" },
+  { kind: "cta", label: "Переглянути каталог", href: "/catalog" },
 ];
-
-// 52-px arrow circle for the mobile cards. tone="light" over photos,
-// tone="dark" on the white outline cards. Static (touch — no hover).
-function MobileSolutionArrow({ tone }: { tone: "light" | "dark" }) {
-  return (
-    <span
-      className={`flex size-[52px] shrink-0 items-center justify-center rounded-[26px] border ${
-        tone === "light" ? "border-white" : "border-neutral-900"
-      }`}
-    >
-      <img
-        src={tone === "light" ? ARROW_WHITE : ARROW_DARK}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        decoding="async"
-        className="size-[16.5px]"
-      />
-    </span>
-  );
-}
-
-function MobileSolutionCard({ card, first }: { card: MobileSolution; first?: boolean }) {
-  if (card.kind === "cta") {
-    // Figma 3165:6813 — #343435 pill, label left, brand-orange 52-px
-    // arrow right, vertically centred in the 131-px card.
-    return (
-      <Link
-        href="/catalog"
-        className="flex h-[131px] w-full items-center justify-between rounded-[40px] bg-neutral-800 px-[40px] py-[15px] sm:col-span-2"
-      >
-        {/* max-w forces the master's 2-line "Переглянути / каталог" */}
-        <p className="max-w-[140px] text-[16px] font-semibold leading-[22px] tracking-[0.16px] text-white">
-          {card.label}
-        </p>
-        <span className="inline-flex size-[52px] shrink-0 items-center justify-center rounded-[26px] bg-brand">
-          <img
-            src={ARROW_WHITE}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="size-[16.5px]"
-          />
-        </span>
-      </Link>
-    );
-  }
-  const isImage = card.kind === "image";
-  // rounded-40 card, border, p-40, label+arrow row pinned to the bottom.
-  return (
-    <Link
-      href="/#contact-form"
-      className={`relative flex h-[206px] w-full flex-col justify-end overflow-clip rounded-[40px] border border-stroke-default p-[40px] ${
-        first ? "" : "max-sm:-mt-px"
-      } ${isImage ? "" : "bg-white"}`}
-    >
-      {isImage && (
-        <>
-          <img
-            src={card.image}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 size-full object-cover"
-            style={card.objectPosition ? { objectPosition: card.objectPosition } : undefined}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute opacity-80"
-            style={{
-              background: "rgba(21, 21, 17, 0.7)",
-              filter: "blur(22.15px)",
-              bottom: "-61.5px",
-              left: "-57.5px",
-              width: "507px",
-              height: "137px",
-            }}
-          />
-        </>
-      )}
-      <div className="relative flex w-full items-center gap-8">
-        <p
-          className={`flex-1 text-[16px] font-semibold leading-[22px] tracking-[0.16px] ${
-            isImage ? "text-white" : "text-neutral-900"
-          }`}
-        >
-          {card.label}
-        </p>
-        <MobileSolutionArrow tone={isImage ? "light" : "dark"} />
-      </div>
-    </Link>
-  );
-}
 
 // The mobile cap cross is the shared <MobileCapCross /> — the master's
 // Group 84 (3165:8056) is the same full-cross composition used by the
@@ -508,26 +423,15 @@ export function CleaningSolutions() {
         <MobileCapCross className="lg:hidden" />
       </div>
 
-      {/* max-lg:pb-[63px]: the 5-card stack collapses 3 seams by 1px each
-          (-mt-px between the 4 bordered tiles; the CTA does not overlap),
-          the extra 3px on the bottom padding compensates the collapsed
-          seams. At lg the updated master 3677:36105 centres the single
-          393-px grid row in a 681-px light card: 144 + 393 + 144. */}
-      <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] max-lg:pb-[63px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
-        {/* MOBILE (<sm) — a single column of uniform 206-px cards that
-            TOUCH (0 gap, borders de-doubled via -mt-px) followed by the
-            131-px catalog CTA, mirroring the updated desktop card set.
-            TABLET (sm..lg-1, no Figma master) — the same cards go 2-up in
-            a 16-px grid (site sm convention) so the outline cards stop
-            reading as full-width empty banners; the seam-collapse -mt-px
-            is scoped to max-sm and the catalog CTA spans both columns as
-            a full-width footer, keeping the 2x2 + CTA balanced with no
-            orphan cell. */}
-        <div className="flex flex-col gap-0 px-6 sm:grid sm:grid-cols-2 sm:gap-4 lg:hidden">
-          {MOBILE_SOLUTIONS.map((card, i) => (
-            <MobileSolutionCard key={card.label} card={card} first={i === 0} />
-          ))}
-        </div>
+      {/* Phone (Figma 3165:6802, 989 tall): pt-60 + stack 869 + pb-60;
+          the tiles are 16 px apart now, so no seams to compensate. At lg
+          the updated master 3677:36105 centres the single 393-px grid row
+          in a 681-px light card: 144 + 393 + 144. */}
+      <div className="relative rounded-t-[32px] bg-bg-subtle pb-[60px] pt-[60px] sm:rounded-t-[56px] lg:rounded-[68px] lg:pb-[144px] lg:pt-[144px]">
+        {/* MOBILE (<lg): Figma 3165:6803, the shared phone stack. Its text
+            tiles have no fill, so they show this #f8f8f8 light card as in
+            the 13.11 render. */}
+        <PhoneCardStack className="px-6 lg:hidden" cards={MOBILE_SOLUTIONS} />
 
         {/* DESKTOP (lg+) — the Figma 1440 bento grid, hidden below lg
             where the mobile stack above takes over.

@@ -6,8 +6,10 @@ import { DropdownIcon } from "./icons";
 
 // «<Select>» (master 4098:29949 «State=Default, Has value=True») as the
 // cabinet pages draw it: the dashboard counterparty select 5052:32124
-// (234 x 46, transparent on the #f5f5f5 surface) and the orders / returns
-// filter row 4573:37262.. (364 / 234 / 234, white fill = `bg="white"`).
+// (234 x 46) and the orders / returns filter row 4573:37264.. (364 / 234 /
+// 234), both transparent on the #f5f5f5 surface (the orders row lost its
+// white fill at the designer's request, 2026-11-11 C30). `bg="white"` stays
+// for a select that needs a fill of its own (only the ui-gallery uses it).
 // 46 tall, 1-px #d2d2d2 ring INSIDE the box (CSS pads 23 so the value
 // starts 24 px in, as the master), r24, value 16/24 Medium +0.15
 // #1d1d1f, the 24-px dropdown glyph flush with the 24-px right padding.

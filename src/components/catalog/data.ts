@@ -433,6 +433,10 @@ export type Product = {
   // a partner can still order it - the card swaps the cart glyph for
   // the orders one.
   preorder?: boolean;
+  // Lead time in days (the panel's «Термін постачання», or the BAS stock
+  // feed): the «Термін виконання до N днів» chip of the «Під замовлення»
+  // (i) (designer 2026-11-11, C23; catalog/tips.ts).
+  leadTimeDays?: number;
 };
 
 // Filterable placeholder attributes. The manufacturer list is verbatim

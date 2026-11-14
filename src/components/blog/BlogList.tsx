@@ -147,10 +147,11 @@ export function BlogList({ posts, categories }: { posts: BlogPost[]; categories:
         )}
       </div>
 
-      {/* Show more */}
+      {/* Show more: a bare pill, no plus disc (the designer asked on
+          2026-11-11 to remove the "+" from this button everywhere). */}
       {hasMore && (
         <div className="mt-12 flex justify-center sm:mt-16 lg:mt-20">
-          <Button plus size="responsive" onClick={() => setVisible((v) => v + STEP)}>
+          <Button size="responsive" onClick={() => setVisible((v) => v + STEP)}>
             Показати більше
           </Button>
         </div>

@@ -286,8 +286,12 @@ export function CartSheetPhone({
                 <PhoneMeter subtotal={subtotal} limit={freeDeliveryLimit} />
               </div>
             )}
-            {/* Plain block parent: a fullWidth Button is flex-1. */}
-            <div>
+            {/* Plain block parent: a fullWidth Button is flex-1. pt-2 puts
+                the CTA 24 under the meter (or the «Безкоштовна доставка»
+                line), the house dark-summary rhythm (A13 StickyBar, the
+                phone order TotalCard); the designer asked for more air
+                above the button on 2026-11-13. */}
+            <div className="pt-2">
               <Button
                 variant="accent"
                 size="small"

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { Fragment } from "react";
 import {
@@ -109,20 +108,31 @@ export function CatalogMenu({
                     title is 1-2 lines; a longer wrap (possible at the
                     1440 canvas where columns are narrower than the
                     1710 master's 420px) grows the row instead of
-                    clipping. The whole row links to the direction page. */}
+                    clipping. The whole row links to the direction page.
+                    The glyph is the direction SVG used as a CSS mask, so
+                    it takes the text colours: #1d1d1f at rest (the files'
+                    own fill), brand on hover together with the title
+                    (designer 2026-11-11: «іконку давай теж будемо
+                    перемальовувати» / «при ховері», frame 5474:44157:
+                    Icons/Accent + Text/Accent #f85a0b); the tile border
+                    stays Stroke/Default. */}
                 <Link
                   href={directionCatalogHref(col)}
                   onClick={onNavigate}
                   className="group/cat flex min-h-16 w-full cursor-pointer items-center gap-4 py-1"
                 >
                   <span className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-[12px] border border-stroke-default">
-                    <img
-                      src={col.icon}
-                      alt=""
+                    <span
                       aria-hidden
-                      loading="lazy"
-                      decoding="async"
-                      className="size-[34px]"
+                      className="size-[34px] bg-neutral-900 transition-colors duration-200 group-hover/cat:bg-brand"
+                      style={{
+                        maskImage: `url(${col.icon})`,
+                        WebkitMaskImage: `url(${col.icon})`,
+                        maskSize: "100% 100%",
+                        WebkitMaskSize: "100% 100%",
+                        maskRepeat: "no-repeat",
+                        WebkitMaskRepeat: "no-repeat",
+                      }}
                     />
                   </span>
                   <span className="min-w-0 flex-1 text-title-lg text-neutral-900 transition-colors duration-200 group-hover/cat:text-brand">

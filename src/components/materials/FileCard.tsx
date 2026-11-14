@@ -210,6 +210,15 @@ export function lockCaption(canDownload: boolean, onLocked?: () => void, lockedH
 // 16/24 #777779, and the 24-px action at the right edge, 32 px away.
 // The name opens the preview panel. The partner folder (B2B file card
 // 4378:63098, same box and paddings) is white on the #f5f5f5 panel.
+// Hover (designer, 2026-11-13: variant `State=Hower` 5474:44899) is a
+// state of the whole card (`group/card`), not only of the name: a 2-px
+// #f85a0b border, the #f8f8f8 fill (the white partner card too) and the
+// name in #f85a0b; the badge tile, the size line and the action glyph
+// keep their colours (the glyph still turns orange under the pointer, it
+// is a separate action). Padlock rows take the same hover. Figma lays the
+// stroke out around the 16 / 24 padding (an 86-tall box); here the 2 px
+// is a transparent border at rest taken out of the padding (14 / 22 + 2),
+// so the card stays 82 tall and nothing moves when the border shows.
 // Phones (< 640, materials spec 2.6, TR-25): an open row between 1-px
 // #d2d2d2 lines (the list draws them), py 16 - the 48 tile r12, 16, the
 // name in 16/22 Bold +0.16 (3-line clamp, A16), 4, the 14/20 size, the
@@ -236,7 +245,7 @@ export function FileCard({
   const caption = lockCaption(canDownload, onLocked, lockedHint);
   return (
     <article
-      className={`flex items-center gap-4 rounded-3xl ${surface === "subtle" ? "bg-bg-subtle" : "bg-white"} py-4 pl-4 pr-6 lg:gap-8 max-lg:gap-2 max-lg:rounded-none max-lg:bg-transparent max-lg:px-0`}
+      className={`group/card flex items-center gap-4 rounded-3xl ${surface === "subtle" ? "bg-bg-subtle" : "bg-white"} py-4 pl-4 pr-6 transition-colors duration-200 lg:gap-8 lg:border-2 lg:border-transparent lg:py-3.5 lg:pl-3.5 lg:pr-[22px] lg:hover:border-brand lg:hover:bg-bg-subtle max-lg:gap-2 max-lg:rounded-none max-lg:bg-transparent max-lg:px-0`}
     >
       <button
         type="button"
@@ -245,7 +254,7 @@ export function FileCard({
       >
         <FileTile type={file.type} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 max-lg:gap-1">
-          <span className="truncate text-[18px] font-extrabold leading-6 tracking-[-0.36px] text-neutral-900 transition-colors duration-200 group-hover:text-brand max-lg:line-clamp-3 max-lg:whitespace-normal max-lg:text-[16px] max-lg:font-bold max-lg:leading-[22px] max-lg:tracking-[0.16px] max-lg:group-active:text-brand">
+          <span className="truncate text-[18px] font-extrabold leading-6 tracking-[-0.36px] text-neutral-900 transition-colors duration-200 group-hover/card:text-brand max-lg:line-clamp-3 max-lg:whitespace-normal max-lg:text-[16px] max-lg:font-bold max-lg:leading-[22px] max-lg:tracking-[0.16px] max-lg:group-active:text-brand">
             {file.name}
           </span>
           <FileMeta file={file} />

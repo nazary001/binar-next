@@ -133,7 +133,9 @@ export const COPY = {
     title: "Ваші дані",
     role: "Адміністратор",
     fullName: "ПІБ",
-    // The fifth field of the Контрагенти frame (4868:30983 / 4929:64221).
+    // Phones only (profile spec 2.3). The desktop frames no longer have it:
+    // the Контрагенти column that did (4868:30983) was redrawn without it
+    // on 2026-11-13 (5474:45054, C35).
     roleField: "Роль",
     position: "Посада",
     phone: "Номер телефону",

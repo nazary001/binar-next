@@ -352,7 +352,9 @@ export function Solutions() {
             the card then adds its own 80-px bottom pad (145 + 80 = 225
             px from the cards to the card's rounded bottom edge). We put
             the 205 above as this block's `lg:pt` and fold the 225 below
-            into the card's `lg:pb`. Mobile/tablet scale down to 64/96 px. */}
+            into the card's `lg:pb`. Mobile/tablet scale down to 64/96 px.
+            The tiles are not links, so they show the default cursor and
+            the strip keeps moving under the mouse (designer, 2026-11-11). */}
         <div className="relative overflow-hidden pt-[72px] sm:pt-24 lg:pt-[205px]">
           <ul
             className="animate-marquee flex w-max items-center"
@@ -367,7 +369,7 @@ export function Solutions() {
               <li
                 key={i}
                 aria-hidden={i >= PRODUCTS.length || undefined}
-                className="group/product mr-[17px] h-[200px] w-[167px] shrink-0 cursor-pointer overflow-hidden rounded-[26px] bg-white sm:mr-6 sm:h-[320px] sm:w-[270px] sm:rounded-[36px] lg:mr-8 lg:h-[370px] lg:w-[309px] lg:rounded-[48px]"
+                className="mr-[17px] h-[200px] w-[167px] shrink-0 overflow-hidden rounded-[26px] bg-white sm:mr-6 sm:h-[320px] sm:w-[270px] sm:rounded-[36px] lg:mr-8 lg:h-[370px] lg:w-[309px] lg:rounded-[48px]"
               >
                 <img
                   src={src}

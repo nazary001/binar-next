@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { MoreIcon } from "./icons";
 
 // «more» trigger + «<Menu>» - the employee card's open menu 4868:31444
@@ -15,7 +15,9 @@ import { MoreIcon } from "./icons";
 // the glyph's right edge, 6 px under it (employee grid: glyph 27..51,
 // menu top 57). The masters draw no hover row; rows get the #f8f8f8
 // surface on hover / keyboard focus. Escape, outside press and a pick
-// close the menu; arrows move between rows.
+// close the menu; arrows move between rows. `trigger` swaps the dots for
+// any content (the platform header's company chip opens «Мій профіль» /
+// «Вийти» this way, designer 2026-11-13); the menu keeps its placement.
 export type KebabMenuItem = {
   key: string;
   label: string;
@@ -38,6 +40,10 @@ export type KebabMenuProps = {
   // 40-px outlined disc (#1d1d1f ring, 20 glyph, 44-px hit box; brand
   // ring + glyph while open). From 640 it is today's 24-px glyph.
   phoneDisc?: boolean;
+  // A custom trigger body (given the open state) and the trigger
+  // button's classes, replacing the «more» glyph and its look.
+  trigger?: (open: boolean) => ReactNode;
+  triggerClassName?: string;
 };
 
 // Phones: the menu opens above its trigger when the room below it (to the
@@ -79,6 +85,8 @@ export function KebabMenu({
   menuClassName = "",
   lastDivider = true,
   phoneDisc = false,
+  trigger,
+  triggerClassName = "",
 }: KebabMenuProps) {
   const [openState, setOpenState] = useState(false);
   const [flip, setFlip] = useState(false);
@@ -173,11 +181,11 @@ export function KebabMenu({
           setOpen(!open);
         }}
         onKeyDown={onTriggerKey}
-        className={phoneDisc ? `${DISC} ${open ? DISC_OPEN : DISC_CLOSED}` : `relative flex size-6 shrink-0 cursor-pointer items-center justify-center transition-colors duration-200 before:absolute before:-inset-2 before:content-[''] ${
+        className={trigger ? triggerClassName : phoneDisc ? `${DISC} ${open ? DISC_OPEN : DISC_CLOSED}` : `relative flex size-6 shrink-0 cursor-pointer items-center justify-center transition-colors duration-200 before:absolute before:-inset-2 before:content-[''] ${
           open ? "text-brand" : "text-neutral-500 hover:text-neutral-900"
         }`}
       >
-        <MoreIcon className={phoneDisc ? "size-5 lg:size-6" : "size-6"} />
+        {trigger ? trigger(open) : <MoreIcon className={phoneDisc ? "size-5 lg:size-6" : "size-6"} />}
       </button>
       {open && (
         <div
